@@ -17,6 +17,35 @@ App.views.scan = {
     }
     sel.insertAdjacentHTML('beforeend', [...groups.values()].map((g) => `<optgroup label="${esc(g.name)}">${g.sets.map((st) => `<option value="${esc(st.id)}" ${st.id === selected ? 'selected' : ''}>${esc(st.name)}${st.releaseDate ? ' (' + st.releaseDate.slice(0, 4) + ')' : ''}</option>`).join('')}</optgroup>`).join(''));
   },
+  /** Zone photo vide : invitation à prendre la photo */
+  empty(mode) {
+    return `<div class="scan-empty">
+      <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}">${mode === 'classeur' ? '<i></i>'.repeat(9) : App.icons.icon('capture', 40)}</div>
+      <b>${mode === 'classeur' ? 'Photo d’une page de classeur' : 'Photo de ta carte'}</b>
+      <span>Appuie sur « Caméra » ou « Choisir une photo »</span>
+    </div>`;
+  },
+
+  /** Mode d'emploi affiché à côté de la photo tant qu'il n'y a pas de résultat */
+  guide(mode) {
+    const steps = mode === 'classeur'
+      ? [['camera', 'Photographie la page entière', 'Bien à plat, de face, sans reflet. La page doit remplir la photo.'],
+        ['dex', 'Ajuste la grille', 'Glisse-la sur les pochettes et tire ses coins ronds : une case par carte.'],
+        ['search', 'Vérifie et enregistre', 'Les cartes sûres sont cochées d’office. Corrige les autres si besoin.']]
+      : [['camera', 'Prends la carte en photo', 'Bien à plat, bien éclairée, sans reflet sur le numéro en bas.'],
+        ['capture', 'Ajuste le cadre jaune', 'Il doit entourer la carte, bords compris.'],
+        ['search', 'Confirme la carte', 'Le site lit le numéro et le nom, puis compare l’illustration.']];
+    const certOn = App.certify && App.certify.available();
+    return `<div class="panel scan-guide-panel">
+      <h3 style="margin-top:0">Comment ça marche</h3>
+      <ol class="sg-steps">${steps.map(([ic, t, d], i) => `<li><span class="sg-n">${i + 1}</span><span class="sg-ic">${App.icons.icon(ic, 18)}</span><span><b>${t}</b><br><span class="muted small">${d}</span></span></li>`).join('')}</ol>
+      <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${certOn
+        ? 'Utilise le bouton « Caméra » du site et suis la consigne après la photo (2 secondes) : tes cartes bien reconnues recevront le badge.'
+        : App.cloud && App.cloud.enabled ? '<a href="#/compte">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
+      ${mode === 'classeur' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si ta page ne contient qu’une série, choisis-la dans « Série de la page ».</p>' : '<p class="small muted" style="margin:10px 0 0">Astuce : si tu connais la série, choisis-la au-dessus : c’est bien plus fiable.</p>'}
+    </div>`;
+  },
+
   /** « Set de Base (1999) » */
   setLabel(c) { return c.set ? `${c.set.name}${c.set.releaseDate ? ' (' + c.set.releaseDate.slice(0, 4) + ')' : ''}` : (c.setId || ''); },
 
@@ -24,12 +53,20 @@ App.views.scan = {
     const mode = params.query.mode === 'classeur' ? 'classeur' : 'carte';
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
-      <div class="row" style="margin-bottom:6px"><h1 style="margin:0">Capturer</h1><span class="spacer"></span>
-        <div class="chips">
-          <a class="chip ${mode === 'carte' ? 'on' : ''}" href="#/scan">Une carte</a>
-          <a class="chip ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur">Page de classeur</a>
-        </div></div>
-      <p class="muted small" style="margin-top:0">Prends ta carte en photo : elle rejoint ton Dex, avec ta photo comme visuel.</p>
+      <h1 style="margin:0 0 4px">Capturer</h1>
+      <p class="muted small" style="margin:0 0 12px">Prends tes cartes en photo : elles rejoignent ton Dex, avec ta photo comme visuel. Que veux-tu capturer ?</p>
+      <div class="mode-pick" role="tablist">
+        <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="#/scan" role="tab" aria-selected="${mode === 'carte'}">
+          <span class="mc-ico">${App.icons.icon('capture', 22)}</span>
+          <span class="mc-txt"><b>Une carte</b><span>Carte par carte, la plus fiable</span></span>
+          ${mode === 'carte' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
+        </a>
+        <a class="mode-card ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur" role="tab" aria-selected="${mode === 'classeur'}">
+          <span class="mc-ico">${App.icons.icon('dex', 22)}</span>
+          <span class="mc-txt"><b>Page de classeur</b><span>Jusqu’à 12 cartes d’un coup</span></span>
+          ${mode === 'classeur' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
+        </a>
+      </div>
       <div id="sc-body"></div>`;
     const body = el.querySelector('#sc-body');
     const cleanup = mode === 'classeur' ? await App.views.scan.batch(body, params, alive) : await App.views.scan.single(body, params, alive);
@@ -106,7 +143,7 @@ App.views.scan = {
       </div>
       <div class="scan-wrap">
         <div>
-          <div class="scan-view" id="sc-view"><div class="muted" style="padding:20px;text-align:center">Utilise la caméra ou choisis une photo de ta carte</div></div>
+          <div class="scan-view" id="sc-view">${App.views.scan.empty('carte')}</div>
           <div class="row" style="margin-top:14px" id="sc-actions">
             <button class="btn primary" id="sc-cam">${App.icons.icon('camera', 16)} Caméra</button>
             <button class="btn primary hidden" id="sc-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
@@ -120,12 +157,12 @@ App.views.scan = {
             </div>
             <div class="row"><span>Taille du cadre</span><input type="range" id="sc-size" min="20" max="100" value="90" style="flex:1"></div>
             <p class="small muted">Fais glisser le cadre jaune pour qu’il entoure la carte, puis valide.</p>
-            <div class="row"><button class="btn primary" id="sc-crop-ok">✓ Valider le cadrage</button><button class="btn ghost" id="sc-crop-cancel">Reprendre une photo</button></div>
+            <div class="row action-dock"><button class="btn primary" id="sc-crop-ok">✓ Valider le cadrage</button><button class="btn ghost" id="sc-crop-cancel">Reprendre une photo</button></div>
           </div>
         </div>
         <div>
           <div id="sc-status"></div>
-          <div id="sc-results"></div>
+          <div id="sc-results">${App.views.scan.guide('carte')}</div>
           <div class="panel section hidden" id="sc-manual">
             <h3>La carte n’est pas proposée ?</h3>
             <p class="small muted">Cherche-la par son nom et/ou son numéro. Ta photo sera utilisée.</p>
@@ -165,7 +202,7 @@ App.views.scan = {
 
     el.querySelector('#sc-cam').addEventListener('click', async () => {
       try {
-        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = '';
+        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = App.views.scan.guide('carte');
         setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Capture certifiée</b> : après la photo, garde la carte dans le cadre et suis la consigne à l’écran (2 secondes).</span>` : '');
         App.certify.prepare();
       }
@@ -238,7 +275,8 @@ App.views.scan = {
       crop = null;
       el.querySelector('#sc-cropbar').classList.add('hidden');
       el.querySelector('#sc-actions').classList.remove('hidden');
-      view.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Utilise la caméra ou choisis une photo de ta carte</div>';
+      view.innerHTML = App.views.scan.empty('carte');
+      if (!results.innerHTML.trim()) results.innerHTML = App.views.scan.guide('carte');
     });
     el.querySelector('#sc-crop-ok').addEventListener('click', () => {
       if (!crop) return;
@@ -331,7 +369,7 @@ App.views.scan = {
             line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}${r.unrecognized ? ' — reprends une photo plus nette pour la certifier' : ''}`;
           });
         }
-        results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = ''; setStatus(''); el.querySelector('#sc-cam').click(); } };
+        results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = App.views.scan.guide('carte'); setStatus(''); el.querySelector('#sc-cam').click(); } };
       };
     }
 
@@ -387,10 +425,6 @@ App.views.scan = {
     const urls = [];
 
     el.innerHTML = `
-      <details class="help"><summary>Comment ça marche ?</summary>
-        Prends en photo une page entière de ton classeur, bien à plat, de face et sans reflet. Ajuste la grille sur les pochettes, puis lance la reconnaissance : tu vérifies chaque carte avant de l’ajouter.
-        Astuce : l’appareil photo d’un téléphone donne de bien meilleurs résultats qu’une webcam.
-      </details>
       <div class="batch-wrap">
         <div>
           <div class="row" style="margin-bottom:10px">
@@ -399,7 +433,7 @@ App.views.scan = {
             <label>Série de la page
               <select id="b-set" style="max-width:220px"><option value="">Détection automatique</option></select></label>
           </div>
-          <div class="scan-view batch-view" id="b-view"><div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div></div>
+          <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur')}</div>
           <div class="row" style="margin-top:14px" id="b-actions">
             <button class="btn primary" id="b-cam">${App.icons.icon('camera', 16)} Caméra</button>
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
@@ -407,12 +441,12 @@ App.views.scan = {
           </div>
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <p class="small muted">Glisse la grille pour la déplacer, et ses coins ronds pour l’ajuster : chaque case doit entourer une pochette.</p>
-            <div class="row"><button class="btn primary" id="b-go">▶ Reconnaître les cartes</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
+            <div class="row action-dock"><button class="btn primary" id="b-go">▶ Reconnaître les cartes</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
           </div>
         </div>
         <div>
           <div id="b-status"></div>
-          <div id="b-results"></div>
+          <div id="b-results">${App.views.scan.guide('classeur')}</div>
         </div>
       </div>`;
 
@@ -456,7 +490,8 @@ App.views.scan = {
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
       el.querySelector('#b-gridbar').classList.add('hidden');
       el.querySelector('#b-actions').classList.remove('hidden');
-      view.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div>';
+      view.innerHTML = App.views.scan.empty('classeur');
+      resultsEl.innerHTML = App.views.scan.guide('classeur');
     });
 
     // photo transmise par le mode « Une carte » (page de classeur détectée)
@@ -464,7 +499,7 @@ App.views.scan = {
 
     // ---------- Grille ajustable ----------
     function startGrid(blob, cert = null) {
-      cells = []; resultsEl.innerHTML = ''; setStatus('');
+      cells = []; resultsEl.innerHTML = App.views.scan.guide('classeur'); setStatus('');
       pageCert = cert; pageId = null;
       if (cert) setStatus(cert.passed
         ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— les cartes bien reconnues seront certifiées.</span>`
@@ -714,8 +749,9 @@ App.views.scan = {
             </div>`;
           }).join('')}
         </div>
-        ${!running && cells.length ? `<div class="row" style="margin-top:16px">
+        ${!running && cells.length ? `<div class="row action-dock" style="margin-top:16px">
           <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
+          <span class="muted small">${chosen.length ? 'Vérifie les cartes cochées, puis enregistre.' : 'Coche les cartes à ajouter.'}</span>
         </div>` : ''}`;
     }
 

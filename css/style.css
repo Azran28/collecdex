@@ -685,3 +685,43 @@ a.chip { text-decoration: none; }
   .mainnav a.nav-scan:hover, .mainnav a.nav-scan.active { color: #fff !important; filter: none; }
   .scan-view:not(:has(video)):not(:has(img)) { aspect-ratio: 4 / 3; }
 }
+
+/* ===== Page Capturer : choix du mode, zone photo, mode d'emploi, boutons toujours accessibles ===== */
+.mode-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 640px; margin-bottom: 16px; }
+.mode-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; text-decoration: none; color: var(--text);
+  background: var(--surface); border: 2px solid var(--line); transition: border-color .15s, background .15s, transform .1s; }
+.mode-card:hover { border-color: rgba(124,92,255,.6); }
+.mode-card .mc-ico { width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--surface2); color: #c8ccea; }
+.mode-card .mc-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.mode-card .mc-txt b { font-family: var(--display); font-weight: 600; font-size: 1rem; }
+.mode-card .mc-txt span { font-size: .76rem; color: var(--muted); }
+.mode-card.on { border-color: transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--holo) border-box; box-shadow: 0 8px 22px rgba(124,92,255,.22); }
+.mode-card.on .mc-ico { background: var(--holo); color: #16172a; }
+.mode-card .mc-check { position: absolute; top: 8px; right: 10px; color: #3ddc97; display: none; }
+.scan-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 24px; color: var(--muted); }
+.scan-empty b { color: var(--text); font-family: var(--display); font-weight: 600; }
+.scan-empty span { font-size: .82rem; }
+.se-frame { width: 96px; height: 134px; border-radius: 12px; border: 2px dashed rgba(255,210,63,.6); display: flex; align-items: center; justify-content: center; color: rgba(255,210,63,.8); margin-bottom: 6px; }
+.se-frame.grid { width: 130px; height: 150px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 5px; padding: 6px; }
+.se-frame.grid i { border: 1.5px dashed rgba(255,210,63,.5); border-radius: 4px; }
+.scan-view { max-height: 64vh; }
+.scan-view:not(:has(video)):not(:has(img)) { aspect-ratio: 4 / 3; }
+.scan-guide-panel .sg-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.scan-guide-panel .sg-steps li { display: flex; gap: 10px; align-items: flex-start; }
+.scan-guide-panel .sg-n { width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: var(--holo); color: #16172a; font-weight: 800; font-size: .75rem; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.scan-guide-panel .sg-ic { color: var(--accent-cyan, #34d5ff); margin-top: 2px; display: flex; }
+.scan-guide-panel .sg-cert { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding: 10px 12px; border-radius: 12px; background: rgba(61,220,151,.08); border: 1px solid rgba(61,220,151,.25); color: #3ddc97; }
+.scan-guide-panel .sg-cert b { color: var(--text); }
+/* boutons de validation collés en bas de l'écran tant qu'on fait défiler */
+.action-dock { position: sticky; bottom: 12px; z-index: 20; padding: 10px 12px; border-radius: 14px; background: rgba(20,23,42,.94); border: 1px solid var(--line); box-shadow: 0 10px 28px rgba(0,0,0,.45); }
+@media (max-width: 760px) {
+  .mode-pick { gap: 8px; }
+  .mode-card { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px; }
+  .mode-card .mc-ico { width: 34px; height: 34px; border-radius: 10px; }
+  .mode-card .mc-txt b { font-size: .9rem; }
+  .mode-card .mc-txt span { font-size: .7rem; }
+  .action-dock { bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .action-dock .btn { flex: 1 1 auto; justify-content: center; }
+  .scan-guide-panel { font-size: .9rem; }
+}
+@media (max-width: 760px) { .btile .btn.sm { font-size: .72rem; padding: 4px 7px; } .btile select { font-size: .78rem; padding: 5px 6px; } }
