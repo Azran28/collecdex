@@ -1,0 +1,506 @@
+/*
+ * Scanner — le SEUL moyen d'ajouter une carte (elle doit être réelle).
+ * Deux modes :
+ *   - « Une carte » : photo → recadrage → reconnaissance → confirmation
+ *   - « Page de classeur » : photo d'une page (9 pochettes par défaut) → grille ajustée
+ *     → chaque carte est reconnue → vérification → ajout de toutes les cartes en une fois
+ * La photo de chaque carte devient son visuel dans ta collection.
+ */
+App.views.scan = {
+  async render(el, params, alive) {
+    const mode = params.query.mode === 'classeur' ? 'classeur' : 'carte';
+    el.innerHTML = `
+      <div class="breadcrumb"><a href="#/">Accueil</a> › Scanner</div>
+      <div class="row"><h1 style="margin:0">Scanner</h1><span class="spacer"></span>
+        <div class="chips">
+          <a class="chip ${mode === 'carte' ? 'on' : ''}" href="#/scan">📷 Une carte</a>
+          <a class="chip ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur">▦ Page de classeur</a>
+        </div></div>
+      <p class="muted">Pour ajouter une carte, il faut la scanner : c’est la preuve que tu l’as vraiment. La photo devient le visuel de la carte dans ta collection.</p>
+      <div id="sc-body"></div>`;
+    const body = el.querySelector('#sc-body');
+    const cleanup = mode === 'classeur' ? await App.views.scan.batch(body, params, alive) : await App.views.scan.single(body, params, alive);
+    return () => { if (cleanup) cleanup(); App.recognizer.stop(); };
+  },
+
+  /* ================= Caméra (partagée par les deux modes) ================= */
+  camera(view, { guide }) {
+    let stream = null;
+    return {
+      async start() {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
+        view.innerHTML = `<video autoplay playsinline muted></video>${guide ? '<div class="scan-guide"></div>' : ''}`;
+        view.querySelector('video').srcObject = stream;
+      },
+      /** Image du flux vidéo ; avec guide, seulement la zone du cadre jaune (+ marge) */
+      capture() {
+        const v = view.querySelector('video'); if (!v || !v.videoWidth) return null;
+        let sx = 0, sy = 0, sw = v.videoWidth, sh = v.videoHeight;
+        if (guide) {
+          const vr = v.getBoundingClientRect(), gr = view.querySelector('.scan-guide').getBoundingClientRect();
+          const scale = Math.min(vr.width / v.videoWidth, vr.height / v.videoHeight);
+          const ox = vr.left + (vr.width - v.videoWidth * scale) / 2, oy = vr.top + (vr.height - v.videoHeight * scale) / 2;
+          const m = 0.06;
+          sx = Math.max(0, (gr.left - ox) / scale - gr.width / scale * m); sy = Math.max(0, (gr.top - oy) / scale - gr.height / scale * m);
+          sw = Math.min(v.videoWidth - sx, gr.width / scale * (1 + 2 * m)); sh = Math.min(v.videoHeight - sy, gr.height / scale * (1 + 2 * m));
+        }
+        const c = document.createElement('canvas'); c.width = sw; c.height = sh;
+        c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
+        return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+      },
+      stop() { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; } },
+      get on() { return !!stream; },
+    };
+  },
+
+  /* ================= Mode « une carte » ================= */
+  async single(el, params, alive) {
+    const { esc } = App.util;
+    const R = App.recognizer, RATIO = R.RATIO;
+    const game = 'pokemon';
+    const ad = App.games.get(game);
+    const targetId = params.query.carte || null;
+    let cardBlob = null, cardURL = null, target = null;
+
+    el.innerHTML = `
+      <div id="sc-target"></div>
+      <div class="scan-wrap">
+        <div>
+          <div class="scan-view" id="sc-view"><div class="muted" style="padding:20px;text-align:center">Utilise la caméra ou choisis une photo de ta carte</div></div>
+          <div class="row" style="margin-top:14px" id="sc-actions">
+            <button class="btn primary" id="sc-cam">🎥 Utiliser la caméra</button>
+            <button class="btn primary hidden" id="sc-shot">📸 Capturer</button>
+            <label class="btn">🖼 Choisir une photo<input type="file" accept="image/*" capture="environment" id="sc-file" hidden></label>
+          </div>
+          <div id="sc-cropbar" class="hidden" style="margin-top:14px">
+            <div class="row"><span>Taille du cadre</span><input type="range" id="sc-size" min="20" max="100" value="90" style="flex:1"></div>
+            <p class="small muted">Fais glisser le cadre jaune pour qu’il entoure la carte, puis valide.</p>
+            <div class="row"><button class="btn primary" id="sc-crop-ok">✓ Valider le cadrage</button><button class="btn ghost" id="sc-crop-cancel">Reprendre une photo</button></div>
+          </div>
+        </div>
+        <div>
+          <div id="sc-status"></div>
+          <div id="sc-results"></div>
+          <div class="panel section hidden" id="sc-manual">
+            <h3>La carte n’est pas proposée ?</h3>
+            <p class="small muted">Cherche-la par son nom et/ou son numéro. Ta photo sera utilisée.</p>
+            <div class="row">
+              <input type="text" id="sc-name" placeholder="Nom (ex. Dracaufeu)" style="flex:1;min-width:160px">
+              <input type="text" id="sc-num" placeholder="N° (ex. 025/165)" style="width:130px">
+              <button class="btn" id="sc-search">Chercher</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    const view = el.querySelector('#sc-view');
+    const status = el.querySelector('#sc-status');
+    const results = el.querySelector('#sc-results');
+    const setStatus = (html) => { status.innerHTML = html ? `<div class="panel" style="margin-bottom:14px">${html}</div>` : ''; };
+    const spin = (msg) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${esc(msg)}</div>`); };
+    const cam = App.views.scan.camera(view, { guide: true });
+
+    // Carte visée (bouton « Scanner cette carte » d'une fiche)
+    if (targetId) {
+      try {
+        const c = await ad.getCard(targetId);
+        target = { id: c.id, localId: c.localId, name: c.name, image: c.image, rarity: c.rarity, setId: c.set.id, set: null };
+        const sets = await ad.listSets();
+        const s = sets.find((x) => x.id === c.set.id);
+        if (s) { target.set = { id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, cardCount: { total: s.total, official: s.official }, serie: s.group }; target.serieId = s.group.id; }
+        el.querySelector('#sc-target').innerHTML = `<div class="cand" style="grid-template-columns:56px 1fr">
+          <img src="${esc(ad.img.card(target))}" alt="" style="width:56px" data-alt="">
+          <div>Carte à scanner : <b>${esc(target.name)}</b> ${ad.rarity.symbol(target.rarity, 12)}<br><span class="small muted">${esc(c.set.name)} · n° ${esc(target.localId)}</span></div></div>`;
+      } catch (e) { console.warn(e); }
+    }
+
+    el.querySelector('#sc-cam').addEventListener('click', async () => {
+      try { await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = ''; setStatus(''); }
+      catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra dans le navigateur, ou utilise « Choisir une photo ».</span>`); }
+    });
+    el.querySelector('#sc-shot').addEventListener('click', async () => {
+      const b = await cam.capture(); if (!b) return;
+      cam.stop(); el.querySelector('#sc-shot').classList.add('hidden');
+      startCrop(b, 0.92);
+    });
+    el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startCrop(e.target.files[0]); } e.target.value = ''; });
+
+    // Recadrage (cadre au format d'une carte, 63 × 88 mm)
+    let crop = null;
+    function startCrop(blob, initial = null) {
+      results.innerHTML = ''; setStatus('');
+      el.querySelector('#sc-manual').classList.add('hidden');
+      const url = URL.createObjectURL(blob);
+      view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Photo"><div class="crop-box"></div></div>`;
+      const img = view.querySelector('img');
+      el.querySelector('#sc-actions').classList.add('hidden');
+      el.querySelector('#sc-cropbar').classList.remove('hidden');
+      img.onload = () => {
+        const ar = img.naturalWidth / img.naturalHeight;
+        const size = initial || (Math.abs(ar - RATIO) < 0.06 ? 1 : 0.9); // photo déjà au format carte → toute l'image
+        crop = { img, url, box: view.querySelector('.crop-box'), cx: 0.5, cy: 0.5, size };
+        el.querySelector('#sc-size').value = Math.round(size * 100);
+        placeBox();
+      };
+    }
+    function boxRect() {
+      const W = crop.img.clientWidth, H = crop.img.clientHeight;
+      let h = H * crop.size, w = h * RATIO;
+      if (w > W) { w = W * crop.size; h = w / RATIO; }
+      const x = Math.min(Math.max(0, crop.cx * W - w / 2), W - w), y = Math.min(Math.max(0, crop.cy * H - h / 2), H - h);
+      return { x, y, w, h, W, H };
+    }
+    function placeBox() { const r = boxRect(); Object.assign(crop.box.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' }); }
+    el.querySelector('#sc-size').addEventListener('input', (e) => { if (crop) { crop.size = e.target.value / 100; placeBox(); } });
+    view.addEventListener('pointerdown', (e) => {
+      if (!crop || !e.target.closest('.crop-area')) return;
+      e.preventDefault();
+      const area = view.querySelector('.crop-area').getBoundingClientRect();
+      const move = (ev) => { crop.cx = (ev.clientX - area.left) / crop.img.clientWidth; crop.cy = (ev.clientY - area.top) / crop.img.clientHeight; placeBox(); };
+      move(e);
+      const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
+    el.querySelector('#sc-crop-cancel').addEventListener('click', () => {
+      crop = null;
+      el.querySelector('#sc-cropbar').classList.add('hidden');
+      el.querySelector('#sc-actions').classList.remove('hidden');
+      view.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Utilise la caméra ou choisis une photo de ta carte</div>';
+    });
+    el.querySelector('#sc-crop-ok').addEventListener('click', () => {
+      if (!crop) return;
+      const r = boxRect(), k = crop.img.naturalWidth / r.W, sw = r.w * k, sh = r.h * k;
+      const outW = Math.min(900, Math.round(sw)), outH = Math.round(outW / RATIO);
+      const c = document.createElement('canvas'); c.width = outW; c.height = outH;
+      c.getContext('2d').drawImage(crop.img, r.x * k, r.y * k, sw, sh, 0, 0, outW, outH);
+      URL.revokeObjectURL(crop.url); crop = null;
+      el.querySelector('#sc-cropbar').classList.add('hidden');
+      el.querySelector('#sc-actions').classList.remove('hidden');
+      c.toBlob((b) => analyse(b), 'image/jpeg', 0.9);
+    });
+
+    function showCandidates(cands, info) {
+      if (target) {
+        const i = cands.findIndex((c) => c.id === target.id);
+        if (i >= 0) { const [t] = cands.splice(i, 1); t.isTarget = true; cands.unshift(t); }
+        else cands.push({ ...target, isTarget: true, notRead: true });
+      }
+      el.querySelector('#sc-manual').classList.remove('hidden');
+      if (!cands.length) {
+        results.innerHTML = `<div class="panel">Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (le numéro en bas doit être lisible) ou cherche-la ci-dessous.</span></div>`;
+        return;
+      }
+      results.innerHTML = `
+        <h3>C’est laquelle ?</h3>
+        ${info ? `<p class="small muted">Lu sur la carte : ${esc(info)}</p>` : ''}
+        ${cands.map((c, i) => {
+          const own = App.col.get(game, c.id);
+          return `<div class="cand">
+            <img src="${esc(ad.img.card(c, 'low'))}" alt="" data-alt="${esc(c.name)}">
+            <div><b>${esc(c.name)}</b> ${ad.rarity.symbol(c.rarity, 12)}<br>
+              <span class="muted small">${esc(c.set ? c.set.name : c.setId)} · n° ${esc(c.localId)}${c.set && c.set.cardCount ? '/' + c.set.cardCount.official : ''}</span>
+              ${own ? `<br><span class="pill small">Déjà ×${own.qty} — ce sera un exemplaire de plus</span>` : ''}
+              ${c.isTarget && !c.notRead ? '<br><span class="pill small" style="background:var(--ok);color:#063">Carte attendue ✓</span>' : ''}
+              ${c.notRead ? '<br><span class="pill small" style="background:#7a4a00">Carte attendue, mais pas reconnue sur la photo</span>' : ''}
+              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.visual != null ? `<br><span class="small muted">Ressemblance avec ta photo : ${Math.max(0, Math.round(c.visual * 100))} %</span>` : ''}</div>
+            <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
+          </div>`;
+        }).join('')}`;
+      results.onclick = async (e) => {
+        const b = e.target.closest('[data-pick]'); if (!b || !cardBlob) return;
+        b.disabled = true;
+        const c = cands.find((x) => x.id === b.dataset.pick);
+        const key = await R.addScanned(c, cardBlob);
+        App.col.refreshPrices([key], 'Prix');
+        const it = App.col.byKey(key);
+        results.innerHTML = `<div class="panel"><b>✓ ${esc(c.name)}</b> ajoutée à ta collection${it.qty > 1 ? ` (×${it.qty})` : ''}, avec ta photo.<br><br>
+          <div class="row"><button class="btn primary" id="sc-again">📷 Scanner la suivante</button>
+          <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
+        el.querySelector('#sc-manual').classList.add('hidden');
+        cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
+        results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = ''; setStatus(''); el.querySelector('#sc-cam').click(); } };
+      };
+    }
+
+    async function analyse(blob) {
+      cardBlob = blob;
+      if (cardURL) URL.revokeObjectURL(cardURL);
+      cardURL = URL.createObjectURL(blob);
+      view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
+      results.innerHTML = '';
+      spin('Lecture de la carte…');
+      try {
+        const { info, cands } = await R.recognize(blob, spin);
+        if (!alive()) return;
+        setStatus('');
+        showCandidates(cands, R.readSummary(info));
+      } catch (e) {
+        console.error(e);
+        setStatus(`<b>La lecture a échoué.</b><br><span class="small muted">${esc(e.message)}</span>`);
+        showCandidates([], '');
+      }
+    }
+
+    el.querySelector('#sc-search').addEventListener('click', async () => {
+      if (!cardBlob) return App.util.toast('Prends d’abord la carte en photo');
+      spin('Recherche…');
+      try {
+        const cands = await R.manual(cardBlob, el.querySelector('#sc-name').value, el.querySelector('#sc-num').value, spin);
+        setStatus(''); showCandidates(cands, '');
+      } catch (e) { setStatus(''); App.util.toast(e.message); }
+    });
+    el.querySelector('#sc-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') el.querySelector('#sc-search').click(); });
+
+    return () => { cam.stop(); if (cardURL) URL.revokeObjectURL(cardURL); };
+  },
+
+  /* ================= Mode « page de classeur » ================= */
+  async batch(el, params, alive) {
+    const { esc } = App.util;
+    const R = App.recognizer, RATIO = R.RATIO;
+    const game = 'pokemon';
+    const ad = App.games.get(game);
+    const FORMATS = { '3x3': [3, 3, '9 cartes (3 × 3)'], '2x2': [2, 2, '4 cartes (2 × 2)'], '4x3': [4, 3, '12 cartes (4 × 3)'], '3x4': [3, 4, '12 cartes (3 × 4)'] };
+    let fmt = '3x3';
+    let photo = null;          // { img, url }
+    let grid = null;           // { x, y, w, h } en fraction de l'image affichée
+    let cells = [];            // résultats par pochette
+    let running = false, stopped = false;
+    const urls = [];
+
+    el.innerHTML = `
+      <div class="panel" style="margin-bottom:16px">
+        <b>Comment faire :</b> prends en photo une page entière de ton classeur, bien à plat, de face et sans reflet. Ajuste la grille sur les pochettes, puis lance la reconnaissance. Tu vérifies chaque carte avant de tout ajouter.
+        <span class="muted small">Conseil : l’appareil photo d’un téléphone donne de bien meilleurs résultats qu’une webcam (chaque carte doit être assez grande sur la photo).</span>
+      </div>
+      <div class="batch-wrap">
+        <div>
+          <div class="row" style="margin-bottom:10px">
+            <label>Format de la page
+              <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
+          </div>
+          <div class="scan-view batch-view" id="b-view"><div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div></div>
+          <div class="row" style="margin-top:14px" id="b-actions">
+            <button class="btn primary" id="b-cam">🎥 Utiliser la caméra</button>
+            <button class="btn primary hidden" id="b-shot">📸 Capturer</button>
+            <label class="btn">🖼 Choisir une photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
+          </div>
+          <div id="b-gridbar" class="hidden" style="margin-top:14px">
+            <p class="small muted">Glisse la grille pour la déplacer, et ses coins ronds pour l’ajuster : chaque case doit entourer une pochette.</p>
+            <div class="row"><button class="btn primary" id="b-go">▶ Reconnaître les cartes</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
+          </div>
+        </div>
+        <div>
+          <div id="b-status"></div>
+          <div id="b-results"></div>
+        </div>
+      </div>`;
+
+    const view = el.querySelector('#b-view');
+    const statusEl = el.querySelector('#b-status');
+    const resultsEl = el.querySelector('#b-results');
+    const setStatus = (html) => { statusEl.innerHTML = html ? `<div class="panel" style="margin-bottom:14px">${html}</div>` : ''; };
+    const cam = App.views.scan.camera(view, { guide: false });
+    const dims = () => FORMATS[fmt];
+
+    el.querySelector('#b-fmt').addEventListener('change', (e) => { fmt = e.target.value; if (photo && !running) drawGrid(); });
+    el.querySelector('#b-cam').addEventListener('click', async () => {
+      try { await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); }
+      catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}</span>`); }
+    });
+    el.querySelector('#b-shot').addEventListener('click', async () => {
+      const b = await cam.capture(); if (!b) return;
+      cam.stop(); el.querySelector('#b-shot').classList.add('hidden');
+      startGrid(b);
+    });
+    el.querySelector('#b-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0]); } e.target.value = ''; });
+    el.querySelector('#b-reset').addEventListener('click', () => {
+      if (running) return;
+      photo = null; grid = null; cells = []; resultsEl.innerHTML = ''; setStatus('');
+      el.querySelector('#b-gridbar').classList.add('hidden');
+      el.querySelector('#b-actions').classList.remove('hidden');
+      view.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div>';
+    });
+
+    // ---------- Grille ajustable ----------
+    function startGrid(blob) {
+      cells = []; resultsEl.innerHTML = ''; setStatus('');
+      const url = URL.createObjectURL(blob); urls.push(url);
+      view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Page de classeur"><div class="grid-box"></div></div>`;
+      const img = view.querySelector('img');
+      img.onload = () => {
+        photo = { img, url };
+        grid = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 };
+        drawGrid();
+        el.querySelector('#b-actions').classList.add('hidden');
+        el.querySelector('#b-gridbar').classList.remove('hidden');
+      };
+    }
+    function drawGrid() {
+      const [cols, rows] = dims();
+      const box = view.querySelector('.grid-box'); if (!box) return;
+      const W = photo.img.clientWidth, H = photo.img.clientHeight;
+      Object.assign(box.style, { left: grid.x * W + 'px', top: grid.y * H + 'px', width: grid.w * W + 'px', height: grid.h * H + 'px', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` });
+      box.innerHTML = Array.from({ length: cols * rows }, (_, i) => `<div class="gcell"><span>${i + 1}</span></div>`).join('') +
+        ['tl', 'tr', 'bl', 'br'].map((h) => `<span class="gh ${h}" data-h="${h}"></span>`).join('');
+    }
+    view.addEventListener('pointerdown', (e) => {
+      if (!photo || running || !e.target.closest('.crop-area')) return;
+      e.preventDefault();
+      const area = view.querySelector('.crop-area').getBoundingClientRect();
+      const W = photo.img.clientWidth, H = photo.img.clientHeight;
+      const h = e.target.dataset.h;
+      const start = { ...grid }, px = (e.clientX - area.left) / W, py = (e.clientY - area.top) / H;
+      const clamp = (v) => Math.min(1, Math.max(0, v));
+      const move = (ev) => {
+        const x = clamp((ev.clientX - area.left) / W), y = clamp((ev.clientY - area.top) / H);
+        if (!h) { // déplacer
+          grid.x = Math.min(1 - grid.w, Math.max(0, start.x + x - px));
+          grid.y = Math.min(1 - grid.h, Math.max(0, start.y + y - py));
+        } else {
+          let x0 = start.x, y0 = start.y, x1 = start.x + start.w, y1 = start.y + start.h;
+          if (h.includes('l')) x0 = Math.min(x, x1 - 0.1); else x1 = Math.max(x, x0 + 0.1);
+          if (h.includes('t')) y0 = Math.min(y, y1 - 0.1); else y1 = Math.max(y, y0 + 0.1);
+          Object.assign(grid, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+        }
+        drawGrid();
+      };
+      const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
+
+    /** Découpe la pochette n° i au format carte (la carte est centrée dans sa pochette) */
+    function cellBlob(i) {
+      const [cols, rows] = dims();
+      const img = photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
+      const gx = grid.x * NW, gy = grid.y * NH, cw = grid.w * NW / cols, ch = grid.h * NH / rows;
+      const col = i % cols, row = Math.floor(i / cols);
+      let w, h;
+      if (cw / ch > RATIO) { h = ch * 0.97; w = h * RATIO; } else { w = cw * 0.97; h = w / RATIO; }
+      const sx = gx + col * cw + (cw - w) / 2, sy = gy + row * ch + (ch - h) / 2;
+      const outW = Math.min(900, Math.round(w)), outH = Math.round(outW / RATIO);
+      const c = document.createElement('canvas'); c.width = outW; c.height = outH;
+      c.getContext('2d').drawImage(img, sx, sy, w, h, 0, 0, outW, outH);
+      return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+    }
+
+    // ---------- Reconnaissance de toutes les pochettes ----------
+    el.querySelector('#b-go').addEventListener('click', async () => {
+      if (!photo || running) return;
+      running = true;
+      el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
+      const [cols, rows] = dims(), n = cols * rows;
+      cells = [];
+      for (let i = 0; i < n; i++) {
+        const blob = await cellBlob(i);
+        const url = URL.createObjectURL(blob); urls.push(url);
+        cells.push({ i, blob, url, state: 'attente', cands: [], choice: '', info: null });
+      }
+      drawResults();
+      for (const cell of cells) {
+        if (stopped || !alive()) return;
+        cell.state = 'lecture'; drawResults();
+        setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n}…</div>`);
+        try {
+          if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
+          else {
+            const { info, cands } = await R.recognize(cell.blob, (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n} — ${esc(m)}</div>`); });
+            cell.info = info; cell.cands = cands;
+            cell.choice = cands[0] ? cands[0].id : '';
+            cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
+          }
+        } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
+        drawResults();
+      }
+      running = false;
+      el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
+      setStatus('');
+      drawResults();
+    });
+
+    const stateLabel = {
+      attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'],
+      sure: ['Reconnue ✓', 'ok'], verifier: ['À vérifier', 'warn'], inconnue: ['Non reconnue', 'bad'], erreur: ['Erreur', 'bad'],
+    };
+
+    function drawResults() {
+      const [cols] = dims();
+      const chosen = cells.filter((c) => c.choice);
+      resultsEl.innerHTML = `
+        <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Résultat de la page</h3><span class="spacer"></span>
+          ${!running && cells.length ? `<span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à ajouter</span>` : ''}</div>
+        <div class="btiles" style="grid-template-columns:repeat(${cols}, minmax(0, 1fr))">
+          ${cells.map((c) => {
+            const [lab, cls] = stateLabel[c.state];
+            const cur = c.cands.find((x) => x.id === c.choice);
+            const own = cur && App.col.get(game, cur.id);
+            return `<div class="btile ${c.state === 'vide' && !c.choice ? 'dim' : ''}" data-i="${c.i}">
+              <div class="bimgs">
+                <img src="${c.url}" alt="Ta carte ${c.i + 1}">
+                ${cur ? `<img src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
+              </div>
+              <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
+              ${c.state === 'attente' || c.state === 'lecture' ? '' : `
+                <select data-choice="${c.i}">
+                  <option value="">— Ne pas ajouter —</option>
+                  ${c.cands.map((x) => `<option value="${esc(x.id)}" ${x.id === c.choice ? 'selected' : ''}>${esc(x.name)} · ${esc(x.set ? x.set.name : x.setId)} · ${esc(x.localId)}</option>`).join('')}
+                </select>
+                ${own ? `<div class="small muted">Déjà ×${own.qty} : ce sera un exemplaire de plus</div>` : ''}
+                <button class="btn sm ghost" data-find="${c.i}">🔎 Chercher une autre carte</button>
+                <div class="bsearch hidden" data-box="${c.i}">
+                  <input type="text" placeholder="Nom" data-name="${c.i}">
+                  <input type="text" placeholder="N° ex. 025/165" data-num="${c.i}">
+                  <button class="btn sm" data-dosearch="${c.i}">OK</button>
+                </div>`}
+            </div>`;
+          }).join('')}
+        </div>
+        ${!running && cells.length ? `<div class="row" style="margin-top:16px">
+          <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Ajouter les ${chosen.length} carte${chosen.length > 1 ? 's' : ''} à ma collection</button>
+        </div>` : ''}`;
+    }
+
+    resultsEl.addEventListener('change', (e) => {
+      const s = e.target.closest('[data-choice]'); if (!s) return;
+      cells[+s.dataset.choice].choice = s.value;
+      drawResults();
+    });
+    resultsEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.closest('[data-name],[data-num]')) resultsEl.querySelector(`[data-dosearch="${e.target.dataset.name || e.target.dataset.num}"]`).click();
+    });
+    resultsEl.addEventListener('click', async (e) => {
+      const f = e.target.closest('[data-find]');
+      if (f) { resultsEl.querySelector(`[data-box="${f.dataset.find}"]`).classList.toggle('hidden'); return; }
+      const d = e.target.closest('[data-dosearch]');
+      if (d) {
+        const cell = cells[+d.dataset.dosearch];
+        d.disabled = true; d.textContent = '…';
+        try {
+          const cands = await R.manual(cell.blob, resultsEl.querySelector(`[data-name="${cell.i}"]`).value, resultsEl.querySelector(`[data-num="${cell.i}"]`).value);
+          if (!cands.length) { App.util.toast('Aucune carte trouvée'); }
+          else { cell.cands = cands; cell.choice = cands[0].id; cell.state = 'verifier'; }
+        } catch (err) { App.util.toast(err.message); }
+        drawResults();
+        return;
+      }
+      if (e.target.closest('#b-add')) {
+        const todo = cells.filter((c) => c.choice);
+        e.target.disabled = true;
+        const keys = [];
+        for (const c of todo) {
+          const cand = c.cands.find((x) => x.id === c.choice);
+          if (cand) keys.push(await R.addScanned(cand, c.blob));
+        }
+        App.col.refreshPrices([...new Set(keys)], 'Prix');
+        const names = todo.map((c) => c.cands.find((x) => x.id === c.choice)).filter(Boolean);
+        resultsEl.innerHTML = `<div class="panel"><b>✓ ${keys.length} carte${keys.length > 1 ? 's' : ''} ajoutée${keys.length > 1 ? 's' : ''}</b> à ta collection, chacune avec sa photo.
+          <div class="small muted" style="margin:8px 0">${names.map((x) => esc(x.name)).join(' · ')}</div>
+          <div class="row"><button class="btn primary" id="b-next">▦ Scanner la page suivante</button><a class="btn" href="#/collection">Voir ma collection</a></div></div>`;
+        cells = [];
+        resultsEl.querySelector('#b-next').onclick = () => el.querySelector('#b-reset').click();
+      }
+    });
+
+    return () => { stopped = true; cam.stop(); urls.forEach((u) => URL.revokeObjectURL(u)); };
+  },
+};
