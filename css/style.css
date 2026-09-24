@@ -725,3 +725,4 @@ a.chip { text-decoration: none; }
   .scan-guide-panel { font-size: .9rem; }
 }
 @media (max-width: 760px) { .btile .btn.sm { font-size: .72rem; padding: 4px 7px; } .btile select { font-size: .78rem; padding: 5px 6px; } }
+.se-frame.grid { align-items: stretch; justify-items: stretch; }
