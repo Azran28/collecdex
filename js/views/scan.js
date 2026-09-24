@@ -283,7 +283,7 @@ App.views.scan = {
     let photo = null;          // { img, url }
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
-    let running = false, stopped = false;
+    let running = false, stopped = false, detected = null;
     const urls = [];
 
     el.innerHTML = `
@@ -296,6 +296,8 @@ App.views.scan = {
           <div class="row" style="margin-bottom:10px">
             <label>Format de la page
               <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
+            <label>Série de la page
+              <select id="b-set" style="max-width:220px"><option value="">Détection automatique</option></select></label>
           </div>
           <div class="scan-view batch-view" id="b-view"><div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div></div>
           <div class="row" style="margin-top:14px" id="b-actions">
@@ -321,6 +323,16 @@ App.views.scan = {
     const cam = App.views.scan.camera(view, { guide: false });
     const dims = () => FORMATS[fmt];
 
+    // liste des séries pour « Série de la page »
+    ad.listSets().then((sets) => {
+      const sel = el.querySelector('#b-set'); if (!sel) return;
+      const groups = new Map();
+      for (const st of [...sets].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))) {
+        if (!groups.has(st.group.id)) groups.set(st.group.id, { name: st.group.name, sets: [] });
+        groups.get(st.group.id).sets.push(st);
+      }
+      sel.insertAdjacentHTML('beforeend', [...groups.values()].map((g) => `<optgroup label="${esc(g.name)}">${g.sets.map((st) => `<option value="${esc(st.id)}">${esc(st.name)}</option>`).join('')}</optgroup>`).join(''));
+    }).catch(() => {});
     el.querySelector('#b-fmt').addEventListener('change', (e) => { fmt = e.target.value; if (photo && !running) drawGrid(); });
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try { await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); }
@@ -416,6 +428,8 @@ App.views.scan = {
       running = true;
       el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
       const [cols, rows] = dims(), n = cols * rows;
+      const hint = el.querySelector('#b-set').value;
+      detected = null;
       cells = [];
       for (let i = 0; i < n; i++) {
         const { blob, auto } = await cellBlob(i);
@@ -429,29 +443,63 @@ App.views.scan = {
         setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n}…</div>`);
         try {
           if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
+          else if (await R.looksLikeBack(cell.blob).catch(() => false)) { cell.state = 'dos'; }
           else {
-            const { info, cands } = await R.recognize(cell.blob, (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n} — ${esc(m)}</div>`); });
+            const st = (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n} — ${esc(m)}</div>`); };
+            let info, cands;
+            if (hint) { info = await R.read(cell.blob, st); cands = await R.inSet(cell.blob, info, hint, st); }
+            else ({ info, cands } = await R.recognize(cell.blob, st));
             cell.info = info; cell.cands = cands;
             cell.choice = cands[0] ? cands[0].id : '';
             cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
+            cell.checked = cell.state === 'sure'; // seules les cartes sûres sont cochées d'office
           }
         } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
         drawResults();
       }
+      // Deuxième passe : si plusieurs cartes sûres viennent de la même série, la page est sans doute
+      // rangée par série → on recompare les cartes incertaines à toutes les cartes de cette série.
+      if (!hint && alive() && !stopped) {
+        const count = {};
+        for (const c of cells) if (c.state === 'sure' && c.cands[0] && c.cands[0].set) count[c.cands[0].set.id] = (count[c.cands[0].set.id] || 0) + 1;
+        const [best, nb] = Object.entries(count).sort((a, b) => b[1] - a[1])[0] || [];
+        const todo = cells.filter((c) => ['verifier', 'inconnue'].includes(c.state) && c.info);
+        if (best && nb >= 2 && todo.length) {
+          detected = { id: best, name: cells.find((c) => c.state === 'sure' && c.cands[0].set.id === best).cands[0].set.name, nb };
+          drawResults();
+          for (const cell of todo) {
+            if (stopped || !alive()) return;
+            cell.state = 'lecture'; drawResults();
+            try {
+              const cands = await R.inSet(cell.blob, cell.info, best, (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Série détectée : ${esc(detected.name)} — carte ${cell.i + 1} : ${esc(m)}</div>`); });
+              const top = cands[0], old = cell.cands[0];
+              if (top && (top.confident || !old || top.score >= old.score)) {
+                const seen = new Set(cands.map((x) => x.id));
+                cell.cands = [...cands, ...cell.cands.filter((x) => !seen.has(x.id))].slice(0, 10);
+                cell.choice = top.id;
+                cell.state = top.confident ? 'sure' : 'verifier';
+              } else cell.state = old ? 'verifier' : 'inconnue';
+            } catch (e) { console.error(e); cell.state = cell.cands.length ? 'verifier' : 'inconnue'; }
+            cell.checked = cell.state === 'sure';
+            drawResults();
+          }
+        }
+      }
       running = false;
       el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
+      el.querySelector('#b-set').disabled = false;
       setStatus('');
       drawResults();
     });
 
     const stateLabel = {
-      attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'],
+      attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'], dos: ['Dos de carte (ignoré)', 'muted'],
       sure: ['Reconnue ✓', 'ok'], verifier: ['À vérifier', 'warn'], inconnue: ['Non reconnue', 'bad'], erreur: ['Erreur', 'bad'],
     };
 
     /** Que faire de la carte de cette pochette ? (si l'utilisateur n'a pas choisi lui-même) */
     function modeOf(c) {
-      if (!c.choice) return 'rien';
+      if (!c.choice || !c.checked) return 'rien';
       if (c.mode) return c.mode;
       const owned = !!App.col.get(game, c.choice);
       const earlier = cells.some((o) => o.i < c.i && o.choice === c.choice);
@@ -465,7 +513,9 @@ App.views.scan = {
       const chosen = cells.filter((c) => c.choice && modeOf(c) !== 'rien');
       resultsEl.innerHTML = `
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Résultat de la page</h3><span class="spacer"></span>
-          ${!running && cells.length ? `<span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
+          ${!running && cells.length ? `<button class="btn sm ghost" id="b-all">Tout cocher</button><button class="btn sm ghost" id="b-none">Tout décocher</button>
+            <span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
+        ${detected ? `<p class="small" style="margin:0 0 10px">🔎 Série détectée sur cette page : <b>${esc(detected.name)}</b> (${detected.nb} cartes sûres) — les cartes incertaines ont été recomparées aux cartes de cette série.</p>` : ''}
         <div class="btiles" style="grid-template-columns:repeat(${cols}, minmax(0, 1fr))">
           ${cells.map((c) => {
             const [lab, cls] = stateLabel[c.state];
@@ -473,13 +523,16 @@ App.views.scan = {
             const own = cur && App.col.get(game, cur.id);
             const repeat = cur && cells.some((o) => o.i < c.i && o.choice === c.choice);
             const m = modeOf(c);
-            return `<div class="btile ${c.state === 'vide' && !c.choice ? 'dim' : ''}" data-i="${c.i}">
+            const canCheck = !!c.choice && !['attente', 'lecture'].includes(c.state);
+            return `<div class="btile ${(['vide', 'dos'].includes(c.state) && !c.choice) || (canCheck && !c.checked) ? 'dim' : ''} ${c.checked && c.choice ? 'on' : ''}" data-i="${c.i}">
+              ${canCheck ? `<label class="bcheck"><input type="checkbox" data-check="${c.i}" ${c.checked ? 'checked' : ''}> Ajouter</label>` : ''}
               <div class="bimgs">
                 <img src="${c.url}" alt="Ta carte ${c.i + 1}">
                 ${cur ? `<img src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
               </div>
               <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
-              ${c.state === 'attente' || c.state === 'lecture' ? '' : `
+              ${['attente', 'lecture', 'dos'].includes(c.state) && !c.choice ? (c.state === 'dos' ? `<button class="btn sm ghost" data-find="${c.i}">🔎 Ce n’est pas un dos : chercher</button>
+                <div class="bsearch hidden" data-box="${c.i}"><input type="text" placeholder="Nom" data-name="${c.i}"><input type="text" placeholder="N° ex. 025/165" data-num="${c.i}"><button class="btn sm" data-dosearch="${c.i}">OK</button></div>` : '') : `
                 <select data-choice="${c.i}">
                   <option value="">— Ne pas ajouter —</option>
                   ${c.cands.map((x) => `<option value="${esc(x.id)}" ${x.id === c.choice ? 'selected' : ''}>${esc(x.name)} · ${esc(x.set ? x.set.name : x.setId)} · ${esc(x.localId)}</option>`).join('')}
@@ -504,17 +557,21 @@ App.views.scan = {
     }
 
     resultsEl.addEventListener('change', (e) => {
+      const ck = e.target.closest('[data-check]');
+      if (ck) { cells[+ck.dataset.check].checked = ck.checked; drawResults(); return; }
       const md = e.target.closest('[data-mode]');
       if (md) { cells[+md.dataset.mode].mode = md.value; drawResults(); return; }
       const s = e.target.closest('[data-choice]'); if (!s) return;
       const cell = cells[+s.dataset.choice];
-      cell.choice = s.value; cell.mode = null;
+      cell.choice = s.value; cell.mode = null; cell.checked = !!s.value; // choisir une carte à la main = la cocher
       drawResults();
     });
     resultsEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && e.target.closest('[data-name],[data-num]')) resultsEl.querySelector(`[data-dosearch="${e.target.dataset.name || e.target.dataset.num}"]`).click();
     });
     resultsEl.addEventListener('click', async (e) => {
+      if (e.target.closest('#b-all')) { cells.forEach((c) => { if (c.choice) c.checked = true; }); drawResults(); return; }
+      if (e.target.closest('#b-none')) { cells.forEach((c) => { c.checked = false; }); drawResults(); return; }
       const f = e.target.closest('[data-find]');
       if (f) { resultsEl.querySelector(`[data-box="${f.dataset.find}"]`).classList.toggle('hidden'); return; }
       const d = e.target.closest('[data-dosearch]');
@@ -524,7 +581,7 @@ App.views.scan = {
         try {
           const cands = await R.manual(cell.blob, resultsEl.querySelector(`[data-name="${cell.i}"]`).value, resultsEl.querySelector(`[data-num="${cell.i}"]`).value);
           if (!cands.length) { App.util.toast('Aucune carte trouvée'); }
-          else { cell.cands = cands; cell.choice = cands[0].id; cell.state = 'verifier'; }
+          else { cell.cands = cands; cell.choice = cands[0].id; cell.state = 'verifier'; cell.checked = true; }
         } catch (err) { App.util.toast(err.message); }
         drawResults();
         return;

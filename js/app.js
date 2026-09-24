@@ -29,7 +29,7 @@ App.views = App.views || {};
     cleanup = null;
     App.util.closeModal();
 
-    document.querySelectorAll('#mainnav a').forEach((a) => a.classList.toggle('active', a.dataset.nav === navOf[view]));
+    document.querySelectorAll('.topbar a[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === navOf[view]));
     // conteneur neuf à chaque page, pour repartir sans les écouteurs de la page précédente
     const oldEl = document.getElementById('app');
     const el = oldEl.cloneNode(false);
@@ -59,7 +59,7 @@ App.views = App.views || {};
         const s = App.cloud.state;
         nav.dataset.state = s;
         nav.title = App.cloud.user ? `${App.cloud.user.email} — ${s === 'ok' ? 'synchronisé' : s === 'erreur' ? 'problème de synchronisation' : 'synchronisation…'}` : 'Se connecter';
-        nav.lastChild.textContent = App.cloud.user ? ' Compte' : ' Se connecter';
+        nav.querySelector('.acc-lbl').textContent = App.cloud.user ? ' Compte' : ' Se connecter';
       };
       App.cloud.on(paint); paint();
       await App.cloud.init();

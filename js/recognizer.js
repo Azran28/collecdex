@@ -189,14 +189,24 @@ App.recognizer = (() => {
   /** Petite empreinte en niveaux de gris (24×33) pour comparer deux images de carte */
   async function thumb(blob) {
     const bmp = await createImageBitmap(blob);
-    const c = document.createElement('canvas'); c.width = 24; c.height = 33;
-    const g = c.getContext('2d'); g.drawImage(bmp, 0, 0, 24, 33);
-    const p = g.getImageData(0, 0, 24, 33).data, v = new Float32Array(24 * 33);
-    for (let i = 0; i < v.length; i++) v[i] = 0.299 * p[i * 4] + 0.587 * p[i * 4 + 1] + 0.114 * p[i * 4 + 2];
+    const W = 24, H = 33, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.filter = 'blur(0.5px)'; g.drawImage(bmp, 0, 0, W, H);
+    const p = g.getImageData(0, 0, W, H).data, n = W * H, v = new Float32Array(n * 3);
+    // 3 couches de couleur : distingue deux illustrations du même Pokémon (ex. Feunard Set de Base / Expedition)
+    for (let i = 0; i < n; i++) { v[i] = p[i * 4]; v[n + i] = p[i * 4 + 1]; v[2 * n + i] = p[i * 4 + 2]; }
     return v;
   }
   /** Corrélation entre deux empreintes (1 = identiques) — insensible à la luminosité */
   function corr(a, b) {
+    const n3 = a.length / 3;
+    if (Number.isInteger(n3) && n3 > 100) { // moyenne des 3 couches de couleur
+      let t = 0;
+      for (let k = 0; k < 3; k++) t += corr1(a.subarray(k * n3, (k + 1) * n3), b.subarray(k * n3, (k + 1) * n3));
+      return t / 3;
+    }
+    return corr1(a, b);
+  }
+  function corr1(a, b) {
     const n = a.length; let ma = 0, mb = 0;
     for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; }
     ma /= n; mb /= n;
@@ -207,18 +217,46 @@ App.recognizer = (() => {
 
   /** Pochette vide ? (image presque uniforme) */
   async function looksEmpty(blob) {
-    const v = await thumb(blob);
+    const v = (await thumb(blob)).subarray(0, 24 * 33);
     let m = 0; for (const x of v) m += x; m /= v.length;
     let s = 0; for (const x of v) s += (x - m) ** 2;
     return Math.sqrt(s / v.length) < 14;
   }
 
   const officialThumbs = new Map();
+  /** Empreinte du visuel officiel ; si l'image française manque, on prend l'anglaise */
   async function officialThumb(src) {
     if (!officialThumbs.has(src)) {
-      officialThumbs.set(src, fetch(src).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? thumb(b) : null)).catch(() => null));
+      const tryUrl = (u) => fetch(u).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
+      officialThumbs.set(src, (async () => {
+        let b = await tryUrl(src);
+        if (!b && /assets\.tcgdex\.net\/(?!en\/)[a-z-]+\//.test(src)) b = await tryUrl(src.replace(/assets\.tcgdex\.net\/[a-z-]+\//, 'assets.tcgdex.net/en/'));
+        return b ? thumb(b).catch(() => null) : null;
+      })());
     }
     return officialThumbs.get(src);
+  }
+
+  /**
+   * Dos de carte Pokémon ? Le dos a un large bord bleu foncé tout autour,
+   * alors que le recto a un bord jaune, argenté ou blanc.
+   */
+  async function looksLikeBack(blob) {
+    const bmp = await createImageBitmap(blob);
+    const W = 40, H = 56, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, W, H);
+    const p = g.getImageData(0, 0, W, H).data;
+    let ring = 0, ringBlue = 0, all = 0, allBlue = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4, r = p[i], gg = p[i + 1], b = p[i + 2];
+      const blue = b > r + 25 && b > gg + 5 && b > 60;
+      const onRing = x < 4 || x >= W - 4 || y < 4 || y >= H - 4;
+      if (onRing) { ring++; if (blue) ringBlue++; }
+      all++; if (blue) allBlue++;
+    }
+    const rb = ringBlue / ring, ab = allBlue / all;
+    // dos : bord majoritairement bleu, et plus bleu que le reste de la carte (un Pokémon Eau a un bord jaune/argent)
+    return rb >= 0.4 && rb > ab * 1.3;
   }
 
   /** Recherche par nom tolérante aux erreurs de lecture (« AictiniV » → « ictin », « Drace » → « Drac »…) */
@@ -282,6 +320,37 @@ App.recognizer = (() => {
     return out.slice(0, 8);
   }
 
+  /**
+   * Reconnaissance limitée à une série (ex. une page de classeur rangée par série) :
+   * on compare la photo à toutes les cartes de la série. Beaucoup plus fiable quand le nom est mal lu.
+   */
+  async function inSet(blob, info, setId, statusFn) {
+    onStatus = statusFn || null;
+    try {
+      const A = ad();
+      const set = await A.getSet(setId);
+      const shape = { id: set.id, name: set.name, logo: set.logo, symbol: set.symbol, cardCount: { total: set.total, official: set.official }, serie: set.group };
+      const list = set.cards.map((c) => ({ ...c, set: shape }));
+      const num = info.num && (!info.num.of || info.num.of === set.official) ? info.num : null;
+      const mine = await thumb(blob).catch(() => null);
+      status(`Comparaison avec les ${list.length} cartes de ${set.name}…`);
+      const out = await rank(list, num, info.lines, mine, { cap: 500, visualWeight: 3 });
+      const second = out[1] ? out[1].score : 0;
+      for (const c of out) {
+        c.confident = (c.numOk && (c.visual == null || c.visual > 0.15))
+          || (c.visual != null && c.visual >= 0.6)
+          || (c === out[0] && c.visual != null && c.visual >= 0.4 && c.score - second > 0.35); // nettement devant les autres
+      }
+      return out.slice(0, 8);
+    } finally { onStatus = null; }
+  }
+
+  /** Lecture seule (sans recherche) */
+  async function read(blob, statusFn) {
+    onStatus = statusFn || null;
+    try { return parse(await ocr(blob)); } finally { onStatus = null; }
+  }
+
   async function recognize(blob, statusFn) {
     onStatus = statusFn || null;
     try {
@@ -329,5 +398,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { recognize, manual, readSummary, addScanned, looksEmpty, locateCard, stop, RATIO: 63 / 88 };
+  return { recognize, read, inSet, manual, readSummary, addScanned, looksEmpty, looksLikeBack, locateCard, stop, RATIO: 63 / 88 };
 })();

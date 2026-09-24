@@ -43,9 +43,11 @@ h1 { font-size: 1.7rem; } h2 { font-size: 1.25rem; } h3 { font-size: 1.05rem; }
 }
 .brand-ball::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: 9px; height: 9px; transform: translate(-50%,-50%); background: #fff; border: 2px solid #111; border-radius: 50%; }
 .mainnav { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
-.mainnav a { text-decoration: none; padding: 7px 12px; border-radius: 999px; font-weight: 600; opacity: .9; }
-.mainnav a:hover { background: rgba(0,0,0,.18); }
-.mainnav a.active { background: rgba(0,0,0,.3); opacity: 1; }
+.mainnav a, .topactions a { text-decoration: none; padding: 7px 12px; border-radius: 999px; font-weight: 600; opacity: .9; white-space: nowrap; }
+.mainnav a:hover, .topactions a:hover { background: rgba(0,0,0,.18); }
+.mainnav a.active, .topactions a.active { background: rgba(0,0,0,.3); opacity: 1; }
+.mainnav .ico { display: none; }
+.topactions { display: flex; gap: 4px; align-items: center; }
 
 .app { max-width: 1280px; margin: 0 auto; padding: 22px 20px 80px; }
 
@@ -260,12 +262,26 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 /* ---------- Responsive ---------- */
 @media (max-width: 760px) {
   .app { padding: 16px 12px 70px; }
-  .topbar { padding: 8px 12px; }
-  .mainnav { width: 100%; margin: 0; }
-  .mainnav a { padding: 6px 9px; font-size: .88rem; }
+  /* Mobile : barre d'onglets en bas de l'écran, compte et réglages en haut */
+  .topbar { padding: 8px 12px; flex-wrap: nowrap; }
+  .brand { font-size: 1.15rem; }
+  .topactions { margin-left: auto; }
+  .topactions a { padding: 6px 9px; font-size: .9rem; }
+  .mainnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; margin: 0; gap: 0; flex-wrap: nowrap;
+    background: #141a28; border-top: 1px solid var(--line); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 16px rgba(0,0,0,.4); }
+  .mainnav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px; border-radius: 10px; font-size: .68rem; font-weight: 700; opacity: .75; }
+  .mainnav .ico { display: block; font-size: 1.25rem; line-height: 1.2; }
+  .mainnav a.active { background: rgba(227,53,13,.18); opacity: 1; color: #fff; }
+  .mainnav a.nav-scan .ico { background: var(--accent); border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; margin-top: -18px; border: 3px solid #141a28; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+  .app { padding-bottom: 96px; }
+  .bgtasks { bottom: 80px; }
+  .toast { bottom: 84px; }
   .set-hero, .cd, .scan-wrap { grid-template-columns: 1fr; }
   .cards { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 10px; }
-  .toolbar { top: 92px; }
+  .toolbar { position: static; gap: 8px; padding: 4px 0; background: none; backdrop-filter: none; }
+  .toolbar > input, .toolbar > select { flex: 1 1 calc(50% - 8px); min-width: 0 !important; width: auto; font-size: .9rem; padding: 7px 10px; }
+  .toolbar > input[type=search] { flex-basis: 100%; }
+  h1 { font-size: 1.4rem; }
   .v-featured.layout-vedette { grid-template-columns: repeat(2, 1fr); }
   .v-featured.layout-classeur { grid-template-columns: repeat(3, 1fr); padding: 10px; gap: 10px; }
   .v-featured.layout-eventail .vcard { width: 120px; margin: 0 -22px; }
@@ -302,3 +318,8 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 #nav-account[data-state="erreur"] .dot { background: #ff5b5b; }
 .sync-ok { color: var(--ok); } .sync-erreur { color: #ff6b6b; }
 input[type=email], input[type=password] { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; outline: none; }
+.btile.on { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; }
+.btile .bcheck { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: .85rem; cursor: pointer; }
+.btile .bcheck input { width: 18px; height: 18px; accent-color: var(--ok); }
+.btile .btn { white-space: normal; text-align: left; justify-content: flex-start; line-height: 1.25; }
+@media (max-width: 520px) { .btile .bstate { white-space: normal; } .btile select { font-size: .75rem; } }

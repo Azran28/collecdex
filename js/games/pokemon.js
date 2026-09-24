@@ -156,7 +156,7 @@
    */
   async function findByNumber(n, of) {
     const sets = await listSets();
-    let cand = sets.filter((s) => s.official === of);
+    let cand = sets.filter((s) => s.official === of); // listSets n'inclut que les séries affichées
     if (!cand.length) cand = sets.filter((s) => s.total === of);
     cand = cand.sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '')).slice(0, 8);
     const out = [];
@@ -177,10 +177,11 @@
     const setIdOf = (cardId) => cardId.slice(0, cardId.lastIndexOf('-'));
     try {
       const d = await gql(`{ cards(filters: { name: "${String(name).replace(/["\\]/g, '')}" }, pagination: { page: 1, itemsPerPage: 200 }) @locale(lang: "${L}") { ${CARD_FIELDS} } }`);
-      return (d.cards || []).filter(Boolean).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st ? st.serie : null }), set: st }; });
+      // on ne garde que les séries affichées sur le site (TCG Pocket exclu par défaut)
+      return (d.cards || []).filter((c) => c && byId[setIdOf(c.id)]).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st.serie }), set: st }; });
     } catch (e) {
       const res = await getJSON(`/${L}/cards?name=${encodeURIComponent(name)}`);
-      return res.slice(0, 80).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st ? st.serie : null }), set: st }; });
+      return res.filter((c) => byId[setIdOf(c.id)]).slice(0, 80).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st.serie }), set: st }; });
     }
   }
 
