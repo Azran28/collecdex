@@ -75,5 +75,55 @@ App.ui = (() => {
 
   const stars = (n, name = 'rating') => `<span class="stars" data-stars="${name}">${[1, 2, 3, 4, 5].map((i) => `<button type="button" data-v="${i}" class="${i <= n ? 'on' : ''}" aria-label="${i} étoile${i > 1 ? 's' : ''}">★</button>`).join('')}</span>`;
 
-  return { progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
+  /**
+   * Recadrer une image au format carte (63 × 88) : cadre jaune déplaçable + curseur de taille.
+   * Renvoie une promesse : le nouveau Blob, ou null si annulé.
+   */
+  function cropImage(blob, { title = 'Recadrer la photo' } = {}) {
+    return new Promise((resolve) => {
+      const RATIO = 63 / 88;
+      const url = URL.createObjectURL(blob);
+      const ov = document.createElement('div');
+      ov.className = 'cropper';
+      ov.innerHTML = `<div class="cropper-box">
+        <h3 style="margin-top:0">${esc(title)}</h3>
+        <p class="small muted">Fais glisser le cadre jaune sur la carte, ajuste sa taille, puis valide.</p>
+        <div class="cropper-stage"><div class="crop-area"><img src="${url}" alt=""><div class="crop-box"></div></div></div>
+        <div class="row" style="margin-top:10px"><span class="small">Taille</span><input type="range" min="10" max="100" value="60" style="flex:1"></div>
+        <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn ghost" data-act="no">Annuler</button><button class="btn primary" data-act="ok">✓ Valider</button></div>
+      </div>`;
+      document.body.appendChild(ov);
+      const img = ov.querySelector('img'), box = ov.querySelector('.crop-box'), range = ov.querySelector('input[type=range]');
+      const st = { cx: 0.5, cy: 0.5, size: 0.6 };
+      const rect = () => {
+        const W = img.clientWidth, H = img.clientHeight;
+        let h = H * st.size, w = h * RATIO;
+        if (w > W) { w = W * st.size; h = w / RATIO; }
+        return { x: Math.min(Math.max(0, st.cx * W - w / 2), W - w), y: Math.min(Math.max(0, st.cy * H - h / 2), H - h), w, h, W, H };
+      };
+      const place = () => { const r = rect(); Object.assign(box.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' }); };
+      img.onload = () => { const ar = img.naturalWidth / img.naturalHeight; st.size = Math.abs(ar - RATIO) < 0.06 ? 1 : 0.6; range.value = st.size * 100; place(); };
+      range.oninput = () => { st.size = range.value / 100; place(); };
+      ov.querySelector('.crop-area').addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        const area = e.currentTarget.getBoundingClientRect();
+        const move = (ev) => { st.cx = (ev.clientX - area.left) / img.clientWidth; st.cy = (ev.clientY - area.top) / img.clientHeight; place(); };
+        move(e);
+        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+      });
+      const done = (val) => { URL.revokeObjectURL(url); ov.remove(); resolve(val); };
+      ov.addEventListener('click', (e) => {
+        const a = e.target.closest('[data-act]'); if (!a) return;
+        if (a.dataset.act === 'no') return done(null);
+        const r = rect(), k = img.naturalWidth / r.W, sw = r.w * k, sh = r.h * k;
+        const outW = Math.min(900, Math.round(sw)), outH = Math.round(outW / RATIO);
+        const c = document.createElement('canvas'); c.width = outW; c.height = outH;
+        c.getContext('2d').drawImage(img, r.x * k, r.y * k, sw, sh, 0, 0, outW, outH);
+        c.toBlob((b) => done(b), 'image/jpeg', 0.9);
+      });
+    });
+  }
+
+  return { cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
 })();

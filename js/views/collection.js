@@ -10,6 +10,7 @@ App.views.collection = {
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Ma collection</div>
       <div class="row"><h1>Ma collection</h1><span class="spacer"></span>
+        <button class="btn sm" id="c-select">☑ Sélectionner</button>
         <button class="btn sm" id="c-prices">↻ Actualiser les prix</button>
         <button class="btn sm" id="c-csv">⬇ Exporter (CSV)</button>
       </div>
@@ -30,6 +31,14 @@ App.views.collection = {
         <div class="chips" id="c-flag">
           ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['photos', '📷 Avec mes photos'], ['doublons', 'Doublons']].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
         </div>
+      </div>
+      <div class="selbar hidden" id="c-selbar">
+        <b id="c-selcount">0 carte sélectionnée</b>
+        <button class="btn sm ghost" id="c-selall">Tout sélectionner</button>
+        <button class="btn sm ghost" id="c-selnone">Aucune</button>
+        <span class="spacer"></span>
+        <button class="btn sm danger" id="c-seldel" disabled>🗑 Supprimer</button>
+        <button class="btn sm" id="c-selend">Terminer</button>
       </div>
       <div class="cards big" id="c-grid"></div>`;
 
@@ -83,7 +92,35 @@ App.views.collection = {
         ? items.map((it) => App.ui.cardTile(snapCard(it), { game: it.game, item: it, showSet: true, quickAdd: false })).join('')
         : `<div class="empty panel" style="grid-column:1/-1">${all.length ? 'Aucune carte ne correspond à ces filtres.' : 'Ta collection est vide. <a href="#/scan">Scanne une carte</a> pour l’ajouter.'}</div>`;
       App.ui.hydratePhotos(grid);
+      if (selecting) paintSelection();
     };
+
+    // ---------- Mode sélection : supprimer plusieurs cartes d'un coup ----------
+    let selecting = false;
+    const selected = new Set();
+    const paintSelection = () => {
+      grid.classList.toggle('selecting', selecting);
+      grid.querySelectorAll('.ctile').forEach((t) => t.classList.toggle('picked', selected.has(`${t.dataset.game}:${t.dataset.card}`)));
+      el.querySelector('#c-selcount').textContent = `${selected.size} carte${selected.size > 1 ? 's' : ''} sélectionnée${selected.size > 1 ? 's' : ''}`;
+      el.querySelector('#c-seldel').disabled = !selected.size;
+    };
+    const setSelecting = (on) => {
+      selecting = on; selected.clear();
+      el.querySelector('#c-selbar').classList.toggle('hidden', !on);
+      el.querySelector('#c-select').classList.toggle('primary', on);
+      paintSelection();
+    };
+    el.querySelector('#c-select').addEventListener('click', () => setSelecting(!selecting));
+    el.querySelector('#c-selend').addEventListener('click', () => setSelecting(false));
+    el.querySelector('#c-selall').addEventListener('click', () => { filtered().forEach((i) => selected.add(i.key)); paintSelection(); });
+    el.querySelector('#c-selnone').addEventListener('click', () => { selected.clear(); paintSelection(); });
+    el.querySelector('#c-seldel').addEventListener('click', async () => {
+      const n = selected.size; if (!n) return;
+      if (!confirm(`Supprimer ${n} carte${n > 1 ? 's' : ''} de ta collection ?\n\nLeurs photos et exemplaires seront supprimés. (Tu pourras les rescanner plus tard.)`)) return;
+      for (const k of [...selected]) await App.col.remove(k);
+      App.util.toast(`${n} carte${n > 1 ? 's' : ''} supprimée${n > 1 ? 's' : ''}`);
+      setSelecting(false);
+    });
 
     fillSelects(); draw();
 
@@ -99,6 +136,11 @@ App.views.collection = {
     });
     grid.addEventListener('click', (e) => {
       const t = e.target.closest('.ctile'); if (!t) return;
+      if (selecting) {
+        const k = `${t.dataset.game}:${t.dataset.card}`;
+        selected.has(k) ? selected.delete(k) : selected.add(k);
+        return paintSelection();
+      }
       App.cardModal(t.dataset.game, t.dataset.card, { list: filtered().map((i) => i.id) });
     });
     el.querySelector('#c-prices').addEventListener('click', () => App.col.refreshPrices(App.col.all().map((i) => i.key)));

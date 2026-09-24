@@ -303,6 +303,30 @@ App.recognizer = (() => {
     return rb >= 0.4 && rb > ab * 1.3;
   }
 
+  /**
+   * La photo montre-t-elle une page de classeur (plusieurs cartes) plutôt qu'une seule carte ?
+   * Une page 3×3 a des séparations nettes verticales vers 1/3 et 2/3 de la largeur (entre les pochettes),
+   * sur toute la hauteur ; une carte seule n'en a pas à ces endroits.
+   */
+  function looksLikePage(img) {
+    const W0 = img.naturalWidth || img.width, H0 = img.naturalHeight || img.height;
+    const W = 150, H = Math.max(60, Math.round(150 * H0 / W0));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.filter = 'grayscale(1) blur(0.7px)'; g.drawImage(img, 0, 0, W, H);
+    const p = g.getImageData(0, 0, W, H).data, v = (x, y) => p[(y * W + x) * 4];
+    const colP = new Float32Array(W), rowP = new Float32Array(H);
+    for (let y = Math.round(H * 0.08); y < H * 0.92; y++) for (let x = 1; x < W - 1; x++) colP[x] += Math.abs(v(x + 1, y) - v(x - 1, y));
+    for (let x = Math.round(W * 0.08); x < W * 0.92; x++) for (let y = 1; y < H - 1; y++) rowP[y] += Math.abs(v(x, y + 1) - v(x, y - 1));
+    const peak = (prof, n, t) => {
+      const sorted = [...prof.slice(Math.round(n * 0.1), Math.round(n * 0.9))].sort((a, b) => a - b);
+      const med = sorted[Math.floor(sorted.length / 2)] || 1;
+      let m = 0; for (let i = Math.round(n * (t - 0.08)); i <= Math.round(n * (t + 0.08)); i++) m = Math.max(m, prof[i] || 0);
+      return m / med;
+    };
+    const vx = [peak(colP, W, 1 / 3), peak(colP, W, 2 / 3)], hy = [peak(rowP, H, 1 / 3), peak(rowP, H, 2 / 3)];
+    return { page: vx[0] > 2.2 && vx[1] > 2.2 && Math.max(...hy) > 1.8, vx, hy };
+  }
+
   /** Recherche par nom tolérante aux erreurs de lecture (« AictiniV » → « ictin », « Drace » → « Drac »…) */
   async function nameSearch(words) {
     const qs = [...new Set(words.slice(0, 3).flatMap((w) => [w, w.slice(1), w.slice(0, 5), w.slice(1, 6), w.slice(2, 7), w.slice(0, 4)])
@@ -445,5 +469,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { recognize, read, inSet, manual, readSummary, addScanned, looksEmpty, looksLikeBack, locateCard, stop, RATIO: 63 / 88 };
+  return { recognize, read, inSet, manual, readSummary, addScanned, looksEmpty, looksLikeBack, looksLikePage, locateCard, stop, RATIO: 63 / 88 };
 })();

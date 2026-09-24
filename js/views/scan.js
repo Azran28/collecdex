@@ -60,7 +60,7 @@ App.views.scan = {
     const game = 'pokemon';
     const ad = App.games.get(game);
     const targetId = params.query.carte || null;
-    let cardBlob = null, cardURL = null, target = null;
+    let cardBlob = null, cardURL = null, target = null, pageBlob = null;
 
     el.innerHTML = `
       <div id="sc-target"></div>
@@ -73,6 +73,11 @@ App.views.scan = {
             <label class="btn">🖼 Choisir une photo<input type="file" accept="image/*" capture="environment" id="sc-file" hidden></label>
           </div>
           <div id="sc-cropbar" class="hidden" style="margin-top:14px">
+            <div class="panel hidden" id="sc-pagehint" style="margin-bottom:10px;border-color:var(--accent2)">
+              <b>📚 On dirait une page de classeur</b> (plusieurs cartes sur la photo).<br>
+              <span class="small muted">Le mode « Une carte » n’en reconnaît qu’une, et prendrait toute la photo comme visuel.</span>
+              <div class="row" style="margin-top:8px"><button class="btn primary sm" id="sc-topage">▦ Scanner comme page de classeur</button></div>
+            </div>
             <div class="row"><span>Taille du cadre</span><input type="range" id="sc-size" min="20" max="100" value="90" style="flex:1"></div>
             <p class="small muted">Fais glisser le cadre jaune pour qu’il entoure la carte, puis valide.</p>
             <div class="row"><button class="btn primary" id="sc-crop-ok">✓ Valider le cadrage</button><button class="btn ghost" id="sc-crop-cancel">Reprendre une photo</button></div>
@@ -136,6 +141,11 @@ App.views.scan = {
       el.querySelector('#sc-actions').classList.add('hidden');
       el.querySelector('#sc-cropbar').classList.remove('hidden');
       img.onload = () => {
+        // plusieurs cartes sur la photo ? on propose le mode « page de classeur »
+        let lp = { page: false };
+        try { lp = R.looksLikePage(img); } catch (e) { console.warn(e); }
+        el.querySelector('#sc-pagehint').classList.toggle('hidden', !lp.page);
+        pageBlob = blob;
         const ar = img.naturalWidth / img.naturalHeight;
         const size = initial || (Math.abs(ar - RATIO) < 0.06 ? 1 : 0.9); // photo déjà au format carte → toute l'image
         crop = { img, url, box: view.querySelector('.crop-box'), cx: 0.5, cy: 0.5, size };
@@ -151,6 +161,10 @@ App.views.scan = {
       return { x, y, w, h, W, H };
     }
     function placeBox() { const r = boxRect(); Object.assign(crop.box.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' }); }
+    el.querySelector('#sc-topage').addEventListener('click', () => {
+      App._pendingPage = pageBlob;
+      location.hash = '#/scan?mode=classeur';
+    });
     el.querySelector('#sc-size').addEventListener('input', (e) => { if (crop) { crop.size = e.target.value / 100; placeBox(); } });
     view.addEventListener('pointerdown', (e) => {
       if (!crop || !e.target.closest('.crop-area')) return;
@@ -352,6 +366,9 @@ App.views.scan = {
       view.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div>';
     });
 
+    // photo transmise par le mode « Une carte » (page de classeur détectée)
+    if (App._pendingPage) { const b = App._pendingPage; App._pendingPage = null; setTimeout(() => startGrid(b), 0); }
+
     // ---------- Grille ajustable ----------
     function startGrid(blob) {
       cells = []; resultsEl.innerHTML = ''; setStatus('');
@@ -508,11 +525,12 @@ App.views.scan = {
     const stateLabel = {
       attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'], dos: ['Dos de carte (ignoré)', 'muted'],
       sure: ['Reconnue ✓', 'ok'], verifier: ['À vérifier', 'warn'], inconnue: ['Non reconnue', 'bad'], erreur: ['Erreur', 'bad'],
+      enregistree: ['Enregistrée ✓', 'ok'],
     };
 
     /** Que faire de la carte de cette pochette ? (si l'utilisateur n'a pas choisi lui-même) */
     function modeOf(c) {
-      if (!c.choice || !c.checked) return 'rien';
+      if (!c.choice || !c.checked || c.saved) return 'rien';
       if (c.mode) return c.mode;
       const owned = !!App.col.get(game, c.choice);
       const earlier = cells.some((o) => o.i < c.i && o.choice === c.choice);
@@ -524,7 +542,11 @@ App.views.scan = {
     function drawResults() {
       const [cols] = dims();
       const chosen = cells.filter((c) => c.choice && modeOf(c) !== 'rien');
+      const savedN = cells.filter((c) => c.saved).length, leftN = cells.filter((c) => !c.saved && c.choice).length;
       resultsEl.innerHTML = `
+        ${savedN ? `<div class="panel" style="margin-bottom:12px"><b>✓ ${savedN} carte${savedN > 1 ? 's' : ''} enregistrée${savedN > 1 ? 's' : ''}</b> dans ta collection.
+          ${leftN ? ` Il reste ${leftN} carte${leftN > 1 ? 's' : ''} sur cette page : coche celles que tu veux ajouter, corrige-les si besoin, puis enregistre à nouveau.` : ''}
+          <div class="row" style="margin-top:8px"><button class="btn sm primary" id="b-next">▦ Page suivante</button><a class="btn sm" href="#/collection">Voir ma collection</a></div></div>` : ''}
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Résultat de la page</h3><span class="spacer"></span>
           ${!running && cells.length ? `<button class="btn sm ghost" id="b-all">Tout cocher</button><button class="btn sm ghost" id="b-none">Tout décocher</button>
             <span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
@@ -536,6 +558,13 @@ App.views.scan = {
             const own = cur && App.col.get(game, cur.id);
             const repeat = cur && cells.some((o) => o.i < c.i && o.choice === c.choice);
             const m = modeOf(c);
+            if (c.saved) {
+              return `<div class="btile saved" data-i="${c.i}">
+                <div class="bimgs"><img src="${c.url}" alt=""><img src="${esc(ad.img.card(cur, 'low'))}" alt="" data-alt=""></div>
+                <div class="bstate ok">${c.i + 1}. Enregistrée ✓</div>
+                <div class="small"><b>${esc(cur ? cur.name : '')}</b> <span class="muted">${esc(cur && cur.set ? cur.set.name : '')}</span></div>
+              </div>`;
+            }
             const canCheck = !!c.choice && !['attente', 'lecture'].includes(c.state);
             return `<div class="btile ${(['vide', 'dos'].includes(c.state) && !c.choice) || (canCheck && !c.checked) ? 'dim' : ''} ${c.checked && c.choice ? 'on' : ''}" data-i="${c.i}">
               ${canCheck ? `<label class="bcheck"><input type="checkbox" data-check="${c.i}" ${c.checked ? 'checked' : ''}> Ajouter</label>` : ''}
@@ -583,7 +612,8 @@ App.views.scan = {
       if (e.key === 'Enter' && e.target.closest('[data-name],[data-num]')) resultsEl.querySelector(`[data-dosearch="${e.target.dataset.name || e.target.dataset.num}"]`).click();
     });
     resultsEl.addEventListener('click', async (e) => {
-      if (e.target.closest('#b-all')) { cells.forEach((c) => { if (c.choice) c.checked = true; }); drawResults(); return; }
+      if (e.target.closest('#b-next')) { el.querySelector('#b-reset').click(); return; }
+      if (e.target.closest('#b-all')) { cells.forEach((c) => { if (c.choice && !c.saved) c.checked = true; }); drawResults(); return; }
       if (e.target.closest('#b-none')) { cells.forEach((c) => { c.checked = false; }); drawResults(); return; }
       const f = e.target.closest('[data-find]');
       if (f) { resultsEl.querySelector(`[data-box="${f.dataset.find}"]`).classList.toggle('hidden'); return; }
@@ -608,12 +638,11 @@ App.views.scan = {
           if (cand) keys.push(await R.addScanned(cand, c.blob, mode === 'nouvelle' ? null : mode));
         }
         App.col.refreshPrices([...new Set(keys)], 'Prix');
-        const names = todo.map(({ c }) => c.cands.find((x) => x.id === c.choice)).filter(Boolean);
-        resultsEl.innerHTML = `<div class="panel"><b>✓ ${keys.length} carte${keys.length > 1 ? 's' : ''} enregistrée${keys.length > 1 ? 's' : ''}</b> dans ta collection, chacune avec sa photo.
-          <div class="small muted" style="margin:8px 0">${names.map((x) => esc(x.name)).join(' · ')}</div>
-          <div class="row"><button class="btn primary" id="b-next">▦ Scanner la page suivante</button><a class="btn" href="#/collection">Voir ma collection</a></div></div>`;
-        cells = [];
-        resultsEl.querySelector('#b-next').onclick = () => el.querySelector('#b-reset').click();
+        // les cartes enregistrées restent affichées (marquées ✓) : on peut continuer avec les autres
+        for (const { c } of todo) { c.saved = true; c.checked = false; }
+        App.util.toast(`${keys.length} carte${keys.length > 1 ? 's' : ''} enregistrée${keys.length > 1 ? 's' : ''} ✓`);
+        drawResults();
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
 

@@ -98,19 +98,20 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       <div class="row" style="margin-bottom:12px">
         <span>Exemplaires</span>
         <span class="stepper"><button id="cd-minus" title="Retirer un exemplaire">−</button><span>${it.qty}</span></span>
+        <button class="btn sm danger" id="cd-remove" title="Tu ne l’as plus, ou erreur d’ajout">🗑 Supprimer de ma collection</button>
         <a class="btn sm" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Chaque exemplaire se scanne">📷 Scanner un exemplaire de plus</a>
         <button class="btn sm ${it.favorite ? 'primary' : ''}" id="cd-fav">${it.favorite ? '★ Favorite' : '☆ Mettre en favori'}</button>
       </div>
       ${availVariants.length ? `<div class="row" style="margin-bottom:12px"><span>Versions possédées</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div></div>` : ''}
       <div class="row" style="margin-bottom:12px"><span>Ma note</span>${App.ui.stars(it.rating || 0)}</div>
       <div style="margin-bottom:12px"><textarea id="cd-note" placeholder="Note perso (état, provenance, gradée PSA…)">${esc(it.note || '')}</textarea></div>
-      <div style="margin-bottom:6px">Mes photos de cette carte <span class="muted small">(clique pour l’utiliser comme visuel)</span></div>
+      <div style="margin-bottom:6px">Mes photos de cette carte <span class="muted small">(clique pour l’utiliser comme visuel, ✂ pour la recadrer)</span></div>
       <div class="photos" id="cd-photos">
-        ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt=""><button class="del" data-del="${p.id}" title="Supprimer">×</button></div>`).join('')}
+        ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt=""><button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button><button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button></div>`).join('')}
         <label class="btn sm" style="height:fit-content">📷 Ajouter une photo<input type="file" accept="image/*" id="cd-file" hidden></label>
       </div>
       ${it.displayPhoto ? `<button class="btn sm ghost" id="cd-useoff" style="margin-top:8px">Utiliser le visuel officiel par défaut</button>` : ''}
-      <div class="row" style="margin-top:16px"><span class="muted small">Ajoutée le ${dateFr(it.addedAt)}</span><span class="spacer"></span><button class="btn sm ghost" id="cd-remove">Retirer de ma collection</button></div>`;
+      <div class="row" style="margin-top:16px"><span class="muted small">Ajoutée le ${dateFr(it.addedAt)}</span></div>`;
   };
 
   body.addEventListener('click', async (e) => {
@@ -131,6 +132,15 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       await App.col.update(key, { variants: vars }); return drawMine();
     }
     if (t.closest('[data-stars] button')) { await App.col.update(key, { rating: +t.closest('button').dataset.v }); return drawMine(); }
+    if (t.closest('[data-crop]')) {
+      e.stopPropagation();
+      const id = t.closest('[data-crop]').dataset.crop;
+      const blob = await App.db.get('photos', id);
+      if (!blob) return App.util.toast('Photo introuvable sur cet appareil');
+      const out = await App.ui.cropImage(blob, { title: `Recadrer la photo de ${card.name}` });
+      if (out) { await App.col.replacePhoto(key, id, out); App.util.toast('Photo recadrée ✓'); drawImage(); drawMine(); }
+      return;
+    }
     if (t.closest('[data-del]')) {
       e.stopPropagation();
       if (!confirm('Supprimer cette photo ?')) return;
@@ -139,7 +149,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (t.closest('[data-ph]')) { await App.col.update(key, { displayPhoto: t.closest('[data-ph]').dataset.ph }); showOfficial = false; drawImage(); return drawMine(); }
     if (t.closest('#cd-useoff')) { await App.col.update(key, { displayPhoto: null }); drawImage(); return drawMine(); }
     if (t.closest('#cd-remove')) {
-      if (!confirm('Retirer complètement cette carte (et ses photos) de ta collection ?')) return;
+      if (!confirm(`Supprimer ${card.name} de ta collection ?\n\nSes photos et ses exemplaires seront supprimés. (Tu pourras la rescanner plus tard.)`)) return;
       await App.col.remove(key); drawImage(); return drawMine();
     }
   });

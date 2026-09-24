@@ -84,6 +84,15 @@ App.col = (() => {
     if (photoURLs[id]) { URL.revokeObjectURL(photoURLs[id]); delete photoURLs[id]; }
     await put(it);
   }
+  /** Remplace le contenu d'une photo (ex. après recadrage), en gardant sa place dans la carte */
+  async function replacePhoto(k, id, blob) {
+    const it = items[k]; if (!it) return;
+    const small = await App.util.resizeImage(blob, 800, 0.85);
+    await App.db.set('photos', id, small);
+    if (photoURLs[id]) { URL.revokeObjectURL(photoURLs[id]); delete photoURLs[id]; }
+    cloud().markPhoto(id);
+    await put(it);
+  }
   async function photoURL(id) {
     if (!id) return '';
     if (photoURLs[id]) return photoURLs[id];
@@ -199,7 +208,7 @@ App.col = (() => {
 
   return {
     load, saveSettings, keyOf, get, byKey, all, owned, inSet, add, update, setQty, remove,
-    addPhoto, deletePhoto, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
+    addPhoto, deletePhoto, replacePhoto, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
     getProfile, saveProfile, exportAll, importAll, applyRemote, applyRemoteDelete, applyRemoteProfile, wipeLocal, notify,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };
