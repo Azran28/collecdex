@@ -41,6 +41,7 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - Page de classeur prise avec la caméra du site : utiliser `cam.photo()` (vraie photo pleine résolution via `ImageCapture`), pas l'image vidéo, sinon les cartes sont trop petites pour être lues.
 - Classeur : ne deviner la série que si c'est très sûr (≥ 3 cartes « sûres » de la même série et ≥ 80 % des cartes sûres), ne remplacer une carte que si elle est reconnue avec certitude, et toujours pouvoir annuler (`applySeries` / `undoSeries`).
 - Caméra : en mode carte la vidéo remplit le cadre (`object-fit: cover`, et `region()` utilise alors `Math.max`) ; en mode classeur la zone prend la forme de l'image vidéo.
+- Identité pour la certification (`certify.identity`) : règle **relative** — la carte choisie doit être la plus ressemblante de sa série avec ≥ 0,10 d'avance (et ≥ 0,35). Un seuil absolu (0,5) refusait de bonnes cartes selon le cadrage (ex. Voltorbe 0,44). La raison d'un échec est gardée dans `item.certNote` et affichée dans la fiche.
 - Pas de `backdrop-filter` sur un parent de la barre du bas mobile (ça la fait remonter en haut).
 - Sur téléphone, `:hover` reste collé après un appui : ne pas y mettre de couleur qui rend un texte illisible.
 - Les anciennes holos sont notées « Rare » par TCGdex : une carte qui n'existe qu'en holo est traitée comme holo.

@@ -373,6 +373,7 @@ App.views.scan = {
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
+        if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : 'photo importée depuis la galerie');
         if (myCert && myCert.passed && photoId) {
           App.certify.identity(shotBlob, c).then((ident) => App.certify.finish(key, photoId, myCert, ident)).then((r) => {
             const line = results.querySelector('#sc-cert'); if (!line) return;
@@ -891,6 +892,7 @@ App.views.scan = {
         for (const { c } of todo) {
           c.saved = true; c.checked = false;
           c.cert = !App.cloud.enabled || !c.photoId ? '' : !App.cloud.user ? 'connecte-toi pour certifier' : !pageCert ? 'photo importée' : !pageCert.passed ? pageCert.reasons[0] : 'encours';
+          if (c.cert && c.cert !== 'encours') App.certify.note(c.key, c.photoId, c.cert === 'photo importée' ? 'photo importée depuis la galerie' : c.cert);
         }
         // certification des cartes bien reconnues (l'une après l'autre, en arrière-plan)
         (async () => {

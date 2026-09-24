@@ -262,7 +262,9 @@ App.certify = (() => {
       for (const x of cards) if (x.id !== c.id && m.has(x.id) && m.get(x.id) > other) { other = m.get(x.id); otherName = x.name; }
       // une réimpression identique dans la même série (même nom) ne compte pas comme concurrente
       const r2 = (v) => Math.round(v * 100) / 100;
-      const ok = self != null && self >= 0.5 && (self - other >= 0.08 || App.util.norm(otherName) === App.util.norm(c.name));
+      // règle relative : la carte choisie doit être nettement la plus ressemblante de sa série
+      // (mesuré sur de vraies photos : bonne carte 0,44 à 0,83 et loin devant ; mauvaise carte toujours derrière une autre)
+      const ok = self != null && self >= 0.35 && (self - other >= 0.1 || (App.util.norm(otherName) === App.util.norm(c.name) && self >= other));
       return { ok, how: 'ressemblance', res: self == null ? null : r2(self), next: r2(other) };
     } catch (e) {
       console.warn(e);
@@ -270,7 +272,16 @@ App.certify = (() => {
     }
   }
 
+  /** Garde sur la carte la raison d'un échec de certification (affichée dans sa fiche) */
+  async function note(key, photoId, reason) {
+    try { if (App.col.byKey(key)) await App.col.update(key, { certNote: reason ? { photo: photoId, reason, at: Date.now() } : null }); } catch (e) { /* */ }
+  }
   async function finish(key, photoId, res, ident = { ok: true }) {
+    const r = await doFinish(key, photoId, res, ident);
+    await note(key, photoId, r.ok ? null : r.reason);
+    return r;
+  }
+  async function doFinish(key, photoId, res, ident) {
     if (!res || !res.passed) return { ok: false, reason: (res && res.reasons && res.reasons[0]) || 'non vérifiée' };
     if (!ident.ok) return { ok: false, reason: 'carte pas assez reconnue sur la photo', unrecognized: true };
     try {
@@ -301,7 +312,7 @@ App.certify = (() => {
   const count = () => App.col.all().filter(isCertified).length;
 
   return {
-    available, prepare, live, finish, identity, load, setFromServer, isCertified, photoCertified, count,
+    available, prepare, live, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     _test: { motion, judgeChallenge, frozenPairs, screenScore, dhash },
   };
