@@ -553,3 +553,4 @@ details.help[open] summary { margin-bottom: 6px; }
   .stat span { font-size: .66rem; }
 }
 a.chip { text-decoration: none; }
+@media (max-width: 760px) { .stat span { display: block; line-height: 1.15; margin-top: 3px; } }
