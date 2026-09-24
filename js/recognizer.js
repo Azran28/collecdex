@@ -39,31 +39,108 @@ App.recognizer = (() => {
     return workerP;
   }
 
-  /** Découpe une zone de la carte, l'agrandit et la rend plus lisible (gris + contraste, ou noir/blanc) */
+  /**
+   * Découpe une zone de la carte, l'agrandit et la rend lisible :
+   * gris, puis « niveaux automatiques » (le plus sombre devient noir, le plus clair blanc),
+   * ce qui compense une zone trop sombre ou trop éclairée. Variantes : noir/blanc (otsu), inversé (texte blanc).
+   */
   function band(img, y0, y1, scale, mode = 'sharp', x0 = 0, x1 = 1) {
     const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
     const sx = W * x0, sw = W * (x1 - x0), sy = H * y0, sh = H * (y1 - y0);
     const c = document.createElement('canvas');
-    c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
-    const g = c.getContext('2d');
+    c.width = Math.max(1, Math.round(sw * scale)); c.height = Math.max(1, Math.round(sh * scale));
+    const g = c.getContext('2d', { willReadFrequently: true });
     g.imageSmoothingQuality = 'high';
-    g.filter = mode === 'invert' ? 'grayscale(1) invert(1) contrast(1.6)' : 'grayscale(1) contrast(1.6)';
+    g.filter = mode === 'invert' ? 'grayscale(1) invert(1)' : 'grayscale(1)';
     g.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    const d = g.getImageData(0, 0, c.width, c.height), p = d.data, n = p.length / 4;
+    const hist = new Array(256).fill(0);
+    for (let i = 0; i < n; i++) hist[p[i * 4]]++;
+    // niveaux automatiques : 2 % les plus sombres → noir, 2 % les plus clairs → blanc
+    let lo = 0, hi = 255, acc = 0;
+    for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc > n * 0.02) { lo = i; break; } }
+    acc = 0;
+    for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc > n * 0.02) { hi = i; break; } }
+    const span = Math.max(20, hi - lo);
+    const lut = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) {
+      let v = Math.min(1, Math.max(0, (i - lo) / span));
+      v = v < 0.5 ? 2 * v * v : 1 - 2 * (1 - v) * (1 - v); // courbe en S : plus de contraste au milieu
+      lut[i] = Math.round(v * 255);
+    }
     if (mode === 'otsu') {
-      const d = g.getImageData(0, 0, c.width, c.height), p = d.data, n = p.length / 4;
-      const hist = new Array(256).fill(0), gray = new Uint8Array(n);
-      for (let i = 0; i < n; i++) { gray[i] = p[i * 4]; hist[gray[i]]++; }
-      let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+      const h2 = new Array(256).fill(0);
+      for (let i = 0; i < n; i++) h2[lut[p[i * 4]]]++;
+      let sum = 0; for (let i = 0; i < 256; i++) sum += i * h2[i];
       let sumB = 0, wB = 0, best = 0, th = 128;
       for (let i = 0; i < 256; i++) {
-        wB += hist[i]; if (!wB) continue; const wF = n - wB; if (!wF) break;
-        sumB += i * hist[i]; const mB = sumB / wB, mF = (sum - sumB) / wF, v = wB * wF * (mB - mF) ** 2;
+        wB += h2[i]; if (!wB) continue; const wF = n - wB; if (!wF) break;
+        sumB += i * h2[i]; const mB = sumB / wB, mF = (sum - sumB) / wF, v = wB * wF * (mB - mF) ** 2;
         if (v > best) { best = v; th = i; }
       }
-      for (let i = 0; i < n; i++) { const v = gray[i] > th ? 255 : 0; p[i * 4] = p[i * 4 + 1] = p[i * 4 + 2] = v; }
-      g.putImageData(d, 0, 0);
+      for (let i = 0; i < 256; i++) lut[i] = lut[i] > th ? 255 : 0;
     }
+    for (let i = 0; i < n; i++) { const v = lut[p[i * 4]]; p[i * 4] = p[i * 4 + 1] = p[i * 4 + 2] = v; }
+    g.putImageData(d, 0, 0);
     return c;
+  }
+
+  /**
+   * Trouve la carte dans une zone de photo (pochette de classeur) : on cherche le rectangle
+   * au format carte (63 × 88) dont les bords sont les plus nets. Gère les marges entre pochettes
+   * et les cartes un peu décalées. Renvoie { x, y, w, h } en pixels de l'image, ou null.
+   */
+  function locateCard(img, rect) {
+    const R = 63 / 88;
+    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+    // on cherche un peu au-delà de la case, au cas où la grille n'est pas parfaitement posée
+    const mx = rect.w * 0.08, my = rect.h * 0.08;
+    const ax = Math.max(0, rect.x - mx), ay = Math.max(0, rect.y - my);
+    const aw = Math.min(W - ax, rect.w + 2 * mx), ah = Math.min(H - ay, rect.h + 2 * my);
+    const S = 160 / aw; // travail sur une petite image
+    const cw = Math.max(20, Math.round(aw * S)), ch = Math.max(20, Math.round(ah * S));
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.filter = 'grayscale(1) blur(0.6px)';
+    g.drawImage(img, ax, ay, aw, ah, 0, 0, cw, ch);
+    const p = g.getImageData(0, 0, cw, ch).data;
+    const gray = new Float32Array(cw * ch);
+    for (let i = 0; i < gray.length; i++) gray[i] = p[i * 4];
+    // bords horizontaux (haut/bas) et verticaux (gauche/droite)
+    const eh = new Float32Array(cw * ch), ev = new Float32Array(cw * ch);
+    for (let y = 1; y < ch - 1; y++) for (let x = 1; x < cw - 1; x++) {
+      const i = y * cw + x;
+      eh[i] = Math.abs(gray[i + cw] - gray[i - cw]);
+      ev[i] = Math.abs(gray[i + 1] - gray[i - 1]);
+    }
+    // sommes cumulées par ligne (pour eh) et par colonne (pour ev) → somme d'un segment en O(1)
+    const rowC = new Float32Array((cw + 1) * ch), colC = new Float32Array((ch + 1) * cw);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) rowC[y * (cw + 1) + x + 1] = rowC[y * (cw + 1) + x] + eh[y * cw + x];
+    for (let x = 0; x < cw; x++) for (let y = 0; y < ch; y++) colC[x * (ch + 1) + y + 1] = colC[x * (ch + 1) + y] + ev[y * cw + x];
+    const rowSum = (y, x0, x1) => { let best = 0; for (let d = -1; d <= 1; d++) { const yy = y + d; if (yy < 0 || yy >= ch) continue; const v = rowC[yy * (cw + 1) + x1] - rowC[yy * (cw + 1) + x0]; if (v > best) best = v; } return best; };
+    const colSum = (x, y0, y1) => { let best = 0; for (let d = -1; d <= 1; d++) { const xx = x + d; if (xx < 0 || xx >= cw) continue; const v = colC[xx * (ch + 1) + y1] - colC[xx * (ch + 1) + y0]; if (v > best) best = v; } return best; };
+    const cellW = rect.w * S, cellH = rect.h * S;
+    const maxW = Math.min(cw - 2, (ch - 2) * R, Math.max(cellW, cellH * R) * 1.05);
+    const minW = Math.min(cellW, cellH * R) * 0.6;
+    let best = null;
+    for (let w = Math.floor(maxW); w >= minW; w -= 1.5) {
+      const h = w / R;
+      for (let y = 1; y + h < ch - 1; y += 1.5) {
+        const yi = Math.round(y), yb = Math.round(y + h);
+        for (let x = 1; x + w < cw - 1; x += 1.5) {
+          const xi = Math.round(x), xr = Math.round(x + w);
+          // moyenne de netteté sur les 4 côtés ; on pénalise un côté beaucoup plus faible que les autres
+          const t = rowSum(yi, xi, xr) / w, b = rowSum(yb, xi, xr) / w, l = colSum(xi, yi, yb) / h, r = colSum(xr, yi, yb) / h;
+          const score = (t + b + l + r) / 4 + Math.min(t, b, l, r) * 0.8;
+          if (!best || score > best.score) best = { score, x, y, w, h };
+        }
+      }
+    }
+    if (!best) return null;
+    // la carte doit ressortir nettement par rapport au reste de la zone
+    let mean = 0; for (let i = 0; i < eh.length; i++) mean += eh[i] + ev[i]; mean /= eh.length * 2;
+    if (best.score < mean * 2.2) return null;
+    return { x: ax + best.x / S, y: ay + best.y / S, w: best.w / S, h: best.h / S, score: best.score / (mean || 1) };
   }
 
   const loadImg = (blob) => new Promise((res, rej) => {
@@ -156,9 +233,18 @@ App.recognizer = (() => {
   /** Classe des candidates : ressemblance du nom, numéro, puis comparaison visuelle avec la photo */
   async function rank(list, num, lines, mine, { cap = 30, visualWeight = 1.5, needName = false } = {}) {
     const text = norm(lines.slice(0, 8).join(' '));
+    const ocrWords = [...new Set(text.split(' ').filter((w) => w.length >= 4))];
+    // ressemblance mot à mot : « Nictini » ↔ « Victini », « Dracaufeu » ↔ « Dracaufeu-ex »
+    const wordScore = (name) => {
+      let best = 0;
+      for (const t of norm(name).split(' ').filter((x) => x.length >= 3)) {
+        for (const w of ocrWords) { const v = similarity(w, t) * (t.length >= 5 ? 1 : 0.8); if (v > best) best = v; }
+      }
+      return best;
+    };
     const uniq = new Map();
     for (const c of list) if (!uniq.has(c.id)) {
-      const nameScore = Math.max(0, ...lines.slice(0, 8).map((l) => similarity(l, c.name)), text.includes(norm(c.name)) ? 1 : 0);
+      const nameScore = Math.max(0, ...lines.slice(0, 8).map((l) => similarity(l, c.name)), text.includes(norm(c.name)) ? 1 : 0, wordScore(c.name));
       const numOk = !!num && parseInt(c.localId, 10) === num.n;
       const ofOk = !!num && !!(c.set && c.set.cardCount) && c.set.cardCount.official === num.of;
       if (needName && !numOk && nameScore < 0.35) continue;
@@ -223,18 +309,25 @@ App.recognizer = (() => {
   /** Texte court « ce qui a été lu » */
   const readSummary = (info) => [info.num ? `n° ${info.num.raw}/${info.num.of}` : 'numéro illisible', info.words.length ? `« ${info.words.slice(0, 3).join(', ')} »` : ''].filter(Boolean).join(' · ');
 
-  /** Ajoute une carte scannée à la collection, avec sa photo comme visuel */
-  async function addScanned(c, blob) {
-    const set = c.set ? { id: c.set.id, name: c.set.name, symbol: c.set.symbol, logo: c.set.logo, official: c.set.cardCount && c.set.cardCount.official, group: c.set.serie || { id: c.serieId } } : null;
+  /**
+   * Ajoute une carte scannée à la collection.
+   * mode : 'nouvelle' (carte pas encore possédée), 'doublon' (+1 exemplaire, la photo s'ajoute),
+   *        'photo' (même carte : sa photo devient le visuel, sans changer la quantité), 'rien'.
+   */
+  async function addScanned(c, blob, mode = null) {
     const before = App.col.get(game, c.id);
-    await App.col.add(game, { ...c, serieId: c.serieId || (c.set && c.set.serie ? c.set.serie.id : '') }, set);
+    if (!mode) mode = before && before.qty > 0 ? 'photo' : 'nouvelle';
     const key = App.col.keyOf(game, c.id);
-    // la photo du scan devient le visuel (pour un exemplaire de plus, elle s'ajoute à tes photos)
+    if (mode === 'rien') return key;
+    if (mode === 'photo' && before) { await App.col.addPhoto(key, blob, { makeDisplay: true }); return key; }
+    const set = c.set ? { id: c.set.id, name: c.set.name, symbol: c.set.symbol, logo: c.set.logo, official: c.set.cardCount && c.set.cardCount.official, group: c.set.serie || { id: c.serieId } } : null;
+    await App.col.add(game, { ...c, serieId: c.serieId || (c.set && c.set.serie ? c.set.serie.id : '') }, set);
+    // nouvelle carte : la photo devient son visuel ; doublon : la photo s'ajoute à ses photos
     await App.col.addPhoto(key, blob, { makeDisplay: !before || !before.displayPhoto });
     return key;
   }
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { recognize, manual, readSummary, addScanned, looksEmpty, stop, RATIO: 63 / 88 };
+  return { recognize, manual, readSummary, addScanned, looksEmpty, locateCard, stop, RATIO: 63 / 88 };
 })();

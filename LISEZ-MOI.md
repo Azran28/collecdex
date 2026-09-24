@@ -15,13 +15,18 @@ Il faut une connexion internet : les cartes, images et prix sont téléchargés 
 - **Séries** : toutes les séries Pokémon en français. Pour chacune, tu vois `possédées/total`, le pourcentage, les raretés, la progression par rareté, et un badge 🏆 quand elle est complète.
 - **Dans une série** : toutes les cartes sont affichées ; celles que tu n'as pas sont grisées (ou affichées en « numéro seul », au choix dans les Paramètres). Clique sur une carte pour ouvrir sa fiche (prix, note, photos, quantité, versions). Les filtres permettent d'afficher les cartes possédées ou manquantes, par rareté, et de trier par rareté, prix ou note.
 - **Ajouter une carte = la scanner.** C'est la seule façon d'ajouter une carte (ou un exemplaire de plus) : la photo prouve que tu l'as, et elle devient le visuel de la carte dans ta collection. Depuis la fiche d'une carte manquante, le bouton « Scanner cette carte » ouvre le scanner directement.
+- **Même carte scannée plusieurs fois** : ta progression compte chaque carte **une seule fois**. Si tu scannes une carte que tu as déjà, le site te demande si c'est la même carte (sa photo est mise à jour) ou un autre exemplaire (compté comme **doublon**, utile plus tard pour les échanges). Sur une page de classeur, une carte déjà possédée ne change rien par défaut, et deux pochettes avec la même carte comptent pour 2 exemplaires.
 - **Taux de drop** : affichés quand une étude sérieuse existe, avec la source (pour l'instant : 151 et Flammes Fantasmagoriques).
 - **Ma collection** : toutes tes cartes au même endroit, filtrables et triables, avec un export Excel (CSV).
 - **Vitrine** : ton profil de collectionneur. Clique sur « Personnaliser » pour changer le thème, les cadres, la mise en page et les cartes à l'honneur.
 - **Scanner** : prends la carte en photo (webcam ou fichier), ajuste le cadre jaune autour de la carte, valide. Le site lit le numéro (ex. `025/165`) et le nom, compare ta photo aux visuels officiels, puis te propose la carte ; tu confirmes et c'est ajouté. Astuce : carte bien à plat, bien éclairée, sans reflet sur le numéro en bas.
-- **Scanner une page de classeur** : onglet « ▦ Page de classeur » du Scanner. Prends une page entière en photo (9 pochettes par défaut, ou 4 / 12), ajuste la grille jaune sur les pochettes, lance la reconnaissance. Chaque carte est marquée « Reconnue ✓ » ou « À vérifier » : vérifie, corrige si besoin avec la liste ou « Chercher une autre carte », puis ajoute tout d'un coup. Compte environ 10 secondes par carte. Utilise plutôt l'appareil photo d'un téléphone, plus net qu'une webcam.
+- **Scanner une page de classeur** : onglet « ▦ Page de classeur » du Scanner. Prends une page entière en photo (9 pochettes par défaut, ou 4 / 12), ajuste la grille jaune sur les pochettes, lance la reconnaissance. Chaque carte est marquée « Reconnue ✓ » ou « À vérifier » : vérifie, corrige si besoin avec la liste ou « Chercher une autre carte », puis ajoute tout d'un coup. Le site repère tout seul les bords de chaque carte dans sa pochette (marges, carte décalée) et corrige l'éclairage. Compte 5 à 15 secondes par carte. Utilise plutôt l'appareil photo d'un téléphone, plus net qu'une webcam.
 - **Page des séries** : trie par date (récentes ou anciennes), nom, progression, nombre de cartes possédées, séries presque complètes ou taille ; filtre par bloc, par année, par état ; masque les promos.
 - **Paramètres** : langue, façon de compter la complétion, **sauvegarde / restauration**.
+
+## Le site en ligne
+
+Le site est aussi en ligne : **https://azran28.github.io/collecdex/** (PC, téléphone, tablette). Connecte-toi avec ton compte (menu « Compte ») : ta collection, tes photos et ta vitrine sont synchronisées entre tous tes appareils. Les mises à jour du site en ligne sont automatiques : recharge simplement la page.
 
 ## Quand je t'envoie une mise à jour
 

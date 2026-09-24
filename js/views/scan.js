@@ -207,13 +207,31 @@ App.views.scan = {
           </div>`;
         }).join('')}`;
       results.onclick = async (e) => {
-        const b = e.target.closest('[data-pick]'); if (!b || !cardBlob) return;
-        b.disabled = true;
-        const c = cands.find((x) => x.id === b.dataset.pick);
-        const key = await R.addScanned(c, cardBlob);
+        if (!cardBlob) return;
+        const dm = e.target.closest('[data-dupmode]');
+        const b = e.target.closest('[data-pick]');
+        if (!dm && !b) return;
+        const c = cands.find((x) => x.id === (dm ? dm.dataset.card : b.dataset.pick));
+        const before = App.col.get(game, c.id);
+        // carte déjà possédée : on demande s'il s'agit de la même carte ou d'un autre exemplaire
+        if (b && before && before.qty > 0) {
+          results.innerHTML = `<div class="panel"><b>Tu as déjà ${esc(c.name)}</b> (×${before.qty}). Cette carte, c’est…
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary" data-dupmode="photo" data-card="${esc(c.id)}">La même carte : utiliser cette photo</button>
+              <button class="btn" data-dupmode="doublon" data-card="${esc(c.id)}">Un autre exemplaire (doublon)</button>
+              <button class="btn ghost" data-dupmode="annuler" data-card="${esc(c.id)}">Annuler</button>
+            </div>
+            <p class="small muted" style="margin-bottom:0">Ta progression compte chaque carte une seule fois. Les doublons sont gardés à part (utiles plus tard pour les échanges).</p></div>`;
+          return;
+        }
+        if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }
+        (dm || b).disabled = true;
+        const mode = dm ? dm.dataset.dupmode : null;
+        const key = await R.addScanned(c, cardBlob, mode);
         App.col.refreshPrices([key], 'Prix');
         const it = App.col.byKey(key);
-        results.innerHTML = `<div class="panel"><b>✓ ${esc(c.name)}</b> ajoutée à ta collection${it.qty > 1 ? ` (×${it.qty})` : ''}, avec ta photo.<br><br>
+        const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ta collection, avec ta photo.`;
+        results.innerHTML = `<div class="panel">${what}<br><br>
           <div class="row"><button class="btn primary" id="sc-again">📷 Scanner la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
@@ -369,19 +387,27 @@ App.views.scan = {
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
     });
 
-    /** Découpe la pochette n° i au format carte (la carte est centrée dans sa pochette) */
+    /**
+     * Découpe la pochette n° i : on cherche les bords de la carte dans la case
+     * (marges entre pochettes, carte décalée…) ; si on ne les trouve pas, on prend le centre de la case.
+     */
     function cellBlob(i) {
       const [cols, rows] = dims();
       const img = photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
       const gx = grid.x * NW, gy = grid.y * NH, cw = grid.w * NW / cols, ch = grid.h * NH / rows;
       const col = i % cols, row = Math.floor(i / cols);
-      let w, h;
-      if (cw / ch > RATIO) { h = ch * 0.97; w = h * RATIO; } else { w = cw * 0.97; h = w / RATIO; }
-      const sx = gx + col * cw + (cw - w) / 2, sy = gy + row * ch + (ch - h) / 2;
-      const outW = Math.min(900, Math.round(w)), outH = Math.round(outW / RATIO);
+      const rect = { x: gx + col * cw, y: gy + row * ch, w: cw, h: ch };
+      let box = null;
+      try { box = R.locateCard(img, rect); } catch (e) { console.warn(e); }
+      if (!box) {
+        let w, h;
+        if (cw / ch > RATIO) { h = ch * 0.94; w = h * RATIO; } else { w = cw * 0.94; h = w / RATIO; }
+        box = { x: rect.x + (cw - w) / 2, y: rect.y + (ch - h) / 2, w, h, auto: false };
+      } else box.auto = true;
+      const outW = Math.min(900, Math.round(box.w)), outH = Math.round(outW / RATIO);
       const c = document.createElement('canvas'); c.width = outW; c.height = outH;
-      c.getContext('2d').drawImage(img, sx, sy, w, h, 0, 0, outW, outH);
-      return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+      c.getContext('2d').drawImage(img, box.x, box.y, box.w, box.h, 0, 0, outW, outH);
+      return new Promise((res) => c.toBlob((b) => res({ blob: b, auto: box.auto }), 'image/jpeg', 0.9));
     }
 
     // ---------- Reconnaissance de toutes les pochettes ----------
@@ -392,9 +418,9 @@ App.views.scan = {
       const [cols, rows] = dims(), n = cols * rows;
       cells = [];
       for (let i = 0; i < n; i++) {
-        const blob = await cellBlob(i);
+        const { blob, auto } = await cellBlob(i);
         const url = URL.createObjectURL(blob); urls.push(url);
-        cells.push({ i, blob, url, state: 'attente', cands: [], choice: '', info: null });
+        cells.push({ i, blob, url, auto, state: 'attente', cands: [], choice: '', info: null, mode: null });
       }
       drawResults();
       for (const cell of cells) {
@@ -423,17 +449,30 @@ App.views.scan = {
       sure: ['Reconnue ✓', 'ok'], verifier: ['À vérifier', 'warn'], inconnue: ['Non reconnue', 'bad'], erreur: ['Erreur', 'bad'],
     };
 
+    /** Que faire de la carte de cette pochette ? (si l'utilisateur n'a pas choisi lui-même) */
+    function modeOf(c) {
+      if (!c.choice) return 'rien';
+      if (c.mode) return c.mode;
+      const owned = !!App.col.get(game, c.choice);
+      const earlier = cells.some((o) => o.i < c.i && o.choice === c.choice);
+      if (earlier) return 'doublon';          // 2 pochettes = 2 exemplaires physiques
+      return owned ? 'rien' : 'nouvelle';     // déjà possédée : on ne compte qu'un exemplaire, sauf choix contraire
+    }
+    const modeLabels = { nouvelle: 'Nouvelle carte', rien: 'Déjà possédée : ne rien changer', photo: 'Même carte : utiliser cette photo', doublon: 'Autre exemplaire (doublon)' };
+
     function drawResults() {
       const [cols] = dims();
-      const chosen = cells.filter((c) => c.choice);
+      const chosen = cells.filter((c) => c.choice && modeOf(c) !== 'rien');
       resultsEl.innerHTML = `
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Résultat de la page</h3><span class="spacer"></span>
-          ${!running && cells.length ? `<span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à ajouter</span>` : ''}</div>
+          ${!running && cells.length ? `<span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
         <div class="btiles" style="grid-template-columns:repeat(${cols}, minmax(0, 1fr))">
           ${cells.map((c) => {
             const [lab, cls] = stateLabel[c.state];
             const cur = c.cands.find((x) => x.id === c.choice);
             const own = cur && App.col.get(game, cur.id);
+            const repeat = cur && cells.some((o) => o.i < c.i && o.choice === c.choice);
+            const m = modeOf(c);
             return `<div class="btile ${c.state === 'vide' && !c.choice ? 'dim' : ''}" data-i="${c.i}">
               <div class="bimgs">
                 <img src="${c.url}" alt="Ta carte ${c.i + 1}">
@@ -445,7 +484,11 @@ App.views.scan = {
                   <option value="">— Ne pas ajouter —</option>
                   ${c.cands.map((x) => `<option value="${esc(x.id)}" ${x.id === c.choice ? 'selected' : ''}>${esc(x.name)} · ${esc(x.set ? x.set.name : x.setId)} · ${esc(x.localId)}</option>`).join('')}
                 </select>
-                ${own ? `<div class="small muted">Déjà ×${own.qty} : ce sera un exemplaire de plus</div>` : ''}
+                ${own || repeat ? `<select data-mode="${c.i}" title="Carte déjà possédée ou en double">
+                    ${(own ? ['rien', 'photo', 'doublon'] : ['doublon', 'rien']).map((k) => `<option value="${k}" ${k === m ? 'selected' : ''}>${k === 'doublon' && repeat && !own ? '2e exemplaire sur la page (doublon)' : k === 'rien' && !own ? 'Ne pas la compter' : modeLabels[k]}</option>`).join('')}
+                  </select>
+                  ${own ? `<div class="small muted">Tu l’as déjà (×${own.qty})</div>` : ''}` : ''}
+                ${c.auto === false ? '<div class="small muted">Bords non détectés : centre de la case utilisé</div>' : ''}
                 <button class="btn sm ghost" data-find="${c.i}">🔎 Chercher une autre carte</button>
                 <div class="bsearch hidden" data-box="${c.i}">
                   <input type="text" placeholder="Nom" data-name="${c.i}">
@@ -456,13 +499,16 @@ App.views.scan = {
           }).join('')}
         </div>
         ${!running && cells.length ? `<div class="row" style="margin-top:16px">
-          <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Ajouter les ${chosen.length} carte${chosen.length > 1 ? 's' : ''} à ma collection</button>
+          <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans ma collection</button>
         </div>` : ''}`;
     }
 
     resultsEl.addEventListener('change', (e) => {
+      const md = e.target.closest('[data-mode]');
+      if (md) { cells[+md.dataset.mode].mode = md.value; drawResults(); return; }
       const s = e.target.closest('[data-choice]'); if (!s) return;
-      cells[+s.dataset.choice].choice = s.value;
+      const cell = cells[+s.dataset.choice];
+      cell.choice = s.value; cell.mode = null;
       drawResults();
     });
     resultsEl.addEventListener('keydown', (e) => {
@@ -484,16 +530,16 @@ App.views.scan = {
         return;
       }
       if (e.target.closest('#b-add')) {
-        const todo = cells.filter((c) => c.choice);
+        const todo = cells.filter((c) => c.choice && modeOf(c) !== 'rien').map((c) => ({ c, mode: modeOf(c) }));
         e.target.disabled = true;
         const keys = [];
-        for (const c of todo) {
+        for (const { c, mode } of todo) {
           const cand = c.cands.find((x) => x.id === c.choice);
-          if (cand) keys.push(await R.addScanned(cand, c.blob));
+          if (cand) keys.push(await R.addScanned(cand, c.blob, mode === 'nouvelle' ? null : mode));
         }
         App.col.refreshPrices([...new Set(keys)], 'Prix');
-        const names = todo.map((c) => c.cands.find((x) => x.id === c.choice)).filter(Boolean);
-        resultsEl.innerHTML = `<div class="panel"><b>✓ ${keys.length} carte${keys.length > 1 ? 's' : ''} ajoutée${keys.length > 1 ? 's' : ''}</b> à ta collection, chacune avec sa photo.
+        const names = todo.map(({ c }) => c.cands.find((x) => x.id === c.choice)).filter(Boolean);
+        resultsEl.innerHTML = `<div class="panel"><b>✓ ${keys.length} carte${keys.length > 1 ? 's' : ''} enregistrée${keys.length > 1 ? 's' : ''}</b> dans ta collection, chacune avec sa photo.
           <div class="small muted" style="margin:8px 0">${names.map((x) => esc(x.name)).join(' · ')}</div>
           <div class="row"><button class="btn primary" id="b-next">▦ Scanner la page suivante</button><a class="btn" href="#/collection">Voir ma collection</a></div></div>`;
         cells = [];
