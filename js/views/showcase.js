@@ -56,7 +56,7 @@ App.views.showcase = {
       if (!alive()) return;
 
       el.innerHTML = `
-        <div class="row" style="margin-bottom:14px"><h1>Ma vitrine</h1><span class="spacer"></span>
+        <div class="row v-top" style="margin-bottom:14px"><h1>Ma vitrine</h1><span class="spacer"></span>
           ${editing ? '' : `<button class="btn" id="v-pickcards">${App.icons.icon('star', 15)} Mes cartes à l’honneur</button>`}
           <button class="btn ${editing ? 'primary' : ''}" id="v-edit">${editing ? '✓ Terminer' : '✎ Personnaliser'}</button></div>
         <section class="vitrine theme-${esc(profile.theme)}" id="v-page">

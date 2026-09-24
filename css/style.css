@@ -621,3 +621,67 @@ a.chip { text-decoration: none; }
 .badge-medal.new .bm-txt b::after { content: " NOUVEAU"; font-family: var(--font); font-size: .6rem; font-weight: 800; color: #ffd23f; letter-spacing: .04em; }
 .pick-list .pk[hidden] { display: none; }
 .small > svg.ic, p > svg.ic, span > svg.ic, a > svg.ic { display: inline-block; vertical-align: -2px; }
+
+/* ===== Passe responsive (vitrine, Mon Dex, filtres) ===== */
+.toast { max-width: min(92vw, 420px); }
+@media (max-width: 760px) {
+  .toast { bottom: calc(86px + env(safe-area-inset-bottom)) !important; font-size: .85rem; }
+  /* filtres en une ligne qui défile */
+  .toolbar .chips, #st-rfilter { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .toolbar .chips::-webkit-scrollbar, #st-rfilter::-webkit-scrollbar { display: none; }
+  .toolbar .chips .chip, #st-rfilter .chip { flex-shrink: 0; }
+  /* vitrine */
+  .v-top { flex-wrap: wrap; gap: 8px; }
+  .v-top h1 { width: 100%; margin: 0; }
+  .v-top .spacer { display: none; }
+  .v-top .btn { font-size: .8rem; padding: 6px 10px; }
+  .badge-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .badge-medal { flex-direction: column; text-align: center; padding: 10px 8px; gap: 6px; }
+  .badge-medal .bm-disc { width: 38px; height: 38px; }
+  .badge-medal .bm-txt b { font-size: .8rem; }
+  .badge-medal .bm-txt span { font-size: .66rem; }
+  .v-achievements .row { flex-wrap: wrap; gap: 4px 8px; }
+  .vitrine { padding: 14px !important; }
+  .v-head { gap: 12px; }
+  .v-name { font-size: 1.3rem; }
+  .edit-panel .grid-auto { grid-template-columns: 1fr !important; }
+  .pick-list { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)) !important; }
+}
+@media (max-width: 760px) { .badge-medal.new .bm-txt b::after { content: "NOUVEAU"; display: block; margin-top: 2px; } }
+.ctile .cinfo { gap: 4px; }
+.ctile .cnum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ctile .price { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 760px) {
+  .hero .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hero .row .btn { justify-content: center; }
+  .hero .row .btn.primary { grid-column: 1 / -1; }
+  .licences { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .licences .game-tile:not(.soon) { grid-column: 1 / -1; }
+  .licences .game-tile.soon { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px; position: relative; }
+  .licences .game-tile.soon .gicon { width: 36px; height: 36px; border-radius: 10px; }
+  .licences .game-tile.soon .gicon svg { width: 20px; height: 20px; }
+  .licences .game-tile.soon h3 { font-size: .88rem; }
+  .licences .game-tile.soon .gtxt .small { font-size: .7rem; }
+  .licences .game-tile.soon .tag { position: absolute; top: 8px; right: 8px; font-size: .62rem; }
+}
+@media (max-width: 760px) {
+  #s-list .grid-auto, #h-inprogress .grid-auto { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .set-card { padding: 9px; gap: 5px; border-radius: 14px; min-width: 0; }
+  .set-card .logo-wrap { height: 52px; padding: 4px; }
+  .set-card .logo-wrap img { max-height: 44px; }
+  .set-card .logo-gen { font-size: .7rem; padding: 5px 8px; gap: 4px; }
+  .set-card .logo-gen svg { width: 13px; height: 13px; }
+  .set-card .set-title { gap: 5px; min-width: 0; }
+  .set-card .set-title b { font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .set-card .set-title img { height: 14px; }
+  .set-card .count { font-size: 1rem; }
+  .set-card .rarity-list { display: none; }
+  .set-card .set-sub { font-size: .66rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .set-card .badge-complete { font-size: .6rem; padding: 2px 6px; }
+  #s-f { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  #s-f .chip { flex-shrink: 0; }
+}
+@media (max-width: 760px) {
+  .mainnav a.nav-scan:hover, .mainnav a.nav-scan.active { color: #fff !important; filter: none; }
+  .scan-view:not(:has(video)):not(:has(img)) { aspect-ratio: 4 / 3; }
+}

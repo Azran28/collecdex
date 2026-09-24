@@ -10,9 +10,9 @@ App.views.collection = {
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Mon Dex</div>
       <div class="row"><h1>Mon Dex</h1><span class="spacer"></span>
-        <button class="btn sm" id="c-select">☑ Sélectionner</button>
-        <button class="btn sm" id="c-prices">↻ Actualiser les prix</button>
-        <button class="btn sm" id="c-csv">⬇ Exporter (CSV)</button>
+        <button class="btn sm" id="c-select" title="Sélectionner des cartes (pour les supprimer)">☑ Sélectionner</button>
+        <button class="btn sm" id="c-prices" title="Actualiser les prix">↻ Prix</button>
+        <button class="btn sm" id="c-csv" title="Exporter en tableur (CSV)">⬇ CSV</button>
       </div>
       <div class="stats" id="c-stats"></div>
       <div class="toolbar">
@@ -32,6 +32,7 @@ App.views.collection = {
           ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['photos', 'Mes photos'], ['certifiees', 'Certifiées'], ['doublons', 'Doublons']].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
         </div>
       </div>
+      <div class="muted small" id="c-count" style="margin:-6px 0 10px"></div>
       <div class="selbar hidden" id="c-selbar">
         <b id="c-selcount">0 carte sélectionnée</b>
         <button class="btn sm ghost" id="c-selall">Tout sélectionner</button>
@@ -88,7 +89,8 @@ App.views.collection = {
         <div class="stat"><b>${all.reduce((s, i) => s + i.qty, 0)}</b><span>exemplaires</span></div>
         <div class="stat"><b>${euro(total)}</b><span>valeur totale estimée</span></div>
         <div class="stat"><b>${all.filter((i) => App.certify.isCertified(i)).length}</b><span>certifiées</span></div>
-        ${items.length !== all.length ? `<div class="stat"><b>${items.length}</b><span>affichées · ${euro(shownVal)}</span></div>` : ''}`;
+        `;
+      el.querySelector('#c-count').textContent = items.length !== all.length ? `${items.length} carte${items.length > 1 ? 's' : ''} affichée${items.length > 1 ? 's' : ''} · ${euro(shownVal)}` : '';
       grid.innerHTML = items.length
         ? items.map((it) => App.ui.cardTile(snapCard(it), { game: it.game, item: it, showSet: true, quickAdd: false })).join('')
         : `<div class="empty panel" style="grid-column:1/-1">${all.length ? 'Aucune carte ne correspond à ces filtres.' : 'Ton Dex est vide. <a href="#/scan">Capture une carte</a> pour commencer.'}</div>`;
