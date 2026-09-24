@@ -183,7 +183,11 @@ App.recognizer = (() => {
     const lines = [...toLines(top), ...toLines(full).slice(0, 6)];
     const stop = new Set(['base', 'niveau', 'stade', 'pokemon', 'pv', 'hp', 'evolue', 'illus', 'faiblesse', 'resistance', 'retraite', 'talent', 'dresseur', 'supporter', 'objet', 'energie', 'nintendo', 'creatures', 'game', 'freak', 'the', 'and', 'souris', 'pass']);
     const words = [...new Set(lines.join(' ').split(/[^a-zA-ZÀ-ÿ\-]+/).filter((w) => w.length >= 4 && !stop.has(norm(w))))];
-    return { num: ranked[0] || null, alt: ranked.slice(1, 3), lines, words };
+    // année du copyright en bas de carte (« ©1999 Wizards », « ©2016 Pokémon ») : départage une carte et sa réimpression
+    const years = new Set();
+    for (const m of (bottom + '\n' + full).matchAll(/(?:^|[^\d])((?:19|20)\d\d)(?!\d)/g)) { const y = +m[1]; if (y >= 1995 && y <= new Date().getFullYear() + 1) years.add(y); }
+    const wizards = /wizard/i.test(bottom + ' ' + full);
+    return { num: ranked[0] || null, alt: ranked.slice(1, 3), lines, words, years: [...years], wizards, raw: { bottom, full } };
   }
 
   /** Petite empreinte en niveaux de gris (24×33) pour comparer deux images de carte */
@@ -253,6 +257,36 @@ App.recognizer = (() => {
     for (const v of variants) { let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * ref[i]; s /= v.length; if (s > best) best = s; }
     return best;
   }
+  /**
+   * Certains visuels « officiels » (surtout les anciennes cartes françaises) sont des photos de la carte
+   * posée sur un fond sombre. On repère ce fond (bords uniformes et sombres) et on ne garde que la carte.
+   */
+  function trimBackground(bmp) {
+    const W = 120, H = Math.max(40, Math.round(120 * bmp.height / bmp.width));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, W, H);
+    const p = g.getImageData(0, 0, W, H).data, lum = (x, y) => { const i = (y * W + x) * 4; return 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]; };
+    // fond : moyenne des 3 % de bord
+    let sum = 0, n = 0; const m = Math.max(2, Math.round(W * 0.03));
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x < m || x >= W - m || y < m || y >= H - m) { sum += lum(x, y); n++; }
+    const bg = sum / n;
+    if (bg > 70) return bmp; // pas de fond sombre : visuel bord à bord
+    const th = bg + 45;
+    const rowIn = (y) => { let k = 0; for (let x = 0; x < W; x++) if (lum(x, y) > th) k++; return k > W * 0.25; };
+    const colIn = (x) => { let k = 0; for (let y = 0; y < H; y++) if (lum(x, y) > th) k++; return k > H * 0.25; };
+    let y0 = 0, y1 = H - 1, x0 = 0, x1 = W - 1;
+    while (y0 < H - 1 && !rowIn(y0)) y0++;
+    while (y1 > y0 && !rowIn(y1)) y1--;
+    while (x0 < W - 1 && !colIn(x0)) x0++;
+    while (x1 > x0 && !colIn(x1)) x1--;
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    if (w < W * 0.3 || h < H * 0.3 || (w > W * 0.95 && h > H * 0.95)) return bmp;
+    const k = bmp.width / W;
+    const out = document.createElement('canvas'); out.width = Math.round(w * k); out.height = Math.round(h * k);
+    out.getContext('2d').drawImage(bmp, x0 * k, y0 * k, w * k, h * k, 0, 0, out.width, out.height);
+    return out;
+  }
+
   /** Ressemblance ramenée entre 0 et 1 pour l'affichage et le score */
   const vis01 = (x) => (x == null ? 0 : Math.max(0, Math.min(1, (x - 0.3) / 0.55)));
 
@@ -264,7 +298,7 @@ App.recognizer = (() => {
       officialThumbs.set(src, (async () => {
         let b = await tryUrl(src);
         if (!b && /assets\.tcgdex\.net\/(?!en\/)[a-z-]+\//.test(src)) b = await tryUrl(src.replace(/assets\.tcgdex\.net\/[a-z-]+\//, 'assets.tcgdex.net/en/'));
-        return b ? createImageBitmap(b).then((bmp) => artVec(bmp)).catch(() => null) : null;
+        return b ? createImageBitmap(b).then((bmp) => artVec(trimBackground(bmp))).catch(() => null) : null;
       })());
     }
     return officialThumbs.get(src);
@@ -337,7 +371,7 @@ App.recognizer = (() => {
   }
 
   /** Classe des candidates : ressemblance du nom, numéro, puis comparaison visuelle avec la photo */
-  async function rank(list, num, lines, mine, { cap = 30, visualWeight = 1.5, needName = false } = {}) {
+  async function rank(list, num, lines, mine, { cap = 30, visualWeight = 1.5, needName = false, years = [], wizards = false } = {}) {
     const text = norm(lines.slice(0, 8).join(' '));
     const ocrWords = [...new Set(text.split(' ').filter((w) => w.length >= 4))];
     // ressemblance mot à mot : « Nictini » ↔ « Victini », « Dracaufeu » ↔ « Dracaufeu-ex »
@@ -354,7 +388,10 @@ App.recognizer = (() => {
       const numOk = !!num && parseInt(c.localId, 10) === num.n;
       const ofOk = !!num && !!(c.set && c.set.cardCount) && c.set.cardCount.official === num.of;
       if (needName && !numOk && nameScore < 0.35) continue;
-      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, visual: null, score: nameScore + (numOk ? 0.5 : 0) + (ofOk ? 0.5 : 0) });
+      const yr = c.set && c.set.releaseDate ? parseInt(c.set.releaseDate, 10) : 0;
+      const yearOk = !!yr && (years.includes(yr) || years.includes(yr - 1));
+      const eraOk = wizards && !!yr && yr <= 2003;
+      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, yearOk, visual: null, score: nameScore + (numOk ? 0.5 : 0) + (ofOk ? 0.5 : 0) + (yearOk ? 0.6 : 0) + (eraOk ? 0.4 : 0) });
     }
     let out = [...uniq.values()].sort((a, b) => b.score - a.score).slice(0, cap);
     if (mine && out.length) {
@@ -372,22 +409,27 @@ App.recognizer = (() => {
     return out;
   }
 
-  async function findCandidates({ num, alt = [], words, lines }, blob) {
+  async function findCandidates({ num, alt = [], words, lines, years = [], wizards = false }, blob) {
     const A = ad();
     let byNum = [];
     if (num) byNum = await A.findByNumber(num.n, num.of).catch(() => []);
     for (const a of alt) { if (byNum.length) break; byNum = await A.findByNumber(a.n, a.of).catch(() => []); if (byNum.length) num = a; }
     const mine = blob ? await artVariants(blob).catch(() => null) : null;
-    let out = await rank(byNum, num, lines, mine);
+    let out = await rank(byNum, num, lines, mine, { years, wizards });
     // numéro absent, ou carte trouvée qui ne ressemble pas à la photo → on cherche aussi par le nom
     const weak = !out.length || (mine && (out[0].visual == null || out[0].visual < 0.55));
     if (weak && words.length) {
       status('Recherche par le nom…');
       const byName = await nameSearch(words);
-      out = await rank([...byNum, ...byName], num, lines, mine, { cap: 100, visualWeight: 3, needName: true });
+      out = await rank([...byNum, ...byName], num, lines, mine, { cap: 100, visualWeight: 3, needName: true, years, wizards });
     }
     // « sûre » : bon numéro ET bon total, ou photo très ressemblante
     for (const c of out) c.confident = (c.numOk && c.ofOk && (c.visual == null || c.visual > 0.4)) || (c.visual != null && c.visual >= 0.75 && (c.margin ?? 1) >= 0.06);
+    // réimpression (même nom, autre série) presque aussi ressemblante → on ne peut pas trancher : « À vérifier »
+    if (out[0] && out[0].confident && !(out[0].numOk && out[0].ofOk)) {
+      const twin = out.slice(1).find((c) => norm(c.name) === norm(out[0].name) && c.visual != null && out[0].visual != null && out[0].visual - c.visual < 0.12);
+      if (twin) { out[0].confident = false; out[0].twin = true; }
+    }
     return out.slice(0, 8);
   }
 
@@ -400,7 +442,7 @@ App.recognizer = (() => {
     try {
       const A = ad();
       const set = await A.getSet(setId);
-      const shape = { id: set.id, name: set.name, logo: set.logo, symbol: set.symbol, cardCount: { total: set.total, official: set.official }, serie: set.group };
+      const shape = { id: set.id, name: set.name, logo: set.logo, symbol: set.symbol, releaseDate: set.releaseDate, cardCount: { total: set.total, official: set.official }, serie: set.group };
       const list = set.cards.map((c) => ({ ...c, set: shape }));
       const num = info.num && (!info.num.of || info.num.of === set.official) ? info.num : null;
       const mine = await artVariants(blob).catch(() => null);

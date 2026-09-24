@@ -42,7 +42,7 @@ App.ui = (() => {
             : src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(card.name)}" data-alt="${esc(card.name)}" ${it && it.displayPhoto && App.settings.preferPhotos ? `data-photo="${esc(it.displayPhoto)}"` : ''}>` : `<span class="noimg">${esc(card.name)}</span>`}
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
-          ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto">📷</span>' : ''}
+          ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto" title="Visuel : ta photo (et non l’image officielle)">📷</span>' : ''}
           ${own ? '<span class="ownedmark">✓</span>' : ''}
         </div>
         <div class="cinfo">

@@ -148,7 +148,7 @@
   }
 
   /** Infos de série au format attendu par le scanner */
-  const setShape = (s) => ({ id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, cardCount: { total: s.total, official: s.official }, serie: s.group });
+  const setShape = (s) => ({ id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, releaseDate: s.releaseDate, cardCount: { total: s.total, official: s.official }, serie: s.group });
 
   /**
    * Scanner : retrouve les cartes portant le numéro n dans les séries de `of` cartes numérotées
@@ -185,6 +185,14 @@
     }
   }
 
+  /** Toutes les éditions d'une carte (même nom exact), des plus anciennes aux plus récentes */
+  async function versions(name) {
+    const n = App.util.norm(name);
+    const res = await search({ name });
+    return res.filter((c) => App.util.norm(c.name) === n)
+      .sort((a, b) => ((a.set && a.set.releaseDate) || '').localeCompare((b.set && b.set.releaseDate) || ''));
+  }
+
   /**
    * Extrait un prix lisible d'une carte détaillée.
    * Priorité : Cardmarket (€, tendance) ; sinon TCGplayer ($, prix marché).
@@ -215,7 +223,7 @@
   App.games.register('pokemon', {
     id: 'pokemon',
     name: 'Pokémon',
-    listSets, getSet, getCard, search, findByNumber, price, img, cardmarketUrl,
+    listSets, getSet, getCard, search, versions, findByNumber, price, img, cardmarketUrl,
     rarity: App.pokemonRarity,
     pullRates: (setId) => App.pokemonPullRates[setId] || null,
     source: { name: 'TCGdex', url: 'https://tcgdex.dev' },

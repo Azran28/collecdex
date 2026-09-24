@@ -7,6 +7,19 @@
  * La photo de chaque carte devient son visuel dans ta collection.
  */
 App.views.scan = {
+  /** Remplit un menu déroulant avec toutes les séries, regroupées par bloc (plus récentes d'abord) */
+  fillSetSelect(sel, sets, selected = '') {
+    const { esc } = App.util;
+    const groups = new Map();
+    for (const st of [...sets].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))) {
+      if (!groups.has(st.group.id)) groups.set(st.group.id, { name: st.group.name, sets: [] });
+      groups.get(st.group.id).sets.push(st);
+    }
+    sel.insertAdjacentHTML('beforeend', [...groups.values()].map((g) => `<optgroup label="${esc(g.name)}">${g.sets.map((st) => `<option value="${esc(st.id)}" ${st.id === selected ? 'selected' : ''}>${esc(st.name)}${st.releaseDate ? ' (' + st.releaseDate.slice(0, 4) + ')' : ''}</option>`).join('')}</optgroup>`).join(''));
+  },
+  /** « Set de Base (1999) » */
+  setLabel(c) { return c.set ? `${c.set.name}${c.set.releaseDate ? ' (' + c.set.releaseDate.slice(0, 4) + ')' : ''}` : (c.setId || ''); },
+
   async render(el, params, alive) {
     const mode = params.query.mode === 'classeur' ? 'classeur' : 'carte';
     el.innerHTML = `
@@ -64,6 +77,10 @@ App.views.scan = {
 
     el.innerHTML = `
       <div id="sc-target"></div>
+      <div class="row" style="margin-bottom:12px">
+        <label class="small">Série de la carte <span class="muted">(facultatif, beaucoup plus fiable si tu la connais)</span><br>
+          <select id="sc-set" style="max-width:320px"><option value="">Je ne sais pas : chercher partout</option></select></label>
+      </div>
       <div class="scan-wrap">
         <div>
           <div class="scan-view" id="sc-view"><div class="muted" style="padding:20px;text-align:center">Utilise la caméra ou choisis une photo de ta carte</div></div>
@@ -104,6 +121,10 @@ App.views.scan = {
     const setStatus = (html) => { status.innerHTML = html ? `<div class="panel" style="margin-bottom:14px">${html}</div>` : ''; };
     const spin = (msg) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${esc(msg)}</div>`); };
     const cam = App.views.scan.camera(view, { guide: true });
+    // série choisie : gardée pour les scans suivants (on scanne souvent une série d'affilée)
+    let savedSet = ''; try { savedSet = sessionStorage.getItem('scanSet') || ''; } catch (e) { /* */ }
+    ad.listSets().then((sets) => App.views.scan.fillSetSelect(el.querySelector('#sc-set'), sets, savedSet)).catch(() => {});
+    el.querySelector('#sc-set').addEventListener('change', (e) => { try { sessionStorage.setItem('scanSet', e.target.value); } catch (err) { /* */ } });
 
     // Carte visée (bouton « Scanner cette carte » d'une fiche)
     if (targetId) {
@@ -212,16 +233,26 @@ App.views.scan = {
           return `<div class="cand">
             <img src="${esc(ad.img.card(c, 'low'))}" alt="" data-alt="${esc(c.name)}">
             <div><b>${esc(c.name)}</b> ${ad.rarity.symbol(c.rarity, 12)}<br>
-              <span class="muted small">${esc(c.set ? c.set.name : c.setId)} · n° ${esc(c.localId)}${c.set && c.set.cardCount ? '/' + c.set.cardCount.official : ''}</span>
+              <span class="muted small">${esc(App.views.scan.setLabel(c))} · n° ${esc(c.localId)}${c.set && c.set.cardCount ? '/' + c.set.cardCount.official : ''}</span>
+              ${i === 0 && c.twin ? '<br><span class="pill small" style="background:#7a4a00">Existe aussi dans une autre série : vérifie la série</span>' : ''}
               ${own ? `<br><span class="pill small">Déjà ×${own.qty} — ce sera un exemplaire de plus</span>` : ''}
               ${c.isTarget && !c.notRead ? '<br><span class="pill small" style="background:var(--ok);color:#063">Carte attendue ✓</span>' : ''}
               ${c.notRead ? '<br><span class="pill small" style="background:#7a4a00">Carte attendue, mais pas reconnue sur la photo</span>' : ''}
-              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.visual != null ? `<br><span class="small muted">Ressemblance avec ta photo : ${Math.round(Math.max(0, Math.min(1, (c.visual - 0.3) / 0.55)) * 100)} %</span>` : ''}</div>
+              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.visual != null && (c.visual - 0.3) / 0.55 >= 0.15 ? `<br><span class="small muted">Ressemblance avec ta photo : ${Math.round(Math.min(1, (c.visual - 0.3) / 0.55) * 100)} %</span>` : ''}</div>
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
-        }).join('')}`;
+        }).join('')}
+        ${[...new Set(cands.slice(0, 3).map((c) => c.name))].slice(0, 2).map((n) => `<button class="btn sm" data-versions="${esc(n)}" style="margin:4px 6px 0 0">📚 Toutes les versions de « ${esc(n)} »</button>`).join('')}`;
       results.onclick = async (e) => {
         if (!cardBlob) return;
+        const vb = e.target.closest('[data-versions]');
+        if (vb) {
+          vb.disabled = true; vb.textContent = 'Chargement…';
+          const list = await ad.versions(vb.dataset.versions).catch(() => []);
+          target = null;
+          showCandidates(list, `Toutes les versions de « ${vb.dataset.versions} » (${list.length}) : repère la tienne grâce à l’image, la série et l’année`);
+          return;
+        }
         const dm = e.target.closest('[data-dupmode]');
         const b = e.target.closest('[data-pick]');
         if (!dm && !b) return;
@@ -262,7 +293,10 @@ App.views.scan = {
       results.innerHTML = '';
       spin('Lecture de la carte…');
       try {
-        const { info, cands } = await R.recognize(blob, spin);
+        const setId = el.querySelector('#sc-set').value;
+        let info, cands;
+        if (setId) { info = await R.read(blob, spin); cands = await R.inSet(blob, info, setId, spin); }
+        else ({ info, cands } = await R.recognize(blob, spin));
         if (!alive()) return;
         setStatus('');
         showCandidates(cands, R.readSummary(info));
@@ -339,13 +373,7 @@ App.views.scan = {
 
     // liste des séries pour « Série de la page »
     ad.listSets().then((sets) => {
-      const sel = el.querySelector('#b-set'); if (!sel) return;
-      const groups = new Map();
-      for (const st of [...sets].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))) {
-        if (!groups.has(st.group.id)) groups.set(st.group.id, { name: st.group.name, sets: [] });
-        groups.get(st.group.id).sets.push(st);
-      }
-      sel.insertAdjacentHTML('beforeend', [...groups.values()].map((g) => `<optgroup label="${esc(g.name)}">${g.sets.map((st) => `<option value="${esc(st.id)}">${esc(st.name)}</option>`).join('')}</optgroup>`).join(''));
+      const sel = el.querySelector('#b-set'); if (sel) App.views.scan.fillSetSelect(sel, sets);
     }).catch(() => {});
     el.querySelector('#b-fmt').addEventListener('change', (e) => { fmt = e.target.value; if (photo && !running) drawGrid(); });
     el.querySelector('#b-cam').addEventListener('click', async () => {
@@ -577,8 +605,9 @@ App.views.scan = {
                 <div class="bsearch hidden" data-box="${c.i}"><input type="text" placeholder="Nom" data-name="${c.i}"><input type="text" placeholder="N° ex. 025/165" data-num="${c.i}"><button class="btn sm" data-dosearch="${c.i}">OK</button></div>` : '') : `
                 <select data-choice="${c.i}">
                   <option value="">— Ne pas ajouter —</option>
-                  ${c.cands.map((x) => `<option value="${esc(x.id)}" ${x.id === c.choice ? 'selected' : ''}>${esc(x.name)} · ${esc(x.set ? x.set.name : x.setId)} · ${esc(x.localId)}</option>`).join('')}
+                  ${c.cands.map((x) => `<option value="${esc(x.id)}" ${x.id === c.choice ? 'selected' : ''}>${esc(x.name)} · ${esc(App.views.scan.setLabel(x))} · ${esc(x.localId)}</option>`).join('')}
                 </select>
+                ${cur ? `<button class="btn sm ghost" data-versions="${c.i}">📚 Toutes les versions de « ${esc(cur.name)} »</button>` : ''}
                 ${own || repeat ? `<select data-mode="${c.i}" title="Carte déjà possédée ou en double">
                     ${(own ? ['rien', 'photo', 'doublon'] : ['doublon', 'rien']).map((k) => `<option value="${k}" ${k === m ? 'selected' : ''}>${k === 'doublon' && repeat && !own ? '2e exemplaire sur la page (doublon)' : k === 'rien' && !own ? 'Ne pas la compter' : modeLabels[k]}</option>`).join('')}
                   </select>
@@ -615,6 +644,20 @@ App.views.scan = {
       if (e.target.closest('#b-next')) { el.querySelector('#b-reset').click(); return; }
       if (e.target.closest('#b-all')) { cells.forEach((c) => { if (c.choice && !c.saved) c.checked = true; }); drawResults(); return; }
       if (e.target.closest('#b-none')) { cells.forEach((c) => { c.checked = false; }); drawResults(); return; }
+      const vb = e.target.closest('[data-versions]');
+      if (vb) {
+        const cell = cells[+vb.dataset.versions];
+        const cur = cell.cands.find((x) => x.id === cell.choice);
+        if (!cur) return;
+        vb.disabled = true; vb.textContent = 'Chargement…';
+        const list = await ad.versions(cur.name).catch(() => []);
+        const seen = new Set(list.map((x) => x.id));
+        cell.cands = [...list, ...cell.cands.filter((x) => !seen.has(x.id))];
+        App.util.toast(`${list.length} versions de ${cur.name} dans la liste : choisis la bonne`);
+        drawResults();
+        const s = resultsEl.querySelector(`[data-choice="${cell.i}"]`); if (s) s.focus();
+        return;
+      }
       const f = e.target.closest('[data-find]');
       if (f) { resultsEl.querySelector(`[data-box="${f.dataset.find}"]`).classList.toggle('hidden'); return; }
       const d = e.target.closest('[data-dosearch]');
