@@ -46,20 +46,23 @@ App.views.home = {
       <div id="h-recent">${items.length ? '' : '<div class="empty panel">Ton Dex est vide pour l’instant.<br>Capture ta première carte pour commencer !</div>'}</div>
     `;
 
-    // Derniers ajouts
-    const recent = [...items].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12);
-    if (recent.length) {
-      const r = el.querySelector('#h-recent');
+    // Derniers ajouts (redessinés dès qu'une carte change : photo, visuel, quantité…)
+    const r = el.querySelector('#h-recent');
+    const drawRecent = () => {
+      const recent = App.col.all().filter((i) => i.qty > 0).sort((a, b) => b.addedAt - a.addedAt).slice(0, 12);
+      if (!recent.length) return;
       r.innerHTML = `<div class="cards">${recent.map((it) => App.ui.cardTile({ id: it.id, name: it.snap.name, localId: it.snap.localId, image: it.snap.image, rarity: it.snap.rarity, setId: it.setId, serieId: it.snap.serieId, setName: it.snap.setName }, { game: it.game, item: it, showSet: true, quickAdd: false })).join('')}</div>`;
       App.ui.hydratePhotos(r);
-      r.addEventListener('click', (e) => { const t = e.target.closest('.ctile'); if (t) App.cardModal(t.dataset.game, t.dataset.card); });
-    }
+    };
+    drawRecent();
+    r.addEventListener('click', (e) => { const t = e.target.closest('.ctile'); if (t) App.cardModal(t.dataset.game, t.dataset.card); });
+    const unsub = App.col.on(App.util.debounce(() => { if (alive()) drawRecent(); }, 300));
 
     // Séries en cours + séries complétées
     try {
       const ad = App.games.get('pokemon');
       const sets = await ad.listSets();
-      if (!alive()) return;
+      if (!alive()) return unsub;
       const bySet = {};
       for (const it of items.filter((i) => i.game === 'pokemon')) { bySet[it.setId] = Math.max(bySet[it.setId] || 0, it.addedAt); }
       const started = sets.filter((s) => bySet[s.id]).map((s) => ({ s, p: App.col.progress('pokemon', s), t: bySet[s.id] }));
@@ -71,5 +74,6 @@ App.views.home = {
     } catch (e) {
       el.querySelector('#h-complete b').textContent = '—';
     }
+    return unsub;
   },
 };

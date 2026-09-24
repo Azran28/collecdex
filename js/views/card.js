@@ -19,7 +19,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   const pr = ad.pullRates(setInfo.id);
   const rk = ad.rarity.key(card.rarity);
   const rate = pr && rk && pr.rates[rk];
-  let showOfficial = false;
+  let showOfficial = false, lastPhoto = null;
   // intensité de l'effet holographique selon la rareté (0 = carte ordinaire)
   // les anciennes holos sont notées « Rare » par la source : une carte qui n'existe qu'en holo compte comme holo
   const onlyHolo = card.variants && card.variants.holo && !card.variants.normal;
@@ -86,10 +86,12 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     const it = App.col.get(game, card.id);
     const imgEl = body.querySelector('#cd-img');
     const sw = body.querySelector('#cd-imgswitch');
-    const hasPhoto = it && it.displayPhoto;
-    if (hasPhoto && !showOfficial) imgEl.src = await App.col.photoURL(it.displayPhoto);
+    const hasPhoto = it && it.qty > 0 && it.displayPhoto;
+    showOfficial = !hasPhoto;
+    if (hasPhoto) imgEl.src = await App.col.photoURL(it.displayPhoto);
     else imgEl.src = ad.img.card(base, 'high');
-    sw.innerHTML = hasPhoto ? `<div class="chips"><button class="chip ${showOfficial ? '' : 'on'}" data-img="mine">📷 Ma photo</button><button class="chip ${showOfficial ? 'on' : ''}" data-img="off">Visuel officiel</button></div>` : '';
+    // visuel utilisé partout (Mon Dex, vitrine, séries) : ta photo ou le visuel officiel
+    sw.innerHTML = it && it.qty > 0 && (it.photos || []).length ? `<div class="chips"><button class="chip ${showOfficial ? '' : 'on'}" data-img="mine">${App.icons.icon('camera', 14)} Ma photo</button><button class="chip ${showOfficial ? 'on' : ''}" data-img="off">Visuel officiel</button></div>` : '';
   };
 
   const drawMine = async () => {
@@ -120,7 +122,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt="">${App.certify.photoCertified(p.id) ? `<span class="ph-cert" title="Photo certifiée">${App.icons.icon('shield', 12)}</span>` : ''}<button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button><button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button></div>`).join('')}
         <label class="btn sm" style="height:fit-content">📷 Ajouter une photo<input type="file" accept="image/*" id="cd-file" hidden></label>
       </div>
-      ${it.displayPhoto ? `<button class="btn sm ghost" id="cd-useoff" style="margin-top:8px">Utiliser le visuel officiel par défaut</button>` : ''}
+
       <div class="row" style="margin-top:16px"><span class="muted small">Ajoutée le ${dateFr(it.addedAt)}</span></div>`;
   };
 
@@ -149,7 +151,12 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     const key = App.col.keyOf(game, card.id);
     if (t.closest('#cd-prev') && prevId) return App.cardModal(game, prevId, ctx);
     if (t.closest('#cd-next') && nextId) return App.cardModal(game, nextId, ctx);
-    if (t.closest('[data-img]')) { showOfficial = t.closest('[data-img]').dataset.img === 'off'; return drawImage(); }
+    if (t.closest('[data-img]')) {
+      const it = App.col.byKey(key); if (!it) return;
+      if (t.closest('[data-img]').dataset.img === 'off') { if (it.displayPhoto) lastPhoto = it.displayPhoto; await App.col.update(key, { displayPhoto: null }); }
+      else { const id = (lastPhoto && it.photos.includes(lastPhoto)) ? lastPhoto : it.photos[it.photos.length - 1]; await App.col.update(key, { displayPhoto: id }); }
+      drawImage(); return drawMine();
+    }
     if (t.closest('#cd-minus')) {
       const it = App.col.get(game, card.id);
       if (it.qty === 1 && !confirm('Retirer cette carte de ta collection ?')) return;

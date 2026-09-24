@@ -177,7 +177,9 @@ App.certify = (() => {
     const c = challenges[kind];
     if (c && Date.now() - c.at < 8 * 60 * 1000) return c;
     try {
-      const d = await App.cloud.rpc('cert_start', { p_kind: kind });
+      let d;
+      try { d = await App.cloud.rpc('cert_start', { p_kind: kind }); }
+      catch (e) { if (kind === 'carte') d = await App.cloud.rpc('cert_start'); else throw e; } // serveur sans la mise à jour v2
       challenges[kind] = { id: d.id, challenge: d.challenge, at: Date.now() };
     } catch (e) { console.warn('certification', e); challenges[kind] = null; }
     return challenges[kind];

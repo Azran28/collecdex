@@ -68,6 +68,21 @@ App.views.scan = {
         c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
         return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
       },
+      /**
+       * Vraie photo en pleine résolution (capteur complet, ex. 12 Mpx) quand le navigateur le permet
+       * (Chrome Android) ; sinon, image du flux vidéo. Indispensable pour une page de 9 cartes.
+       */
+      async photo() {
+        const track = stream && stream.getVideoTracks()[0];
+        if (track && window.ImageCapture) {
+          try {
+            const ic = new ImageCapture(track);
+            const b = await ic.takePhoto();
+            if (b && b.size > 50000) return b;
+          } catch (e) { console.warn('Photo pleine résolution impossible, image vidéo utilisée', e); }
+        }
+        return this.capture();
+      },
       stop() { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; } },
       get on() { return !!stream; },
     };
@@ -422,8 +437,11 @@ App.views.scan = {
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}</span>`); }
     });
     el.querySelector('#b-shot').addEventListener('click', async () => {
-      const b = await cam.capture(); if (!b) return;
       el.querySelector('#b-shot').classList.add('hidden');
+      setStatus('<div class="spinner"></div><div style="text-align:center">Photo en haute définition…</div>');
+      const b = await cam.photo();
+      if (!b) { setStatus(''); el.querySelector('#b-shot').classList.remove('hidden'); return; }
+      await new Promise((r) => setTimeout(r, 400)); // le flux reprend après la photo
       let res = null;
       if (App.certify.available()) {
         setStatus('');
