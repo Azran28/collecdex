@@ -59,7 +59,6 @@ App.views.showcase = {
 
       el.innerHTML = `
         <div class="row v-top" style="margin-bottom:14px"><h1>Ma vitrine</h1><span class="spacer"></span>
-          ${editing ? '' : `<button class="btn" id="v-pickcards">${App.icons.icon('star', 15)} Mes cartes à l’honneur</button>`}
           <button class="btn ${editing ? 'primary' : ''}" id="v-edit">${editing ? '✓ Terminer' : '✎ Personnaliser'}</button></div>
         <section class="vitrine theme-${esc(profile.theme)}" id="v-page">
           <div class="v-head">
@@ -76,7 +75,7 @@ App.views.showcase = {
             <div class="stat"><b>${items.filter((i) => App.certify.isCertified(i)).length}</b><span>certifiées</span></div>
           </div>` : ''}
           ${feat.length ? `<div class="v-featured layout-${esc(profile.layout)}" style="--n:${feat.length}">${featHTML}</div>
-            ${auto ? `<p class="small muted" style="text-align:center">Sélection automatique (favorites ou plus chères). <a href="#" id="v-pickcards2">Choisis tes cartes</a>.</p>` : ''}`
+            ${editing ? '' : `<p class="small muted v-pick-link">${auto ? 'Sélection automatique (favorites ou plus chères). ' : ''}<a href="#" id="v-pickcards2">${App.icons.icon('star', 13)} Choisir mes cartes à l’honneur</a></p>`}`
             : '<div class="empty">Ajoute des cartes à ta collection pour remplir ta vitrine.</div>'}
           ${profile.showBadges ? `<div class="v-achievements">
             <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Badges</h2><span class="muted small">${got.length} / ${App.badges.total}</span><span class="spacer"></span>
@@ -88,7 +87,7 @@ App.views.showcase = {
         </section>
         <section class="panel edit-panel" id="v-editor" ${editing ? '' : 'hidden'}></section>`;
 
-      if (editing) drawEditor();
+      if (editing) await drawEditor();
     };
 
     const drawEditor = async () => {
@@ -98,7 +97,14 @@ App.views.showcase = {
       const fp = (list, cur, attr, swatch) => `<div class="frame-picker">${list.map(([k, l]) => `<div class="fp ${k === cur ? 'on' : ''}" data-${attr}="${k}">${swatch(k)}${l}</div>`).join('')}</div>`;
       box.innerHTML = `
         <h2>Personnaliser ma vitrine</h2>
-        <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+        <h3 id="e-picker">Cartes à l’honneur <span class="muted small">(${profile.featured.length}/9 — clique pour ajouter ou retirer, dans l’ordre voulu)</span></h3>
+        ${items.length ? `<div class="row" style="margin-bottom:8px"><input type="search" id="e-pick-q" placeholder="Chercher une carte…" style="flex:1;min-width:0">${profile.featured.length ? '<button class="btn sm ghost" id="e-pick-clear">Tout retirer</button>' : ''}</div>
+          <div class="pick-list">${items.map((it, i) => {
+          const n = profile.featured.indexOf(it.key);
+          return `<div class="pk ${n >= 0 ? 'on' : ''}" data-pick="${esc(it.key)}" data-q="${esc(App.util.norm(it.snap.name + ' ' + (it.snap.setName || '')))}" title="${esc(it.snap.name)}">${n >= 0 ? `<span class="n">${n + 1}</span>` : ''}<img src="${esc(imgs[i].src)}" alt="" loading="lazy" data-alt="${esc(it.snap.name)}"></div>`;
+        }).join('')}</div>` : '<div class="muted">Aucune carte dans ta collection pour l’instant.</div>'}
+        ${profile.featured.length ? `<h3 style="margin-top:18px">Cadre par carte</h3><div class="row">${profile.featured.map((k) => { const it = App.col.byKey(k); if (!it) return ''; return `<label class="pill">${esc(it.snap.name)} <select data-cframe="${esc(k)}"><option value="">(cadre par défaut)</option>${V.FRAMES.map(([f, l]) => `<option value="${f}" ${profile.frames[k] === f ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`; }).join('')}</div>` : ''}
+        <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-top:22px">
           <div>
             <h3>Profil</h3>
             <div class="row" style="gap:6px;flex-wrap:nowrap"><input type="text" id="e-pseudo" value="${esc(profile.pseudo)}" placeholder="Pseudo" maxlength="20" style="flex:1;min-width:0"><button class="btn sm primary" id="e-pseudo-ok">Valider</button></div>
@@ -119,13 +125,6 @@ App.views.showcase = {
             <div class="chips">${V.LAYOUTS.map(([k, l]) => `<button class="chip ${profile.layout === k ? 'on' : ''}" data-layout="${k}">${l}</button>`).join('')}</div>
           </div>
         </div>
-        <h3 style="margin-top:20px" id="e-picker">Cartes à l’honneur <span class="muted small">(${profile.featured.length}/9 — clique pour ajouter ou retirer, dans l’ordre voulu)</span></h3>
-        ${items.length ? `<div class="row" style="margin-bottom:8px"><input type="search" id="e-pick-q" placeholder="Chercher une carte…" style="flex:1;min-width:0">${profile.featured.length ? '<button class="btn sm ghost" id="e-pick-clear">Tout retirer</button>' : ''}</div>
-          <div class="pick-list">${items.map((it, i) => {
-          const n = profile.featured.indexOf(it.key);
-          return `<div class="pk ${n >= 0 ? 'on' : ''}" data-pick="${esc(it.key)}" data-q="${esc(App.util.norm(it.snap.name + ' ' + (it.snap.setName || '')))}" title="${esc(it.snap.name)}">${n >= 0 ? `<span class="n">${n + 1}</span>` : ''}<img src="${esc(imgs[i].src)}" alt="" loading="lazy" data-alt="${esc(it.snap.name)}"></div>`;
-        }).join('')}</div>` : '<div class="muted">Aucune carte dans ta collection pour l’instant.</div>'}
-        ${profile.featured.length ? `<h3 style="margin-top:18px">Cadre par carte</h3><div class="row">${profile.featured.map((k) => { const it = App.col.byKey(k); if (!it) return ''; return `<label class="pill">${esc(it.snap.name)} <select data-cframe="${esc(k)}"><option value="">(cadre par défaut)</option>${V.FRAMES.map(([f, l]) => `<option value="${f}" ${profile.frames[k] === f ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`; }).join('')}</div>` : ''}
       `;
     };
 
@@ -136,8 +135,12 @@ App.views.showcase = {
 
     el.addEventListener('click', async (e) => {
       const t = e.target;
-      if (t.closest('#v-edit')) { editing = !editing; return draw(); }
-      if (t.closest('#v-pickcards, #v-pickcards2')) {
+      if (t.closest('#v-edit')) {
+        editing = !editing; await draw();
+        if (editing) { const ed = el.querySelector('#v-editor'); if (ed) ed.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        return;
+      }
+      if (t.closest('#v-pickcards2')) {
         e.preventDefault(); editing = true; await draw();
         const h = el.querySelector('#e-picker'); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;

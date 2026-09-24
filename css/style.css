@@ -759,3 +759,6 @@ a.chip { text-decoration: none; }
 @media (max-width: 760px) { .v-featured.layout-eventail .vcard { --w: min(130px, calc(100cqw / (var(--n, 5) * 0.44 + 0.6))); margin: 0 calc(var(--w) * -0.28); } }
 .v-featured.layout-eventail { margin-bottom: 48px; }
 @media (max-width: 760px) { .v-featured.layout-eventail { margin-bottom: 26px; } }
+.v-pick-link { text-align: center; margin: -6px 0 18px; }
+.v-pick-link a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent2); text-decoration: none; font-weight: 600; padding: 5px 12px; border-radius: 999px; background: rgba(255,210,63,.08); border: 1px solid rgba(255,210,63,.3); }
+.v-pick-link a:hover { background: rgba(255,210,63,.16); }
