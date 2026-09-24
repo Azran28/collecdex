@@ -80,7 +80,14 @@ App.views.scan = {
       async start() {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
         view.innerHTML = `<video autoplay playsinline muted></video>${guide ? '<div class="scan-guide"></div>' : ''}`;
-        view.querySelector('video').srcObject = stream;
+        const v = view.querySelector('video');
+        v.srcObject = stream;
+        // pas de grandes bandes noires : en mode carte la vidéo remplit le cadre (on ne cadre que la carte),
+        // en mode classeur la zone prend la forme exacte de l'image (on voit toute la page)
+        v.addEventListener('loadedmetadata', () => {
+          if (guide) view.classList.add('live-cover');
+          else { view.classList.add('live-fit'); view.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`; }
+        }, { once: true });
       },
       get video() { return view.querySelector('video'); },
       /** Zone du cadre jaune (+ marge) dans la vidéo, en pixels de la vidéo */
@@ -89,7 +96,7 @@ App.views.scan = {
         let sx = 0, sy = 0, sw = v.videoWidth, sh = v.videoHeight;
         if (guide) {
           const vr = v.getBoundingClientRect(), gr = view.querySelector('.scan-guide').getBoundingClientRect();
-          const scale = Math.min(vr.width / v.videoWidth, vr.height / v.videoHeight);
+          const scale = (view.classList.contains('live-cover') ? Math.max : Math.min)(vr.width / v.videoWidth, vr.height / v.videoHeight);
           const ox = vr.left + (vr.width - v.videoWidth * scale) / 2, oy = vr.top + (vr.height - v.videoHeight * scale) / 2;
           const m = 0.06;
           sx = Math.max(0, (gr.left - ox) / scale - gr.width / scale * m); sy = Math.max(0, (gr.top - oy) / scale - gr.height / scale * m);
@@ -120,7 +127,10 @@ App.views.scan = {
         }
         return this.capture();
       },
-      stop() { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; } },
+      stop() {
+        if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+        view.classList.remove('live-cover', 'live-fit'); view.style.aspectRatio = '';
+      },
       get on() { return !!stream; },
     };
   },
@@ -137,9 +147,9 @@ App.views.scan = {
 
     el.innerHTML = `
       <div id="sc-target"></div>
-      <div class="row" style="margin-bottom:12px">
-        <label class="small">Série <span class="muted">(facultatif, plus fiable)</span><br>
-          <select id="sc-set" style="max-width:320px"><option value="">Je ne sais pas : chercher partout</option></select></label>
+      <div class="set-first" style="max-width:640px">
+        <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Tu connais la série de ta carte ?</b><br><span class="small muted">Facultatif, mais la reconnaissance devient bien plus fiable (surtout pour les cartes réimprimées).</span></div></div>
+        <select id="sc-set"><option value="">Je ne sais pas : chercher partout</option></select>
       </div>
       <div class="scan-wrap">
         <div>
@@ -183,8 +193,8 @@ App.views.scan = {
     const cam = App.views.scan.camera(view, { guide: true });
     // série choisie : gardée pour les scans suivants (on scanne souvent une série d'affilée)
     let savedSet = ''; try { savedSet = sessionStorage.getItem('scanSet') || ''; } catch (e) { /* */ }
-    ad.listSets().then((sets) => App.views.scan.fillSetSelect(el.querySelector('#sc-set'), sets, savedSet)).catch(() => {});
-    el.querySelector('#sc-set').addEventListener('change', (e) => { try { sessionStorage.setItem('scanSet', e.target.value); } catch (err) { /* */ } });
+    ad.listSets().then((sets) => { const sel = el.querySelector('#sc-set'); App.views.scan.fillSetSelect(sel, sets, savedSet); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }).catch(() => {});
+    el.querySelector('#sc-set').addEventListener('change', (e) => { try { sessionStorage.setItem('scanSet', e.target.value); } catch (err) { /* */ } e.target.closest('.set-first').classList.toggle('chosen', !!e.target.value); });
 
     // Carte visée (bouton « Scanner cette carte » d'une fiche)
     if (targetId) {
@@ -228,7 +238,7 @@ App.views.scan = {
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
     let crop = null;
     function startCrop(blob, initial = null) {
-      results.innerHTML = ''; setStatus('');
+      results.innerHTML = App.views.scan.guide('carte'); setStatus('');
       if (initial === null) cert = null;
       el.querySelector('#sc-manual').classList.add('hidden');
       const url = URL.createObjectURL(blob);
@@ -422,16 +432,19 @@ App.views.scan = {
     let running = false, stopped = false, detected = null;
     let pageCert = null;       // vérification en direct de la photo de page (null = photo importée)
     let pageId = null;         // page gardée sur cet appareil pour pouvoir recadrer plus tard
+    let allSets = null;
     const urls = [];
 
     el.innerHTML = `
       <div class="batch-wrap">
         <div>
+          <div class="set-first">
+            <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>De quelle série est cette page ?</b><br><span class="small muted">Si toute la page vient de la même série, choisis-la : la reconnaissance devient bien plus fiable.</span></div></div>
+            <select id="b-set"><option value="">Plusieurs séries / je ne sais pas</option></select>
+          </div>
           <div class="row" style="margin-bottom:10px">
-            <label>Format de la page
+            <label class="small">Format de la page
               <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
-            <label>Série de la page
-              <select id="b-set" style="max-width:220px"><option value="">Détection automatique</option></select></label>
           </div>
           <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur')}</div>
           <div class="row" style="margin-top:14px" id="b-actions">
@@ -459,9 +472,15 @@ App.views.scan = {
 
     // liste des séries pour « Série de la page »
     ad.listSets().then((sets) => {
-      const sel = el.querySelector('#b-set'); if (sel) App.views.scan.fillSetSelect(sel, sets);
+      allSets = sets;
+      let saved = ''; try { saved = sessionStorage.getItem('pageSet') || ''; } catch (e) { /* */ }
+      const sel = el.querySelector('#b-set'); if (sel) { App.views.scan.fillSetSelect(sel, sets, saved); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }
     }).catch(() => {});
     el.querySelector('#b-fmt').addEventListener('change', (e) => { fmt = e.target.value; if (photo && !running) drawGrid(); });
+    el.querySelector('#b-set').addEventListener('change', (e) => {
+      try { sessionStorage.setItem('pageSet', e.target.value); } catch (err) { /* */ }
+      e.target.closest('.set-first').classList.toggle('chosen', !!e.target.value);
+    });
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#b-shot').classList.remove('hidden');
@@ -606,45 +625,19 @@ App.views.scan = {
         } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
         drawResults();
       }
-      // Deuxième passe : si plusieurs cartes sûres viennent de la même série, la page est sans doute
-      // rangée par série → on recompare les cartes incertaines à toutes les cartes de cette série.
+      // Deuxième passe (prudente) : seulement si la page semble clairement rangée par série
+      // (au moins 3 cartes SÛRES de la même série, et presque toutes les cartes sûres de cette série).
       if (!hint && alive() && !stopped) {
-        // Indices : une carte sûre compte 2, une carte « à vérifier » dont le nom a été bien lu compte 1.
-        const count = {}, votes = {};
+        const votes = {}; let sureN = 0;
         for (const c of cells) {
-          const top = c.cands[0]; if (!top || !top.set) continue;
-          const w = c.state === 'sure' ? 2 : (c.state === 'verifier' && (top.nameScore || 0) >= 0.85 ? 1 : 0);
-          if (!w) continue;
-          count[top.set.id] = (count[top.set.id] || 0) + w; votes[top.set.id] = (votes[top.set.id] || 0) + 1;
+          const top = c.cands[0];
+          if (c.state !== 'sure' || !top || !top.set) continue;
+          sureN++; votes[top.set.id] = (votes[top.set.id] || 0) + 1;
         }
-        const [best, nb] = Object.entries(count).sort((a, b) => b[1] - a[1])[0] || [];
-        const todo = cells.filter((c) => ['verifier', 'inconnue'].includes(c.state) && c.info);
-        if (best && nb >= 3 && votes[best] >= 2 && todo.length) {
+        const [best, nb] = Object.entries(votes).sort((x, y) => y[1] - x[1])[0] || [];
+        if (best && nb >= 3 && nb >= sureN * 0.8) {
           const src = cells.find((c) => c.cands[0] && c.cands[0].set && c.cands[0].set.id === best);
-          detected = { id: best, name: src.cands[0].set.name, nb: votes[best] };
-          drawResults();
-          for (const cell of todo) {
-            if (stopped || !alive()) return;
-            cell.state = 'lecture'; drawResults();
-            try {
-              const cands = await R.inSet(cell.blob, cell.info, best, (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Série détectée : ${esc(detected.name)} — carte ${cell.i + 1} : ${esc(m)}</div>`); });
-              let top = cands[0], sameName = false;
-              const old = cell.cands[0];
-              // même carte réimprimée ailleurs (ex. Dardargnan Évolutions) → on prend la version de la série de la page
-              if (old && old.set && old.set.id !== best) {
-                const same = cands.find((x) => App.util.norm(x.name) === App.util.norm(old.name));
-                if (same) { top = same; sameName = true; cands.splice(cands.indexOf(same), 1); cands.unshift(same); }
-              }
-              if (top && (sameName || top.confident || !old || top.score >= old.score)) {
-                const seen = new Set(cands.map((x) => x.id));
-                cell.cands = [...cands, ...cell.cands.filter((x) => !seen.has(x.id))].slice(0, 10);
-                cell.choice = top.id;
-                cell.state = top.confident ? 'sure' : 'verifier';
-              } else cell.state = old ? 'verifier' : 'inconnue';
-            } catch (e) { console.error(e); cell.state = cell.cands.length ? 'verifier' : 'inconnue'; }
-            cell.checked = cell.state === 'sure';
-            drawResults();
-          }
+          await applySeries(best, src.cands[0].set.name, nb, true);
         }
       }
       running = false;
@@ -654,12 +647,48 @@ App.views.scan = {
       drawResults();
     });
 
+    /**
+     * Recompare les cartes incertaines à une série donnée (détectée ou choisie après coup).
+     * On ne remplace le choix que si la carte est reconnue avec certitude (ou même nom réimprimé) ;
+     * sinon les cartes de la série sont juste ajoutées à la liste. Tout est annulable.
+     */
+    async function applySeries(setId, name, nb, auto) {
+      detected = { id: setId, name, nb, auto };
+      const todo = cells.filter((c) => !c.saved && ['verifier', 'inconnue'].includes(c.state) && c.info);
+      for (const cell of todo) cell.before = cell.before || { cands: cell.cands, choice: cell.choice, state: cell.state, checked: cell.checked };
+      drawResults();
+      for (const cell of todo) {
+        if (stopped || !alive()) return;
+        cell.state = 'lecture'; drawResults();
+        try {
+          const cands = await R.inSet(cell.blob, cell.info, setId, (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Série ${esc(name)} — carte ${cell.i + 1} : ${esc(m)}</div>`); });
+          let top = cands[0], sameName = false;
+          const old = cell.before.cands[0];
+          if (old && old.set && old.set.id !== setId) {
+            const same = cands.find((x) => App.util.norm(x.name) === App.util.norm(old.name));
+            if (same) { top = same; sameName = true; cands.splice(cands.indexOf(same), 1); cands.unshift(same); }
+          }
+          const seen = new Set(cands.map((x) => x.id));
+          cell.cands = [...cands, ...cell.before.cands.filter((x) => !seen.has(x.id))].slice(0, 12);
+          if (top && (sameName || top.confident)) { cell.choice = top.id; cell.state = top.confident ? 'sure' : 'verifier'; }
+          else { cell.choice = cell.before.choice; cell.state = cell.before.state; }
+        } catch (e) { console.error(e); Object.assign(cell, { cands: cell.before.cands, choice: cell.before.choice, state: cell.before.state }); }
+        cell.checked = cell.state === 'sure';
+        drawResults();
+      }
+      setStatus('');
+    }
+    function undoSeries() {
+      for (const c of cells) if (c.before && !c.saved) { Object.assign(c, c.before); delete c.before; }
+      detected = null; drawResults();
+    }
+
     /** (Re)lit une seule pochette, par ex. après un recadrage */
-    async function recogCell(cell, hint) {
+    async function recogCell(cell, hint, force = false) {
       cell.state = 'lecture'; cell.cands = []; cell.choice = ''; cell.info = null; cell.mode = null; drawResults();
       const st = (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} — ${esc(m)}</div>`); };
       try {
-        if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
+        if (!force && await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
         else {
           let info, cands;
           if (hint) { info = await R.read(cell.blob, st); cands = await R.inSet(cell.blob, info, hint, st); }
@@ -700,7 +729,10 @@ App.views.scan = {
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Résultat de la page</h3><span class="spacer"></span>
           ${!running && cells.length ? `<button class="btn sm ghost" id="b-all">Tout cocher</button><button class="btn sm ghost" id="b-none">Tout décocher</button>
             <span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
-        ${detected ? `<p class="small" style="margin:0 0 10px">🔎 Série détectée sur cette page : <b>${esc(detected.name)}</b> (d’après ${detected.nb} cartes) — les cartes incertaines ont été recomparées aux cartes de cette série.</p>` : ''}
+        ${detected ? `<div class="detect-bar small">${App.icons.icon('layers', 15)}<span>${detected.auto ? `Série devinée : <b>${esc(detected.name)}</b> (d’après ${detected.nb} cartes sûres). Les cartes incertaines ont été recomparées à cette série.` : `Cartes incertaines recomparées à <b>${esc(detected.name)}</b>.`}</span>
+          ${running ? '' : '<button class="btn sm ghost" id="b-undo-series">Ce n’est pas la bonne série : annuler</button>'}</div>` : ''}
+        ${!running && cells.length && !detected && cells.some((c) => !c.saved && ['verifier', 'inconnue'].includes(c.state)) ? `<div class="row small" style="margin:0 0 10px;gap:6px"><span class="muted">Des cartes à vérifier ? Si la page vient d’une seule série :</span>
+          <select id="b-set-after" style="max-width:220px"><option value="">Choisir la série…</option></select></div>` : ''}
         <div class="btiles" style="grid-template-columns:repeat(${cols}, minmax(0, 1fr))">
           ${cells.map((c) => {
             const [lab, cls] = stateLabel[c.state];
@@ -727,7 +759,7 @@ App.views.scan = {
                 ${cur ? `<img src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
               </div>
               <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
-              ${['attente', 'lecture', 'dos'].includes(c.state) && !c.choice ? (c.state === 'dos' ? `<button class="btn sm ghost" data-find="${c.i}">🔎 Ce n’est pas un dos : chercher</button>
+              ${['attente', 'lecture', 'dos'].includes(c.state) && !c.choice ? (c.state === 'dos' ? `<button class="btn sm" data-notback="${c.i}">Ce n’est pas un dos : la reconnaître</button><button class="btn sm ghost" data-find="${c.i}">🔎 Chercher à la main</button>
                 <div class="bsearch hidden" data-box="${c.i}"><input type="text" placeholder="Nom" data-name="${c.i}"><input type="text" placeholder="N° ex. 025/165" data-num="${c.i}"><button class="btn sm" data-dosearch="${c.i}">OK</button></div>` : '') : `
                 <select data-choice="${c.i}">
                   <option value="">— Ne pas ajouter —</option>
@@ -753,9 +785,17 @@ App.views.scan = {
           <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
           <span class="muted small">${chosen.length ? 'Vérifie les cartes cochées, puis enregistre.' : 'Coche les cartes à ajouter.'}</span>
         </div>` : ''}`;
+      const sa = resultsEl.querySelector('#b-set-after'); if (sa && allSets) App.views.scan.fillSetSelect(sa, allSets);
     }
 
-    resultsEl.addEventListener('change', (e) => {
+    resultsEl.addEventListener('change', async (e) => {
+      if (e.target.id === 'b-set-after' && e.target.value && !running) {
+        const opt = e.target.selectedOptions[0];
+        running = true;
+        await applySeries(e.target.value, opt.textContent.replace(/\s*\(\d{4}\)$/, ''), 0, false);
+        running = false; setStatus(''); drawResults();
+        return;
+      }
       const ck = e.target.closest('[data-check]');
       if (ck) { cells[+ck.dataset.check].checked = ck.checked; drawResults(); return; }
       const md = e.target.closest('[data-mode]');
@@ -772,6 +812,16 @@ App.views.scan = {
       if (e.target.closest('#b-next')) { el.querySelector('#b-reset').click(); return; }
       if (e.target.closest('#b-all')) { cells.forEach((c) => { if (c.choice && !c.saved) c.checked = true; }); drawResults(); return; }
       if (e.target.closest('#b-none')) { cells.forEach((c) => { c.checked = false; }); drawResults(); return; }
+      if (e.target.closest('#b-undo-series')) { undoSeries(); return; }
+      const nbk = e.target.closest('[data-notback]');
+      if (nbk && !running) {
+        const cell = cells[+nbk.dataset.notback];
+        running = true; drawResults();
+        await recogCell(cell, el.querySelector('#b-set').value || (detected && detected.id) || '', true);
+        if (cell.state === 'vide') cell.state = 'inconnue';
+        running = false; setStatus(''); drawResults();
+        return;
+      }
       const vb = e.target.closest('[data-versions]');
       if (vb) {
         const cell = cells[+vb.dataset.versions];

@@ -726,3 +726,17 @@ a.chip { text-decoration: none; }
 }
 @media (max-width: 760px) { .btile .btn.sm { font-size: .72rem; padding: 4px 7px; } .btile select { font-size: .78rem; padding: 5px 6px; } }
 .se-frame.grid { align-items: stretch; justify-items: stretch; }
+
+/* Caméra sans grandes bandes noires */
+.scan-view.live-cover video { object-fit: cover; }
+.scan-view.live-fit { max-height: 78vh; }
+.scan-view.live-fit video { object-fit: contain; }
+/* Choix de la série de la page, mis en avant */
+.set-first { margin-bottom: 12px; padding: 12px 14px; border-radius: 16px; border: 2px dashed rgba(255,210,63,.55); background: rgba(255,210,63,.06); }
+.set-first.chosen { border-style: solid; border-color: rgba(61,220,151,.6); background: rgba(61,220,151,.07); }
+.set-first .sf-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; color: #ffd23f; }
+.set-first.chosen .sf-head { color: #3ddc97; }
+.set-first .sf-head b { color: var(--text); }
+.set-first select { width: 100%; }
+.detect-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; padding: 8px 10px; border-radius: 12px; background: rgba(124,92,255,.1); border: 1px solid rgba(124,92,255,.35); }
+.detect-bar > span { flex: 1; min-width: 200px; }
