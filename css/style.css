@@ -740,3 +740,22 @@ a.chip { text-decoration: none; }
 .set-first select { width: 100%; }
 .detect-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; padding: 8px 10px; border-radius: 12px; background: rgba(124,92,255,.1); border: 1px solid rgba(124,92,255,.35); }
 .detect-bar > span { flex: 1; min-width: 200px; }
+
+/* Vitrine « éventail » : taille et angle adaptés au nombre de cartes, tout tient dans la vitrine */
+.v-featured.layout-eventail { container-type: inline-size; display: flex; justify-content: center; align-items: flex-start; padding: 26px 0 0; margin: 10px 0 26px; }
+.v-featured.layout-eventail .vcard {
+  --w: min(190px, calc(100cqw / (var(--n, 5) * 0.74 + 0.4)));
+  flex: 0 0 auto; width: var(--w); margin: 0 calc(var(--w) * -0.13);
+  transform: rotate(var(--rot, 0deg)) translateY(var(--dy, 0px)); transform-origin: 50% 120%; transition: transform .2s; }
+.v-featured.layout-eventail .vcard:hover { transform: translateY(-14px) rotate(0deg) scale(1.06) !important; z-index: 20 !important; }
+.v-featured.layout-eventail .vcard > div { box-shadow: 0 10px 24px rgba(0,0,0,.45); border-radius: 12px; }
+@media (max-width: 760px) {
+  .v-featured.layout-eventail .vcard { --w: min(130px, calc(100cqw / (var(--n, 5) * 0.7 + 0.45))); margin: 0 calc(var(--w) * -0.15); }
+}
+.v-featured.layout-eventail { gap: 0 !important; padding-left: 4%; padding-right: 4%; }
+.v-featured.layout-eventail .vcard { --w: min(190px, calc(100cqw / (var(--n, 5) * 0.8 + 0.5))); }
+@media (max-width: 760px) { .v-featured.layout-eventail .vcard { --w: min(130px, calc(100cqw / (var(--n, 5) * 0.78 + 0.5))); } }
+.v-featured.layout-eventail .vcard { --w: min(190px, calc(100cqw / (var(--n, 5) * 0.64 + 0.5))); margin: 0 calc(var(--w) * -0.18); }
+@media (max-width: 760px) { .v-featured.layout-eventail .vcard { --w: min(130px, calc(100cqw / (var(--n, 5) * 0.44 + 0.6))); margin: 0 calc(var(--w) * -0.28); } }
+.v-featured.layout-eventail { margin-bottom: 48px; }
+@media (max-width: 760px) { .v-featured.layout-eventail { margin-bottom: 26px; } }

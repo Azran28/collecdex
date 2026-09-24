@@ -33,7 +33,9 @@ App.views.showcase = {
       const ad = App.games.get(it.game);
       const img = await App.col.displayImage(it, ad, 'high');
       const frame = profile.frames[it.key] || profile.frame;
-      const fan = profile.layout === 'eventail' ? `style="transform: rotate(${(i - (n - 1) / 2) * 7}deg) translateY(${Math.abs(i - (n - 1) / 2) * 10}px); z-index:${n - Math.abs(Math.round(i - (n - 1) / 2))}"` : '';
+      // éventail : l'angle se resserre quand il y a beaucoup de cartes (tout doit tenir dans la vitrine)
+      const d = i - (n - 1) / 2, step = n > 1 ? Math.min(7, 32 / (n - 1)) : 0;
+      const fan = profile.layout === 'eventail' ? `style="--rot:${(d * step).toFixed(2)}deg; --dy:${(Math.abs(d) * step * 0.9).toFixed(1)}px; z-index:${n - Math.abs(Math.round(d))}"` : '';
       return `<div class="vcard" data-card="${esc(it.id)}" data-game="${it.game}" ${fan}>
         <div class="frame-${frame}"><img src="${esc(img.src)}" alt="${esc(it.snap.name)}" data-alt="${esc(it.snap.name)}"></div>
         ${profile.layout !== 'eventail' ? `<div class="vlabel">${esc(it.snap.name)}${it.price && it.price.value ? ` · <span style="color:var(--accent2)">${euro(it.price.value, it.price.unit)}</span>` : ''}</div>` : ''}
@@ -73,7 +75,7 @@ App.views.showcase = {
             <div class="stat"><b>${completedSets.length}</b><span>séries complétées</span></div>
             <div class="stat"><b>${items.filter((i) => App.certify.isCertified(i)).length}</b><span>certifiées</span></div>
           </div>` : ''}
-          ${feat.length ? `<div class="v-featured layout-${esc(profile.layout)}">${featHTML}</div>
+          ${feat.length ? `<div class="v-featured layout-${esc(profile.layout)}" style="--n:${feat.length}">${featHTML}</div>
             ${auto ? `<p class="small muted" style="text-align:center">Sélection automatique (favorites ou plus chères). <a href="#" id="v-pickcards2">Choisis tes cartes</a>.</p>` : ''}`
             : '<div class="empty">Ajoute des cartes à ta collection pour remplir ta vitrine.</div>'}
           ${profile.showBadges ? `<div class="v-achievements">
