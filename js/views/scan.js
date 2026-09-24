@@ -45,8 +45,9 @@ App.views.scan = {
         view.innerHTML = `<video autoplay playsinline muted></video>${guide ? '<div class="scan-guide"></div>' : ''}`;
         view.querySelector('video').srcObject = stream;
       },
-      /** Image du flux vidéo ; avec guide, seulement la zone du cadre jaune (+ marge) */
-      capture() {
+      get video() { return view.querySelector('video'); },
+      /** Zone du cadre jaune (+ marge) dans la vidéo, en pixels de la vidéo */
+      region() {
         const v = view.querySelector('video'); if (!v || !v.videoWidth) return null;
         let sx = 0, sy = 0, sw = v.videoWidth, sh = v.videoHeight;
         if (guide) {
@@ -57,6 +58,12 @@ App.views.scan = {
           sx = Math.max(0, (gr.left - ox) / scale - gr.width / scale * m); sy = Math.max(0, (gr.top - oy) / scale - gr.height / scale * m);
           sw = Math.min(v.videoWidth - sx, gr.width / scale * (1 + 2 * m)); sh = Math.min(v.videoHeight - sy, gr.height / scale * (1 + 2 * m));
         }
+        return { sx, sy, sw, sh };
+      },
+      /** Image du flux vidéo ; avec guide, seulement la zone du cadre jaune (+ marge) */
+      capture() {
+        const v = view.querySelector('video'), r = this.region(); if (!r) return null;
+        const { sx, sy, sw, sh } = r;
         const c = document.createElement('canvas'); c.width = sw; c.height = sh;
         c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
         return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
@@ -74,6 +81,7 @@ App.views.scan = {
     const ad = App.games.get(game);
     const targetId = params.query.carte || null;
     let cardBlob = null, cardURL = null, target = null, pageBlob = null;
+    let cert = null; // résultat de la vérification en direct de la dernière photo (null = photo importée)
 
     el.innerHTML = `
       <div id="sc-target"></div>
@@ -141,20 +149,35 @@ App.views.scan = {
     }
 
     el.querySelector('#sc-cam').addEventListener('click', async () => {
-      try { await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = ''; setStatus(''); }
+      try {
+        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = '';
+        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Capture certifiée</b> : après la photo, garde la carte dans le cadre et suis la consigne à l’écran (2 secondes).</span>` : '');
+        App.certify.prepare();
+      }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra dans le navigateur, ou utilise « Choisir une photo ».</span>`); }
     });
     el.querySelector('#sc-shot').addEventListener('click', async () => {
+      const shot = el.querySelector('#sc-shot');
       const b = await cam.capture(); if (!b) return;
-      cam.stop(); el.querySelector('#sc-shot').classList.add('hidden');
+      shot.classList.add('hidden');
+      cert = null;
+      if (App.certify.available()) {
+        setStatus('');
+        try { cert = await App.certify.live(cam.video, view, cam.region()); } catch (e) { console.warn(e); cert = { passed: false, reasons: ['vérification impossible'] }; }
+      }
+      cam.stop();
       startCrop(b, 0.92);
+      if (cert) setStatus(cert.passed
+        ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— la carte sera certifiée à l’ajout.</span>`
+        : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`);
     });
-    el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startCrop(e.target.files[0]); } e.target.value = ''; });
+    el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });
 
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
     let crop = null;
     function startCrop(blob, initial = null) {
       results.innerHTML = ''; setStatus('');
+      if (initial === null) cert = null;
       el.querySelector('#sc-manual').classList.add('hidden');
       const url = URL.createObjectURL(blob);
       view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Photo"><div class="crop-box"></div></div>`;
@@ -275,12 +298,23 @@ App.views.scan = {
         const key = await R.addScanned(c, cardBlob, mode);
         App.col.refreshPrices([key], 'Prix');
         const it = App.col.byKey(key);
-        const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ta collection, avec ta photo.`;
-        results.innerHTML = `<div class="panel">${what}<br><br>
+        const photoId = mode === 'rien' ? null : it.photos[it.photos.length - 1];
+        const myCert = cert; cert = null;
+        const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
+        const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/compte">Connecte-toi</a> pour certifier tes captures.</div>`
+          : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
+          : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
+        results.innerHTML = `<div class="panel">${what}${certLine}<br>
           <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
+        if (myCert && myCert.passed && photoId) {
+          App.certify.finish(key, photoId, myCert).then((r) => {
+            const line = results.querySelector('#sc-cert'); if (!line) return;
+            line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}`;
+          });
+        }
         results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = ''; setStatus(''); el.querySelector('#sc-cam').click(); } };
       };
     }

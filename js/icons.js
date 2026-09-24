@@ -19,6 +19,7 @@ App.icons = (() => {
     plus: '<path d="M12 5v14M5 12h14"/>',
     trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
     gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8c-2-3-6-3-6-.5S10 8 12 8zm0 0c2-3 6-3 6-.5S14 8 12 8z"/>',
+    shield: '<path d="M12 2.8 4.5 5.6v6c0 4.6 3.1 8.1 7.5 9.6 4.4-1.5 7.5-5 7.5-9.6v-6z"/><path d="m8.7 12 2.3 2.3 4.3-4.5"/>',
     layers: '<path d="M12 3 2 8.5l10 5.5 10-5.5z"/><path d="m2 13.5 10 5.5 10-5.5"/>',
   };
   const icon = (name, size = 20, extra = '') => `<svg class="ic ${extra}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;

@@ -554,3 +554,20 @@ details.help[open] summary { margin-bottom: 6px; }
 }
 a.chip { text-decoration: none; }
 @media (max-width: 760px) { .stat span { display: block; line-height: 1.15; margin-top: 3px; } }
+
+/* ===== Certification ===== */
+.cert-overlay { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(12,14,25,.55)); }
+.cert-arrow { font-size: 4.5rem; line-height: 1; color: #fff; text-shadow: 0 0 18px rgba(124,92,255,.9), 0 2px 6px rgba(0,0,0,.8); animation: certPulse .9s ease-in-out infinite; }
+.cert-arrow.gauche { align-self: flex-start; margin-left: 8%; }
+.cert-arrow.droite { align-self: flex-end; margin-right: 8%; }
+.cert-txt { font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: #fff; background: rgba(12,14,25,.8); padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15); }
+.cert-bar { width: 60%; height: 6px; border-radius: 3px; background: rgba(255,255,255,.2); overflow: hidden; }
+.cert-bar span { display: block; height: 100%; width: 0; background: var(--holo); transition: width .18s linear; }
+@keyframes certPulse { 50% { transform: scale(1.15); } }
+.cert-ok { color: #3ddc97; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+.cert-pill { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-family: var(--font); font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #16172a; background: linear-gradient(120deg, #3ddc97, #34d5ff); }
+.ctile .ownedmark.certified { background: linear-gradient(135deg, #3ddc97, #34d5ff); color: #06281d; box-shadow: 0 0 0 2px rgba(12,14,25,.8), 0 0 10px rgba(52,213,255,.6); }
+.photos .ph { position: relative; }
+.ph-cert { position: absolute; left: 4px; bottom: 4px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #3ddc97, #34d5ff); color: #06281d; }
+.scan-view { position: relative; }

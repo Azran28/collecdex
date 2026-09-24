@@ -72,7 +72,7 @@ App.views = App.views || {};
   document.querySelectorAll('[data-logo]').forEach((e) => { e.innerHTML = App.icons.logo(30); });
 
   (async () => {
-    try { await App.col.load(); }
+    try { await App.col.load(); await App.certify.load(); }
     catch (e) { console.error(e); App.util.toast('Stockage local indisponible : ta collection ne sera pas sauvegardée.', 6000); }
     // Compte en ligne : indicateur dans le menu (vert = synchronisé, orange = en cours, rouge = problème, gris = non connecté)
     const nav = document.getElementById('nav-account');

@@ -178,6 +178,7 @@ App.cloud = (() => {
         if (localProfile.avatar) pend.photos[localProfile.avatar] = 1;
       }
       savePend();
+      await loadCerts();
       lastSync = Date.now();
       if (changed) App.col.notify();
       setState('ok');
@@ -186,6 +187,30 @@ App.cloud = (() => {
       console.warn('Synchronisation', e);
       setState('erreur', e.message || String(e));
     }
+  }
+
+  /** Certifications de ce compte (lecture seule : seul le serveur peut en créer) */
+  async function loadCerts() {
+    if (!App.certify) return;
+    const { data, error } = await sb.from('certifications').select('photo_id,key,created_at');
+    if (error) { console.info('Certification pas encore activée sur le serveur', error.message); return; }
+    App.certify.setFromServer(data || []);
+  }
+
+  /** Appel d'une fonction du serveur */
+  async function rpc(name, args = {}) {
+    if (!user) throw new Error('Connexion requise');
+    const { data, error } = await sb.rpc(name, args);
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  /** Envoie tout de suite ce qui attend (utile avant une certification) */
+  async function flushNow() {
+    for (let i = 0; i < 60 && flushing; i++) await new Promise((r) => setTimeout(r, 250));
+    clearTimeout(timer);
+    await flush();
+    if (Object.keys(pend.photos).length) throw new Error('Envoi de la photo impossible (connexion ?)');
   }
 
   /** Photo absente de cet appareil : on la télécharge depuis le compte */
@@ -228,7 +253,7 @@ App.cloud = (() => {
   }
 
   return {
-    enabled, init, sync, flush, fetchPhoto,
+    enabled, init, sync, flush, flushNow, rpc, fetchPhoto,
     markItem, markDelete, markPhoto, markPhotoDelete, markProfile,
     signUp, signIn, signOut, resetPassword, newPassword,
     get user() { return user; }, get state() { return state; }, get error() { return lastError; },

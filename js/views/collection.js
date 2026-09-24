@@ -29,7 +29,7 @@ App.views.collection = {
           <option value="serie">Tri : série puis numéro</option>
         </select>
         <div class="chips" id="c-flag">
-          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['photos', 'Mes photos'], ['doublons', 'Doublons']].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
+          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['photos', 'Mes photos'], ['certifiees', 'Certifiées'], ['doublons', 'Doublons']].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
         </div>
       </div>
       <div class="selbar hidden" id="c-selbar">
@@ -63,6 +63,7 @@ App.views.collection = {
       if (state.rarity) items = items.filter((i) => i.snap.rarity === state.rarity);
       if (state.flag === 'favorites') items = items.filter((i) => i.favorite);
       if (state.flag === 'photos') items = items.filter((i) => i.photos && i.photos.length);
+      if (state.flag === 'certifiees') items = items.filter((i) => App.certify.isCertified(i));
       if (state.flag === 'doublons') items = items.filter((i) => i.qty > 1);
       if (state.q) { const q = norm(state.q); items = items.filter((i) => norm(`${i.snap.name} ${i.snap.setName} ${i.note}`).includes(q)); }
       const rk = (i) => App.games.get(i.game).rarity.rank(i.snap.rarity);
@@ -86,7 +87,7 @@ App.views.collection = {
         <div class="stat"><b>${all.length}</b><span>cartes différentes</span></div>
         <div class="stat"><b>${all.reduce((s, i) => s + i.qty, 0)}</b><span>exemplaires</span></div>
         <div class="stat"><b>${euro(total)}</b><span>valeur totale estimée</span></div>
-        <div class="stat"><b>${all.filter((i) => i.favorite).length}</b><span>favorites</span></div>
+        <div class="stat"><b>${all.filter((i) => App.certify.isCertified(i)).length}</b><span>certifiées</span></div>
         ${items.length !== all.length ? `<div class="stat"><b>${items.length}</b><span>affichées · ${euro(shownVal)}</span></div>` : ''}`;
       grid.innerHTML = items.length
         ? items.map((it) => App.ui.cardTile(snapCard(it), { game: it.game, item: it, showSet: true, quickAdd: false })).join('')

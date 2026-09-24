@@ -68,7 +68,7 @@ App.views.showcase = {
             <div class="stat"><b>${items.length}</b><span>cartes</span></div>
             <div class="stat"><b>${euro(total)}</b><span>valeur estimée</span></div>
             <div class="stat"><b>${completedSets.length}</b><span>séries complétées</span></div>
-            <div class="stat"><b>${items.filter((i) => i.favorite).length}</b><span>favorites</span></div>
+            <div class="stat"><b>${items.filter((i) => App.certify.isCertified(i)).length}</b><span>certifiées</span></div>
           </div>` : ''}
           ${profile.showBadges && completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : App.icons.icon('trophy', 14)}${esc(s.name)}</span>`).join('')}</div>` : ''}
           ${feat.length ? `<div class="v-featured layout-${esc(profile.layout)}">${featHTML}</div>

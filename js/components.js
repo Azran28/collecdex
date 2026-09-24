@@ -44,7 +44,7 @@ App.ui = (() => {
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
           ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto" title="Visuel : ta photo (et non l’image officielle)">📷</span>' : ''}
-          ${own ? '<span class="ownedmark">✓</span>' : ''}
+          ${own ? (App.certify && App.certify.isCertified(it) ? `<span class="ownedmark certified" title="Certifiée : capturée en direct">${App.icons.icon('shield', 13)}</span>` : '<span class="ownedmark">✓</span>') : ''}
         </div>
         <div class="cinfo">
           <span class="cname" title="${esc(card.name)}">${esc(card.name)}</span>

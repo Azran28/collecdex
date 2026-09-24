@@ -94,7 +94,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       return;
     }
     const photos = await Promise.all((it.photos || []).map(async (id) => ({ id, url: await App.col.photoURL(id) })));
-    box.innerHTML = `<h3>Mon Dex</h3>
+    const certified = App.certify.isCertified(it);
+    box.innerHTML = `<h3 class="row" style="gap:8px">Mon Dex ${certified ? `<span class="cert-pill" title="Au moins une photo de cette carte a été capturée en direct et vérifiée">${App.icons.icon('shield', 14)} Certifiée</span>` : ''}</h3>
+      ${certified ? '' : `<p class="small muted" style="margin-top:-4px">${App.icons.icon('shield', 13)} Non certifiée. Pour le badge, <a href="#/scan?carte=${encodeURIComponent(card.id)}">capture-la avec la caméra</a>${App.cloud.enabled && !App.cloud.user ? ' (connecté à ton compte)' : ''}.</p>`}
       <div class="row" style="margin-bottom:12px">
         <span>Exemplaires</span>
         <span class="stepper"><button id="cd-minus" title="Retirer un exemplaire">−</button><span>${it.qty}</span></span>
@@ -107,7 +109,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       <div style="margin-bottom:12px"><textarea id="cd-note" placeholder="Note perso (état, provenance, gradée PSA…)">${esc(it.note || '')}</textarea></div>
       <div style="margin-bottom:6px">Mes photos de cette carte <span class="muted small">(clique pour l’utiliser comme visuel, ✂ pour la recadrer)</span></div>
       <div class="photos" id="cd-photos">
-        ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt=""><button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button><button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button></div>`).join('')}
+        ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt="">${App.certify.photoCertified(p.id) ? `<span class="ph-cert" title="Photo certifiée">${App.icons.icon('shield', 12)}</span>` : ''}<button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button><button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button></div>`).join('')}
         <label class="btn sm" style="height:fit-content">📷 Ajouter une photo<input type="file" accept="image/*" id="cd-file" hidden></label>
       </div>
       ${it.displayPhoto ? `<button class="btn sm ghost" id="cd-useoff" style="margin-top:8px">Utiliser le visuel officiel par défaut</button>` : ''}
