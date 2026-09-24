@@ -177,6 +177,14 @@ App.cloud = (() => {
         pend.profile = true;
         if (localProfile.avatar) pend.photos[localProfile.avatar] = 1;
       }
+      // une fois : on jette les copies locales des photos (certaines, recadrées ailleurs, étaient périmées) ;
+      // elles seront retéléchargées depuis le compte à l'affichage
+      if (!(await App.db.get('kv', 'photosRefreshed1').catch(() => null))) {
+        const local = await App.db.all('photos').catch(() => ({}));
+        for (const id of Object.keys(local)) if (!id.startsWith('page_') && !pend.photos[id] && remote.size) await App.db.del('photos', id).catch(() => {});
+        await App.db.set('kv', 'photosRefreshed1', 1);
+        changed++;
+      }
       savePend();
       await loadCerts();
       lastSync = Date.now();

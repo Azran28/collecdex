@@ -300,6 +300,7 @@ App.views.scan = {
         const it = App.col.byKey(key);
         const photoId = mode === 'rien' ? null : it.photos[it.photos.length - 1];
         const myCert = cert; cert = null;
+        const shotBlob = cardBlob;
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
         const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/compte">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
@@ -310,9 +311,9 @@ App.views.scan = {
         el.querySelector('#sc-manual').classList.add('hidden');
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
         if (myCert && myCert.passed && photoId) {
-          App.certify.finish(key, photoId, myCert).then((r) => {
+          App.certify.identity(shotBlob, c).then((ident) => App.certify.finish(key, photoId, myCert, ident)).then((r) => {
             const line = results.querySelector('#sc-cert'); if (!line) return;
-            line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}`;
+            line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}${r.unrecognized ? ' — reprends une photo plus nette pour la certifier' : ''}`;
           });
         }
         results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = ''; setStatus(''); el.querySelector('#sc-cam').click(); } };
@@ -366,6 +367,8 @@ App.views.scan = {
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
     let running = false, stopped = false, detected = null;
+    let pageCert = null;       // vérification en direct de la photo de page (null = photo importée)
+    let pageId = null;         // page gardée sur cet appareil pour pouvoir recadrer plus tard
     const urls = [];
 
     el.innerHTML = `
@@ -411,34 +414,48 @@ App.views.scan = {
     }).catch(() => {});
     el.querySelector('#b-fmt').addEventListener('change', (e) => { fmt = e.target.value; if (photo && !running) drawGrid(); });
     el.querySelector('#b-cam').addEventListener('click', async () => {
-      try { await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); }
+      try {
+        await cam.start(); el.querySelector('#b-shot').classList.remove('hidden');
+        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Page certifiée</b> : après la photo, suis la consigne à l’écran (2 secondes). Les cartes bien reconnues seront certifiées.</span>` : '');
+        App.certify.prepare('page');
+      }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}</span>`); }
     });
     el.querySelector('#b-shot').addEventListener('click', async () => {
       const b = await cam.capture(); if (!b) return;
-      cam.stop(); el.querySelector('#b-shot').classList.add('hidden');
-      startGrid(b);
+      el.querySelector('#b-shot').classList.add('hidden');
+      let res = null;
+      if (App.certify.available()) {
+        setStatus('');
+        try { res = await App.certify.live(cam.video, view, cam.region(), 'page'); } catch (err) { console.warn(err); res = { passed: false, reasons: ['vérification impossible'] }; }
+      }
+      cam.stop();
+      startGrid(b, res);
     });
-    el.querySelector('#b-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0]); } e.target.value = ''; });
+    el.querySelector('#b-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0], null); } e.target.value = ''; });
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (running) return;
-      photo = null; grid = null; cells = []; resultsEl.innerHTML = ''; setStatus('');
+      photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
       el.querySelector('#b-gridbar').classList.add('hidden');
       el.querySelector('#b-actions').classList.remove('hidden');
       view.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div>';
     });
 
     // photo transmise par le mode « Une carte » (page de classeur détectée)
-    if (App._pendingPage) { const b = App._pendingPage; App._pendingPage = null; setTimeout(() => startGrid(b), 0); }
+    if (App._pendingPage) { const b = App._pendingPage; App._pendingPage = null; setTimeout(() => startGrid(b, null), 0); }
 
     // ---------- Grille ajustable ----------
-    function startGrid(blob) {
+    function startGrid(blob, cert = null) {
       cells = []; resultsEl.innerHTML = ''; setStatus('');
+      pageCert = cert; pageId = null;
+      if (cert) setStatus(cert.passed
+        ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— les cartes bien reconnues seront certifiées.</span>`
+        : `<span class="small">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même ajouter les cartes, ou reprendre la photo.</span></span>`);
       const url = URL.createObjectURL(blob); urls.push(url);
       view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Page de classeur"><div class="grid-box"></div></div>`;
       const img = view.querySelector('img');
       img.onload = () => {
-        photo = { img, url };
+        photo = { img, url, blob };
         grid = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 };
         drawGrid();
         el.querySelector('#b-actions').classList.add('hidden');
@@ -498,7 +515,7 @@ App.views.scan = {
       const outW = Math.min(900, Math.round(box.w)), outH = Math.round(outW / RATIO);
       const c = document.createElement('canvas'); c.width = outW; c.height = outH;
       c.getContext('2d').drawImage(img, box.x, box.y, box.w, box.h, 0, 0, outW, outH);
-      return new Promise((res) => c.toBlob((b) => res({ blob: b, auto: box.auto }), 'image/jpeg', 0.9));
+      return new Promise((res) => c.toBlob((b) => res({ blob: b, auto: box.auto, box: { x: box.x / NW, y: box.y / NH, w: box.w / NW, h: box.h / NH } }), 'image/jpeg', 0.9));
     }
 
     // ---------- Reconnaissance de toutes les pochettes ----------
@@ -511,9 +528,9 @@ App.views.scan = {
       detected = null;
       cells = [];
       for (let i = 0; i < n; i++) {
-        const { blob, auto } = await cellBlob(i);
+        const { blob, auto, box } = await cellBlob(i);
         const url = URL.createObjectURL(blob); urls.push(url);
-        cells.push({ i, blob, url, auto, state: 'attente', cands: [], choice: '', info: null, mode: null });
+        cells.push({ i, blob, url, auto, box, state: 'attente', cands: [], choice: '', info: null, mode: null });
       }
       drawResults();
       for (const cell of cells) {
@@ -584,6 +601,24 @@ App.views.scan = {
       drawResults();
     });
 
+    /** (Re)lit une seule pochette, par ex. après un recadrage */
+    async function recogCell(cell, hint) {
+      cell.state = 'lecture'; cell.cands = []; cell.choice = ''; cell.info = null; cell.mode = null; drawResults();
+      const st = (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} — ${esc(m)}</div>`); };
+      try {
+        if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
+        else {
+          let info, cands;
+          if (hint) { info = await R.read(cell.blob, st); cands = await R.inSet(cell.blob, info, hint, st); }
+          else ({ info, cands } = await R.recognize(cell.blob, st));
+          cell.info = info; cell.cands = cands;
+          cell.choice = cands[0] ? cands[0].id : '';
+          cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
+          cell.checked = cell.state === 'sure';
+        }
+      } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
+    }
+
     const stateLabel = {
       attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'], dos: ['Dos de carte (ignoré)', 'muted'],
       sure: ['Reconnue ✓', 'ok'], verifier: ['À vérifier', 'warn'], inconnue: ['Non reconnue', 'bad'], erreur: ['Erreur', 'bad'],
@@ -625,6 +660,10 @@ App.views.scan = {
                 <div class="bimgs"><img src="${c.url}" alt=""><img src="${esc(ad.img.card(cur, 'low'))}" alt="" data-alt=""></div>
                 <div class="bstate ok">${c.i + 1}. Enregistrée ✓</div>
                 <div class="small"><b>${esc(cur ? cur.name : '')}</b> <span class="muted">${esc(cur && cur.set ? cur.set.name : '')}</span></div>
+                ${c.cert === 'encours' ? `<div class="small muted">${App.icons.icon('shield', 12)} Certification…</div>`
+                  : c.cert === 'ok' ? `<div class="small cert-ok">${App.icons.icon('shield', 13)} Certifiée</div>`
+                  : c.cert ? `<div class="small muted">${App.icons.icon('shield', 12)} Non certifiée : ${esc(c.cert)}${cur ? ` · <a href="#/scan?carte=${encodeURIComponent(cur.id)}">la capturer seule</a>` : ''}</div>` : ''}
+                ${c.photoId && photo ? `<button class="btn sm ghost" data-recrop="${c.i}">✂ Recadrer</button>` : ''}
               </div>`;
             }
             const canCheck = !!c.choice && !['attente', 'lecture'].includes(c.state);
@@ -647,6 +686,7 @@ App.views.scan = {
                   </select>
                   ${own ? `<div class="small muted">Tu l’as déjà (×${own.qty})</div>` : ''}` : ''}
                 ${c.auto === false ? '<div class="small muted">Bords non détectés : centre de la case utilisé</div>' : ''}
+                ${photo && c.box ? `<button class="btn sm ghost" data-recrop="${c.i}">✂ Recadrer depuis la page</button>` : ''}
                 <button class="btn sm ghost" data-find="${c.i}">🔎 Chercher une autre carte</button>
                 <div class="bsearch hidden" data-box="${c.i}">
                   <input type="text" placeholder="Nom" data-name="${c.i}">
@@ -706,17 +746,58 @@ App.views.scan = {
         drawResults();
         return;
       }
+      const rc = e.target.closest('[data-recrop]');
+      if (rc && !running) {
+        const cell = cells[+rc.dataset.recrop];
+        const nb = await App.ui.cropImage(photo.blob, { title: `Recadrer la carte ${cell.i + 1}`, initial: cell.box, withBox: true });
+        if (!nb) return;
+        cell.box = nb.box;
+        if (cell.saved) {
+          await App.col.replacePhoto(cell.key, cell.photoId, nb.blob);
+          if (pageId) await App.col.setPhotoSource(cell.key, cell.photoId, { page: pageId, rect: cell.box });
+          cell.blob = nb.blob; cell.url = URL.createObjectURL(cell.blob); urls.push(cell.url);
+          App.util.toast('Photo recadrée ✓');
+          drawResults();
+          return;
+        }
+        cell.blob = nb.blob; cell.url = URL.createObjectURL(cell.blob); urls.push(cell.url); cell.auto = true;
+        running = true; drawResults();
+        await recogCell(cell, el.querySelector('#b-set').value || (detected && detected.id) || '');
+        running = false; setStatus(''); drawResults();
+        return;
+      }
       if (e.target.closest('#b-add')) {
         const todo = cells.filter((c) => c.choice && modeOf(c) !== 'rien').map((c) => ({ c, mode: modeOf(c) }));
         e.target.disabled = true;
         const keys = [];
+        // la page est gardée sur cet appareil : on pourra recadrer une carte depuis sa fiche
+        if (!pageId && photo) { try { pageId = await App.col.keepPage(photo.blob); } catch (err) { console.warn(err); } }
         for (const { c, mode } of todo) {
           const cand = c.cands.find((x) => x.id === c.choice);
-          if (cand) keys.push(await R.addScanned(cand, c.blob, mode === 'nouvelle' ? null : mode));
+          if (!cand) continue;
+          const key = await R.addScanned(cand, c.blob, mode === 'nouvelle' ? null : mode);
+          keys.push(key);
+          const it = App.col.byKey(key);
+          c.key = key; c.cand = cand;
+          c.photoId = mode === 'rien' ? null : it.photos[it.photos.length - 1];
+          if (c.photoId && pageId && c.box) await App.col.setPhotoSource(key, c.photoId, { page: pageId, rect: c.box });
         }
         App.col.refreshPrices([...new Set(keys)], 'Prix');
         // les cartes enregistrées restent affichées (marquées ✓) : on peut continuer avec les autres
-        for (const { c } of todo) { c.saved = true; c.checked = false; }
+        for (const { c } of todo) {
+          c.saved = true; c.checked = false;
+          c.cert = !App.cloud.enabled || !c.photoId ? '' : !App.cloud.user ? 'connecte-toi pour certifier' : !pageCert ? 'photo importée' : !pageCert.passed ? pageCert.reasons[0] : 'encours';
+        }
+        // certification des cartes bien reconnues (l'une après l'autre, en arrière-plan)
+        (async () => {
+          for (const { c } of todo) {
+            if (c.cert !== 'encours') continue;
+            const ident = await App.certify.identity(c.blob, c.cand);
+            const r = await App.certify.finish(c.key, c.photoId, pageCert, ident);
+            c.cert = r.ok ? 'ok' : r.reason;
+            if (alive()) drawResults();
+          }
+        })();
         App.util.toast(`${keys.length} carte${keys.length > 1 ? 's' : ''} enregistrée${keys.length > 1 ? 's' : ''} ✓`);
         drawResults();
         resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });

@@ -80,7 +80,7 @@ App.ui = (() => {
    * Recadrer une image au format carte (63 × 88) : cadre jaune déplaçable + curseur de taille.
    * Renvoie une promesse : le nouveau Blob, ou null si annulé.
    */
-  function cropImage(blob, { title = 'Recadrer la photo' } = {}) {
+  function cropImage(blob, { title = 'Recadrer la photo', initial = null, withBox = false } = {}) {
     return new Promise((resolve) => {
       const RATIO = 63 / 88;
       const url = URL.createObjectURL(blob);
@@ -88,9 +88,9 @@ App.ui = (() => {
       ov.className = 'cropper';
       ov.innerHTML = `<div class="cropper-box">
         <h3 style="margin-top:0">${esc(title)}</h3>
-        <p class="small muted">Fais glisser le cadre jaune sur la carte, ajuste sa taille, puis valide.</p>
+        <p class="small muted">Fais glisser le cadre jaune sur la carte, ajuste sa taille (ou pince / molette), puis valide.</p>
         <div class="cropper-stage"><div class="crop-area"><img src="${url}" alt=""><div class="crop-box"></div></div></div>
-        <div class="row" style="margin-top:10px"><span class="small">Taille</span><input type="range" min="10" max="100" value="60" style="flex:1"></div>
+        <div class="row" style="margin-top:10px"><span class="small">Taille</span><input type="range" min="5" max="100" step="0.5" value="60" style="flex:1"></div>
         <div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn ghost" data-act="no">Annuler</button><button class="btn primary" data-act="ok">✓ Valider</button></div>
       </div>`;
       document.body.appendChild(ov);
@@ -103,7 +103,17 @@ App.ui = (() => {
         return { x: Math.min(Math.max(0, st.cx * W - w / 2), W - w), y: Math.min(Math.max(0, st.cy * H - h / 2), H - h), w, h, W, H };
       };
       const place = () => { const r = rect(); Object.assign(box.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' }); };
-      img.onload = () => { const ar = img.naturalWidth / img.naturalHeight; st.size = Math.abs(ar - RATIO) < 0.06 ? 1 : 0.6; range.value = st.size * 100; place(); };
+      img.onload = () => {
+        const ar = img.naturalWidth / img.naturalHeight;
+        if (initial) {
+          // zone de départ (fractions de l'image) : ex. la carte détectée dans la page de classeur
+          st.cx = initial.x + initial.w / 2; st.cy = initial.y + initial.h / 2;
+          st.size = Math.min(1, Math.max(initial.h, (initial.w * ar) / RATIO));
+        } else st.size = Math.abs(ar - RATIO) < 0.06 ? 1 : 0.6;
+        range.value = st.size * 100; place();
+      };
+      // molette : taille du cadre
+      ov.querySelector('.crop-area').addEventListener('wheel', (e) => { e.preventDefault(); st.size = Math.min(1, Math.max(0.05, st.size * (e.deltaY > 0 ? 0.97 : 1.03))); range.value = st.size * 100; place(); }, { passive: false });
       range.oninput = () => { st.size = range.value / 100; place(); };
       ov.querySelector('.crop-area').addEventListener('pointerdown', (e) => {
         e.preventDefault();
@@ -121,7 +131,8 @@ App.ui = (() => {
         const outW = Math.min(900, Math.round(sw)), outH = Math.round(outW / RATIO);
         const c = document.createElement('canvas'); c.width = outW; c.height = outH;
         c.getContext('2d').drawImage(img, r.x * k, r.y * k, sw, sh, 0, 0, outW, outH);
-        c.toBlob((b) => done(b), 'image/jpeg', 0.9);
+        const box = { x: r.x / r.W, y: r.y / r.H, w: r.w / r.W, h: r.h / r.H };
+        c.toBlob((b) => done(withBox ? { blob: b, box } : b), 'image/jpeg', 0.9);
       });
     });
   }

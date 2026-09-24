@@ -91,8 +91,27 @@ App.col = (() => {
     await App.db.set('photos', id, small);
     if (photoURLs[id]) { URL.revokeObjectURL(photoURLs[id]); delete photoURLs[id]; }
     cloud().markPhoto(id);
+    // numéro de version : les autres appareils sauront que leur copie de cette photo est périmée
+    it.photoRev = Object.assign({}, it.photoRev, { [id]: Date.now() });
     await put(it);
   }
+  /** D'où vient une photo (page de classeur + zone), pour pouvoir la recadrer plus tard */
+  async function setPhotoSource(k, id, src) {
+    const it = items[k]; if (!it || !src || !src.page) return;
+    it.photoSrc = Object.assign({}, it.photoSrc, { [id]: src });
+    await put(it);
+  }
+  /** Garde la photo d'une page de classeur sur CET appareil (pas envoyée en ligne) ; les 30 dernières */
+  async function keepPage(blob) {
+    const id = 'page_' + Date.now().toString(36);
+    const small = await App.util.resizeImage(blob, 2400, 0.88);
+    await App.db.set('photos', id, small);
+    const list = ((await App.db.get('kv', 'pages').catch(() => null)) || []).concat(id);
+    while (list.length > 30) await App.db.del('photos', list.shift()).catch(() => {});
+    await App.db.set('kv', 'pages', list);
+    return id;
+  }
+  const getPage = (id) => (id ? App.db.get('photos', id).catch(() => null) : null);
   async function photoURL(id) {
     if (!id) return '';
     if (photoURLs[id]) return photoURLs[id];
@@ -123,6 +142,7 @@ App.col = (() => {
       it.price = p ? { value: p.value, unit: p.unit, source: p.source, updated: p.updated, t: Date.now() } : { value: null, t: Date.now() };
       if (card.rarity && !it.snap.rarity) it.snap.rarity = card.rarity;
       if (card.illustrator) it.snap.illustrator = card.illustrator;
+      if (card.variants) it.snap.holo = !!(card.variants.holo && !card.variants.normal);
       items[it.key] = it; await App.db.set('items', it.key, it);
     }, (d) => task.tick(d));
     task.done();
@@ -171,7 +191,17 @@ App.col = (() => {
   const saveProfile = async (p) => { p.updatedAt = Date.now(); await App.db.set('kv', 'profile', p); cloud().markProfile(); };
 
   // ---------- Appliquer ce qui vient du compte en ligne (sans le renvoyer) ----------
-  async function applyRemote(it) { items[it.key] = it; await App.db.set('items', it.key, it); }
+  async function applyRemote(it) {
+    // photo recadrée sur un autre appareil : on jette la copie locale, elle sera retéléchargée
+    const old = items[it.key];
+    for (const [id, rev] of Object.entries(it.photoRev || {})) {
+      if (!old || !old.photoRev || old.photoRev[id] !== rev) {
+        await App.db.del('photos', id).catch(() => {});
+        if (photoURLs[id]) { URL.revokeObjectURL(photoURLs[id]); delete photoURLs[id]; }
+      }
+    }
+    items[it.key] = it; await App.db.set('items', it.key, it);
+  }
   async function applyRemoteDelete(k) {
     const it = items[k]; if (!it) return;
     for (const p of it.photos || []) await App.db.del('photos', p).catch(() => {});
@@ -191,7 +221,7 @@ App.col = (() => {
   async function exportAll() {
     const photos = await App.db.all('photos');
     const ph = {};
-    for (const [id, b] of Object.entries(photos)) ph[id] = await App.util.blobToDataURL(b);
+    for (const [id, b] of Object.entries(photos)) if (!id.startsWith('page_')) ph[id] = await App.util.blobToDataURL(b);
     return { app: 'CollecDex', version: 1, date: new Date().toISOString(), settings: App.settings, profile: await getProfile(), items: all(), photos: ph };
   }
   async function importAll(data, { merge = false } = {}) {
@@ -208,7 +238,7 @@ App.col = (() => {
 
   return {
     load, saveSettings, keyOf, get, byKey, all, owned, inSet, add, update, setQty, remove,
-    addPhoto, deletePhoto, replacePhoto, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
+    addPhoto, deletePhoto, replacePhoto, setPhotoSource, keepPage, getPage, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
     getProfile, saveProfile, exportAll, importAll, applyRemote, applyRemoteDelete, applyRemoteProfile, wipeLocal, notify,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };

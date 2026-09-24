@@ -571,3 +571,53 @@ a.chip { text-decoration: none; }
 .photos .ph { position: relative; }
 .ph-cert { position: absolute; left: 4px; bottom: 4px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #3ddc97, #34d5ff); color: #06281d; }
 .scan-view { position: relative; }
+
+/* ===== Effet holographique de la fiche carte (plus la carte est rare, plus il est marqué) ===== */
+.holo-card { position: relative; border-radius: 14px; transform-style: preserve-3d; perspective: 900px; transition: transform .35s ease;
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); --mx: 50%; --my: 50%; --pos: 50%; --hyp: 0; touch-action: pan-y; }
+.holo-card.active { transition: transform .08s linear; }
+.holo-card img { display: block; width: 100%; border-radius: 14px; box-shadow: 0 14px 34px rgba(0,0,0,.55); }
+.holo-card .holo-shine, .holo-card .holo-glare, .holo-card .holo-sparkle { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; }
+.holo-card .holo-glare { background: radial-gradient(farthest-corner circle at var(--mx) var(--my), rgba(255,255,255,.55) 0%, rgba(255,255,255,.12) 25%, rgba(0,0,0,.25) 90%); mix-blend-mode: overlay; opacity: calc(.35 + var(--hyp) * .5); }
+/* 1 : Rare — simple reflet */
+.tier-1 .holo-shine { background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.35) calc(var(--pos) - 5%), transparent 65%); mix-blend-mode: soft-light; }
+/* 2 : Holo — arc-en-ciel discret */
+.tier-2 .holo-shine, .tier-3 .holo-shine, .tier-4 .holo-shine, .tier-5 .holo-shine {
+  background-image: repeating-linear-gradient(110deg, #ff5f6d 0%, #ffc371 10%, #47ff9a 20%, #3fd5ff 30%, #a66bff 40%, #ff5f6d 50%);
+  background-size: 300% 300%; background-position: var(--pos) var(--my); mix-blend-mode: color-dodge; opacity: .28; filter: brightness(.8) contrast(1.4) saturate(1.2); }
+/* 3 : Double / Ultra rare — plus fort, avec fines lignes */
+.tier-3 .holo-shine { opacity: .42; background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 4px), repeating-linear-gradient(110deg, #ff5f6d 0%, #ffc371 10%, #47ff9a 20%, #3fd5ff 30%, #a66bff 40%, #ff5f6d 50%); background-size: 100% 100%, 300% 300%; }
+/* 4 : Illustration rare / chromatique — paillettes */
+.tier-4 .holo-shine { opacity: .5; }
+.holo-card .holo-sparkle { background-image: radial-gradient(circle, rgba(255,255,255,.95) 0 1px, transparent 1.6px), radial-gradient(circle, rgba(255,240,180,.9) 0 1px, transparent 1.8px);
+  background-size: 23px 29px, 37px 31px; background-position: calc(var(--pos) * .4) calc(var(--my) * .3), calc(100% - var(--pos) * .5) var(--my); mix-blend-mode: screen; opacity: calc(.25 + var(--hyp) * .75); }
+/* 5 : Spéciale / secrète / hyper — or + arc-en-ciel intense, contour lumineux */
+.tier-5 .holo-shine { opacity: .62; filter: brightness(.9) contrast(1.6) saturate(1.5); }
+.tier-5 img { box-shadow: 0 0 0 2px rgba(255,210,63,.55), 0 0 28px rgba(255,79,163,.45), 0 14px 34px rgba(0,0,0,.55); }
+.tier-5 .holo-glare { background: radial-gradient(farthest-corner circle at var(--mx) var(--my), rgba(255,236,170,.75) 0%, rgba(255,160,220,.2) 30%, rgba(0,0,0,.3) 90%); }
+/* animation douce quand personne ne touche la carte */
+.holo-card.idle { animation: holoIdle 6s ease-in-out infinite; }
+.holo-card.idle .holo-shine { animation: holoShift 6s ease-in-out infinite; }
+@keyframes holoIdle { 0%, 100% { transform: perspective(900px) rotateX(3deg) rotateY(-6deg); } 50% { transform: perspective(900px) rotateX(-3deg) rotateY(6deg); } }
+@keyframes holoShift { 0%, 100% { background-position: 20% 30%; } 50% { background-position: 80% 70%; } }
+.holo-card.tier-0.idle { animation: none; }
+@media (prefers-reduced-motion: reduce) { .holo-card.idle, .holo-card.idle .holo-shine { animation: none; } }
+
+/* ===== Badges (succès) ===== */
+.v-achievements { margin-top: 22px; }
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.badge-medal { display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 8px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+.badge-medal .bm-disc { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1b1300;
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,.25), inset 0 2px 4px rgba(255,255,255,.5), 0 4px 10px rgba(0,0,0,.35); }
+.badge-medal.t1 .bm-disc { background: linear-gradient(135deg, #f0b27a, #a0522d); }
+.badge-medal.t2 .bm-disc { background: linear-gradient(135deg, #f4f6fb, #9aa3b5); }
+.badge-medal.t3 .bm-disc { background: linear-gradient(135deg, #ffe27a, #d49b00); }
+.badge-medal.t4 .bm-disc { background: linear-gradient(135deg, #ffd23f, #ff4fa3 40%, #7c5cff 70%, #34d5ff); color: #fff; background-size: 200% 200%; animation: holoMedal 4s ease-in-out infinite; }
+@keyframes holoMedal { 50% { background-position: 100% 100%; } }
+.badge-medal .bm-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.badge-medal .bm-txt b { font-family: var(--display); font-weight: 600; font-size: .9rem; }
+.badge-medal .bm-txt span { font-size: .72rem; color: var(--muted); }
+.badge-medal.new { border-color: rgba(255,210,63,.7); box-shadow: 0 0 16px rgba(255,210,63,.3); }
+.badge-medal.new .bm-txt b::after { content: " NOUVEAU"; font-family: var(--font); font-size: .6rem; font-weight: 800; color: #ffd23f; letter-spacing: .04em; }
+.pick-list .pk[hidden] { display: none; }
+.small > svg.ic, p > svg.ic, span > svg.ic, a > svg.ic { display: inline-block; vertical-align: -2px; }

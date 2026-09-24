@@ -509,7 +509,25 @@ App.recognizer = (() => {
     return key;
   }
 
+  /** Ressemblance (0 à 1) entre ta photo et le visuel officiel d'une carte donnée */
+  async function resemblance(blob, c) {
+    const src = ad().img.card(c, 'low'); if (!src) return null;
+    const [mine, ref] = await Promise.all([artVariants(blob), officialThumb(src)]);
+    return ref ? vis01(artMatch(mine, ref)) : null;
+  }
+  /** Ressemblance de la photo avec plusieurs cartes (la photo n'est analysée qu'une fois) */
+  async function resemblanceMany(blob, cards) {
+    const mine = await artVariants(blob);
+    const out = new Map();
+    await App.util.pool(cards, 6, async (c) => {
+      const src = ad().img.card(c, 'low'); if (!src) return;
+      const ref = await officialThumb(src);
+      if (ref) out.set(c.id, vis01(artMatch(mine, ref)));
+    });
+    return out;
+  }
+
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { recognize, read, inSet, manual, readSummary, addScanned, looksEmpty, looksLikeBack, looksLikePage, locateCard, stop, RATIO: 63 / 88 };
+  return { recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, looksLikePage, locateCard, stop, RATIO: 63 / 88 };
 })();

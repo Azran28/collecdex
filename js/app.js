@@ -97,5 +97,8 @@ App.views = App.views || {};
     }
     route();
     setTimeout(() => App.col.refreshStalePrices(), 4000);
+    // badges : annonce quand un nouveau se débloque
+    setTimeout(() => App.badges.check().catch(() => {}), 3000);
+    App.col.on(App.util.debounce(() => App.badges.check().catch(() => {}), 2500));
   })();
 })();

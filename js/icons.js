@@ -20,6 +20,14 @@ App.icons = (() => {
     trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
     gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8c-2-3-6-3-6-.5S10 8 12 8zm0 0c2-3 6-3 6-.5S14 8 12 8z"/>',
     shield: '<path d="M12 2.8 4.5 5.6v6c0 4.6 3.1 8.1 7.5 9.6 4.4-1.5 7.5-5 7.5-9.6v-6z"/><path d="m8.7 12 2.3 2.3 4.3-4.5"/>',
+    crown: '<path d="M3 18h18M4 16 3 7l5 4 4-6 4 6 5-4-1 9z"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    coins: '<ellipse cx="9" cy="7" rx="6" ry="2.8"/><path d="M3 7v4c0 1.5 2.7 2.8 6 2.8s6-1.3 6-2.8V7"/><path d="M9 16.6c0 1.5 2.7 2.8 6 2.8s6-1.3 6-2.8v-4c0-1.4-2.3-2.6-5.3-2.8"/>',
+    gem: '<path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3 7.5 9 12 21l4.5-12L15 3"/>',
+    heart: '<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>',
+    flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.9 3.3-5.8 3.8-10.3 2.6 1.6 4 3.9 4.3 6.3 1-.7 1.6-1.9 1.8-3.1 1.9 1.7 3.1 4 3.1 7.1 0 3.6-2.6 6.2-6.5 6.2z"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     layers: '<path d="M12 3 2 8.5l10 5.5 10-5.5z"/><path d="m2 13.5 10 5.5 10-5.5"/>',
   };
   const icon = (name, size = 20, extra = '') => `<svg class="ic ${extra}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;

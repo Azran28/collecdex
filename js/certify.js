@@ -165,21 +165,22 @@ App.certify = (() => {
   const SCREEN_PEAK = 40;
 
   // ---------- Liaison avec le serveur ----------
-  let challenge = null; // { id, challenge, at }
+  const challenges = {}; // par type de capture ('carte' | 'page') : { id, challenge, at }
   const certs = new Map(); // photoId → { key, at }
   const listeners = new Set();
   const emit = () => listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
 
   const available = () => !!(App.cloud.enabled && App.cloud.user);
 
-  async function prepare() {
+  async function prepare(kind = 'carte') {
     if (!available()) return null;
-    if (challenge && Date.now() - challenge.at < 8 * 60 * 1000) return challenge;
+    const c = challenges[kind];
+    if (c && Date.now() - c.at < 8 * 60 * 1000) return c;
     try {
-      const d = await App.cloud.rpc('cert_start');
-      challenge = { id: d.id, challenge: d.challenge, at: Date.now() };
-    } catch (e) { console.warn('certification', e); challenge = null; }
-    return challenge;
+      const d = await App.cloud.rpc('cert_start', { p_kind: kind });
+      challenges[kind] = { id: d.id, challenge: d.challenge, at: Date.now() };
+    } catch (e) { console.warn('certification', e); challenges[kind] = null; }
+    return challenges[kind];
   }
 
   const LABEL = {
@@ -193,10 +194,10 @@ App.certify = (() => {
    * Film du défi, juste après la photo. host : l'élément qui contient la vidéo (pour afficher la consigne).
    * region : zone de la carte dans la vidéo { sx, sy, sw, sh }.
    */
-  async function live(video, host, region) {
-    const ch = await prepare();
+  async function live(video, host, region, kind = 'carte') {
+    const ch = await prepare(kind);
     if (!ch) return { passed: false, reasons: [available() ? 'serveur de certification injoignable' : 'connecte-toi pour certifier'] };
-    challenge = null; // usage unique
+    challenges[kind] = null; // usage unique
     const { sx, sy, sw, sh } = region;
     const w = SMALL, h = Math.round(SMALL * sh / sw);
     const grab = () => grayOf(video, sx, sy, sw, sh, w, h);
@@ -207,7 +208,7 @@ App.certify = (() => {
     const screen = screenScore(patch, N);
     const hash = dhash(grayOf(video, 0, 0, video.videoWidth, video.videoHeight, 9, 8));
     // consigne
-    const L = LABEL[ch.challenge];
+    const L = kind === 'page' ? { ...LABEL[ch.challenge], txt: { approche: 'Approche le téléphone de la page', eloigne: 'Recule un peu le téléphone', gauche: 'Fais glisser la page vers la flèche', droite: 'Fais glisser la page vers la flèche' }[ch.challenge] } : LABEL[ch.challenge];
     const ov = document.createElement('div');
     ov.className = 'cert-overlay';
     ov.innerHTML = `<div class="cert-arrow ${ch.challenge}">${L.arrow}</div><div class="cert-txt">${L.txt}</div><div class="cert-bar"><span></span></div>`;
@@ -241,11 +242,38 @@ App.certify = (() => {
   }
 
   /** Après l'ajout : envoie la photo, puis demande au serveur de poser le badge */
-  async function finish(key, photoId, res) {
+  /**
+   * La carte choisie est-elle bien celle de la photo ? (sinon on pourrait certifier n'importe quelle carte)
+   * Oui si la reconnaissance était sûre, si numéro + nom ont été lus, ou si la photo ressemble au visuel officiel.
+   */
+  async function identity(blob, c) {
+    // on compare la photo à TOUTES les cartes de la série choisie : la carte choisie doit être
+    // nettement la plus ressemblante (le numéro lu ou tapé à la main ne suffit pas)
+    try {
+      const setId = c.setId || (c.set && c.set.id);
+      const set = await App.games.get('pokemon').getSet(setId);
+      const cards = set.cards.map((x) => ({ ...x, setId, serieId: c.serieId || (set.group && set.group.id) || '' }));
+      if (!cards.some((x) => x.id === c.id)) cards.push(c);
+      const m = await App.recognizer.resemblanceMany(blob, cards);
+      const self = m.get(c.id);
+      let other = 0, otherName = '';
+      for (const x of cards) if (x.id !== c.id && m.has(x.id) && m.get(x.id) > other) { other = m.get(x.id); otherName = x.name; }
+      // une réimpression identique dans la même série (même nom) ne compte pas comme concurrente
+      const r2 = (v) => Math.round(v * 100) / 100;
+      const ok = self != null && self >= 0.5 && (self - other >= 0.08 || App.util.norm(otherName) === App.util.norm(c.name));
+      return { ok, how: 'ressemblance', res: self == null ? null : r2(self), next: r2(other) };
+    } catch (e) {
+      console.warn(e);
+      return { ok: false, how: 'erreur' };
+    }
+  }
+
+  async function finish(key, photoId, res, ident = { ok: true }) {
     if (!res || !res.passed) return { ok: false, reason: (res && res.reasons && res.reasons[0]) || 'non vérifiée' };
+    if (!ident.ok) return { ok: false, reason: 'carte pas assez reconnue sur la photo', unrecognized: true };
     try {
       await App.cloud.flushNow();
-      const d = await App.cloud.rpc('cert_finish', { p_id: res.id, p_key: key, p_photo: photoId, p_dhash: res.dhash, p_scores: res.scores });
+      const d = await App.cloud.rpc('cert_finish', { p_id: res.id, p_key: key, p_photo: photoId, p_dhash: res.dhash, p_scores: { ...res.scores, recognized: true, ident } });
       if (d && d.ok) { certs.set(photoId, { key, at: Date.now() }); save(); emit(); return { ok: true }; }
       return { ok: false, reason: (d && d.reason) || 'refusée par le serveur' };
     } catch (e) {
@@ -271,7 +299,7 @@ App.certify = (() => {
   const count = () => App.col.all().filter(isCertified).length;
 
   return {
-    available, prepare, live, finish, load, setFromServer, isCertified, photoCertified, count,
+    available, prepare, live, finish, identity, load, setFromServer, isCertified, photoCertified, count,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     _test: { motion, judgeChallenge, frozenPairs, screenScore, dhash },
   };

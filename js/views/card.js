@@ -20,6 +20,11 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   const rk = ad.rarity.key(card.rarity);
   const rate = pr && rk && pr.rates[rk];
   let showOfficial = false;
+  // intensité de l'effet holographique selon la rareté (0 = carte ordinaire)
+  // les anciennes holos sont notées « Rare » par la source : une carte qui n'existe qu'en holo compte comme holo
+  const onlyHolo = card.variants && card.variants.holo && !card.variants.normal;
+  const rrank = Math.max(ad.rarity.rank(card.rarity), onlyHolo ? 4 : 0);
+  const holoTier = rrank <= 2 ? 0 : rrank === 3 ? 1 : rrank <= 5 ? 2 : rrank <= 8 ? 3 : rrank <= 10 ? 4 : 5;
 
   const variantNames = { normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1re édition' };
   const availVariants = Object.entries(card.variants || {}).filter(([k, v]) => v && variantNames[k]).map(([k]) => k);
@@ -41,7 +46,10 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   body.innerHTML = `
     <div class="cd">
       <div class="cd-img">
-        <img id="cd-img" src="${esc(ad.img.card(base, 'high'))}" alt="${esc(card.name)}" data-alt="${esc(card.name)}">
+        <div class="holo-card tier-${holoTier}" id="cd-holo">
+          <img id="cd-img" src="${esc(ad.img.card(base, 'high'))}" alt="${esc(card.name)}" data-alt="${esc(card.name)}">
+          ${holoTier ? '<div class="holo-shine"></div><div class="holo-glare"></div>' : ''}${holoTier >= 4 ? '<div class="holo-sparkle"></div>' : ''}
+        </div>
         <div class="row imgswitch" id="cd-imgswitch"></div>
         ${ctx.list ? `<div class="row" style="margin-top:10px;justify-content:space-between">
           <button class="btn sm" id="cd-prev" ${prevId ? '' : 'disabled'}>‹ Précédente</button>
@@ -116,6 +124,26 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       <div class="row" style="margin-top:16px"><span class="muted small">Ajoutée le ${dateFr(it.addedAt)}</span></div>`;
   };
 
+  // la carte s'incline et ses reflets suivent le doigt / la souris
+  const holo = body.querySelector('#cd-holo');
+  if (holo) {
+    let idleT = null;
+    const setP = (x, y) => {
+      holo.style.setProperty('--mx', (x * 100).toFixed(1) + '%'); holo.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+      holo.style.setProperty('--rx', ((0.5 - y) * 16).toFixed(2) + 'deg'); holo.style.setProperty('--ry', ((x - 0.5) * 20).toFixed(2) + 'deg');
+      holo.style.setProperty('--pos', (x * 100).toFixed(1) + '%'); holo.style.setProperty('--hyp', Math.min(1, Math.hypot(x - 0.5, y - 0.5) * 2).toFixed(2));
+    };
+    holo.addEventListener('pointermove', (e) => {
+      const r = holo.getBoundingClientRect();
+      holo.classList.add('active'); holo.classList.remove('idle');
+      setP(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
+      clearTimeout(idleT); idleT = setTimeout(() => { holo.classList.remove('active'); holo.classList.add('idle'); }, 2500);
+    });
+    holo.addEventListener('pointerleave', () => { holo.classList.remove('active'); setP(0.5, 0.5); holo.classList.add('idle'); });
+    setP(0.5, 0.5);
+    if (holoTier) holo.classList.add('idle'); // sans souris (téléphone) : la carte bouge doucement toute seule
+  }
+
   body.addEventListener('click', async (e) => {
     const t = e.target;
     const key = App.col.keyOf(game, card.id);
@@ -137,7 +165,16 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (t.closest('[data-crop]')) {
       e.stopPropagation();
       const id = t.closest('[data-crop]').dataset.crop;
-      const blob = await App.db.get('photos', id);
+      const it = App.col.byKey(key);
+      // photo venant d'une page de classeur gardée sur cet appareil → on recadre depuis la page entière
+      const src = it && it.photoSrc && it.photoSrc[id];
+      const page = src ? await App.col.getPage(src.page) : null;
+      if (page) {
+        const out = await App.ui.cropImage(page, { title: `Recadrer ${card.name} depuis la page du classeur`, initial: src.rect, withBox: true });
+        if (out) { await App.col.replacePhoto(key, id, out.blob); await App.col.setPhotoSource(key, id, { page: src.page, rect: out.box }); App.util.toast('Photo recadrée ✓'); drawImage(); drawMine(); }
+        return;
+      }
+      const blob = (await App.db.get('photos', id)) || (await App.cloud.fetchPhoto(id).catch(() => null));
       if (!blob) return App.util.toast('Photo introuvable sur cet appareil');
       const out = await App.ui.cropImage(blob, { title: `Recadrer la photo de ${card.name}` });
       if (out) { await App.col.replacePhoto(key, id, out); App.util.toast('Photo recadrée ✓'); drawImage(); drawMine(); }
