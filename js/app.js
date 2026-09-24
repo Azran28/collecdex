@@ -67,6 +67,10 @@ App.views = App.views || {};
   checkVersion();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
 
+  // icônes et logo de l'en-tête
+  document.querySelectorAll('[data-icon]').forEach((e) => { e.innerHTML = App.icons.icon(e.dataset.icon, 20); });
+  document.querySelectorAll('[data-logo]').forEach((e) => { e.innerHTML = App.icons.logo(30); });
+
   (async () => {
     try { await App.col.load(); }
     catch (e) { console.error(e); App.util.toast('Stockage local indisponible : ta collection ne sera pas sauvegardée.', 6000); }
@@ -74,13 +78,21 @@ App.views = App.views || {};
     const nav = document.getElementById('nav-account');
     if (App.cloud.enabled) {
       nav.hidden = false;
-      const paint = () => {
-        const s = App.cloud.state;
+      // pastille de compte : photo de profil (ou initiale) + pseudo, anneau coloré selon la synchro
+      const paint = async () => {
+        const s = App.cloud.state, u = App.cloud.user;
         nav.dataset.state = s;
-        nav.title = App.cloud.user ? `${App.cloud.user.email} — ${s === 'ok' ? 'synchronisé' : s === 'erreur' ? 'problème de synchronisation' : 'synchronisation…'}` : 'Se connecter';
-        nav.querySelector('.acc-lbl').textContent = App.cloud.user ? ' Compte' : ' Se connecter';
+        nav.classList.toggle('in', !!u);
+        nav.title = u ? `${u.email} — ${s === 'ok' ? 'synchronisé' : s === 'erreur' ? 'problème de synchronisation' : 'synchronisation…'}` : 'Se connecter';
+        const p = await App.col.getProfile().catch(() => ({}));
+        const pseudo = u ? (p.pseudo && p.pseudo !== 'Dresseur' ? p.pseudo : (u.email || '').split('@')[0]) : 'Se connecter';
+        nav.querySelector('.acc-lbl').textContent = pseudo;
+        const av = nav.querySelector('.acc-avatar');
+        const url = u && p.avatar ? await App.col.photoURL(p.avatar).catch(() => '') : '';
+        av.style.backgroundImage = url ? `url('${url}')` : '';
+        av.innerHTML = url ? '' : (u ? `<span class="acc-initial">${App.util.esc(pseudo[0].toUpperCase())}</span>` : App.icons.icon('user', 16));
       };
-      App.cloud.on(paint); paint();
+      App.cloud.on(paint); App.col.on(() => paint()); paint();
       await App.cloud.init();
     }
     route();

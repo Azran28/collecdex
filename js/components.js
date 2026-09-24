@@ -16,6 +16,7 @@ App.ui = (() => {
       const span = document.createElement('span');
       span.className = el.dataset.altClass || 'noimg';
       span.textContent = el.dataset.alt;
+      if (span.className === 'logo-gen') { span.style.cssText = el.getAttribute('style') || ''; span.innerHTML = App.icons.icon('layers', 16) + '<b>' + esc(el.dataset.alt) + '</b>'; }
       el.replaceWith(span);
     } else {
       el.style.visibility = 'hidden';
@@ -125,5 +126,20 @@ App.ui = (() => {
     });
   }
 
-  return { cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
+  /**
+   * Logo d'une série : le logo officiel s'il existe, sinon un badge coloré généré
+   * (couleur propre à chaque époque, icône selon le type : promo, kit, McDonald's…).
+   */
+  function setLogo(game, set, { big = false } = {}) {
+    const ad = App.games.get(game);
+    const url = ad && ad.img.logo(set);
+    const n = String(set.name || '');
+    const ico = /promo/i.test(n) ? 'star' : /mcdonald/i.test(n) ? 'gift' : /kit|coffret|deck/i.test(n) ? 'box' : /énergie|energy/i.test(n) ? 'bolt' : 'layers';
+    let h = 0; for (const ch of String((set.group && set.group.id) || set.id || n)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    const gen = `<span class="logo-gen" style="--h:${h}">${App.icons.icon(ico, big ? 22 : 16)}<b>${esc(n)}</b></span>`;
+    if (!url) return gen;
+    return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(n)}" data-alt-class="logo-gen" style="--h:${h}">`;
+  }
+
+  return { setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
 })();

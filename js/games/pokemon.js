@@ -60,7 +60,7 @@
 
   async function listSets() {
     const L = lang();
-    return cached(`pk:${L}:sets`, 3 * DAY, async () => {
+    return cached(`pk2:${L}:sets`, 3 * DAY, async () => {
       let sets;
       try {
         const d = await gql(`{ sets @locale(lang: "${L}") { id name logo symbol releaseDate cardCount { total official } serie { id name logo } } }`);
@@ -75,11 +75,27 @@
           for (const st of full.sets || []) sets.push({ ...st, serie: { id: s.id, name: s.name, logo: s.logo }, releaseDate: full.releaseDate });
         });
       }
+      // Logos manquants (surtout en français) : 1) logo anglais, 2) logo de la série principale
+      // (ex. « Galerie de Dresseurs » → série mère), sinon l'interface dessine un logo.
+      const logos = {}, symbols = {};
+      try {
+        if (L !== 'en') {
+          const d = await gql('{ sets @locale(lang: "en") { id logo symbol } }');
+          for (const x of d.sets || []) { if (x && x.logo) logos[x.id] = x.logo; if (x && x.symbol) symbols[x.id] = x.symbol; }
+        }
+      } catch (e) { /* pas grave */ }
+      for (const x of sets) if (x && x.logo) logos[x.id] = logos[x.id] || x.logo;
+      const parentOf = (id) => {
+        const m = id.match(/^(.+?)(tg|gg|sv|cc|a)$/); // swsh9tg, swsh12.5gg, swsh4.5sv, cel25cc, sma…
+        if (m && logos[m[1]]) return m[1];
+        if (id === 'sma' && logos['sm115']) return 'sm115';
+        return null;
+      };
       return sets.filter(Boolean).map((s) => ({
         id: s.id,
         name: s.name,
-        logo: s.logo || '',
-        symbol: s.symbol || '',
+        logo: s.logo || logos[s.id] || (parentOf(s.id) ? logos[parentOf(s.id)] : '') || '',
+        symbol: s.symbol || symbols[s.id] || '',
         releaseDate: s.releaseDate || '',
         total: s.cardCount ? s.cardCount.total : 0,
         official: s.cardCount ? s.cardCount.official : 0,
@@ -108,7 +124,7 @@
 
   async function getSet(id) {
     const L = lang();
-    return cached(`pk2:${L}:set:${id}`, 7 * DAY, async () => {
+    return cached(`pk3:${L}:set:${id}`, 7 * DAY, async () => {
       let meta = null, cards = null;
       // 1) infos de la série
       try {
@@ -127,6 +143,10 @@
         if (!cards || !cards.length) cards = (r.cards || []).filter(Boolean);
       }
       const cc = meta.cardCount || { total: cards.length, official: cards.length };
+      if (!meta.logo || !meta.symbol) {
+        const known = (await listSets().catch(() => [])).find((x) => x.id === id);
+        if (known) meta = { ...meta, logo: meta.logo || known.logo, symbol: meta.symbol || known.symbol };
+      }
       const set = {
         id: meta.id, name: meta.name, logo: meta.logo || '', symbol: meta.symbol || '', releaseDate: meta.releaseDate || '',
         total: Math.max(cc.total || 0, cards.length), official: cc.official, cardCount: cc,

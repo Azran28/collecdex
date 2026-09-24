@@ -70,7 +70,7 @@ App.views.showcase = {
             <div class="stat"><b>${completedSets.length}</b><span>séries complétées</span></div>
             <div class="stat"><b>${items.filter((i) => i.favorite).length}</b><span>favorites</span></div>
           </div>` : ''}
-          ${profile.showBadges && completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : '🏆'}${esc(s.name)}</span>`).join('')}</div>` : ''}
+          ${profile.showBadges && completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : App.icons.icon('trophy', 14)}${esc(s.name)}</span>`).join('')}</div>` : ''}
           ${feat.length ? `<div class="v-featured layout-${esc(profile.layout)}">${featHTML}</div>
             ${auto && editing ? '<p class="small muted" style="text-align:center">Sélection automatique (favorites ou plus chères). Choisis tes cartes ci-dessous.</p>' : ''}`
             : '<div class="empty">Ajoute des cartes à ta collection pour remplir ta vitrine.</div>'}

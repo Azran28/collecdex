@@ -8,8 +8,8 @@ App.views.collection = {
     const val = (it) => (it.price && it.price.value) || 0;
 
     el.innerHTML = `
-      <div class="breadcrumb"><a href="#/">Accueil</a> › Ma collection</div>
-      <div class="row"><h1>Ma collection</h1><span class="spacer"></span>
+      <div class="breadcrumb"><a href="#/">Accueil</a> › Mon Dex</div>
+      <div class="row"><h1>Mon Dex</h1><span class="spacer"></span>
         <button class="btn sm" id="c-select">☑ Sélectionner</button>
         <button class="btn sm" id="c-prices">↻ Actualiser les prix</button>
         <button class="btn sm" id="c-csv">⬇ Exporter (CSV)</button>
@@ -29,7 +29,7 @@ App.views.collection = {
           <option value="serie">Tri : série puis numéro</option>
         </select>
         <div class="chips" id="c-flag">
-          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['photos', '📷 Avec mes photos'], ['doublons', 'Doublons']].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
+          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['photos', 'Mes photos'], ['doublons', 'Doublons']].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
         </div>
       </div>
       <div class="selbar hidden" id="c-selbar">
@@ -90,7 +90,7 @@ App.views.collection = {
         ${items.length !== all.length ? `<div class="stat"><b>${items.length}</b><span>affichées · ${euro(shownVal)}</span></div>` : ''}`;
       grid.innerHTML = items.length
         ? items.map((it) => App.ui.cardTile(snapCard(it), { game: it.game, item: it, showSet: true, quickAdd: false })).join('')
-        : `<div class="empty panel" style="grid-column:1/-1">${all.length ? 'Aucune carte ne correspond à ces filtres.' : 'Ta collection est vide. <a href="#/scan">Scanne une carte</a> pour l’ajouter.'}</div>`;
+        : `<div class="empty panel" style="grid-column:1/-1">${all.length ? 'Aucune carte ne correspond à ces filtres.' : 'Ton Dex est vide. <a href="#/scan">Capture une carte</a> pour commencer.'}</div>`;
       App.ui.hydratePhotos(grid);
       if (selecting) paintSelection();
     };

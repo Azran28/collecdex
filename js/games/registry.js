@@ -13,12 +13,12 @@
  */
 App.games = (() => {
   const list = [
-    { id: 'pokemon', name: 'Pokémon', icon: '⚡', status: 'actif', desc: 'Toutes les séries du JCC Pokémon, en français, avec les prix Cardmarket.' },
-    { id: 'onepiece', name: 'One Piece', icon: '🏴‍☠️', status: 'bientôt', desc: 'OP01 → OP14 et plus.' },
-    { id: 'magic', name: 'Magic: The Gathering', icon: '🧙', status: 'bientôt', desc: 'Données Scryfall (prix inclus).' },
-    { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: '🐉', status: 'bientôt', desc: 'Données YGOPRODeck (prix inclus).' },
-    { id: 'lorcana', name: 'Disney Lorcana', icon: '✨', status: 'bientôt', desc: '' },
-    { id: 'autres', name: 'Et au-delà…', icon: '🧸', status: 'plus tard', desc: 'Figurines, Funko Pop, pièces, jeux vidéo : tout ce qui se collectionne en « X / Y ».' },
+    { id: 'pokemon', name: 'Pokémon', icon: 'bolt', status: 'actif', desc: 'Toutes les séries en français, prix Cardmarket.' },
+    { id: 'onepiece', name: 'One Piece', icon: 'anchor', status: 'bientôt', desc: 'OP01 → OP14 et plus.' },
+    { id: 'magic', name: 'Magic: The Gathering', icon: 'sparkles', status: 'bientôt', desc: 'Toutes les extensions, prix inclus.' },
+    { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: 'pyramid', status: 'bientôt', desc: 'Toutes les boîtes, prix inclus.' },
+    { id: 'lorcana', name: 'Disney Lorcana', icon: 'star', status: 'bientôt', desc: 'Chapitres 1 et suivants.' },
+    { id: 'autres', name: 'Et au-delà…', icon: 'box', status: 'plus tard', desc: 'Figurines, Funko Pop, pièces, jeux vidéo…' },
   ];
   const adapters = {};
   return {

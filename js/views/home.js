@@ -1,4 +1,4 @@
-/* Page d'accueil : chiffres clés, jeux disponibles, séries en cours, derniers ajouts */
+/* Page d'accueil : chiffres clés, licences disponibles, séries en cours, derniers ajouts */
 App.views.home = {
   async render(el, params, alive) {
     const { esc, euro } = App.util;
@@ -8,37 +8,42 @@ App.views.home = {
 
     el.innerHTML = `
       <section class="hero">
-        <h1>Ton Pokédex de collection</h1>
-        <p>Répertorie, suis et mets en valeur tes cartes. Chaque série affiche ta progression, les raretés, et un badge quand elle est complète.</p>
+        <h1>Ton <span class="holo">Dex</span> de collection</h1>
+        <p class="muted">Capture tes cartes, complète tes séries, montre tes pépites.</p>
         <div class="stats">
-          <div class="stat"><b>${items.length}</b><span>cartes différentes</span></div>
-          <div class="stat"><b>${copies}</b><span>exemplaires au total</span></div>
-          <div class="stat"><b>${euro(value)}</b><span>valeur estimée (Cardmarket)</span></div>
-          <div class="stat" id="h-complete"><b>…</b><span>séries complétées</span></div>
+          <div class="stat"><b>${items.length}</b><span>cartes</span></div>
+          <div class="stat"><b>${copies - items.length}</b><span>doublons</span></div>
+          <div class="stat"><b>${euro(value)}</b><span>valeur estimée</span></div>
+          <div class="stat" id="h-complete"><b>…</b><span>séries complètes</span></div>
         </div>
-        <div class="row" style="margin-top:16px">
-          <a class="btn primary" href="#/scan">📷 Scanner une carte</a>
-          <a class="btn" href="#/jeu/pokemon">Parcourir les séries</a>
-          <a class="btn" href="#/vitrine">Voir ma vitrine</a>
+        <div class="row" style="margin-top:14px">
+          <a class="btn primary" href="#/scan">${App.icons.icon('capture', 16)} Capturer une carte</a>
+          <a class="btn" href="#/jeu/pokemon">${App.icons.icon('explore', 16)} Explorer</a>
+          <a class="btn" href="#/vitrine">${App.icons.icon('trophy', 16)} Ma vitrine</a>
         </div>
       </section>
 
-      <h2>Collections</h2>
-      <div class="grid-auto" style="margin-bottom:28px">
-        ${App.games.list.map((g) => `
-          <a class="game-tile ${g.status === 'actif' ? '' : 'soon'}" href="${g.status === 'actif' ? `#/jeu/${g.id}` : '#/'}">
-            <span class="pill tag">${g.status === 'actif' ? '● disponible' : esc(g.status)}</span>
-            <div class="gicon">${g.icon}</div>
-            <h3>${esc(g.name)}</h3>
-            <div class="muted small">${esc(g.desc)}</div>
-            ${g.status === 'actif' ? `<div class="small" style="margin-top:8px"><b>${items.filter((i) => i.game === g.id).length}</b> cartes possédées</div>` : ''}
-          </a>`).join('')}
+      <div class="section-title"><h2>Licences</h2></div>
+      <div class="grid-auto licences">
+        ${App.games.list.map((g) => {
+          const on = g.status === 'actif';
+          const n = items.filter((i) => i.game === g.id).length;
+          return `
+          <a class="game-tile g-${g.id} ${on ? '' : 'soon'}" href="${on ? `#/jeu/${g.id}` : '#/'}">
+            <div class="gicon">${App.icons.icon(g.icon, 26)}</div>
+            <div class="gtxt">
+              <h3>${esc(g.name)}</h3>
+              <div class="muted small">${on ? `<b style="color:var(--text)">${n}</b> carte${n > 1 ? 's' : ''} · ` : ''}${esc(g.desc)}</div>
+            </div>
+            <span class="pill tag">${on ? 'dispo' : esc(g.status)}</span>
+          </a>`;
+        }).join('')}
       </div>
 
       <div id="h-inprogress"></div>
 
-      <h2>Derniers ajouts</h2>
-      <div id="h-recent">${items.length ? '' : '<div class="empty panel">Ta collection est vide pour l’instant.<br>Scanne ta première carte pour commencer : chaque carte ajoutée est une vraie carte, avec ta photo.</div>'}</div>
+      <div class="section-title"><h2>Derniers ajouts</h2><span class="spacer"></span>${items.length ? '<a href="#/collection">Tout voir ›</a>' : ''}</div>
+      <div id="h-recent">${items.length ? '' : '<div class="empty panel">Ton Dex est vide pour l’instant.<br>Capture ta première carte pour commencer !</div>'}</div>
     `;
 
     // Derniers ajouts
@@ -61,7 +66,7 @@ App.views.home = {
       el.querySelector('#h-complete b').textContent = started.filter((x) => x.p.complete).length;
       if (started.length) {
         started.sort((a, b) => b.t - a.t);
-        el.querySelector('#h-inprogress').innerHTML = `<h2>Mes séries en cours</h2><div class="grid-auto" style="margin-bottom:28px">${started.slice(0, 6).map(({ s, p }) => App.views.sets.setCard('pokemon', s, p)).join('')}</div>`;
+        el.querySelector('#h-inprogress').innerHTML = `<div class="section-title"><h2>Mes séries en cours</h2></div><div class="grid-auto">${started.slice(0, 6).map(({ s, p }) => App.views.sets.setCard('pokemon', s, p)).join('')}</div>`;
       }
     } catch (e) {
       el.querySelector('#h-complete b').textContent = '—';

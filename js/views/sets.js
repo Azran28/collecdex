@@ -1,21 +1,21 @@
-/* Liste de toutes les séries d'un jeu, regroupées par bloc, avec ta progression */
+/* Liste de toutes les séries d'un jeu, regroupées par époque, avec ta progression */
 App.views.sets = {
   setCard(game, s, p, showBloc = false) {
     const { esc } = App.util;
     const ad = App.games.get(game);
-    const logo = ad.img.logo(s), sym = ad.img.symbol(s);
+    const sym = ad.img.symbol(s);
     return `
       <a class="set-card ${p.complete ? 'complete' : ''}" href="#/jeu/${game}/serie/${encodeURIComponent(s.id)}" data-set="${esc(s.id)}">
-        ${p.complete ? '<span class="badge-complete">🏆 Complétée</span>' : ''}
-        <div class="logo-wrap">${logo ? `<img loading="lazy" src="${esc(logo)}" alt="${esc(s.name)}" data-alt="${esc(s.name)}" data-alt-class="logo-fallback">` : `<span class="logo-fallback">${esc(s.name)}</span>`}</div>
+        ${p.complete ? `<span class="badge-complete">${App.icons.icon('trophy', 13)} Complétée</span>` : ''}
+        <div class="logo-wrap">${App.ui.setLogo(game, s)}</div>
         <div class="set-title">${sym ? `<img loading="lazy" src="${esc(sym)}" alt="">` : ''}<b>${esc(s.name)}</b></div>
         <div class="set-meta">
           ${App.ui.countHTML(p)}
-          <span class="muted small">${p.pct.toLocaleString("fr-FR")} %${p.missing && p.have ? ` · ${p.missing} manquante${p.missing > 1 ? 's' : ''}` : ''}</span>
+          <span class="muted small">${p.pct.toLocaleString("fr-FR")} %</span>
         </div>
         ${App.ui.progressBar(p)}
         ${p.byRarity ? App.ui.rarityRow(game, p.byRarity) : ''}
-        <div class="muted small">${showBloc ? esc(s.group.name) + ' · ' : ''}${s.releaseDate ? App.util.dateFr(s.releaseDate) : ''}${s.official && s.total !== s.official ? ` · ${s.official} officielles + ${s.total - s.official} secrètes` : ''}</div>
+        <div class="set-sub">${showBloc ? esc(s.group.name) + ' · ' : ''}${s.releaseDate ? s.releaseDate.slice(0, 4) : ''}${p.missing && p.have ? ` · ${p.missing} manquante${p.missing > 1 ? 's' : ''}` : ''}</div>
       </a>`;
   },
 
@@ -40,11 +40,11 @@ App.views.sets = {
 
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › ${esc(ad.name)}</div>
-      <div class="row"><h1>${esc(ad.name)} — toutes les séries</h1><span class="spacer"></span><span class="muted small">${sets.length} séries · données <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a></span></div>
+      <div class="row"><h1>Explorer · ${esc(ad.name)}</h1><span class="spacer"></span><span class="muted small">${sets.length} séries · données <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a></span></div>
       <div class="toolbar">
-        <input type="search" id="s-q" placeholder="Rechercher une série…" style="min-width:240px">
-        <select id="s-sort" title="Trier">${SORTS.map(([k, l]) => `<option value="${k}" ${k === state.sort ? 'selected' : ''}>Tri : ${l}</option>`).join('')}</select>
-        <select id="s-bloc"><option value="">Tous les blocs</option>${blocs.map(([id, n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join('')}</select>
+        <input type="search" id="s-q" placeholder="Rechercher une série…" style="min-width:220px">
+        <select id="s-sort" title="Trier">${SORTS.map(([k, l]) => `<option value="${k}" ${k === state.sort ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <select id="s-bloc"><option value="">Toutes les époques</option>${blocs.map(([id, n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join('')}</select>
         <select id="s-year"><option value="">Toutes les années</option>${years.map((y) => `<option>${y}</option>`).join('')}</select>
       </div>
       <div class="row" style="margin:-4px 0 18px">
@@ -52,7 +52,7 @@ App.views.sets = {
           ${['toutes', 'entamées', 'complétées', 'non commencées'].map((f) => `<button class="chip ${f === state.filter ? 'on' : ''}" data-f="${f}">${f[0].toUpperCase() + f.slice(1)}</button>`).join('')}
         </div>
         <span class="spacer"></span>
-        <label class="check small"><input type="checkbox" id="s-group" ${state.group ? 'checked' : ''}> Regrouper par bloc</label>
+        <label class="check small"><input type="checkbox" id="s-group" ${state.group ? 'checked' : ''}> Par époque</label>
         <label class="check small"><input type="checkbox" id="s-promo" ${state.hidePromo ? 'checked' : ''}> Masquer les promos</label>
         <span class="muted small" id="s-count"></span>
       </div>
@@ -88,7 +88,7 @@ App.views.sets = {
       rows.sort((a, b) => sorters[state.sort](a, b) || date(b).localeCompare(date(a)));
       el.querySelector('#s-count').textContent = `${rows.length} série${rows.length > 1 ? 's' : ''}`;
       if (!rows.length) { list.innerHTML = '<div class="empty panel">Aucune série ne correspond.</div>'; return; }
-      // 3) affichage, regroupé par bloc (dans l'ordre du tri) ou en une seule grille
+      // 3) affichage, regroupé par époque (dans l'ordre du tri) ou en une seule grille
       if (!state.group) {
         list.innerHTML = `<div class="grid-auto">${rows.map(({ s, p }) => App.views.sets.setCard(game, s, p, true)).join('')}</div>`;
         return;
@@ -100,7 +100,7 @@ App.views.sets = {
       }
       list.innerHTML = [...groups.values()].map(({ g, items }) => `
         <section class="serie-block">
-          <div class="serie-head">${g.logo ? `<img src="${esc(g.logo)}.png" alt="" data-alt="">` : ''}<h2 style="margin:0">${esc(g.name)}</h2><span class="muted small">${items.length} série${items.length > 1 ? 's' : ''}</span></div>
+          <div class="serie-head"><span class="era-dot"></span><h2 style="margin:0">${esc(g.name)}</h2><span class="muted small">${items.length} série${items.length > 1 ? 's' : ''}</span></div>
           <div class="grid-auto">${items.join('')}</div>
         </section>`).join('');
     };

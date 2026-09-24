@@ -88,18 +88,18 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     const box = body.querySelector('#cd-mine');
     const it = App.col.get(game, card.id);
     if (!it || !it.qty) {
-      box.innerHTML = `<h3>Ma collection</h3>
-        <p class="muted">Tu n’as pas encore cette carte. Pour l’ajouter, scanne-la : ta photo deviendra son visuel.</p>
-        <a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}">📷 Scanner cette carte</a>`;
+      box.innerHTML = `<h3>Mon Dex</h3>
+        <p class="muted">Tu n’as pas encore cette carte. Capture-la en photo pour l’ajouter à ton Dex.</p>
+        <a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}">${App.icons.icon('capture', 16)} Capturer cette carte</a>`;
       return;
     }
     const photos = await Promise.all((it.photos || []).map(async (id) => ({ id, url: await App.col.photoURL(id) })));
-    box.innerHTML = `<h3>Ma collection</h3>
+    box.innerHTML = `<h3>Mon Dex</h3>
       <div class="row" style="margin-bottom:12px">
         <span>Exemplaires</span>
         <span class="stepper"><button id="cd-minus" title="Retirer un exemplaire">−</button><span>${it.qty}</span></span>
-        <button class="btn sm danger" id="cd-remove" title="Tu ne l’as plus, ou erreur d’ajout">🗑 Supprimer de ma collection</button>
-        <a class="btn sm" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Chaque exemplaire se scanne">📷 Scanner un exemplaire de plus</a>
+        <button class="btn sm danger" id="cd-remove" title="Tu ne l’as plus, ou erreur d’ajout">${App.icons.icon('trash', 14)} Retirer de mon Dex</button>
+        <a class="btn sm" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Chaque exemplaire se capture en photo">${App.icons.icon('plus', 14)} Capturer un exemplaire</a>
         <button class="btn sm ${it.favorite ? 'primary' : ''}" id="cd-fav">${it.favorite ? '★ Favorite' : '☆ Mettre en favori'}</button>
       </div>
       ${availVariants.length ? `<div class="row" style="margin-bottom:12px"><span>Versions possédées</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div></div>` : ''}

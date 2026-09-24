@@ -23,13 +23,13 @@ App.views.scan = {
   async render(el, params, alive) {
     const mode = params.query.mode === 'classeur' ? 'classeur' : 'carte';
     el.innerHTML = `
-      <div class="breadcrumb"><a href="#/">Accueil</a> › Scanner</div>
-      <div class="row"><h1 style="margin:0">Scanner</h1><span class="spacer"></span>
+      <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
+      <div class="row" style="margin-bottom:6px"><h1 style="margin:0">Capturer</h1><span class="spacer"></span>
         <div class="chips">
-          <a class="chip ${mode === 'carte' ? 'on' : ''}" href="#/scan">📷 Une carte</a>
-          <a class="chip ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur">▦ Page de classeur</a>
+          <a class="chip ${mode === 'carte' ? 'on' : ''}" href="#/scan">Une carte</a>
+          <a class="chip ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur">Page de classeur</a>
         </div></div>
-      <p class="muted">Pour ajouter une carte, il faut la scanner : c’est la preuve que tu l’as vraiment. La photo devient le visuel de la carte dans ta collection.</p>
+      <p class="muted small" style="margin-top:0">Prends ta carte en photo : elle rejoint ton Dex, avec ta photo comme visuel.</p>
       <div id="sc-body"></div>`;
     const body = el.querySelector('#sc-body');
     const cleanup = mode === 'classeur' ? await App.views.scan.batch(body, params, alive) : await App.views.scan.single(body, params, alive);
@@ -78,22 +78,22 @@ App.views.scan = {
     el.innerHTML = `
       <div id="sc-target"></div>
       <div class="row" style="margin-bottom:12px">
-        <label class="small">Série de la carte <span class="muted">(facultatif, beaucoup plus fiable si tu la connais)</span><br>
+        <label class="small">Série <span class="muted">(facultatif, plus fiable)</span><br>
           <select id="sc-set" style="max-width:320px"><option value="">Je ne sais pas : chercher partout</option></select></label>
       </div>
       <div class="scan-wrap">
         <div>
           <div class="scan-view" id="sc-view"><div class="muted" style="padding:20px;text-align:center">Utilise la caméra ou choisis une photo de ta carte</div></div>
           <div class="row" style="margin-top:14px" id="sc-actions">
-            <button class="btn primary" id="sc-cam">🎥 Utiliser la caméra</button>
-            <button class="btn primary hidden" id="sc-shot">📸 Capturer</button>
-            <label class="btn">🖼 Choisir une photo<input type="file" accept="image/*" capture="environment" id="sc-file" hidden></label>
+            <button class="btn primary" id="sc-cam">${App.icons.icon('camera', 16)} Caméra</button>
+            <button class="btn primary hidden" id="sc-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
+            <label class="btn">Choisir une photo<input type="file" accept="image/*" capture="environment" id="sc-file" hidden></label>
           </div>
           <div id="sc-cropbar" class="hidden" style="margin-top:14px">
             <div class="panel hidden" id="sc-pagehint" style="margin-bottom:10px;border-color:var(--accent2)">
-              <b>📚 On dirait une page de classeur</b> (plusieurs cartes sur la photo).<br>
+              <b>On dirait une page de classeur</b> (plusieurs cartes sur la photo).<br>
               <span class="small muted">Le mode « Une carte » n’en reconnaît qu’une, et prendrait toute la photo comme visuel.</span>
-              <div class="row" style="margin-top:8px"><button class="btn primary sm" id="sc-topage">▦ Scanner comme page de classeur</button></div>
+              <div class="row" style="margin-top:8px"><button class="btn primary sm" id="sc-topage">Passer en page de classeur</button></div>
             </div>
             <div class="row"><span>Taille du cadre</span><input type="range" id="sc-size" min="20" max="100" value="90" style="flex:1"></div>
             <p class="small muted">Fais glisser le cadre jaune pour qu’il entoure la carte, puis valide.</p>
@@ -136,7 +136,7 @@ App.views.scan = {
         if (s) { target.set = { id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, cardCount: { total: s.total, official: s.official }, serie: s.group }; target.serieId = s.group.id; }
         el.querySelector('#sc-target').innerHTML = `<div class="cand" style="grid-template-columns:56px 1fr">
           <img src="${esc(ad.img.card(target))}" alt="" style="width:56px" data-alt="">
-          <div>Carte à scanner : <b>${esc(target.name)}</b> ${ad.rarity.symbol(target.rarity, 12)}<br><span class="small muted">${esc(c.set.name)} · n° ${esc(target.localId)}</span></div></div>`;
+          <div>Carte à capturer : <b>${esc(target.name)}</b> ${ad.rarity.symbol(target.rarity, 12)}<br><span class="small muted">${esc(c.set.name)} · n° ${esc(target.localId)}</span></div></div>`;
       } catch (e) { console.warn(e); }
     }
 
@@ -242,7 +242,7 @@ App.views.scan = {
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
         }).join('')}
-        ${[...new Set(cands.slice(0, 3).map((c) => c.name))].slice(0, 2).map((n) => `<button class="btn sm" data-versions="${esc(n)}" style="margin:4px 6px 0 0">📚 Toutes les versions de « ${esc(n)} »</button>`).join('')}`;
+        ${[...new Set(cands.slice(0, 3).map((c) => c.name))].slice(0, 2).map((n) => `<button class="btn sm" data-versions="${esc(n)}" style="margin:4px 6px 0 0">Toutes les versions de « ${esc(n)} »</button>`).join('')}`;
       results.onclick = async (e) => {
         if (!cardBlob) return;
         const vb = e.target.closest('[data-versions]');
@@ -277,7 +277,7 @@ App.views.scan = {
         const it = App.col.byKey(key);
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ta collection, avec ta photo.`;
         results.innerHTML = `<div class="panel">${what}<br><br>
-          <div class="row"><button class="btn primary" id="sc-again">📷 Scanner la suivante</button>
+          <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
@@ -335,10 +335,10 @@ App.views.scan = {
     const urls = [];
 
     el.innerHTML = `
-      <div class="panel" style="margin-bottom:16px">
-        <b>Comment faire :</b> prends en photo une page entière de ton classeur, bien à plat, de face et sans reflet. Ajuste la grille sur les pochettes, puis lance la reconnaissance. Tu vérifies chaque carte avant de tout ajouter.
-        <span class="muted small">Conseil : l’appareil photo d’un téléphone donne de bien meilleurs résultats qu’une webcam (chaque carte doit être assez grande sur la photo).</span>
-      </div>
+      <details class="help"><summary>Comment ça marche ?</summary>
+        Prends en photo une page entière de ton classeur, bien à plat, de face et sans reflet. Ajuste la grille sur les pochettes, puis lance la reconnaissance : tu vérifies chaque carte avant de l’ajouter.
+        Astuce : l’appareil photo d’un téléphone donne de bien meilleurs résultats qu’une webcam.
+      </details>
       <div class="batch-wrap">
         <div>
           <div class="row" style="margin-bottom:10px">
@@ -349,9 +349,9 @@ App.views.scan = {
           </div>
           <div class="scan-view batch-view" id="b-view"><div class="muted" style="padding:20px;text-align:center">Photo d’une page de classeur</div></div>
           <div class="row" style="margin-top:14px" id="b-actions">
-            <button class="btn primary" id="b-cam">🎥 Utiliser la caméra</button>
-            <button class="btn primary hidden" id="b-shot">📸 Capturer</button>
-            <label class="btn">🖼 Choisir une photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
+            <button class="btn primary" id="b-cam">${App.icons.icon('camera', 16)} Caméra</button>
+            <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
+            <label class="btn">Choisir une photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
           </div>
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <p class="small muted">Glisse la grille pour la déplacer, et ses coins ronds pour l’ajuster : chaque case doit entourer une pochette.</p>
@@ -574,7 +574,7 @@ App.views.scan = {
       resultsEl.innerHTML = `
         ${savedN ? `<div class="panel" style="margin-bottom:12px"><b>✓ ${savedN} carte${savedN > 1 ? 's' : ''} enregistrée${savedN > 1 ? 's' : ''}</b> dans ta collection.
           ${leftN ? ` Il reste ${leftN} carte${leftN > 1 ? 's' : ''} sur cette page : coche celles que tu veux ajouter, corrige-les si besoin, puis enregistre à nouveau.` : ''}
-          <div class="row" style="margin-top:8px"><button class="btn sm primary" id="b-next">▦ Page suivante</button><a class="btn sm" href="#/collection">Voir ma collection</a></div></div>` : ''}
+          <div class="row" style="margin-top:8px"><button class="btn sm primary" id="b-next">Page suivante</button><a class="btn sm" href="#/collection">Voir mon Dex</a></div></div>` : ''}
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Résultat de la page</h3><span class="spacer"></span>
           ${!running && cells.length ? `<button class="btn sm ghost" id="b-all">Tout cocher</button><button class="btn sm ghost" id="b-none">Tout décocher</button>
             <span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
@@ -607,7 +607,7 @@ App.views.scan = {
                   <option value="">— Ne pas ajouter —</option>
                   ${c.cands.map((x) => `<option value="${esc(x.id)}" ${x.id === c.choice ? 'selected' : ''}>${esc(x.name)} · ${esc(App.views.scan.setLabel(x))} · ${esc(x.localId)}</option>`).join('')}
                 </select>
-                ${cur ? `<button class="btn sm ghost" data-versions="${c.i}">📚 Toutes les versions de « ${esc(cur.name)} »</button>` : ''}
+                ${cur ? `<button class="btn sm ghost" data-versions="${c.i}">Toutes les versions de « ${esc(cur.name)} »</button>` : ''}
                 ${own || repeat ? `<select data-mode="${c.i}" title="Carte déjà possédée ou en double">
                     ${(own ? ['rien', 'photo', 'doublon'] : ['doublon', 'rien']).map((k) => `<option value="${k}" ${k === m ? 'selected' : ''}>${k === 'doublon' && repeat && !own ? '2e exemplaire sur la page (doublon)' : k === 'rien' && !own ? 'Ne pas la compter' : modeLabels[k]}</option>`).join('')}
                   </select>
@@ -623,7 +623,7 @@ App.views.scan = {
           }).join('')}
         </div>
         ${!running && cells.length ? `<div class="row" style="margin-top:16px">
-          <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans ma collection</button>
+          <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
         </div>` : ''}`;
     }
 

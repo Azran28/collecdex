@@ -14,7 +14,7 @@ App.views.set = {
       <div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/jeu/${game}">${esc(ad.name)}</a> › ${esc(set.group.name)} › ${esc(set.name)}</div>
       <section class="set-hero panel">
         <div style="text-align:center">
-          ${ad.img.logo(set) ? `<img class="logo-big" src="${esc(ad.img.logo(set))}" alt="${esc(set.name)}" data-alt="${esc(set.name)}" data-alt-class="logo-fallback">` : `<h2>${esc(set.name)}</h2>`}
+          ${ad.img.logo(set) ? App.ui.setLogo(game, set, { big: true }).replace('<img ', '<img class="logo-big" ') : App.ui.setLogo(game, set, { big: true })}
         </div>
         <div id="st-head"></div>
       </section>
@@ -27,11 +27,11 @@ App.views.set = {
           ${[['toutes', 'Toutes'], ['possedees', 'Possédées'], ['manquantes', 'Manquantes']].map(([k, l]) => `<button class="chip ${state.own === k ? 'on' : ''}" data-own="${k}">${l}</button>`).join('')}
         </div>
         <select id="st-sort" title="Trier">
-          <option value="num">Tri : numéro</option>
-          <option value="rar">Tri : plus rares d’abord</option>
-          <option value="price">Tri : plus chères d’abord</option>
-          <option value="rating">Tri : mieux notées (ta note)</option>
-          <option value="name">Tri : nom</option>
+          <option value="num">Par numéro</option>
+          <option value="rar">plus rares d’abord</option>
+          <option value="price">plus chères d’abord</option>
+          <option value="rating">mieux notées (ta note)</option>
+          <option value="name">Par nom</option>
         </select>
         <input type="search" id="st-q" placeholder="Nom ou numéro…">
         <span class="spacer"></span>
@@ -49,18 +49,18 @@ App.views.set = {
       const p = App.col.progress(game, set);
       const value = App.col.inSet(game, set.id).reduce((s, i) => s + (i.price && i.price.value && i.price.unit === 'EUR' ? i.price.value * i.qty : 0), 0);
       head.innerHTML = `
-        <div class="muted">${esc(set.group.name)} ${set.releaseDate ? '· sortie le ' + App.util.dateFr(set.releaseDate) : ''}</div>
+        <div class="muted small">${esc(set.group.name)}${set.releaseDate ? ' · ' + App.util.dateFr(set.releaseDate) : ''}</div>
         <h1 class="row" style="gap:10px">${ad.img.symbol(set) ? `<img src="${esc(ad.img.symbol(set))}" alt="" style="height:28px">` : ''}${esc(set.name)}</h1>
         <div class="row" style="align-items:baseline">
           <span class="bigcount">${p.have}<span class="muted" style="font-size:1.4rem">/${p.total}</span></span>
-          <span style="font-size:1.2rem;font-weight:800">${p.pct.toLocaleString("fr-FR")} %</span>
-          ${p.complete ? '<span class="medal">🏆 Série complétée !</span>' : `<span class="muted">${p.missing} carte${p.missing > 1 ? 's' : ''} manquante${p.missing > 1 ? 's' : ''}</span>`}
+          <span style="font-size:1.1rem;font-weight:700">${p.pct.toLocaleString("fr-FR")} %</span>
+          ${p.complete ? `<span class="medal">${App.icons.icon('trophy', 14)} Complétée !</span>` : `<span class="muted">${p.missing} carte${p.missing > 1 ? 's' : ''} manquante${p.missing > 1 ? 's' : ''}</span>`}
         </div>
         <div style="margin:10px 0">${App.ui.progressBar(p)}</div>
         <div class="row small muted">
           <span>${set.official} cartes numérotées${set.total > set.official ? ` + ${set.total - set.official} secrètes` : ''}</span>
-          <span>· Complétion comptée sur : <b>${App.settings.completion === 'official' ? 'cartes numérotées' : 'toutes les cartes'}</b> (<a href="#/parametres">changer</a>)</span>
-          ${value ? `<span>· Valeur de tes cartes : <b style="color:var(--accent2)">${euro(value)}</b></span>` : ''}
+          <span>· comptées : <a href="#/parametres">${App.settings.completion === 'official' ? 'numérotées' : 'toutes'}</a></span>
+          ${value ? `<span>· Valeur : <b style="color:var(--accent2)">${euro(value)}</b></span>` : ''}
         </div>`;
 
       const rar = el.querySelector('#st-rar');

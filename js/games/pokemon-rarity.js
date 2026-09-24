@@ -70,18 +70,26 @@ App.pokemonRarity = (() => {
     sparkle: (c) => `<path d="M8 .8 9.6 6.4 15.2 8 9.6 9.6 8 15.2 6.4 9.6.8 8 6.4 6.4Z" fill="${c}" stroke="#000" stroke-opacity=".5" stroke-width=".8"/>`,
     crown: (c) => `<path d="M1.5 12.5 2.5 4.5 5.5 8 8 2.5 10.5 8 13.5 4.5 14.5 12.5Z" fill="${c}" stroke="#000" stroke-opacity=".5" stroke-width=".9"/>`,
   };
-  const defs = '<defs><linearGradient id="rbw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6ec4"/><stop offset=".35" stop-color="#7873f5"/><stop offset=".7" stop-color="#4ade80"/><stop offset="1" stop-color="#facc15"/></linearGradient></defs>';
+  // Couleur selon le niveau de rareté : du gris (commune) à l'or rosé puis l'arc-en-ciel (les plus rares)
+  const GOLDPINK = 'url(#gpk)';
+  const TIER = ['#8a92a8', '#b9c0d4', '#3ddc97', '#4da3ff', '#36d6e7', '#2ee6c5', '#a78bfa', '#c77dff', '#ff6ec7', '#ffc53d', '#ff9f43', GOLDPINK, RAINBOW, RAINBOW];
+  const colorOf = (k) => (R[k][2].c === RAINBOW ? RAINBOW : TIER[R[k][0]] || '#b9c0d4');
+  const pillBg = (c) => (c === RAINBOW ? 'linear-gradient(90deg,#ff6ec4,#7873f5,#4ade80,#facc15)' : c === GOLDPINK ? 'linear-gradient(90deg,#ffc53d,#ff6ec7)' : c);
+  const defs = '<defs><linearGradient id="gpk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff5fa2"/></linearGradient><linearGradient id="rbw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6ec4"/><stop offset=".35" stop-color="#7873f5"/><stop offset=".7" stop-color="#4ade80"/><stop offset="1" stop-color="#facc15"/></linearGradient></defs>';
 
   /** Renvoie le HTML du symbole de rareté */
   const symbol = (r, size = 15) => {
     const k = key(r);
     const lab = App.util.esc(label(r));
     if (!k) return `<span class="rar" title="${lab}"><span class="rar-txt">${App.util.esc(String(r || '?').slice(0, 10))}</span></span>`;
-    const sym = R[k][2];
-    if (sym.s === 'txt') return `<span class="rar" title="${lab}"><span class="rar-txt" style="${sym.c ? `background:${sym.c}` : ''}">${App.util.esc(sym.t)}</span></span>`;
-    const one = `<svg width="${size}" height="${size}" viewBox="0 0 16 16">${sym.c === RAINBOW ? defs : ''}${shapes[sym.s](sym.c)}</svg>`;
-    return `<span class="rar" title="${lab}">${one.repeat(sym.n || 1)}${sym.t ? `<span class="rar-txt" style="margin-left:3px">${App.util.esc(sym.t)}</span>` : ''}</span>`;
+    const sym = R[k][2], col = colorOf(k);
+    if (sym.s === 'txt') return `<span class="rar" title="${lab}"><span class="rar-txt" style="background:${pillBg(sym.c || col)}">${App.util.esc(sym.t)}</span></span>`;
+    const one = `<svg width="${size}" height="${size}" viewBox="0 0 16 16">${col.startsWith('url') ? defs : ''}${shapes[sym.s](col)}</svg>`;
+    return `<span class="rar" title="${lab}">${one.repeat(sym.n || 1)}${sym.t ? `<span class="rar-txt" style="margin-left:3px;background:${pillBg(col)}">${App.util.esc(sym.t)}</span>` : ''}</span>`;
   };
 
-  return { key, rank, label, symbol };
+  /** Couleur CSS de la rareté (pour les barres de progression, pastilles…) */
+  const css = (r) => { const k = key(r); return k ? pillBg(colorOf(k)) : '#b9c0d4'; };
+
+  return { key, rank, label, symbol, css };
 })();
