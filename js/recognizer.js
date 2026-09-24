@@ -223,6 +223,39 @@ App.recognizer = (() => {
     return Math.sqrt(s / v.length) < 14;
   }
 
+  /**
+   * Empreinte de l'ILLUSTRATION (la partie la plus reconnaissable d'une carte), en niveaux de gris normalisés.
+   * Pour la photo, on en calcule plusieurs versions légèrement décalées/zoomées : le cadrage d'une photo
+   * n'est jamais parfait (pochette, carte de travers), on garde la version qui ressemble le plus.
+   */
+  const ART = { x0: 0.09, x1: 0.91, y0: 0.11, y1: 0.50 }, AW = 24, AH = 16;
+  function artVec(bmp, dx = 0, dy = 0, sc = 1) {
+    const W = bmp.width, H = bmp.height;
+    const cx = (ART.x0 + ART.x1) / 2 + dx, cy = (ART.y0 + ART.y1) / 2 + dy, w = (ART.x1 - ART.x0) * sc, h = (ART.y1 - ART.y0) * sc;
+    const c = document.createElement('canvas'); c.width = AW; c.height = AH;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.filter = 'blur(0.5px)';
+    g.drawImage(bmp, W * (cx - w / 2), H * (cy - h / 2), W * w, H * h, 0, 0, AW, AH);
+    const p = g.getImageData(0, 0, AW, AH).data, n = AW * AH, v = new Float32Array(n);
+    let m = 0; for (let i = 0; i < n; i++) { v[i] = 0.299 * p[i * 4] + 0.587 * p[i * 4 + 1] + 0.114 * p[i * 4 + 2]; m += v[i]; }
+    m /= n; let sd = 0; for (let i = 0; i < n; i++) sd += (v[i] - m) ** 2; sd = Math.sqrt(sd / n) || 1;
+    for (let i = 0; i < n; i++) v[i] = (v[i] - m) / sd;
+    return v;
+  }
+  async function artVariants(blob) {
+    const bmp = await createImageBitmap(blob);
+    const out = [];
+    for (const sc of [0.9, 1, 1.1]) for (const dx of [-0.06, -0.03, 0, 0.03, 0.06]) for (const dy of [-0.06, -0.03, 0, 0.03, 0.06]) out.push(artVec(bmp, dx, dy, sc));
+    return out;
+  }
+  /** Ressemblance (≈ 0,3 sans rapport … 0,9 identique) : meilleure version de la photo contre le visuel officiel */
+  function artMatch(variants, ref) {
+    let best = -1;
+    for (const v of variants) { let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * ref[i]; s /= v.length; if (s > best) best = s; }
+    return best;
+  }
+  /** Ressemblance ramenée entre 0 et 1 pour l'affichage et le score */
+  const vis01 = (x) => (x == null ? 0 : Math.max(0, Math.min(1, (x - 0.3) / 0.55)));
+
   const officialThumbs = new Map();
   /** Empreinte du visuel officiel ; si l'image française manque, on prend l'anglaise */
   async function officialThumb(src) {
@@ -231,7 +264,7 @@ App.recognizer = (() => {
       officialThumbs.set(src, (async () => {
         let b = await tryUrl(src);
         if (!b && /assets\.tcgdex\.net\/(?!en\/)[a-z-]+\//.test(src)) b = await tryUrl(src.replace(/assets\.tcgdex\.net\/[a-z-]+\//, 'assets.tcgdex.net/en/'));
-        return b ? thumb(b).catch(() => null) : null;
+        return b ? createImageBitmap(b).then((bmp) => artVec(bmp)).catch(() => null) : null;
       })());
     }
     return officialThumbs.get(src);
@@ -255,6 +288,17 @@ App.recognizer = (() => {
       all++; if (blue) allBlue++;
     }
     const rb = ringBlue / ring, ab = allBlue / all;
+    // 2e règle (photo réelle, bleu terni par la pochette) : bord « plutôt bleu que jaune » et presque pas de jaune.
+    // Un recto a un bord jaune (anciennes cartes) ou argenté/gris ; on exige aussi que la carte entière soit bleutée.
+    let ringTint = 0, allTint = 0, ringYellow = 0, n2 = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4, r = p[i], gg = p[i + 1], b = p[i + 2], t = b - Math.max(r, gg);
+      const onRing = x < 5 || x >= W - 5 || y < 5 || y >= H - 5;
+      if (onRing) { ringTint += t; n2++; if (Math.min(r, gg) - b > 25) ringYellow++; }
+      allTint += t;
+    }
+    ringTint /= n2; allTint /= W * H; ringYellow /= n2;
+    if (ringTint > -30 && allTint > -25 && ringYellow < 0.25 && ab >= 0.12) return true;
     // dos : bord majoritairement bleu, et plus bleu que le reste de la carte (un Pokémon Eau a un bord jaune/argent)
     return rb >= 0.4 && rb > ab * 1.3;
   }
@@ -294,9 +338,12 @@ App.recognizer = (() => {
       await App.util.pool(out, 6, async (c) => {
         const src = ad().img.card(c, 'low'); if (!src) return;
         const v = await officialThumb(src);
-        if (v) { c.visual = corr(mine, v); c.score += Math.max(0, c.visual) * visualWeight; }
+        if (v) { c.visual = artMatch(mine, v); c.score += vis01(c.visual) * visualWeight; }
       });
       out.sort((a, b) => b.score - a.score);
+      // écart de ressemblance avec la meilleure autre candidate (une carte nettement devant = plus sûre)
+      const vs = out.map((c) => c.visual).filter((x) => x != null).sort((a, b) => b - a);
+      for (const c of out) if (c.visual != null) c.margin = c.visual - (c.visual === vs[0] ? (vs[1] ?? 0) : vs[0]);
     }
     return out;
   }
@@ -306,17 +353,17 @@ App.recognizer = (() => {
     let byNum = [];
     if (num) byNum = await A.findByNumber(num.n, num.of).catch(() => []);
     for (const a of alt) { if (byNum.length) break; byNum = await A.findByNumber(a.n, a.of).catch(() => []); if (byNum.length) num = a; }
-    const mine = blob ? await thumb(blob).catch(() => null) : null;
+    const mine = blob ? await artVariants(blob).catch(() => null) : null;
     let out = await rank(byNum, num, lines, mine);
     // numéro absent, ou carte trouvée qui ne ressemble pas à la photo → on cherche aussi par le nom
-    const weak = !out.length || (mine && (out[0].visual == null || out[0].visual < 0.45));
+    const weak = !out.length || (mine && (out[0].visual == null || out[0].visual < 0.55));
     if (weak && words.length) {
       status('Recherche par le nom…');
       const byName = await nameSearch(words);
       out = await rank([...byNum, ...byName], num, lines, mine, { cap: 100, visualWeight: 3, needName: true });
     }
     // « sûre » : bon numéro ET bon total, ou photo très ressemblante
-    for (const c of out) c.confident = (c.numOk && c.ofOk && (c.visual == null || c.visual > 0.15)) || (c.visual != null && c.visual >= 0.65);
+    for (const c of out) c.confident = (c.numOk && c.ofOk && (c.visual == null || c.visual > 0.4)) || (c.visual != null && c.visual >= 0.75 && (c.margin ?? 1) >= 0.06);
     return out.slice(0, 8);
   }
 
@@ -332,14 +379,14 @@ App.recognizer = (() => {
       const shape = { id: set.id, name: set.name, logo: set.logo, symbol: set.symbol, cardCount: { total: set.total, official: set.official }, serie: set.group };
       const list = set.cards.map((c) => ({ ...c, set: shape }));
       const num = info.num && (!info.num.of || info.num.of === set.official) ? info.num : null;
-      const mine = await thumb(blob).catch(() => null);
+      const mine = await artVariants(blob).catch(() => null);
       status(`Comparaison avec les ${list.length} cartes de ${set.name}…`);
       const out = await rank(list, num, info.lines, mine, { cap: 500, visualWeight: 3 });
       const second = out[1] ? out[1].score : 0;
       for (const c of out) {
-        c.confident = (c.numOk && (c.visual == null || c.visual > 0.15))
-          || (c.visual != null && c.visual >= 0.6)
-          || (c === out[0] && c.visual != null && c.visual >= 0.4 && c.score - second > 0.35); // nettement devant les autres
+        c.confident = (c.numOk && (c.visual == null || c.visual > 0.4))
+          || (c.visual != null && c.visual >= 0.72 && (c.margin ?? 1) >= 0.05)
+          || (c === out[0] && c.visual != null && c.visual >= 0.55 && (c.margin ?? 0) >= 0.08 && c.score - second > 0.3); // nettement devant les autres
       }
       return out.slice(0, 8);
     } finally { onStatus = null; }

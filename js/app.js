@@ -48,6 +48,25 @@ App.views = App.views || {};
 
   window.addEventListener('hashchange', route);
 
+  /**
+   * Mise à jour automatique : le site en ligne peut rester en cache quelques minutes dans le navigateur.
+   * On compare la version chargée à celle du serveur ; si elle a changé, on recharge une seule fois.
+   */
+  async function checkVersion() {
+    try {
+      const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const { v } = await r.json();
+      const done = sessionStorage.getItem('reloadedFor');
+      if (v && v !== window.APP_VERSION && done !== v) {
+        sessionStorage.setItem('reloadedFor', v);
+        location.replace(location.pathname + '?v=' + encodeURIComponent(v) + location.hash);
+      }
+    } catch (e) { /* hors ligne : on garde la version en cache */ }
+  }
+  checkVersion();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+
   (async () => {
     try { await App.col.load(); }
     catch (e) { console.error(e); App.util.toast('Stockage local indisponible : ta collection ne sera pas sauvegardée.', 6000); }

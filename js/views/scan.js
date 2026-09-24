@@ -202,7 +202,7 @@ App.views.scan = {
               ${own ? `<br><span class="pill small">Déjà ×${own.qty} — ce sera un exemplaire de plus</span>` : ''}
               ${c.isTarget && !c.notRead ? '<br><span class="pill small" style="background:var(--ok);color:#063">Carte attendue ✓</span>' : ''}
               ${c.notRead ? '<br><span class="pill small" style="background:#7a4a00">Carte attendue, mais pas reconnue sur la photo</span>' : ''}
-              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.visual != null ? `<br><span class="small muted">Ressemblance avec ta photo : ${Math.max(0, Math.round(c.visual * 100))} %</span>` : ''}</div>
+              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.visual != null ? `<br><span class="small muted">Ressemblance avec ta photo : ${Math.round(Math.max(0, Math.min(1, (c.visual - 0.3) / 0.55)) * 100)} %</span>` : ''}</div>
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
         }).join('')}`;
@@ -460,20 +460,33 @@ App.views.scan = {
       // Deuxième passe : si plusieurs cartes sûres viennent de la même série, la page est sans doute
       // rangée par série → on recompare les cartes incertaines à toutes les cartes de cette série.
       if (!hint && alive() && !stopped) {
-        const count = {};
-        for (const c of cells) if (c.state === 'sure' && c.cands[0] && c.cands[0].set) count[c.cands[0].set.id] = (count[c.cands[0].set.id] || 0) + 1;
+        // Indices : une carte sûre compte 2, une carte « à vérifier » dont le nom a été bien lu compte 1.
+        const count = {}, votes = {};
+        for (const c of cells) {
+          const top = c.cands[0]; if (!top || !top.set) continue;
+          const w = c.state === 'sure' ? 2 : (c.state === 'verifier' && (top.nameScore || 0) >= 0.85 ? 1 : 0);
+          if (!w) continue;
+          count[top.set.id] = (count[top.set.id] || 0) + w; votes[top.set.id] = (votes[top.set.id] || 0) + 1;
+        }
         const [best, nb] = Object.entries(count).sort((a, b) => b[1] - a[1])[0] || [];
         const todo = cells.filter((c) => ['verifier', 'inconnue'].includes(c.state) && c.info);
-        if (best && nb >= 2 && todo.length) {
-          detected = { id: best, name: cells.find((c) => c.state === 'sure' && c.cands[0].set.id === best).cands[0].set.name, nb };
+        if (best && nb >= 3 && votes[best] >= 2 && todo.length) {
+          const src = cells.find((c) => c.cands[0] && c.cands[0].set && c.cands[0].set.id === best);
+          detected = { id: best, name: src.cands[0].set.name, nb: votes[best] };
           drawResults();
           for (const cell of todo) {
             if (stopped || !alive()) return;
             cell.state = 'lecture'; drawResults();
             try {
               const cands = await R.inSet(cell.blob, cell.info, best, (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Série détectée : ${esc(detected.name)} — carte ${cell.i + 1} : ${esc(m)}</div>`); });
-              const top = cands[0], old = cell.cands[0];
-              if (top && (top.confident || !old || top.score >= old.score)) {
+              let top = cands[0], sameName = false;
+              const old = cell.cands[0];
+              // même carte réimprimée ailleurs (ex. Dardargnan Évolutions) → on prend la version de la série de la page
+              if (old && old.set && old.set.id !== best) {
+                const same = cands.find((x) => App.util.norm(x.name) === App.util.norm(old.name));
+                if (same) { top = same; sameName = true; cands.splice(cands.indexOf(same), 1); cands.unshift(same); }
+              }
+              if (top && (sameName || top.confident || !old || top.score >= old.score)) {
                 const seen = new Set(cands.map((x) => x.id));
                 cell.cands = [...cands, ...cell.cands.filter((x) => !seen.has(x.id))].slice(0, 10);
                 cell.choice = top.id;
@@ -515,7 +528,7 @@ App.views.scan = {
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Résultat de la page</h3><span class="spacer"></span>
           ${!running && cells.length ? `<button class="btn sm ghost" id="b-all">Tout cocher</button><button class="btn sm ghost" id="b-none">Tout décocher</button>
             <span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
-        ${detected ? `<p class="small" style="margin:0 0 10px">🔎 Série détectée sur cette page : <b>${esc(detected.name)}</b> (${detected.nb} cartes sûres) — les cartes incertaines ont été recomparées aux cartes de cette série.</p>` : ''}
+        ${detected ? `<p class="small" style="margin:0 0 10px">🔎 Série détectée sur cette page : <b>${esc(detected.name)}</b> (d’après ${detected.nb} cartes) — les cartes incertaines ont été recomparées aux cartes de cette série.</p>` : ''}
         <div class="btiles" style="grid-template-columns:repeat(${cols}, minmax(0, 1fr))">
           ${cells.map((c) => {
             const [lab, cls] = stateLabel[c.state];
