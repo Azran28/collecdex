@@ -44,7 +44,7 @@ App.cloud = (() => {
       sb.auth.onAuthStateChange((ev, session) => {
         const was = uid();
         user = session ? session.user : null;
-        if (ev === 'PASSWORD_RECOVERY') location.hash = '#/compte?reset=1';
+        if (ev === 'PASSWORD_RECOVERY') location.hash = '#/connexion?reset=1';
         if (user && user.id !== was) sync();
         if (!user) setState('deconnecte'); else emit();
       });

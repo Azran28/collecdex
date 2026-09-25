@@ -60,6 +60,7 @@ App.views.showcase = {
 
       el.innerHTML = `
         <div class="row v-top" style="margin-bottom:14px"><h1>Ma vitrine</h1><span class="spacer"></span>
+          <a class="btn ghost" href="#/parametres" title="Compte, synchronisation et paramètres">${App.icons.icon('gear', 16)}<span class="m-hide"> Compte et réglages</span></a>
           <button class="btn ${editing ? 'primary' : ''}" id="v-edit">${editing ? '✓ Terminer' : '✎ Personnaliser'}</button></div>
         <section class="vitrine theme-${esc(profile.theme)}" id="v-page">
           <div class="v-head">
@@ -216,7 +217,23 @@ App.views.showcase = {
 
     await loadBadges();
     await draw();
-    const unsub = App.col.on(() => { if (!editing) draw(); });
-    return unsub;
+    // La collection change souvent en arrière-plan (prix du jour, synchro…) : on ne redessine la vitrine
+    // que si ce qu'elle montre a vraiment changé, une seule fois, et sans faire sauter le défilement.
+    const sig = () => owned().map((i) => `${i.key}:${i.qty}:${i.favorite ? 1 : 0}:${i.displayPhoto || ''}:${App.col.valueOf(i)}`).join('|');
+    let lastSig = sig(), t = null;
+    const unsub = App.col.on(() => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        if (editing || !alive()) return;
+        const s = sig(); if (s === lastSig) return;
+        lastSig = s;
+        const y = window.scrollY;
+        el.style.minHeight = el.offsetHeight + 'px'; // garde la hauteur le temps que les images se rechargent
+        await draw();
+        window.scrollTo(0, y);
+        setTimeout(() => { el.style.minHeight = ''; }, 1500);
+      }, 1200);
+    });
+    return () => { clearTimeout(t); unsub(); };
   },
 };

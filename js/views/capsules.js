@@ -109,7 +109,9 @@
 
     // le tirage part tout de suite (réseau) pendant que la capsule tombe
     const res = App.capsules.open().then((r) => ({ r }), (e) => ({ e }));
+    App.sfx.unlock();
     ov.classList.add('co-drop');
+    setTimeout(() => App.sfx.drop(), 430); // la capsule touche le sol
     const out = await res;
     if (out.e) { close(); App.util.toast(out.e.message || 'Ouverture impossible', 4000); return null; }
     const r = out.r, t = r.tier, T = P().TIER[t];
@@ -122,11 +124,13 @@
     const shakes = t <= 2 ? 1 : t <= 4 ? 2 : 3;
     for (let i = 0; i < shakes && !skip; i++) {
       ov.classList.remove('co-wobble'); void ov.offsetWidth; ov.classList.add('co-wobble');
+      App.sfx.wobble(i);
       if (i === shakes - 1) ov.classList.add('co-hint');
       await wait(760);
     }
     // ouverture
     ov.classList.add('co-burst', 'co-t' + t);
+    App.sfx.open(t, r.shiny);
     if (r.shiny) ov.classList.add('co-shiny');
     const parts = [0, 0, 8, 14, 22, 32, 40][t];
     ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('');
@@ -173,7 +177,7 @@
             <div class="cap-stage">${capsuleSVG('idle', 120)}</div>
             <div><h1>Capsules</h1>
               <p>Chaque heure, une nouvelle capsule t’attend (10 au maximum). Ouvre-la pour attraper un Pokémon, plus ou moins rare, et complète ton Pokédex. Tes Pokémon servent aussi d’avatar.</p>
-              <a class="btn primary" href="#/compte">${App.icons.icon('user', 16)} Me connecter pour recevoir mes capsules</a>
+              <a class="btn primary" href="#/connexion">${App.icons.icon('user', 16)} Me connecter pour recevoir mes capsules</a>
               <p class="small muted">Les capsules sont gardées sur ton compte (pour que personne ne puisse tricher avec l’heure du téléphone).</p></div>
           </section>`;
         return;
@@ -185,7 +189,8 @@
           <div class="cap-main">
             <h1>Capsules</h1>
             <div id="cp-status" class="cap-status muted">Chargement…</div>
-            <div class="row" style="gap:10px;margin-top:12px"><button class="btn primary big" id="cp-open" disabled>${App.icons.icon('capsule', 18)} Ouvrir une capsule</button></div>
+            <div class="row" style="gap:10px;margin-top:12px"><button class="btn primary big" id="cp-open" disabled>${App.icons.icon('capsule', 18)} Ouvrir une capsule</button>
+              <button class="btn ghost cp-sound" id="cp-sound" title="Sons de l’ouverture">${App.icons.icon(App.sfx.enabled ? 'sound' : 'mute', 18)}</button></div>
             <details class="cap-odds"><summary class="small">Chances d’obtention</summary>
               <div class="cap-odds-list">${[1, 2, 3, 4, 5, 6].map((t) => `<span>${tierPill(t)} <b>${String(P().TIER[t].odds).replace('.', ',')} %</b></span>`).join('')}<span><span class="shiny-pill">✦ Chromatique</span> <b>1 %</b></span></div>
               <p class="small muted">Une capsule arrive toutes les heures, 10 au maximum en réserve : pense à passer les ouvrir !</p></details>
@@ -261,6 +266,13 @@
         const sp = e.target.closest('[data-sp]');
         if (sp) return speciesModal(+sp.dataset.sp, dex.get(+sp.dataset.sp));
         if (e.target.closest('#cp-open')) openLoop(() => { drawStatus(); refreshDex(false); });
+        const sb = e.target.closest('#cp-sound');
+        if (sb) {
+          App.settings.sound = !App.sfx.enabled; App.col.saveSettings();
+          sb.innerHTML = App.icons.icon(App.sfx.enabled ? 'sound' : 'mute', 18);
+          App.util.toast(App.sfx.enabled ? 'Sons activés' : 'Sons coupés');
+          App.sfx.click();
+        }
       });
       el.addEventListener('change', (e) => {
         if (e.target.id === 'cp-tier') { state.tier = +e.target.value; drawGrid(); }

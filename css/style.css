@@ -1176,10 +1176,22 @@ body.cap-lock { overflow: hidden; }
 .cap-btns { justify-content: center; gap: 8px; margin-top: 8px; }
 .cap-hint { position: absolute; bottom: calc(24px + env(safe-area-inset-bottom)); color: var(--muted); z-index: 6; }
 
-/* en-tête : capsules à ouvrir */
-.caps-chip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; color: var(--text); text-decoration: none; border: 1px solid var(--line); background: rgba(255,255,255,.04); }
-.caps-chip .caps-n { position: absolute; top: -4px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: linear-gradient(135deg, #ff4fa3, #7c5cff); color: #fff; font-size: .68rem; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #0c0e19; }
-.caps-chip.full .caps-n { background: linear-gradient(135deg, #ffd23f, #ff4fa3); }
+/* en-tête : capsules à ouvrir (bien visible) */
+.caps-chip { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 8px; border-radius: 999px; color: var(--text); text-decoration: none; font-weight: 700; font-size: .85rem;
+  border: 1.5px solid transparent; background: linear-gradient(#171a33, #171a33) padding-box, linear-gradient(135deg, #ffd23f, #ff4fa3, #7c5cff, #34d5ff) border-box; }
+.caps-chip .caps-ico { display: flex; color: #ff7cc0; }
+.caps-chip .caps-n { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 800; color: var(--muted); background: rgba(255,255,255,.08); white-space: nowrap; }
+.caps-chip.has { box-shadow: 0 0 14px rgba(255,79,163,.45); }
+.caps-chip.has .caps-n { color: #fff; background: linear-gradient(135deg, #ff4fa3, #7c5cff); font-size: .8rem; }
+.caps-chip.full .caps-n { background: linear-gradient(135deg, #ffd23f, #ff4fa3); color: #1b1300; }
+.caps-chip.has .caps-ico { animation: capsNudge 2.8s ease-in-out infinite; }
+@keyframes capsNudge { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-16deg); } 90% { transform: rotate(12deg); } 95% { transform: rotate(-6deg); } }
+.caps-chip.active, .caps-chip:hover { color: #fff; }
+@media (max-width: 760px) {
+  .caps-chip { padding: 0 6px 0 6px; gap: 4px; height: 34px; }
+  .caps-chip .caps-lbl { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .caps-chip.has .caps-ico { animation: none; } }
 /* accueil */
 .cap-home { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin: -8px 0 20px; border-radius: 16px; border: 1px solid var(--line); text-decoration: none; color: var(--text);
   background: linear-gradient(135deg, rgba(255,79,163,.14), rgba(124,92,255,.12)); }
@@ -1202,3 +1214,25 @@ body.cap-lock { overflow: hidden; }
   #cp-regions { flex-wrap: nowrap; overflow-x: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .capsule.idle, .cap-rays { animation: none !important; } }
+
+/* Vitrine : défilement plus fluide sur téléphone (pas de flou ni de fond animé sur chaque carte) */
+@media (max-width: 760px) {
+  .frame-vitre { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(255,255,255,.16); }
+  .frame-holo { animation: none; background-size: 100% 100%; }
+}
+
+/* Match (à venir) */
+.match-soon { max-width: 560px; margin: 30px auto; text-align: center; padding: 34px 24px; }
+.match-soon h1 { margin: 10px 0 6px; }
+.match-ico { width: 72px; height: 72px; margin: 0 auto; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #fff;
+  background: linear-gradient(135deg, #ff4fa3, #7c5cff 60%, #34d5ff); box-shadow: 0 10px 30px rgba(124,92,255,.4); }
+/* Compte dans les Paramètres */
+.acc-box { margin-bottom: 4px; }
+#p-account h2 { margin-top: 0; }
+
+/* Capture : les boutons Caméra / Prendre la photo restent toujours visibles en bas de l'écran */
+.scan-dock { flex-wrap: wrap; gap: 8px; }
+.scan-dock #sc-shot, .scan-dock #b-shot { order: -1; flex: 1 1 100%; justify-content: center; padding: 13px 18px; font-size: 1rem; }
+@media (max-width: 760px) {
+  .scan-dock .btn { flex: 1 1 auto; justify-content: center; }
+}

@@ -13,7 +13,7 @@
  */
 App.certify = (() => {
   const SMALL = 96;           // largeur des petites images de suivi
-  const FRAMES = 11, STEP = 180; // ~2 s de film
+  const FRAMES = 10, STEP = 130; // ~1,3 s de film (au lieu de 2 s)
 
   // ---------- Analyses (fonctions pures, testables) ----------
 
@@ -215,7 +215,7 @@ App.certify = (() => {
     ov.className = 'cert-overlay';
     ov.innerHTML = `<div class="cert-arrow ${ch.challenge}">${L.arrow}</div><div class="cert-txt">${L.txt}</div><div class="cert-bar"><span></span></div>`;
     host.appendChild(ov);
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 220));
     // petite zone en pleine résolution (le bruit du capteur y est visible)
     const nat = () => grayOf(video, sx + sw / 2 - 32, sy + sh / 2 - 32, 64, 64, 64, 64);
     const frames = [f0], raw = [nat()];
@@ -225,7 +225,7 @@ App.certify = (() => {
       ov.querySelector('.cert-bar span').style.width = Math.round(((i + 1) / FRAMES) * 100) + '%';
     }
     ov.remove();
-    const moves = frames.filter((_, i) => i >= 4 && i % 2 === 0).map((F) => motion(f0, F, w, h));
+    const moves = frames.filter((_, i) => i >= 3).map((F) => motion(f0, F, w, h));
     const j = judgeChallenge(ch.challenge, moves);
     const frozen = frozenPairs(raw);
     const reasons = [];

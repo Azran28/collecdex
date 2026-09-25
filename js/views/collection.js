@@ -2,7 +2,7 @@
 App.views.collection = {
   async render(el, params, alive) {
     const { esc, euro, norm, debounce } = App.util;
-    const state = { q: '', game: '', set: '', rarity: '', flag: 'toutes', sort: params.query.tri || 'ajout' };
+    const state = { q: '', game: '', set: '', rarity: '', flag: params.query.f || 'toutes', sort: params.query.tri || 'ajout' };
 
     const snapCard = (it) => ({ id: it.id, name: it.snap.name, localId: it.snap.localId, image: it.snap.image, rarity: it.snap.rarity, setId: it.setId, serieId: it.snap.serieId, setName: it.snap.setName });
     const val = (it) => App.col.valueOf(it);

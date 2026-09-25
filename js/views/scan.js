@@ -41,7 +41,7 @@ App.views.scan = {
       <ol class="sg-steps">${steps.map(([ic, t, d], i) => `<li><span class="sg-n">${i + 1}</span><span class="sg-ic">${App.icons.icon(ic, 18)}</span><span><b>${t}</b><br><span class="muted small">${d}</span></span></li>`).join('')}</ol>
       <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${certOn
         ? 'Utilise le bouton « Caméra » du site et suis la consigne après la photo (2 secondes) : tes cartes bien reconnues recevront le badge.'
-        : App.cloud && App.cloud.enabled ? '<a href="#/compte">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
+        : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
       ${mode === 'classeur' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si ta page ne contient qu’une série, choisis-la dans « Série de la page ».</p>' : '<p class="small muted" style="margin:10px 0 0">Astuce : si tu connais la série, choisis-la au-dessus : c’est bien plus fiable.</p>'}
     </div>`;
   },
@@ -154,7 +154,7 @@ App.views.scan = {
       <div class="scan-wrap">
         <div>
           <div class="scan-view" id="sc-view">${App.views.scan.empty('carte')}</div>
-          <div class="row" style="margin-top:14px" id="sc-actions">
+          <div class="row action-dock scan-dock" style="margin-top:14px" id="sc-actions">
             <button class="btn primary" id="sc-cam">${App.icons.icon('camera', 16)} Caméra</button>
             <button class="btn primary hidden" id="sc-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" capture="environment" id="sc-file" hidden></label>
@@ -365,7 +365,7 @@ App.views.scan = {
         const myCert = cert; cert = null;
         const shotBlob = cardBlob;
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
-        const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/compte">Connecte-toi</a> pour certifier tes captures.</div>`
+        const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
         results.innerHTML = `<div class="panel capture-done">${mode === 'rien' || !cardURL ? '' : `<div class="reveal rt-${App.ui.holoTier(ad.rarity.rank(c.rarity))}"><span class="burst"></span><img src="${cardURL}" alt=""></div>`}<div>${what}${certLine}</div><br>
@@ -448,7 +448,7 @@ App.views.scan = {
               <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
           </div>
           <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur')}</div>
-          <div class="row" style="margin-top:14px" id="b-actions">
+          <div class="row action-dock scan-dock" style="margin-top:14px" id="b-actions">
             <button class="btn primary" id="b-cam">${App.icons.icon('camera', 16)} Caméra</button>
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>

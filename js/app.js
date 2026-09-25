@@ -8,13 +8,15 @@ App.views = App.views || {};
     [/^\/jeu\/([^/]+)\/serie\/([^/]+)\/?$/, 'set', (m) => ({ game: m[1], setId: decodeURIComponent(m[2]) })],
     [/^\/collection\/?$/, 'collection', () => ({})],
     [/^\/vitrine\/?$/, 'showcase', () => ({})],
+    [/^\/match\/?$/, 'match', () => ({})],
+    [/^\/connexion\/?$/, 'account', () => ({})],
     [/^\/scan\/?$/, 'scan', () => ({})],
     [/^\/parametres\/?$/, 'settings', () => ({})],
-    [/^\/compte\/?$/, 'account', () => ({})],
+    [/^\/compte\/?$/, 'showcase', () => ({})],
     [/^\/objectifs\/?$/, 'goals', () => ({})],
     [/^\/capsules\/?$/, 'capsules', () => ({})],
   ];
-  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'vitrine', scan: 'scan', settings: 'parametres', account: 'compte', goals: 'collection', capsules: 'capsules' };
+  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', goals: 'collection', capsules: 'capsules' };
 
   let cleanup = null;
   let renderId = 0;
@@ -87,6 +89,7 @@ App.views = App.views || {};
         const s = App.cloud.state, u = App.cloud.user;
         nav.dataset.state = s;
         nav.classList.toggle('in', !!u);
+        nav.href = u ? '#/compte' : '#/connexion'; // connecté : ta page (vitrine) ; sinon : se connecter
         nav.title = u ? `${u.email} — ${s === 'ok' ? 'synchronisé' : s === 'erreur' ? 'problème de synchronisation' : 'synchronisation…'}` : 'Se connecter';
         const p = await App.col.getProfile().catch(() => ({}));
         const pseudo = u ? (p.pseudo && p.pseudo !== 'Dresseur' ? p.pseudo : (u.email || '').split('@')[0]) : 'Se connecter';
@@ -104,11 +107,13 @@ App.views = App.views || {};
         caps.hidden = !App.cloud.user || App.capsules.missing || !st;
         if (caps.hidden) return;
         const n = caps.querySelector('.caps-n');
-        n.hidden = !st.stock; n.textContent = st.stock;
+        n.textContent = st.stock ? st.stock : App.capsules.countdown().replace(/ min .*/, ' min');
+        caps.classList.toggle('has', st.stock > 0);
         caps.classList.toggle('full', st.stock >= st.max);
         caps.title = st.stock ? `${st.stock} capsule${st.stock > 1 ? 's' : ''} à ouvrir` : `Prochaine capsule dans ${App.capsules.countdown()}`;
       };
       App.capsules.on(paintCaps); paintCaps();
+      setInterval(() => { if (App.capsules.state && !App.capsules.state.stock) paintCaps(); }, 30000);
       await App.cloud.init();
     }
     route();

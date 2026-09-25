@@ -6,6 +6,7 @@ App.views.settings = {
       <div class="breadcrumb"><a href="#/">Accueil</a> › Paramètres</div>
       <h1>Paramètres</h1>
       <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+        <section class="panel" id="p-account"></section>
         <section class="panel">
           <h2>Affichage</h2>
           <p><label>Langue des cartes<br>
@@ -15,6 +16,7 @@ App.views.settings = {
           <p><label>Cartes que je n’ai pas encore<br>
             <select id="p-missing"><option value="grise">Visuel officiel grisé</option><option value="numero">Numéro et nom seulement (plus léger)</option></select></label></p>
           <p><label class="check"><input type="checkbox" id="p-photos"> Afficher mes photos (scans) à la place des visuels officiels</label></p>
+          <p><label class="check"><input type="checkbox" id="p-sound"> Sons à l’ouverture des capsules</label></p>
           <p><label class="check"><input type="checkbox" id="p-pocket"> Afficher aussi les séries de Pokémon TCG Pocket (jeu mobile)</label></p>
         </section>
         <section class="panel">
@@ -42,12 +44,14 @@ App.views.settings = {
 
     const $ = (s) => el.querySelector(s);
     const offInstall = App.install.panel($('#p-install'));
-    $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket;
+    const accOff = App.views.account.render($('#p-account'), { query: {}, embedded: true });
+    $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket; $('#p-sound').checked = S.sound !== false;
     const save = async (msg = 'Enregistré ✓') => { await App.col.saveSettings(); App.util.toast(msg); };
     $('#p-lang').onchange = (e) => { S.lang = e.target.value; save('Langue changée ✓ (les séries vont se recharger)'); };
     $('#p-comp').onchange = (e) => { S.completion = e.target.value; save(); };
     $('#p-missing').onchange = (e) => { S.missingStyle = e.target.value; save(); };
     $('#p-photos').onchange = (e) => { S.preferPhotos = e.target.checked; save(); };
+    $('#p-sound').onchange = (e) => { S.sound = e.target.checked; save(); if (S.sound) App.sfx.click(); };
     $('#p-pocket').onchange = (e) => { S.showPocket = e.target.checked; save(); };
 
     $('#p-export').onclick = async () => {
@@ -85,6 +89,6 @@ App.views.settings = {
       await App.db.clear('items'); await App.db.clear('photos'); await App.db.del('kv', 'profile');
       location.reload();
     };
-    return offInstall;
+    return () => { offInstall(); accOff.then((f) => { if (typeof f === 'function') f(); }); };
   },
 };

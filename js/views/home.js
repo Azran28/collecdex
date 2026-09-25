@@ -19,7 +19,7 @@ App.views.home = {
         <div class="row" style="margin-top:14px">
           <a class="btn primary" href="#/scan">${App.icons.icon('capture', 16)} Capturer une carte</a>
           <a class="btn" href="#/jeu/pokemon">${App.icons.icon('explore', 16)} Explorer</a>
-          <a class="btn" href="#/vitrine">${App.icons.icon('trophy', 16)} Ma vitrine</a>
+          <a class="btn" href="#/compte">${App.icons.icon('trophy', 16)} Ma vitrine</a>
         </div>
       </section>
       <div id="h-caps"></div>
@@ -69,11 +69,13 @@ App.views.home = {
       const st = App.capsules.state;
       if (!st || App.capsules.missing) { box.innerHTML = ''; return; }
       box.innerHTML = `<a class="cap-home" href="#/capsules">${App.views.capsules.capsuleSVG('', 34)}
-        <div><b>${st.stock ? `${st.stock} capsule${st.stock > 1 ? 's' : ''} à ouvrir` : 'Capsules'}</b><span>${st.stock >= st.max ? 'Réserve pleine : ouvre-les !' : st.next_at ? `Prochaine dans ${App.capsules.countdown()}` : ''}</span></div>
+        <div><b>${st.stock ? `${st.stock} capsule${st.stock > 1 ? 's' : ''} à ouvrir` : 'Capsules'}</b><span>${st.stock >= st.max ? 'Réserve pleine : ouvre-les !' : st.next_at ? `Prochaine dans <b class="hc-cd">${App.capsules.countdown()}</b>` : ''}</span></div>
         ${st.stock ? '<span class="btn sm primary">Ouvrir</span>' : ''}</a>`;
     };
     const offCaps = App.capsules.on(drawCaps); drawCaps();
-    const unsub = () => { unsubCol(); offCaps(); if (offInstall) offInstall(); };
+    // le compte à rebours défile en direct
+    const capTick = setInterval(() => { const c = el.querySelector('.hc-cd'); if (c) c.textContent = App.capsules.countdown(); }, 1000);
+    const unsub = () => { unsubCol(); offCaps(); clearInterval(capTick); if (offInstall) offInstall(); };
 
     // Séries en cours + séries complétées
     try {
