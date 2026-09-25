@@ -42,6 +42,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (cm.low > 0) priceRows.push(['Plus bas', cm.low]);
     if (cm['trend-holo'] > 0) priceRows.push(['Tendance holo/reverse', cm['trend-holo']]);
   }
+  // Cardmarket donne un seul prix par carte, toutes langues confondues ; TCGplayer = marché américain (cartes anglaises)
+  const tp = card.pricing && card.pricing.tcgplayer;
+  const tpVal = tp ? (['holofoil', 'normal', 'reverse-holofoil', '1st-edition-holofoil', '1st-edition'].map((k) => tp[k] && tp[k].marketPrice).find((v) => v > 0) || 0) : 0;
 
   body.innerHTML = `
     <div class="cd">
@@ -75,7 +78,8 @@ App.cardModal = async function (game, cardId, ctx = {}) {
             <div class="cd-price-more">${priceRows.slice(1).map(([l, v]) => `<span>${esc(l)} <b>${euro(v)}</b></span>`).join('')}</div>`
             : price ? `<div class="cd-price-main"><b>${euro(price.value, price.unit)}</b><span>prix marché ${esc(price.source)}</span></div>`
             : '<div class="muted small">Pas de prix disponible pour cette carte.</div>'}
-          <div class="cd-price-foot small muted">${cm && cm.updated ? `Mis à jour le ${dateFr(cm.updated)} · ` : ''}<a target="_blank" rel="noopener" href="${esc(ad.cardmarketUrl(card, setInfo.name))}">Voir sur Cardmarket ↗</a></div>
+          ${priceRows.length && tpVal ? `<div class="cd-price-more"><span title="Prix marché TCGplayer : cartes anglaises vendues aux États-Unis">Marché US (cartes anglaises) <b>${euro(tpVal, 'USD')}</b></span></div>` : ''}
+          <div class="cd-price-foot small muted">${cm ? 'Prix Cardmarket toutes langues confondues · ' : ''}${cm && cm.updated ? `mis à jour le ${dateFr(cm.updated)} · ` : ''}<a target="_blank" rel="noopener" href="${esc(ad.cardmarketUrl(card, setInfo.name))}">Voir sur Cardmarket ↗</a></div>
         </div>
 
         <div class="section" id="cd-mine"></div>
@@ -89,7 +93,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     const hasPhoto = it && it.qty > 0 && it.displayPhoto;
     showOfficial = !hasPhoto;
     if (hasPhoto) imgEl.src = await App.col.photoURL(it.displayPhoto);
-    else imgEl.src = ad.img.card(base, 'high');
+    else imgEl.src = ad.img.card(it && it.qty > 0 ? { ...base, lang: App.col.langOf(it) } : base, 'high');
     const fw = body.querySelector('#cd-favwrap');
     fw.innerHTML = it && it.qty > 0 ? `<button class="cd-favstar ${it.favorite ? 'on' : ''}" id="cd-fav" title="${it.favorite ? 'Retirer des favorites' : 'Mettre en favorite'}">${App.icons.icon('star', 18)}</button>` : '';
     // visuel utilisé partout (Mon Dex, vitrine, séries) : ta photo ou le visuel officiel
@@ -140,6 +144,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="#/scan?carte=${encodeURIComponent(card.id)}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
       </div>
       ${certified || !(it.certNote && it.certNote.reason) ? '' : `<div class="small muted" style="margin:-4px 0 8px">Pas certifiée : ${esc(it.certNote.reason)}.</div>`}
+      ${ad.setLanguages ? `<div class="cd-vars-row"><span class="small muted">Langue</span><div class="chips" id="cd-lang">${ad.setLanguages().map((l) => `<button class="chip ${App.col.langOf(it) === l.id ? 'on' : ''}" data-lang="${l.id}" title="Ma carte est en ${l.name.toLowerCase()}">${l.id.toUpperCase()}</button>`).join('')}</div>${App.col.langOf(it) !== ad.langFor(setInfo.id) ? `<span class="small muted">Tu la possèdes en ${(ad.setLanguages().find((l) => l.id === App.col.langOf(it)) || { name: App.col.langOf(it) }).name.toLowerCase()}</span>` : ''}</div>` : ''}
       ${availVariants.length > 1 ? `<div class="cd-vars-row"><span class="small muted">Versions</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div></div>` : ''}
       ${condHTML(it)}
       <div class="cd-photos-head small muted">Mes photos <span>· touche pour en faire le visuel, ✂ pour recadrer</span></div>
@@ -197,6 +202,10 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       await App.col.setQty(key, it.qty - 1); drawImage(); return drawMine();
     }
     if (t.closest('#cd-fav')) { const it = App.col.get(game, card.id); await App.col.update(key, { favorite: !it.favorite }); App.util.toast(it.favorite ? '★ Ajoutée à tes favorites' : 'Retirée des favorites'); drawImage(); return drawMine(); }
+    if (t.closest('[data-lang]') && t.closest('#cd-lang')) {
+      await App.col.update(key, { lang: t.closest('[data-lang]').dataset.lang });
+      drawImage(); return drawMine();
+    }
     if (t.closest('[data-v]') && t.closest('#cd-vars')) {
       const v = t.closest('[data-v]').dataset.v; const it = App.col.get(game, card.id);
       const vars = it.variants.includes(v) ? it.variants.filter((x) => x !== v) : [...it.variants, v];

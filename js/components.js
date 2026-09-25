@@ -52,7 +52,10 @@ App.ui = (() => {
     const mine = own ? App.col.valueOf(it) : 0; // valeur estimée selon l'état (ou ta valeur)
     const price = mine ? euro(mine) : pv && pv.value != null ? euro(pv.value, pv.unit) : '';
     const numOnly = !own && App.settings.missingStyle === 'numero';
-    const src = numOnly ? '' : ad.img.card(card, 'low');
+    // carte possédée : visuel officiel dans la langue de TA carte ; petite étiquette si elle diffère de la langue affichée
+    const myLang = own ? App.col.langOf(it) : '';
+    const otherLang = own && ad.langFor && myLang !== ad.langFor(card.setId || it.setId);
+    const src = numOnly ? '' : ad.img.card(own ? { ...card, lang: myLang } : card, 'low');
     // niveau d'effet selon la rareté (0 = ordinaire … 5 = les plus rares) et couleur de la rareté
     const tier = holoTier(ad.rarity.rank(card.rarity), it && it.snap && it.snap.holo);
     const rc = rarityColor(ad, card.rarity);
@@ -66,6 +69,7 @@ App.ui = (() => {
           ${own && it.cond && it.cond.kind === 'graded' ? `<span class="condchip">${App.icons.icon('slab', 11)}${esc(App.col.condLabel(it.cond))}</span>` : ''}
           ${!own ? `<a class="cap-btn" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Capturer cette carte" aria-label="Capturer ${esc(card.name)}">${App.icons.icon('capture', 20)}</a>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
+          ${otherLang ? `<span class="langchip" title="Ta carte est en ${myLang === 'fr' ? 'français' : myLang === 'en' ? 'anglais' : myLang}">${esc(myLang.toUpperCase())}</span>` : ''}
           ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto" title="Visuel : ta photo (et non l’image officielle)">📷</span>' : ''}
           ${!own && App.wish && App.wish.has(game, card.id) ? '<span class="wishmark" title="Dans ta liste de souhaits">♥</span>' : ''}
           ${own ? (App.certify && App.certify.isCertified(it) ? `<span class="ownedmark certified" title="Certifiée : capturée en direct">${App.icons.icon('shield', 13)}</span>` : '<span class="ownedmark">✓</span>') : ''}

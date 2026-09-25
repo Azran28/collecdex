@@ -35,8 +35,12 @@ App.col = (() => {
       if (variant && !cur.variants.includes(variant)) cur.variants.push(variant);
       return put(cur);
     }
+    const setId = card.setId || (set && set.id);
+    const ad = App.games.get(game);
     const it = {
-      key: k, game, id: card.id, setId: card.setId || (set && set.id), qty: opts.qty || 1,
+      key: k, game, id: card.id, setId, qty: opts.qty || 1,
+      // langue de TA carte : celle choisie pour la série au moment de la capture (modifiable dans la fiche)
+      lang: opts.lang || (ad && ad.langFor ? ad.langFor(setId) : App.settings.lang) || 'fr',
       variants: variant ? [variant] : [], favorite: false, rating: 0, note: '', photos: [], displayPhoto: null,
       addedAt: Date.now(),
       snap: {
@@ -48,6 +52,9 @@ App.col = (() => {
     };
     return put(it);
   }
+
+  /** Langue de la carte possédée (les cartes ajoutées avant ce réglage sont en français) */
+  const langOf = (it) => (it && it.lang) || 'fr';
 
   async function update(k, patch) { const it = items[k]; if (!it) return null; Object.assign(it, patch); return put(it); }
 
@@ -127,7 +134,7 @@ App.col = (() => {
       const u = await photoURL(it.displayPhoto);
       if (u) return { src: u, mine: true };
     }
-    return { src: adapter.img.card({ image: it.snap.image, id: it.id, setId: it.setId, localId: it.snap.localId, serieId: it.snap.serieId }, q), mine: false };
+    return { src: adapter.img.card({ image: it.snap.image, id: it.id, setId: it.setId, localId: it.snap.localId, serieId: it.snap.serieId, lang: langOf(it) }, q), mine: false };
   }
 
   // ---------- Prix ----------
@@ -270,7 +277,7 @@ App.col = (() => {
   }
 
   return {
-    load, saveSettings, keyOf, get, byKey, all, owned, inSet, add, update, setQty, remove,
+    langOf, load, saveSettings, keyOf, get, byKey, all, owned, inSet, add, update, setQty, remove,
     CONDITIONS, GRADERS, condMult, condLabel, condRank, valueOf, totalValue,
     addPhoto, deletePhoto, replacePhoto, setPhotoSource, keepPage, getPage, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
     getProfile, saveProfile, exportAll, importAll, applyRemote, applyRemoteDelete, applyRemoteProfile, wipeLocal, notify,

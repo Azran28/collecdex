@@ -56,7 +56,8 @@
   const img = {
     card: (c, q = 'low') => {
       const sid = c && (c.setId || (c.id ? setOfCard(c.id) : ''));
-      const want = sid && ((App.settings && App.settings.setLangs) || {})[sid]; // langue choisie pour cette série
+      // langue voulue : celle de TA carte si on la connaît (c.lang), sinon celle choisie pour la série
+      const want = (c && c.lang) || (sid && ((App.settings && App.settings.setLangs) || {})[sid]);
       if (c && c.image) return `${want ? c.image.replace(/(assets\.tcgdex\.net\/)[a-z-]+\//, `$1${want}/`) : c.image}/${q}.webp`;
       // pas d'image dans cette langue : on tente l'image anglaise
       if (c && c.id && c.setId) {
