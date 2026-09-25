@@ -44,6 +44,7 @@ App.ui = (() => {
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
           ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto" title="Visuel : ta photo (et non l’image officielle)">📷</span>' : ''}
+          ${!own && App.wish && App.wish.has(game, card.id) ? '<span class="wishmark" title="Dans ta liste de souhaits">♥</span>' : ''}
           ${own ? (App.certify && App.certify.isCertified(it) ? `<span class="ownedmark certified" title="Certifiée : capturée en direct">${App.icons.icon('shield', 13)}</span>` : '<span class="ownedmark">✓</span>') : ''}
         </div>
         <div class="cinfo">

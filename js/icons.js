@@ -28,6 +28,7 @@ App.icons = (() => {
     heart: '<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>',
     flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.9 3.3-5.8 3.8-10.3 2.6 1.6 4 3.9 4.3 6.3 1-.7 1.6-1.9 1.8-3.1 1.9 1.7 3.1 4 3.1 7.1 0 3.6-2.6 6.2-6.5 6.2z"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3"/>',
     layers: '<path d="M12 3 2 8.5l10 5.5 10-5.5z"/><path d="m2 13.5 10 5.5 10-5.5"/>',
   };
   const icon = (name, size = 20, extra = '') => `<svg class="ic ${extra}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;

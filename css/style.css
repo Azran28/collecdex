@@ -762,3 +762,47 @@ a.chip { text-decoration: none; }
 .v-pick-link { text-align: center; margin: -6px 0 18px; }
 .v-pick-link a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent2); text-decoration: none; font-weight: 600; padding: 5px 12px; border-radius: 999px; background: rgba(255,210,63,.08); border: 1px solid rgba(255,210,63,.3); }
 .v-pick-link a:hover { background: rgba(255,210,63,.16); }
+
+/* ===== Mes objectifs / liste de souhaits ===== */
+.goal-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
+.goal-tab { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--text); text-decoration: none; white-space: nowrap; font-weight: 600; font-size: .9rem; flex-shrink: 0; }
+.goal-tab b { font-size: .72rem; background: var(--surface2); border-radius: 999px; padding: 1px 7px; }
+.goal-tab.on { border-color: transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--holo) border-box; border: 2px solid transparent; }
+.goal-tab.on b { background: var(--holo); color: #16172a; }
+.goal-new { margin-bottom: 14px; }
+.goal-new input[type=date] { margin-left: 4px; }
+.goal-card { display: flex; gap: 14px; align-items: flex-start; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 10px; }
+.goal-card.done { border-color: rgba(61,220,151,.5); }
+.goal-card .gc-logo { width: 130px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; min-height: 60px; }
+.goal-card .gc-logo img { max-width: 100%; max-height: 64px; }
+.goal-card .gc-main { flex: 1; min-width: 0; }
+.goal-card .gc-name { font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
+.goal-card .gc-cost { color: var(--accent2); }
+.goal-card .gc-actions { margin-top: 10px; gap: 8px; }
+.goal-card .gc-actions input[type=date] { padding: 4px 6px; font-size: .78rem; }
+.pill.late, .home-goal .late { background: rgba(255,91,91,.18); color: #ff8a8a; }
+.pill.soon { background: rgba(255,184,77,.18); color: #ffc36b; }
+.miss-sum { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; margin-bottom: 14px; }
+.miss-sum > div { display: flex; flex-direction: column; }
+.miss-sum > div b { font-family: var(--display); font-size: 1.2rem; color: var(--accent2); }
+.miss-sum > div span { font-size: .75rem; color: var(--muted); }
+.miss-sum .btn { margin-left: auto; }
+.goals-page .ctile.missing .cimg img { filter: none !important; opacity: 1 !important; }
+.ctile .wishmark { position: absolute; top: 7px; left: 7px; z-index: 2; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #ff4fa3; color: #fff; font-size: .75rem; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.btn.wish-on { background: rgba(255,79,163,.18); border-color: rgba(255,79,163,.6); color: #ff8cc4; }
+.btn.goal-on { background: rgba(61,220,151,.12); border-color: rgba(61,220,151,.5); color: #3ddc97; }
+.home-goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.home-goal { display: block; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--text); text-decoration: none; }
+.home-goal:hover { border-color: rgba(124,92,255,.6); }
+.home-goal b { font-family: var(--display); font-weight: 600; }
+.goal-cta { display: flex; gap: 12px; align-items: center; margin-top: 22px; padding: 12px 14px; border-radius: 14px; border: 2px dashed rgba(124,92,255,.45); color: var(--text); text-decoration: none; }
+.goal-cta:hover { background: rgba(124,92,255,.08); }
+.goal-cta > svg { color: #a78bfa; flex-shrink: 0; }
+@media (max-width: 760px) {
+  .goal-card { flex-direction: column; gap: 8px; padding: 12px; }
+  .goal-card .gc-logo { width: 100%; min-height: 0; justify-content: flex-start; }
+  .goal-card .gc-logo img { max-height: 44px; }
+  .miss-sum { gap: 8px 18px; }
+  .miss-sum .btn { margin-left: 0; }
+  .goal-tab { padding: 8px 11px; font-size: .82rem; }
+}

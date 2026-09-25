@@ -40,6 +40,7 @@ App.views.home = {
         }).join('')}
       </div>
 
+      <div id="h-goals"></div>
       <div id="h-inprogress"></div>
 
       <div class="section-title"><h2>Derniers ajouts</h2><span class="spacer"></span>${items.length ? '<a href="#/collection">Tout voir ›</a>' : ''}</div>
@@ -63,6 +64,23 @@ App.views.home = {
       const ad = App.games.get('pokemon');
       const sets = await ad.listSets();
       if (!alive()) return unsub;
+      // Objectifs
+      const gs = await App.wish.goals();
+      const hg = el.querySelector('#h-goals');
+      if (gs.length) {
+        const rows = gs.map((g) => ({ g, s: sets.find((x) => x.id === g.setId) })).filter((x) => x.s).slice(0, 3);
+        hg.innerHTML = `<div class="section-title"><h2>Mes objectifs</h2><span class="spacer"></span><a href="#/objectifs">Tout voir ›</a></div>
+          <div class="home-goals">${rows.map(({ g, s }) => {
+            const p = App.col.progress('pokemon', s), left = App.wish.daysLeft(g.deadline);
+            return `<a class="home-goal ${p.complete ? 'done' : ''}" href="#/objectifs?tab=manque&set=${encodeURIComponent(s.id)}">
+              <div class="row" style="gap:8px"><b>${esc(s.name)}</b><span class="spacer"></span>${p.complete ? App.icons.icon('trophy', 15) : g.deadline ? `<span class="small ${left < 0 ? 'late' : ''}">${left < 0 ? 'dépassé' : 'J-' + left}</span>` : ''}</div>
+              <div class="row small muted" style="gap:6px;margin:4px 0">${p.have}/${p.total} · ${p.pct.toLocaleString('fr-FR')} %${p.complete ? '' : ` · ${p.missing} à trouver`}</div>
+              ${App.ui.progressBar(p)}
+            </a>`;
+          }).join('')}</div>`;
+      } else if (items.length) {
+        hg.innerHTML = `<a class="goal-cta" href="#/objectifs">${App.icons.icon('target', 20)}<span><b>Fixe-toi un objectif</b><br><span class="small muted">Choisis une série à compléter, et vois les cartes qu’il te manque, les moins chères d’abord.</span></span></a>`;
+      }
       const bySet = {};
       for (const it of items.filter((i) => i.game === 'pokemon')) { bySet[it.setId] = Math.max(bySet[it.setId] || 0, it.addedAt); }
       const started = sets.filter((s) => bySet[s.id]).map((s) => ({ s, p: App.col.progress('pokemon', s), t: bySet[s.id] }));

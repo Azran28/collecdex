@@ -100,7 +100,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (!it || !it.qty) {
       box.innerHTML = `<h3>Mon Dex</h3>
         <p class="muted">Tu n’as pas encore cette carte. Capture-la en photo pour l’ajouter à ton Dex.</p>
-        <a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}">${App.icons.icon('capture', 16)} Capturer cette carte</a>`;
+        <div class="row"><a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}">${App.icons.icon('capture', 16)} Capturer cette carte</a>
+        <button class="btn ${App.wish.has(game, card.id) ? 'wish-on' : ''}" id="cd-wish">${App.wish.has(game, card.id) ? '♥ Je la cherche' : '♡ Je la cherche'}</button></div>
+        <p class="small muted" style="margin:8px 0 0">${App.wish.has(game, card.id) ? 'Elle est dans ta <a href="#/objectifs?tab=souhaits">liste de souhaits</a>.' : 'Ajoute-la à ta liste de souhaits pour la retrouver (et plus tard pour les échanges).'}</p>`;
       return;
     }
     const photos = await Promise.all((it.photos || []).map(async (id) => ({ id, url: await App.col.photoURL(id) })));
@@ -148,6 +150,10 @@ App.cardModal = async function (game, cardId, ctx = {}) {
 
   body.addEventListener('click', async (e) => {
     const t = e.target;
+    if (t.closest('#cd-wish')) {
+      await App.wish.toggle(game, { id: card.id, name: card.name, localId: card.localId, image: card.image, rarity: card.rarity, setId: setInfo.id, serieId: base.serieId }, { id: setInfo.id, name: setInfo.name });
+      return drawMine();
+    }
     const key = App.col.keyOf(game, card.id);
     if (t.closest('#cd-prev') && prevId) return App.cardModal(game, prevId, ctx);
     if (t.closest('#cd-next') && nextId) return App.cardModal(game, nextId, ctx);

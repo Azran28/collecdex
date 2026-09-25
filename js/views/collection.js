@@ -10,6 +10,7 @@ App.views.collection = {
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Mon Dex</div>
       <div class="row"><h1>Mon Dex</h1><span class="spacer"></span>
+        <a class="btn sm primary" href="#/objectifs" title="Objectifs, cartes qui me manquent, liste de souhaits">${App.icons.icon('target', 14)} Objectifs</a>
         <button class="btn sm" id="c-select" title="Sélectionner des cartes (pour les supprimer)">☑ Sélectionner</button>
         <button class="btn sm" id="c-prices" title="Actualiser les prix">↻ Prix</button>
         <button class="btn sm" id="c-csv" title="Exporter en tableur (CSV)">⬇ CSV</button>

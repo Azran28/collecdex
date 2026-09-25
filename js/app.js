@@ -11,8 +11,9 @@ App.views = App.views || {};
     [/^\/scan\/?$/, 'scan', () => ({})],
     [/^\/parametres\/?$/, 'settings', () => ({})],
     [/^\/compte\/?$/, 'account', () => ({})],
+    [/^\/objectifs\/?$/, 'goals', () => ({})],
   ];
-  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'vitrine', scan: 'scan', settings: 'parametres', account: 'compte' };
+  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'vitrine', scan: 'scan', settings: 'parametres', account: 'compte', goals: 'collection' };
 
   let cleanup = null;
   let renderId = 0;
@@ -72,7 +73,7 @@ App.views = App.views || {};
   document.querySelectorAll('[data-logo]').forEach((e) => { e.innerHTML = App.icons.logo(30); });
 
   (async () => {
-    try { await App.col.load(); await App.certify.load(); }
+    try { await App.col.load(); await App.certify.load(); await App.wish.load(); }
     catch (e) { console.error(e); App.util.toast('Stockage local indisponible : ta collection ne sera pas sauvegardée.', 6000); }
     // Compte en ligne : indicateur dans le menu (vert = synchronisé, orange = en cours, rouge = problème, gris = non connecté)
     const nav = document.getElementById('nav-account');
@@ -100,5 +101,6 @@ App.views = App.views || {};
     // badges : annonce quand un nouveau se débloque
     setTimeout(() => App.badges.check().catch(() => {}), 3000);
     App.col.on(App.util.debounce(() => App.badges.check().catch(() => {}), 2500));
+    App.col.on(App.util.debounce(() => App.wish.load().catch(() => {}), 200)); // profil reçu d'un autre appareil
   })();
 })();

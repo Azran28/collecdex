@@ -43,6 +43,12 @@ App.views.set = {
     `;
 
     const head = el.querySelector('#st-head');
+    head.addEventListener('click', async (e) => {
+      if (!e.target.closest('#st-goal')) return;
+      await App.wish.addGoal(game, set);
+      App.util.toast(`🎯 Objectif ajouté : compléter ${set.name}`);
+      drawHead();
+    });
     const grid = el.querySelector('#st-grid');
 
     const drawHead = () => {
@@ -61,7 +67,11 @@ App.views.set = {
           <span>${set.official} cartes numérotées${set.total > set.official ? ` + ${set.total - set.official} secrètes` : ''}</span>
           <span>· comptées : <a href="#/parametres">${App.settings.completion === 'official' ? 'numérotées' : 'toutes'}</a></span>
           ${value ? `<span>· Valeur : <b style="color:var(--accent2)">${euro(value)}</b></span>` : ''}
-        </div>`;
+        </div>
+        ${p.complete ? '' : `<div class="row set-goal" style="margin-top:12px;gap:8px">
+          ${App.wish.isGoal(game, set.id) ? `<a class="btn sm goal-on" href="#/objectifs">${App.icons.icon('target', 14)} Objectif en cours</a>` : `<button class="btn sm" id="st-goal">${App.icons.icon('target', 14)} En faire un objectif</button>`}
+          ${p.have ? `<a class="btn sm" href="#/objectifs?tab=manque&set=${encodeURIComponent(set.id)}">${App.icons.icon('search', 14)} Ce qu’il me manque (${p.missing})</a>` : ''}
+        </div>`}`;
 
       const rar = el.querySelector('#st-rar');
       if (!p.byRarity || set.rarityInfoMissing) {
