@@ -45,6 +45,17 @@ Il faut une connexion internet : les cartes, images et prix sont téléchargés 
 - **Paramètres** (engrenage en haut à droite) : **ton compte** (connexion, synchronisation, déconnexion), langue, sons, façon de compter la complétion, **sauvegarde / restauration**.
 - **Match** (dans le menu, à la place de Vitrine) : la future page des échanges entre collectionneurs, pour l'instant un simple écran d'attente.
 
+## Amis
+- **Mes amis** : sur ta vitrine (touche ton avatar), bouton « Amis ». Ajoute quelqu'un avec son **pseudo**, ou envoie-lui **ton lien d'invitation** (bouton « Partager » / « Copier ») : il ouvre le site, crée son compte, et la demande d'ami est prête.
+- Une demande reçue apparaît sur l'accueil et sur ton avatar (petite pastille rose). Une fois amis, « Sa vitrine » montre sa collection (cartes à l'honneur, badges, les plus précieuses, ce qu'il recherche, avec « ✓ Tu l'as » sur les cartes que tu possèdes). En lecture seule : il ne peut rien modifier chez toi, et un inconnu ne voit rien.
+- Pour qu'un ami puisse s'inscrire : voir « À faire une fois dans Supabase » ci-dessous.
+
+### À faire une fois dans Supabase (pour les amis et les nouveaux comptes)
+1. *SQL Editor* → coller `supabase-v4.sql` → *Run* (active les amis).
+2. *Authentication* → *Sign In / Providers* → *Email* → désactiver **« Confirm email »** → *Save*. Sans ça, tes amis ne reçoivent pas l'e-mail de confirmation : l'envoi d'e-mails gratuit de Supabase ne marche que pour toi (et 2 e-mails par heure au maximum). Ils pourront ainsi créer leur compte et se connecter tout de suite.
+3. *Authentication* → *URL Configuration* → *Site URL* : `https://azran28.github.io/collecdex/`.
+- Limite qui reste : « Mot de passe oublié » n'envoie d'e-mail qu'à toi. Pour tes amis, il faudra brancher un service d'e-mails gratuit (Brevo, Resend…) plus tard.
+
 ## Capsules et Pokédex
 - **Une capsule arrive toutes les heures** (10 au maximum en réserve). Ouvre-la dans **Capsules** (la petite capsule en haut de l'écran, avec le nombre à ouvrir, ou la carte sur l'accueil) : tu attrapes un Pokémon.
 - Chances : commun 50 %, peu commun 28 %, rare 15 %, très rare 4,5 %, légendaire 2 %, fabuleux 0,5 %, et 1 % de chance qu'il soit **chromatique** (couleurs spéciales). Plus il est rare, plus l'ouverture est spectaculaire, avec un petit son (épique pour les légendaires). Touche l'écran pour passer l'animation. Le haut-parleur à côté du bouton « Ouvrir » (ou Paramètres › Sons) coupe le son.
