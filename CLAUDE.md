@@ -47,7 +47,7 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - Valeur : toujours passer par `App.col.valueOf(it)` / `App.col.totalValue(list)` (état `item.cond` = `{kind:'raw', grade:'NM'}` ou `{kind:'graded', company, grade}`, et `item.valueOverride` prioritaire). L'ancienne note `rating` n'est plus affichée.
 - Pas de `backdrop-filter` sur un parent de la barre du bas mobile (ça la fait remonter en haut).
 - Sur téléphone, `:hover` reste collé après un appui : ne pas y mettre de couleur qui rend un texte illisible.
-- Langue par série : `App.settings.setLangs = { idSérie: 'en' }` (synchronisé avec les réglages). L'adaptateur Pokémon l'applique via `langFor(setId)` dans `getSet`/`getCard` et réécrit la langue de l'URL d'image dans `img.card`. Les cartes japonaises sont d'autres séries chez TCGdex (ex. `PMCG1`, `SV1V`), pas une traduction : pas de bouton JP.
+- Langue par série : `App.settings.setLangs = { idSérie: 'en' }` (synchronisé avec les réglages). L'adaptateur Pokémon l'applique via `langFor(setId)` dans `getSet`/`getCard` et réécrit la langue de l'URL d'image dans `img.card`. Les cartes japonaises sont d'autres séries chez TCGdex (ex. `PMCG1`, `SV1V`), pas une traduction : pas de bouton JP. Chaque carte possédée a `item.lang` (`App.col.langOf(it)`, 'fr' par défaut) : `img.card` privilégie `c.lang` puis la langue de la série ; étiquette `.langchip` sur la tuile si elle diffère. Les prix Cardmarket de TCGdex sont identiques en fr/en (même `idProduct`, toutes langues confondues).
 - Les anciennes holos sont notées « Rare » par TCGdex : une carte qui n'existe qu'en holo est traitée comme holo.
 - L'espace de travail de Claude n'a pas accès à internet (TCGdex, polices…) : tester dans le navigateur intégré.
 
