@@ -7,6 +7,7 @@ App.views.sets = {
     return `
       <a class="set-card ${p.complete ? 'complete' : ''}" href="#/jeu/${game}/serie/${encodeURIComponent(s.id)}" data-set="${esc(s.id)}">
         ${p.complete ? `<span class="badge-complete">${App.icons.icon('trophy', 13)} Complétée</span>` : ''}
+        ${App.ui.favSetBtn(game, s)}
         <div class="logo-wrap">${App.ui.setLogo(game, s)}</div>
         <div class="set-title">${sym ? `<img loading="lazy" src="${esc(sym)}" alt="">` : ''}<b>${esc(s.name)}</b></div>
         <div class="set-meta">
@@ -49,7 +50,7 @@ App.views.sets = {
       </div>
       <div class="row" style="margin:-4px 0 18px">
         <div class="chips" id="s-f">
-          ${['toutes', 'entamées', 'complétées', 'non commencées'].map((f) => `<button class="chip ${f === state.filter ? 'on' : ''}" data-f="${f}">${f[0].toUpperCase() + f.slice(1)}</button>`).join('')}
+          ${['toutes', 'favorites', 'entamées', 'complétées', 'non commencées'].map((f) => `<button class="chip ${f === state.filter ? 'on' : ''}" data-f="${f}">${f === 'favorites' ? '★ Favorites' : f[0].toUpperCase() + f.slice(1)}</button>`).join('')}
         </div>
         <span class="spacer"></span>
         <label class="check small"><input type="checkbox" id="s-group" ${state.group ? 'checked' : ''}> Par époque</label>
@@ -68,6 +69,7 @@ App.views.sets = {
         if (state.year && !(s.releaseDate || '').startsWith(state.year)) continue;
         if (state.hidePromo && isPromo(s)) continue;
         const p = App.col.progress(game, details[s.id] || s);
+        if (state.filter === 'favorites' && !App.wish.isFavSet(game, s.id)) continue;
         if (state.filter === 'entamées' && !(p.have > 0 && !p.complete)) continue;
         if (state.filter === 'complétées' && !p.complete) continue;
         if (state.filter === 'non commencées' && p.have > 0) continue;
@@ -93,12 +95,17 @@ App.views.sets = {
         list.innerHTML = `<div class="grid-auto">${rows.map(({ s, p }) => App.views.sets.setCard(game, s, p, true)).join('')}</div>`;
         return;
       }
+      // séries favorites en tête (vue « toutes », sans recherche)
+      const favRows = state.filter === 'toutes' && !state.q ? rows.filter(({ s }) => App.wish.isFavSet(game, s.id)) : [];
       const groups = new Map();
       for (const { s, p } of rows) {
         if (!groups.has(s.group.id)) groups.set(s.group.id, { g: s.group, items: [] });
         groups.get(s.group.id).items.push(App.views.sets.setCard(game, s, p));
       }
-      list.innerHTML = [...groups.values()].map(({ g, items }) => `
+      list.innerHTML = (favRows.length ? `<section class="serie-block fav-block">
+          <div class="serie-head"><span class="favdot">${App.icons.icon('star', 14)}</span><h2 style="margin:0">Mes séries favorites</h2><span class="muted small">${favRows.length}</span></div>
+          <div class="grid-auto">${favRows.map(({ s, p }) => App.views.sets.setCard(game, s, p, true)).join('')}</div>
+        </section>` : '') + [...groups.values()].map(({ g, items }) => `
         <section class="serie-block">
           <div class="serie-head"><span class="era-dot"></span><h2 style="margin:0">${esc(g.name)}</h2><span class="muted small">${items.length} série${items.length > 1 ? 's' : ''}</span></div>
           <div class="grid-auto">${items.join('')}</div>
@@ -120,6 +127,9 @@ App.views.sets = {
       draw();
     });
 
+    // étoile ajoutée / retirée : on met à jour la liste (section « favorites », filtre)
+    const unsub = App.col.on(debounce(() => { if (alive()) draw(); }, 150));
+
     // Pour les séries entamées, on charge le détail (raretés) en arrière-plan
     const started = sets.filter((s) => App.col.inSet(game, s.id).length);
     App.util.pool(started, 3, async (s) => {
@@ -129,5 +139,6 @@ App.views.sets = {
       const node = list.querySelector(`[data-set="${CSS.escape(s.id)}"]`);
       if (node) node.outerHTML = App.views.sets.setCard(game, s, App.col.progress(game, full), !state.group);
     });
+    return unsub;
   },
 };

@@ -23,6 +23,19 @@ App.ui = (() => {
     }
   }, true);
 
+  // Bouton « capturer » d'une carte manquante : il ouvre la capture sans ouvrir la fiche de la carte
+  document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.cap-btn')) e.stopPropagation(); }, true);
+  // Étoile « série favorite » posée sur un lien : on ne suit pas le lien
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest && e.target.closest('[data-favset]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const on = await App.wish.toggleSet(b.dataset.game || 'pokemon', b.dataset.favset, b.dataset.name || '');
+    document.querySelectorAll(`[data-favset="${CSS.escape(b.dataset.favset)}"]`).forEach((x) => { x.classList.toggle('on', on); x.title = on ? 'Retirer des séries favorites' : 'Ajouter aux séries favorites'; });
+  }, true);
+  /** Étoile de série favorite */
+  const favSetBtn = (game, set, extra = '') => `<button type="button" class="favset ${App.wish && App.wish.isFavSet(game, set.id) ? 'on' : ''} ${extra}" data-favset="${esc(set.id)}" data-game="${game}" data-name="${esc(set.name)}" title="${App.wish && App.wish.isFavSet(game, set.id) ? 'Retirer des séries favorites' : 'Ajouter aux séries favorites'}">${App.icons.icon('star', 16)}</button>`;
+
   // image de carte chargée : on arrête le reflet de chargement
   window.addEventListener('load', (e) => { const el = e.target; if (el instanceof HTMLImageElement && el.parentElement && el.parentElement.classList.contains('cimg')) el.parentElement.classList.add('ld'); }, true);
 
@@ -50,7 +63,8 @@ App.ui = (() => {
           ${numOnly ? `<div class="numonly"><b>${esc(card.localId)}</b><span>${esc(card.name)}</span></div>`
             : src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(card.name)}" data-alt="${esc(card.name)}" ${it && it.displayPhoto && App.settings.preferPhotos ? `data-photo="${esc(it.displayPhoto)}"` : ''}>` : `<span class="noimg">${esc(card.name)}</span>`}
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
-          ${own && it.cond && it.cond.kind === 'graded' ? `<span class="condchip">${esc(App.col.condLabel(it.cond))}</span>` : ''}
+          ${own && it.cond && it.cond.kind === 'graded' ? `<span class="condchip">${App.icons.icon('slab', 11)}${esc(App.col.condLabel(it.cond))}</span>` : ''}
+          ${!own ? `<a class="cap-btn" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Capturer cette carte" aria-label="Capturer ${esc(card.name)}">${App.icons.icon('capture', 20)}</a>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
           ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto" title="Visuel : ta photo (et non l’image officielle)">📷</span>' : ''}
           ${!own && App.wish && App.wish.has(game, card.id) ? '<span class="wishmark" title="Dans ta liste de souhaits">♥</span>' : ''}
@@ -198,5 +212,5 @@ App.ui = (() => {
     return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(n)}" data-alt-class="logo-gen" style="--h:${h}">`;
   }
 
-  return { holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
+  return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
 })();

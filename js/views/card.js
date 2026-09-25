@@ -103,7 +103,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     return `<div class="cond-box">
       <div class="row" style="gap:8px;margin-bottom:6px"><b>État de la carte</b><span class="muted small">${c ? '' : '(non renseigné : compté comme Near Mint)'}</span></div>
       <div class="cond-scale">${App.col.CONDITIONS.map(([k, l, d]) => `<button type="button" class="cond-btn ${!graded && c && c.grade === k ? 'on' : ''}" data-cond="${k}" title="${esc(l + ' : ' + d)}"><b>${k}</b><span>${esc(l)}</span></button>`).join('')}
-        <button type="button" class="cond-btn graded ${graded ? 'on' : ''}" data-cond="graded" title="Carte notée par une société de gradation"><b>${App.icons.icon('shield', 14)}</b><span>Gradée</span></button></div>
+        <button type="button" class="cond-btn graded ${graded ? 'on' : ''}" data-cond="graded" title="Carte notée par une société de gradation"><b>${App.icons.icon('slab', 15)}</b><span>Gradée</span></button></div>
       ${graded ? `<div class="row" style="gap:8px;margin-top:8px"><select data-gcomp>${App.col.GRADERS.map((g) => `<option ${c.company === g ? 'selected' : ''}>${g}</option>`).join('')}</select>
         <select data-ggrade>${grades.map((g) => `<option value="${g}" ${+c.grade === g ? 'selected' : ''}>${String(g).replace('.', ',')}</option>`).join('')}</select>
         <span class="small muted">Note sur 10</span></div>` : c ? `<div class="small muted" style="margin-top:6px">${esc((App.col.CONDITIONS.find((r) => r[0] === c.grade) || [])[2] || '')}</div>` : ''}

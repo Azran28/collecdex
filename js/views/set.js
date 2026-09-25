@@ -73,7 +73,7 @@ App.views.set = {
       const value = App.col.totalValue(App.col.inSet(game, set.id));
       head.innerHTML = `
         <div class="muted small">${esc(set.group.name)}${set.releaseDate ? ' · ' + App.util.dateFr(set.releaseDate) : ''}</div>
-        <h1 class="row" style="gap:10px">${ad.img.symbol(set) ? `<img src="${esc(ad.img.symbol(set))}" alt="" style="height:28px">` : ''}${esc(set.name)}</h1>
+        <h1 class="row" style="gap:10px">${ad.img.symbol(set) ? `<img src="${esc(ad.img.symbol(set))}" alt="" style="height:28px">` : ''}${esc(set.name)}${App.ui.favSetBtn(game, set, 'inline')}</h1>
         <div class="row" style="align-items:baseline">
           <span class="bigcount">${p.have}<span class="muted" style="font-size:1.4rem">/${p.total}</span></span>
           <span style="font-size:1.1rem;font-weight:700">${p.pct.toLocaleString("fr-FR")} %</span>

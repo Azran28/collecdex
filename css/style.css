@@ -948,3 +948,20 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
 .set-cost > span { display: inline-flex; align-items: center; gap: 5px; }
 .set-cost b { color: var(--accent2); }
 .set-cost a { color: var(--muted); }
+
+/* Bouton « capturer » sur les cartes manquantes : discret mais assez gros pour le doigt */
+.cap-btn { position: absolute; right: 7px; bottom: 7px; z-index: 3; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(124,92,255,.55); color: #fff; border: 1.5px solid rgba(255,255,255,.35); box-shadow: 0 4px 12px rgba(0,0,0,.35); opacity: .55; transition: opacity .15s, transform .15s, background .15s; text-decoration: none; }
+.ctile:hover .cap-btn { opacity: .9; }
+.cap-btn:hover, .cap-btn:focus-visible { opacity: 1; background: linear-gradient(135deg, #7c5cff, #ff4fa3); transform: scale(1.08); }
+@media (max-width: 760px) { .cap-btn { width: 40px; height: 40px; right: 5px; bottom: 5px; } }
+.condchip { display: inline-flex; align-items: center; gap: 3px; }
+/* Séries favorites */
+.favset { position: absolute; top: 8px; left: 8px; z-index: 2; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: rgba(12,14,25,.6); color: #8a92a8; cursor: pointer; transition: color .15s, transform .15s, background .15s; }
+.favset:hover { color: #ffd23f; transform: scale(1.1); }
+.favset.on { color: #ffd23f; background: rgba(255,210,63,.14); border-color: rgba(255,210,63,.5); }
+.favset.on svg { fill: #ffd23f; }
+.favset.inline { position: static; width: 30px; height: 30px; margin-left: 4px; }
+.set-card { position: relative; }
+.fav-block .serie-head .favdot { color: #ffd23f; display: flex; }
+.fav-block .serie-head .favdot svg { fill: #ffd23f; }
