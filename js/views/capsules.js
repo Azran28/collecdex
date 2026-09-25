@@ -105,11 +105,11 @@
     let skip = false;
     ov.addEventListener('click', (e) => { if (!e.target.closest('button')) skip = true; });
     const wait = async (ms) => { const end = Date.now() + ms; while (!skip && Date.now() < end) await sleep(40); };
-    const close = () => { ov.classList.add('out'); document.body.classList.remove('cap-lock'); setTimeout(() => ov.remove(), 250); };
+    const close = () => { ov.classList.add('co-out'); document.body.classList.remove('cap-lock'); setTimeout(() => ov.remove(), 250); };
 
     // le tirage part tout de suite (réseau) pendant que la capsule tombe
     const res = App.capsules.open().then((r) => ({ r }), (e) => ({ e }));
-    ov.classList.add('drop');
+    ov.classList.add('co-drop');
     const out = await res;
     if (out.e) { close(); App.util.toast(out.e.message || 'Ouverture impossible', 4000); return null; }
     const r = out.r, t = r.tier, T = P().TIER[t];
@@ -121,18 +121,18 @@
     // secousses : 1 (commun) à 3 (légendaire / fabuleux) ; la lueur prend la couleur de la rareté
     const shakes = t <= 2 ? 1 : t <= 4 ? 2 : 3;
     for (let i = 0; i < shakes && !skip; i++) {
-      ov.classList.remove('wobble'); void ov.offsetWidth; ov.classList.add('wobble');
-      if (i === shakes - 1) ov.classList.add('hint');
+      ov.classList.remove('co-wobble'); void ov.offsetWidth; ov.classList.add('co-wobble');
+      if (i === shakes - 1) ov.classList.add('co-hint');
       await wait(760);
     }
     // ouverture
-    ov.classList.add('burst', 't' + t);
-    if (r.shiny) ov.classList.add('shiny');
+    ov.classList.add('co-burst', 'co-t' + t);
+    if (r.shiny) ov.classList.add('co-shiny');
     const parts = [0, 0, 8, 14, 22, 32, 40][t];
     ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('');
     if (r.shiny) ov.querySelector('.cap-sparkles').innerHTML = Array.from({ length: 12 }, () => `<b style="left:${10 + Math.random() * 80}%;top:${8 + Math.random() * 80}%;--dl:${Math.random() * 1.6}s">✦</b>`).join('');
     await wait(t >= 5 ? 900 : 550);
-    ov.classList.add('reveal');
+    ov.classList.add('co-reveal');
     const isNew = r.count === 1;
     ov.querySelector('.cap-text').innerHTML = `
       ${t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
@@ -221,7 +221,7 @@
           <div><b>${s.stock}</b> capsule${s.stock > 1 ? 's' : ''} à ouvrir${s.stock >= s.max ? ' <span class="small">(réserve pleine !)</span>' : ''}</div>
           ${s.next_at ? `<div class="small">Prochaine capsule dans <b id="cp-cd">${App.capsules.countdown()}</b></div>` : ''}`;
         btn.disabled = s.stock < 1;
-        $('#cp-stage').classList.toggle('empty', s.stock < 1);
+        $('#cp-stage').classList.toggle('is-empty', s.stock < 1);
       };
 
       const drawGrid = () => {
