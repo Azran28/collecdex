@@ -49,6 +49,7 @@ App.views.showcase = {
       const top = [...items].sort((a, b) => val(b) - val(a)).slice(0, 10);
       const fresh = new Set((await App.badges.check({ silent: true })).map((b) => b.id));
       const got = await App.badges.unlocked();
+      const wl = (profile.wishlist || []).filter((w) => !App.col.owned(w.game, w.id));
       const avatar = profile.avatar ? await App.col.photoURL(profile.avatar) : '';
       const featHTML = (await Promise.all(feat.map((it, i) => vcard(it, i, feat.length)))).join('');
       const topHTML = (await Promise.all(top.map(async (it) => {
@@ -83,6 +84,10 @@ App.views.showcase = {
             ${got.length ? `<div class="badge-grid">${[...got].sort((a, b) => b.tier - a.tier).map((b) => App.badges.medal(b, { isNew: fresh.has(b.id) })).join('')}</div>` : '<div class="muted small">Aucun badge pour l’instant : ils se débloquent en complétant ta collection.</div>'}
           </div>` : ''}
           ${profile.showBadges && completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : App.icons.icon('trophy', 14)}${esc(s.name)}</span>`).join('')}</div>` : ''}
+          ${profile.showWish !== false && wl.length ? `<div class="v-wish">
+            <div class="row" style="margin:26px 0 10px"><h2 style="margin:0">${App.icons.icon('heart', 18)} Je recherche</h2><span class="muted small">${wl.length} carte${wl.length > 1 ? 's' : ''}</span><span class="spacer"></span><a class="small" href="#/objectifs?tab=souhaits">Gérer ›</a></div>
+            <div class="v-wish-grid">${wl.slice(0, 12).map((w) => `<div class="vcard" data-card="${esc(w.id)}" data-game="${w.game}"><div class="frame-aucun"><img src="${esc(App.games.get(w.game).img.card({ image: w.image, id: w.id, setId: w.setId, localId: w.localId, serieId: w.serieId }, 'low'))}" alt="" loading="lazy" data-alt="${esc(w.name)}"></div><div class="vlabel">${esc(w.name)}<br><span class="muted" style="font-weight:500">${esc(w.setName || '')}</span></div></div>`).join('')}${wl.length > 12 ? `<a class="v-wish-more" href="#/objectifs?tab=souhaits">+${wl.length - 12}</a>` : ''}</div>
+          </div>` : ''}
           ${profile.showTop && top.length ? `<h2 style="margin-top:26px">Les ${top.length} plus précieuses</h2><div class="v-featured layout-grille" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${topHTML}</div>` : ''}
         </section>
         <section class="panel edit-panel" id="v-editor" ${editing ? '' : 'hidden'}></section>`;
@@ -114,7 +119,8 @@ App.views.showcase = {
             <h3 style="margin-top:16px">Afficher</h3>
             <label class="check"><input type="checkbox" id="e-stats" ${profile.showStats ? 'checked' : ''}> Statistiques</label><br>
             <label class="check"><input type="checkbox" id="e-badges" ${profile.showBadges ? 'checked' : ''}> Badges</label><br>
-            <label class="check"><input type="checkbox" id="e-top" ${profile.showTop ? 'checked' : ''}> « Les plus précieuses »</label>
+            <label class="check"><input type="checkbox" id="e-top" ${profile.showTop ? 'checked' : ''}> « Les plus précieuses »</label><br>
+            <label class="check"><input type="checkbox" id="e-wish" ${profile.showWish !== false ? 'checked' : ''}> « Je recherche » (ta liste de souhaits)</label>
           </div>
           <div>
             <h3>Thème</h3>
@@ -187,6 +193,7 @@ App.views.showcase = {
       if (t.id === 'e-stats') { profile.showStats = t.checked; return save(); }
       if (t.id === 'e-badges') { profile.showBadges = t.checked; return save(); }
       if (t.id === 'e-top') { profile.showTop = t.checked; return save(); }
+      if (t.id === 'e-wish') { profile.showWish = t.checked; return save(); }
       if (t.dataset.cframe) { if (t.value) profile.frames[t.dataset.cframe] = t.value; else delete profile.frames[t.dataset.cframe]; return save(); }
     });
     el.addEventListener('input', (e) => {

@@ -814,3 +814,20 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
   .goal-tab .lg { display: none; }
   .goal-tab .sh { display: inline; }
 }
+
+/* Liste de souhaits : raccourci de l'accueil et section « Je recherche » de la vitrine */
+.home-wish { border-color: rgba(255,79,163,.35); }
+.home-wish b { display: inline-flex; align-items: center; gap: 6px; color: #ff8cc4; }
+.home-wish b { color: var(--text); } .home-wish b svg { color: #ff4fa3; }
+.hw-thumbs { display: flex; align-items: center; margin-top: 8px; }
+.hw-thumbs img { width: 34px; height: 47px; object-fit: cover; border-radius: 4px; margin-right: -8px; border: 2px solid var(--surface); box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.hw-thumbs .hw-more { margin-left: 14px; font-size: .78rem; color: var(--muted); }
+.goal-cta-mini { display: flex; gap: 10px; align-items: center; border-style: dashed; border-color: rgba(124,92,255,.45); }
+.goal-cta-mini > svg { color: #a78bfa; flex-shrink: 0; }
+.v-wish h2 { display: inline-flex; align-items: center; gap: 7px; }
+.v-wish h2 svg { color: #ff4fa3; }
+.v-wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.v-wish-grid .vcard img { filter: saturate(.85); }
+.v-wish-grid .vlabel { font-size: .7rem; line-height: 1.25; }
+.v-wish-more { display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 2px dashed var(--line); color: var(--muted); text-decoration: none; aspect-ratio: 63/88; font-weight: 700; }
+@media (max-width: 760px) { .v-wish-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } .v-wish-grid .vlabel { font-size: .62rem; } }
