@@ -91,6 +91,11 @@ App.sfx = (() => {
       if (shiny) for (let i = 0; i < 8; i++) tone(N(100 + [0, 3, 7, 12][i % 4]), 0.9 + i * 0.09, 0.3, 'sine', 0.12);
     }),
     click: () => play(() => tone(900, 0, 0.04, 'triangle', 0.15)),
+    // combats (Match)
+    energy: () => play(() => { tone(N(84), 0, 0.08, 'triangle', 0.18); tone(N(91), 0.06, 0.12, 'triangle', 0.16); }),
+    hit: (strong) => play(() => { noise(0, strong ? 0.3 : 0.16, strong ? 0.45 : 0.3, strong ? 500 : 900, 'lowpass'); tone(strong ? 180 : 260, 0, strong ? 0.3 : 0.15, 'square', 0.12, strong ? 60 : 120); }),
+    ko: () => play(() => { tone(520, 0, 0.7, 'triangle', 0.3, 90); noise(0.05, 0.4, 0.2, 400, 'lowpass'); }),
+    lose: () => play(() => { [67, 63, 60].forEach((m, i) => tone(N(m), i * 0.28, 0.5, 'triangle', 0.25)); tone(N(48), 0.84, 1, 'sine', 0.25); }),
     get enabled() { return on(); },
   };
 })();
