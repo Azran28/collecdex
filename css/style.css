@@ -831,3 +831,88 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
 .v-wish-grid .vlabel { font-size: .7rem; line-height: 1.25; }
 .v-wish-more { display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 2px dashed var(--line); color: var(--muted); text-decoration: none; aspect-ratio: 63/88; font-weight: 700; }
 @media (max-width: 760px) { .v-wish-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } .v-wish-grid .vlabel { font-size: .62rem; } }
+
+/* =====================================================================
+   CARTES VIVANTES : inclinaison, reflets selon la rareté, halos, apparitions
+   ===================================================================== */
+.ctile.owned .cimg::before { display: none !important; } /* ancien reflet remplacé */
+.ctile .cimg {
+  --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%;
+  transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .25s;
+  /* petit reflet « chargement » tant que l'image n'est pas là */
+  background: linear-gradient(110deg, var(--bg2) 30%, #1f2540 45%, var(--bg2) 60%) 0 0 / 250% 100%;
+  animation: skel 1.4s linear infinite;
+}
+.ctile .cimg:has(img[src]) { animation: none; }
+@keyframes skel { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.ctile .cimg.tilting { transition: transform .06s linear, box-shadow .25s; }
+.ctile:hover .cimg { transform: perspective(700px) translateY(-4px) rotateX(var(--rx)) rotateY(var(--ry)); box-shadow: 0 14px 28px rgba(0,0,0,.5); }
+.ctile:hover .cimg img { transform: none; }
+/* halo à la couleur de la rareté pour les cartes possédées */
+.ctile.owned:not(.rt-0):hover .cimg { box-shadow: 0 14px 28px rgba(0,0,0,.5), 0 0 0 1.5px var(--rc), 0 0 22px -4px var(--rc); }
+.ctile.owned.rt-5 .cimg { box-shadow: 0 0 0 1px rgba(255,210,63,.35), 0 0 14px -6px #ffd23f; }
+/* cartes manquantes : un peu de couleur au survol */
+.ctile.missing:hover .cimg img { filter: grayscale(.35) brightness(.85); opacity: .85; }
+.ctile.missing:hover .cimg::after { opacity: 0; }
+.ctile.missing .cimg::after { transition: opacity .2s; }
+
+/* reflets (au survol sur ordinateur) */
+.t-shine { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .25s; border-radius: inherit; }
+.ctile:hover .t-shine { opacity: 1; }
+.rt-1 .t-shine { background: radial-gradient(farthest-corner circle at var(--mx) var(--my), rgba(255,255,255,.5), transparent 45%); mix-blend-mode: overlay; }
+.rt-2 .t-shine, .rt-3 .t-shine, .rt-4 .t-shine, .rt-5 .t-shine {
+  background:
+    radial-gradient(farthest-corner circle at var(--mx) var(--my), rgba(255,255,255,.55), transparent 42%),
+    repeating-linear-gradient(115deg, #ff5f6d 0%, #ffc371 8%, #47ff9a 16%, #3fd5ff 24%, #a66bff 32%, #ff5f6d 40%);
+  background-size: 100% 100%, 260% 260%; background-position: 0 0, var(--mx) var(--my);
+  mix-blend-mode: color-dodge; }
+.rt-2 .t-shine { filter: opacity(.35); }
+.rt-3 .t-shine { filter: opacity(.5); }
+.rt-4 .t-shine, .rt-5 .t-shine { filter: opacity(.6); }
+.rt-4 .t-shine::after, .rt-5 .t-shine::after { content: ""; position: absolute; inset: 0; mix-blend-mode: screen;
+  background-image: radial-gradient(circle, #fff 0 1px, transparent 1.5px), radial-gradient(circle, #fff3c4 0 1px, transparent 1.6px);
+  background-size: 19px 23px, 31px 27px; background-position: calc(var(--mx) * .3) calc(var(--my) * .4), calc(100% - var(--mx) * .4) var(--my); }
+/* sur téléphone (pas de survol) : un léger reflet permanent qui bouge doucement sur les plus rares */
+@media (hover: none) {
+  .ctile.owned.rt-3 .t-shine, .ctile.owned.rt-4 .t-shine, .ctile.owned.rt-5 .t-shine { opacity: .5; animation: holoShift 7s ease-in-out infinite; }
+}
+
+/* vitrine : cartes qui flottent doucement, reflet au survol */
+.v-featured .vcard > div { position: relative; transition: transform .35s cubic-bezier(.2,.8,.2,1); transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+.v-featured .vcard > div.tilting { transition: transform .06s linear; }
+.v-featured:not(.layout-eventail) .vcard { animation: vfloat 6s ease-in-out infinite; }
+.v-featured:not(.layout-eventail) .vcard:nth-child(2n) { animation-delay: -2s; }
+.v-featured:not(.layout-eventail) .vcard:nth-child(3n) { animation-delay: -4s; }
+@keyframes vfloat { 50% { transform: translateY(-6px); } }
+.v-featured .vcard > div::after { content: ""; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; opacity: 0; transition: opacity .25s;
+  background: radial-gradient(farthest-corner circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.45), transparent 45%); mix-blend-mode: overlay; }
+.v-featured .vcard:hover > div::after { opacity: 1; }
+
+/* fiche carte : la carte arrive en se retournant */
+.modal .holo-card { animation: cardIn .6s cubic-bezier(.2,.9,.25,1.1) both; }
+@keyframes cardIn { from { opacity: 0; transform: perspective(900px) rotateY(-35deg) scale(.85) translateY(10px); } }
+
+/* capture réussie : la carte apparaît avec un éclat */
+.capture-done { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.capture-done > .row { flex-basis: 100%; }
+.reveal { position: relative; width: 110px; flex-shrink: 0; animation: revealIn .7s cubic-bezier(.2,.9,.25,1.2) both; }
+.reveal img { width: 100%; aspect-ratio: 63/88; object-fit: cover; border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.55), 0 0 0 2px rgba(255,255,255,.12); position: relative; z-index: 1; }
+.reveal .burst { position: absolute; inset: -30%; z-index: 0; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 8%, rgba(255,210,63,.55) 9% 11%, transparent 12% 20%, rgba(255,79,163,.5) 21% 23%, transparent 24% 33%, rgba(52,213,255,.5) 34% 36%, transparent 37% 45%, rgba(124,92,255,.55) 46% 48%, transparent 49% 58%, rgba(255,210,63,.5) 59% 61%, transparent 62% 70%, rgba(61,220,151,.5) 71% 73%, transparent 74% 83%, rgba(255,79,163,.5) 84% 86%, transparent 87%);
+  -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%); mask: radial-gradient(circle, #000 20%, transparent 70%);
+  animation: burst 1.6s ease-out both; }
+.reveal.rt-4 .burst, .reveal.rt-5 .burst { animation-duration: 2.4s; inset: -45%; }
+@keyframes revealIn { from { opacity: 0; transform: perspective(700px) rotateY(90deg) scale(.7); } 60% { transform: perspective(700px) rotateY(-8deg) scale(1.05); } }
+@keyframes burst { from { opacity: 0; transform: scale(.3) rotate(0deg); } 25% { opacity: 1; } to { opacity: 0; transform: scale(1.3) rotate(60deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ctile .cimg, .v-featured .vcard, .modal .holo-card, .reveal, .reveal .burst { animation: none !important; }
+}
+
+/* accueil : liens discrets */
+.slim-link { display: inline-flex; align-items: center; gap: 5px; font-size: .82rem; color: var(--muted); text-decoration: none; margin-right: 12px; }
+.slim-link svg { color: #ff4fa3; }
+.slim-link:hover { color: var(--text); }
+.home-slim { display: flex; flex-wrap: wrap; gap: 6px 4px; margin: 20px 0 0; padding: 10px 14px; border-radius: 12px; border: 1px dashed var(--line); }
+.home-slim .slim-link:first-child svg { color: #a78bfa; }

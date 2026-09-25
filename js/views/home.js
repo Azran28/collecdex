@@ -68,14 +68,10 @@ App.views.home = {
       const gs = await App.wish.goals();
       const wl = (await App.wish.list()).filter((w) => !App.col.owned(w.game, w.id));
       const hg = el.querySelector('#h-goals');
-      const ad0 = App.games.get('pokemon');
-      const wishTile = wl.length ? `<a class="home-goal home-wish" href="#/objectifs?tab=souhaits">
-          <div class="row" style="gap:8px"><b>${App.icons.icon('heart', 15)} Liste de souhaits</b><span class="spacer"></span><span class="small muted">${wl.length} carte${wl.length > 1 ? 's' : ''}</span></div>
-          <div class="hw-thumbs">${wl.slice(0, 5).map((w) => `<img src="${esc(ad0.img.card({ image: w.image, id: w.id, setId: w.setId, localId: w.localId, serieId: w.serieId }, 'low'))}" alt="${esc(w.name)}" title="${esc(w.name)}" loading="lazy" data-alt="">`).join('')}${wl.length > 5 ? `<span class="hw-more">+${wl.length - 5}</span>` : ''}</div>
-        </a>` : '';
-      if (gs.length || wl.length) {
-        const rows = gs.map((g) => ({ g, s: sets.find((x) => x.id === g.setId) })).filter((x) => x.s).slice(0, wl.length ? 2 : 3);
-        hg.innerHTML = `<div class="section-title"><h2>Mes objectifs</h2><span class="spacer"></span><a href="#/objectifs">Tout voir ›</a></div>
+      const wishLink = wl.length ? `<a class="slim-link" href="#/objectifs?tab=souhaits">${App.icons.icon('heart', 14)} ${wl.length} carte${wl.length > 1 ? 's' : ''} recherchée${wl.length > 1 ? 's' : ''}</a>` : '';
+      if (gs.length) {
+        const rows = gs.map((g) => ({ g, s: sets.find((x) => x.id === g.setId) })).filter((x) => x.s).slice(0, 3);
+        hg.innerHTML = `<div class="section-title"><h2>Mes objectifs</h2><span class="spacer"></span>${wishLink}<a href="#/objectifs">Tout voir ›</a></div>
           <div class="home-goals">${rows.map(({ g, s }) => {
             const p = App.col.progress('pokemon', s), left = App.wish.daysLeft(g.deadline);
             return `<a class="home-goal ${p.complete ? 'done' : ''}" href="#/objectifs?tab=manque&set=${encodeURIComponent(s.id)}">
@@ -83,9 +79,10 @@ App.views.home = {
               <div class="row small muted" style="gap:6px;margin:4px 0">${p.have}/${p.total} · ${p.pct.toLocaleString('fr-FR')} %${p.complete ? '' : ` · ${p.missing} à trouver`}</div>
               ${App.ui.progressBar(p)}
             </a>`;
-          }).join('')}${wishTile}${!gs.length ? `<a class="home-goal goal-cta-mini" href="#/objectifs">${App.icons.icon('target', 18)}<span><b>Fixe-toi un objectif</b><br><span class="small muted">Une série à compléter, avec une date.</span></span></a>` : ''}</div>`;
+          }).join('')}</div>`;
       } else if (items.length) {
-        hg.innerHTML = `<a class="goal-cta" href="#/objectifs">${App.icons.icon('target', 20)}<span><b>Fixe-toi un objectif</b><br><span class="small muted">Choisis une série à compléter, et vois les cartes qu’il te manque, les moins chères d’abord.</span></span></a>`;
+        // pas encore d'objectif : une simple ligne, discrète
+        hg.innerHTML = `<div class="home-slim"><a class="slim-link" href="#/objectifs">${App.icons.icon('target', 14)} Fixe-toi un objectif de série</a>${wishLink}</div>`;
       }
       const bySet = {};
       for (const it of items.filter((i) => i.game === 'pokemon')) { bySet[it.setId] = Math.max(bySet[it.setId] || 0, it.addedAt); }

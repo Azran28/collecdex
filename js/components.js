@@ -36,9 +36,13 @@ App.ui = (() => {
     const price = pv && pv.value != null ? euro(pv.value, pv.unit) : '';
     const numOnly = !own && App.settings.missingStyle === 'numero';
     const src = numOnly ? '' : ad.img.card(card, 'low');
+    // niveau d'effet selon la rareté (0 = ordinaire … 5 = les plus rares) et couleur de la rareté
+    const tier = holoTier(ad.rarity.rank(card.rarity), it && it.snap && it.snap.holo);
+    const rc = rarityColor(ad, card.rarity);
     return `
-      <div class="ctile ${own ? 'owned' : 'missing'}" data-card="${esc(card.id)}" data-game="${game}">
+      <div class="ctile ${own ? 'owned' : 'missing'} rt-${tier}" data-card="${esc(card.id)}" data-game="${game}" style="--rc:${rc}">
         <div class="cimg">
+          ${own && tier ? '<span class="t-shine"></span>' : ''}
           ${numOnly ? `<div class="numonly"><b>${esc(card.localId)}</b><span>${esc(card.name)}</span></div>`
             : src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(card.name)}" data-alt="${esc(card.name)}" ${it && it.displayPhoto && App.settings.preferPhotos ? `data-photo="${esc(it.displayPhoto)}"` : ''}>` : `<span class="noimg">${esc(card.name)}</span>`}
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
@@ -56,6 +60,42 @@ App.ui = (() => {
           ${showPrice && price ? `<span class="price">${price}</span>` : ''}
         </div>
       </div>`;
+  }
+
+  /** Niveau d'effet holographique : 0 ordinaire, 1 rare, 2 holo, 3 double/ultra, 4 illustration/chromatique, 5 spéciale/secrète */
+  function holoTier(rank, onlyHolo = false) {
+    const r = Math.max(rank, onlyHolo ? 4 : 0);
+    return r <= 2 ? 0 : r === 3 ? 1 : r <= 5 ? 2 : r <= 8 ? 3 : r <= 10 ? 4 : 5;
+  }
+  /** Couleur unie de la rareté (pour les halos) */
+  function rarityColor(ad, r) {
+    const c = ad.rarity.css(r) || '';
+    const m = c.match(/#[0-9a-f]{6}/i);
+    return m ? m[0] : '#7c5cff';
+  }
+
+  // Cartes qui s'inclinent et dont le reflet suit la souris (ordinateur seulement)
+  if (window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    let cur = null, raf = 0, last = null;
+    const reset = (elm) => { if (elm) { elm.style.removeProperty('--rx'); elm.style.removeProperty('--ry'); elm.classList.remove('tilting'); } };
+    document.addEventListener('pointermove', (e) => {
+      const elm = e.target.closest && e.target.closest('.ctile .cimg, .vcard > div');
+      if (elm !== cur) { reset(cur); cur = elm; }
+      if (!elm) return;
+      last = e;
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0; if (!cur || !last) return;
+        const r = cur.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (last.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (last.clientY - r.top) / r.height));
+        cur.classList.add('tilting');
+        cur.style.setProperty('--rx', ((0.5 - y) * 14).toFixed(2) + 'deg');
+        cur.style.setProperty('--ry', ((x - 0.5) * 16).toFixed(2) + 'deg');
+        cur.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+        cur.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+      });
+    }, { passive: true });
+    document.addEventListener('pointerout', (e) => { if (!e.relatedTarget) { reset(cur); cur = null; } }); // sortie de la fenêtre
   }
 
   /** Remplace les images officielles par tes photos quand tu en as choisi une */
@@ -153,5 +193,5 @@ App.ui = (() => {
     return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(n)}" data-alt-class="logo-gen" style="--h:${h}">`;
   }
 
-  return { setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
+  return { holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
 })();
