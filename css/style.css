@@ -1036,6 +1036,6 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 .set-lang button:hover { color: var(--text, #fff); }
 .set-lang button.on { background: var(--text); color: var(--bg); }
 @media (max-width: 760px) {
-  .set-lang { top: 10px; right: 10px; }
-  .set-lang button { padding: 5px 9px; }
+  .set-lang { position: static; order: -1; justify-self: end; margin-bottom: -6px; }
+  .set-lang button { padding: 5px 10px; }
 }
