@@ -123,8 +123,12 @@ App.battle = (() => {
     { n: 1, name: 'Débutant', desc: 'Des Pokémon de base du Set de Base, et un adversaire qui joue un peu au hasard.', pool: range(44, 69), bonus: 0, color: '#3ddc97' },
     { n: 2, name: 'Dresseur', desc: 'Des évolutions du Set de Base. Il attaque toujours le plus fort possible.', pool: range(22, 43), bonus: 0, color: '#34a0ff' },
     { n: 3, name: 'Champion', desc: 'Les holographiques du Set de Base. Il connaît les faiblesses et change de Pokémon.', pool: range(1, 16), bonus: 0, color: '#a78bfa' },
-    { n: 4, name: 'Maître', desc: 'Des Pokémon-ex modernes (151). Joue très bien, et commence avec une énergie d’avance.', pool: ['sv03.5-003', 'sv03.5-006', 'sv03.5-009', 'sv03.5-024', 'sv03.5-038', 'sv03.5-065', 'sv03.5-076', 'sv03.5-124', 'sv03.5-145', 'sv03.5-040', 'sv03.5-115'], bonus: 1, color: '#ffc83d' },
+    { n: 4, name: 'Maître', desc: 'Les meilleures holographiques du Set de Base, une énergie d’avance, et il joue très bien.', pool: range(1, 16), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Légende', desc: 'Des Pokémon-ex modernes (série 151) : il te faudra tes cartes les plus puissantes !', pool: ['sv03.5-003', 'sv03.5-006', 'sv03.5-009', 'sv03.5-024', 'sv03.5-038', 'sv03.5-065', 'sv03.5-076', 'sv03.5-124', 'sv03.5-145', 'sv03.5-040', 'sv03.5-115'], bonus: 1, color: '#ffc83d' },
   ];
 
-  return { fighter, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS };
+  /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
+  const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
+
+  return { power, fighter, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS };
 })();

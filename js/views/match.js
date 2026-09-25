@@ -55,7 +55,8 @@
       mine = (await Promise.all(teamItems.map((it) => fromItem(it).catch(() => null)))).filter(Boolean);
       const loan = pick(B().LEVELS[0].pool, 6);
       while (mine.length < 3 && loan.length) { const f = await fromId(loan.shift(), { loan: true }).catch(() => null); if (f) mine.push(f); }
-      foe = (await Promise.all(pick(L.pool, 5).map((id) => fromId(id).catch(() => null)))).filter(Boolean).slice(0, 3);
+      foe = (await Promise.all(pick(L.pool, L.strong ? 8 : 5).map((id) => fromId(id).catch(() => null)))).filter(Boolean);
+      foe = (L.strong ? foe.sort((a, b) => B().power(b) - B().power(a)) : foe).slice(0, 3);
       if (foe.length < 3 || mine.length < 1) throw new Error('cartes introuvables (connexion ?)');
     } catch (e) { close(); App.util.toast('Combat impossible : ' + e.message, 4000); return null; }
     if (L.bonus) foe.forEach((f) => { f.energy += L.bonus; });
@@ -169,7 +170,7 @@
       const b = document.createElement('div');
       b.className = 'bt-end ' + (win ? 'win' : 'lose');
       b.innerHTML = `<div class="bt-end-box"><div class="bt-end-t">${win ? 'Victoire !' : 'Défaite…'}</div>
-        <p>${win ? `Tu as battu le niveau ${L.n} · ${esc(L.name)} en ${turn} tour${turn > 1 ? 's' : ''}.${L.n < 4 ? ' Le niveau suivant est débloqué !' : ' Tu es un vrai Maître !'}` : quit ? 'Tu as abandonné. Retente ta chance !' : 'L’ordinateur a gagné cette fois. Change d’équipe ou charge tes attaques plus tôt !'}</p>
+        <p>${win ? `Tu as battu le niveau ${L.n} · ${esc(L.name)} en ${turn} tour${turn > 1 ? 's' : ''}.${L.n < B().LEVELS.length ? ' Le niveau suivant est débloqué !' : ' Tu es une vraie Légende !'}` : quit ? 'Tu as abandonné. Retente ta chance !' : 'L’ordinateur a gagné cette fois. Change d’équipe ou charge tes attaques plus tôt !'}</p>
         <div class="row" style="justify-content:center;gap:8px"><button class="btn primary" data-again>Rejouer</button><button class="btn ghost" data-close>Retour</button></div></div>`;
       ov.appendChild(b);
       if (win) App.sfx.open(L.n >= 3 ? 5 : 3); else App.sfx.lose();
