@@ -93,7 +93,7 @@
     };
     const drawAll = () => { drawActive(C); drawActive(P); drawBench(C); drawBench(P); };
 
-    const banner = async (txt, cls = '') => { const b = $('.bt-banner'); b.className = 'bt-banner show ' + cls; b.textContent = txt; await sleep(850); b.className = 'bt-banner'; };
+    const banner = async (txt, cls = '') => { const b = $('.bt-banner'); b.className = 'bt-banner show ' + cls; b.textContent = txt; await sleep(620); b.className = 'bt-banner'; };
     const cardEl = (f) => ov.querySelector(`.bt-card[data-uid="${f.uid}"]`);
     const floatTxt = (f, txt, cls) => { const c = cardEl(f); if (!c) return; const d = document.createElement('div'); d.className = 'bt-float ' + (cls || ''); d.textContent = txt; c.appendChild(d); setTimeout(() => d.remove(), 1300); };
 
@@ -114,12 +114,12 @@
       await sleep(220);
       drawActive(other); drawBench(other);
       const ac2 = cardEl(a); if (ac2) ac2.querySelector('.bt-pips').outerHTML = pips(0);
-      await sleep(750);
+      await sleep(600);
       if (d.hp <= 0) {
         d.ko = true; App.sfx.ko();
         drawActive(other); drawBench(other);
         log(`<b>${esc(d.name)}</b> est K.O. !`);
-        await sleep(950);
+        await sleep(800);
       }
     }
 
@@ -207,7 +207,7 @@
         await banner('Tour de l’ordinateur', 'foe');
         if (over) break;
         gain(C);
-        await sleep(550);
+        await sleep(400);
         const mv = B().aiMove(C, P, L.n);
         if (over) break;
         if (mv.type === 'attack') await doAttack(C, P, mv.i);

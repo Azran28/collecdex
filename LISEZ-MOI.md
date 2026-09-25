@@ -45,6 +45,12 @@ Il faut une connexion internet : les cartes, images et prix sont téléchargés 
 - **Paramètres** (engrenage en haut à droite) : **ton compte** (connexion, synchronisation, déconnexion), langue, sons, façon de compter la complétion, **sauvegarde / restauration**.
 - **Match** (dans le menu, à la place de Vitrine) : la future page des échanges entre collectionneurs, pour l'instant un simple écran d'attente.
 
+## Match (combats contre l'ordinateur)
+- Onglet **Match** : forme une **équipe de 3 Pokémon** de ta collection (« Choisir mon équipe », dans l'ordre : le 1er commence). S'il te manque des cartes Pokémon, des Pokémon « de prêt » complètent l'équipe.
+- **5 niveaux** : Débutant, Dresseur, Champion, Maître, Légende. Chaque victoire débloque le suivant. La Légende joue avec des Pokémon-ex modernes : il faut tes cartes les plus puissantes.
+- **Règles simplifiées** : au début de ton tour ton Pokémon gagne 1 énergie, puis tu **attaques** (1 énergie par symbole de l'attaque, toutes les énergies sont utilisées), tu prends **+1 énergie**, ou tu **changes** de Pokémon (touche-le en bas). Les dégâts, faiblesses (×2) et résistances viennent de tes vraies cartes. « 30× » = pile ou face sur 2 pièces. Mets K.O. les 3 Pokémon adverses pour gagner.
+- Tes victoires et défaites sont comptées. Les combats contre tes amis viendront plus tard.
+
 ## Amis
 - **Mes amis** : sur ta vitrine (touche ton avatar), bouton « Amis ». Ajoute quelqu'un avec son **pseudo**, ou envoie-lui **ton lien d'invitation** (bouton « Partager » / « Copier ») : il ouvre le site, crée son compte, et la demande d'ami est prête.
 - Une demande reçue apparaît sur l'accueil et sur ton avatar (petite pastille rose). Une fois amis, « Sa vitrine » montre sa collection (cartes à l'honneur, badges, les plus précieuses, ce qu'il recherche, avec « ✓ Tu l'as » sur les cartes que tu possèdes). En lecture seule : il ne peut rien modifier chez toi, et un inconnu ne voit rien.

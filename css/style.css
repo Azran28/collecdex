@@ -1366,7 +1366,7 @@ body.cap-lock { overflow: hidden; }
 .bt-more { display: flex; gap: 8px; }
 .bt-more .btn { flex: 1; justify-content: center; }
 .bt-banner { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%) scale(.6); opacity: 0; pointer-events: none; z-index: 10; font-family: Fredoka, Inter, sans-serif; font-size: 1.8rem; font-weight: 700; padding: 10px 26px; border-radius: 999px; white-space: nowrap; }
-.bt-banner.show { animation: btBanner .85s ease-out forwards; }
+.bt-banner.show { animation: btBanner .62s ease-out forwards; }
 .bt-banner.me { background: linear-gradient(135deg, #ff4fa3, #7c5cff); color: #fff; box-shadow: 0 10px 30px rgba(255,79,163,.5); }
 .bt-banner.foe { background: #1d2140; color: var(--text); border: 1px solid var(--line); font-size: 1.3rem; }
 @keyframes btBanner { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 75% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -60%) scale(.95); } }
