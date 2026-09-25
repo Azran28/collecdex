@@ -1386,3 +1386,5 @@ body.cap-lock { overflow: hidden; }
   .bt-banner { font-size: 1.4rem; }
 }
 @media (max-height: 700px) { .bt-img { width: min(24vw, 92px); } .bt-mini { width: 36px; } }
+.bt-arena { justify-content: center; gap: 14px; }
+.bt-team-panel + h2 { margin-top: 22px; }

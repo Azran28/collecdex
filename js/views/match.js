@@ -132,7 +132,7 @@
         return `<button class="bt-atk ${ok ? '' : 'off'}" data-atk="${i}" ${ok ? '' : 'disabled'} title="${esc(x.text)}">
           <span class="bt-cost">${costPips(x.cost)}</span><b>${esc(x.name)}</b><span class="bt-dmg">${x.noDamage ? '10' : x.base + (x.mode === 'x' ? '×' : x.mode === '+' ? '+' : '')}${exp > x.base * 1.4 ? ' <em>×2</em>' : ''}</span></button>`;
       }).join('')}</div>
-        <div class="bt-more"><button class="btn" data-charge>${App.icons.icon('bolt', 16)} Charger <small>+1</small></button>
+        <div class="bt-more"><button class="btn" data-charge>${App.icons.icon('bolt', 16)} +1 énergie</button>
           <button class="btn ghost" data-switch ${canSwitch ? '' : 'disabled'}>${App.icons.icon('swap', 16)} Changer</button></div>`;
       const done = (v) => { ov.removeEventListener('click', h); $('.bt-actions').innerHTML = ''; ov.classList.remove('pick-bench'); resolve(v); };
       const h = (e) => {
