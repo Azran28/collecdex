@@ -1042,3 +1042,17 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 
 /* Langue de la carte possédée, quand elle diffère de la langue affichée */
 .ctile .langchip { position: absolute; left: 36px; bottom: 10px; z-index: 3; font-size: .62rem; font-weight: 800; letter-spacing: .05em; padding: 2px 6px; border-radius: 6px; background: rgba(10,12,24,.82); color: #fff; border: 1px solid rgba(255,255,255,.25); pointer-events: none; }
+
+/* Appli installable */
+.install-banner { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 0 0 18px; border-radius: 16px; border: 1px solid var(--line); background: linear-gradient(135deg, rgba(124,92,255,.16), rgba(52,213,255,.08)); }
+.install-banner img { border-radius: 10px; flex: none; }
+.install-banner div { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.install-banner div b { font-size: .92rem; }
+.install-banner div span { font-size: .78rem; color: var(--muted); }
+.install-banner .btn { flex: none; }
+.install-x { flex: none; width: 30px; height: 30px; border: 0; background: none; color: var(--muted); font-size: 1.3rem; cursor: pointer; border-radius: 50%; }
+.install-help h2 { display: flex; align-items: center; gap: 8px; margin-top: 0; }
+.install-help ol { padding-left: 20px; line-height: 1.7; }
+.install-help .ios-share { display: inline-flex; vertical-align: -3px; color: #34a0ff; }
+/* hors ligne : les boutons qui ont besoin du réseau sont atténués */
+.offline #c-prices { opacity: .45; pointer-events: none; }

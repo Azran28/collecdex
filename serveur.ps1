@@ -36,6 +36,7 @@ $mime = @{
     '.svg'  = 'image/svg+xml'
     '.ico'  = 'image/x-icon'
     '.md'   = 'text/plain; charset=utf-8'
+    '.webmanifest' = 'application/manifest+json; charset=utf-8'
 }
 $rootFull = [System.IO.Path]::GetFullPath($root)
 

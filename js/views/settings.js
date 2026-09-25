@@ -18,6 +18,10 @@ App.views.settings = {
           <p><label class="check"><input type="checkbox" id="p-pocket"> Afficher aussi les séries de Pokémon TCG Pocket (jeu mobile)</label></p>
         </section>
         <section class="panel">
+          <h2>Application</h2>
+          <div id="p-install"></div>
+        </section>
+        <section class="panel">
           <h2>Sauvegarde</h2>
           <p class="muted small">Ta collection est enregistrée dans ce navigateur, sur ce PC. Fais une sauvegarde de temps en temps (elle contient aussi tes photos et ta vitrine).</p>
           <div class="row"><button class="btn primary" id="p-export">⬇ Télécharger une sauvegarde</button>
@@ -37,6 +41,7 @@ App.views.settings = {
       </div>`;
 
     const $ = (s) => el.querySelector(s);
+    const offInstall = App.install.panel($('#p-install'));
     $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket;
     const save = async (msg = 'Enregistré ✓') => { await App.col.saveSettings(); App.util.toast(msg); };
     $('#p-lang').onchange = (e) => { S.lang = e.target.value; save('Langue changée ✓ (les séries vont se recharger)'); };
@@ -80,5 +85,6 @@ App.views.settings = {
       await App.db.clear('items'); await App.db.clear('photos'); await App.db.del('kv', 'profile');
       location.reload();
     };
+    return offInstall;
   },
 };

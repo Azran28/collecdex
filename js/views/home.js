@@ -40,6 +40,7 @@ App.views.home = {
         }).join('')}
       </div>
 
+      <div id="h-install"></div>
       <div id="h-goals"></div>
       <div id="h-inprogress"></div>
 
@@ -57,7 +58,11 @@ App.views.home = {
     };
     drawRecent();
     r.addEventListener('click', (e) => { const t = e.target.closest('.ctile'); if (t) App.cardModal(t.dataset.game, t.dataset.card); });
-    const unsub = App.col.on(App.util.debounce(() => { if (alive()) drawRecent(); }, 300));
+    const unsubCol = App.col.on(App.util.debounce(() => { if (alive()) drawRecent(); }, 300));
+    // proposition d'installer l'appli (téléphone seulement, discret, masquable)
+    let offInstall = null;
+    App.install.banner(el.querySelector('#h-install')).then((f) => { offInstall = f; });
+    const unsub = () => { unsubCol(); if (offInstall) offInstall(); };
 
     // Séries en cours + séries complétées
     try {
