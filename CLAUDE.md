@@ -31,6 +31,7 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - `js/games/registry.js` + un adaptateur par jeu (`pokemon.js`, `pokemon-rarity.js`, `pokemon-pullrates.js`). Données Pokémon : TCGdex (REST + GraphQL, FR, prix Cardmarket).
 - `js/recognizer.js` : reconnaissance (Tesseract.js pour le numéro et le nom, comparaison visuelle de l'illustration, détection de carte / dos / pochette vide / page de classeur).
 - `js/certify.js` : certification en direct (défi tiré par le serveur, film de 2 s, mouvement, flux figé, détection d'écran, empreinte dHash, vérification que la carte choisie est bien la plus ressemblante de sa série).
+- `js/wish.js` (`App.wish`) : liste de souhaits et objectifs, rangés dans le profil (`profile.wishlist`, `profile.goals`) donc synchronisés ; `js/views/goals.js` : page « Mes objectifs » (`#/objectifs`, onglets objectifs / ce qu'il me manque / souhaits).
 - `js/badges.js` : 35 badges secrets. `js/icons.js` : icônes SVG et logo.
 - `js/views/*.js` : une page par fichier (accueil, séries, série, fiche carte, Mon Dex, vitrine, capture, paramètres, compte).
 - `css/style.css` : styles de base puis blocs successifs (« THÈME POP », certification, holo, badges, passe responsive). Les règles mobiles sont sous `@media (max-width: 760px)`.
@@ -48,4 +49,4 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - L'espace de travail de Claude n'a pas accès à internet (TCGdex, polices…) : tester dans le navigateur intégré.
 
 ## Idées pour la suite
-Échanges entre collectionneurs (doublons + certification + pseudos uniques déjà prêts), vitrine publique, import depuis d'autres applis, One Piece en 2ᵉ licence, analyse de certification côté serveur.
+Liste complète et priorités dans le document de projet « CollecDex - etat et feuille de route ». En bref : Échanges entre collectionneurs (doublons + certification + pseudos uniques déjà prêts), vitrine publique, import depuis d'autres applis, One Piece en 2ᵉ licence, analyse de certification côté serveur.
