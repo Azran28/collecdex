@@ -12,6 +12,8 @@ Il faut une connexion internet : les cartes, images et prix sont téléchargés 
 
 ## Ce que tu peux faire
 
+- **Séries favorites** : l'étoile en haut à gauche d'une série (ou à côté de son nom) la met en favori. Tes favorites apparaissent en tête d'Explorer, et le filtre « ★ Favorites » ne montre qu'elles.
+- **Capturer une carte manquante** : le bouton rond en bas à droite d'une carte que tu n'as pas ouvre directement la capture de cette carte.
 - **Explorer** : toutes les séries Pokémon en français. Pour chacune, tu vois `possédées/total`, le pourcentage, les raretés, la progression par rareté, et un badge 🏆 quand elle est complète.
 - **Dans une série** : toutes les cartes sont affichées ; celles que tu n'as pas sont grisées (ou affichées en « numéro seul », au choix dans les Paramètres). Clique sur une carte pour ouvrir sa fiche (prix, note, photos, quantité, versions). Les filtres permettent d'afficher les cartes possédées ou manquantes, par rareté, et de trier par rareté, prix ou note.
 - **Ajouter une carte = la capturer en photo** (menu **Capturer**). C'est la seule façon d'ajouter une carte (ou un exemplaire de plus) : la photo prouve que tu l'as, et elle devient le visuel de la carte dans ton Dex. Depuis la fiche d'une carte manquante, le bouton « Capturer cette carte » ouvre directement la capture.

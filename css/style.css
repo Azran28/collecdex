@@ -965,3 +965,6 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
 .set-card { position: relative; }
 .fav-block .serie-head .favdot { color: #ffd23f; display: flex; }
 .fav-block .serie-head .favdot svg { fill: #ffd23f; }
+.favset:not(.on):not(.inline) { opacity: .6; }
+.favset:not(.on):not(.inline):hover { opacity: 1; }
+@media (max-width: 760px) { .favset:not(.inline) { width: 24px; height: 24px; top: 4px; left: 4px; } .favset:not(.inline) svg { width: 13px; height: 13px; } }
