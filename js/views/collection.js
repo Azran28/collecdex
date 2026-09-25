@@ -13,7 +13,6 @@ App.views.collection = {
         <a class="btn sm primary" href="#/objectifs" title="Objectifs, cartes qui me manquent, liste de souhaits">${App.icons.icon('target', 14)} Objectifs</a>
         <button class="btn sm" id="c-select" title="Sélectionner des cartes (pour les supprimer)">☑ Sélectionner</button>
         <button class="btn sm" id="c-prices" title="Actualiser les prix">↻ Prix</button>
-        <button class="btn sm" id="c-csv" title="Exporter en tableur (CSV)">⬇ CSV</button>
       </div>
       <div class="stats" id="c-stats"></div>
       <div class="toolbar">
@@ -148,16 +147,6 @@ App.views.collection = {
       App.cardModal(t.dataset.game, t.dataset.card, { list: filtered().map((i) => i.id) });
     });
     el.querySelector('#c-prices').addEventListener('click', () => App.col.refreshPrices(App.col.all().map((i) => i.key)));
-    el.querySelector('#c-csv').addEventListener('click', () => {
-      const rows = [['Jeu', 'Série', 'Numéro', 'Nom', 'Rareté', 'Quantité', 'Versions', 'Favorite', 'État', 'Prix marché', 'Devise', 'Valeur estimée (€)', 'Commentaire']];
-      for (const it of filtered()) rows.push([App.games.info(it.game).name, it.snap.setName, it.snap.localId, it.snap.name, App.pokemonRarity.label(it.snap.rarity), it.qty, it.variants.join(' '), it.favorite ? 'oui' : '', App.col.condLabel(it.cond), it.price && it.price.value != null ? String(it.price.value).replace('.', ',') : '', it.price ? it.price.unit || '' : '', val(it) ? String(val(it)).replace('.', ',') : '', it.note || '']);
-      const csv = '﻿' + rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-      a.download = `ma-collection-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-    });
-
     const unsub = App.col.on(() => { fillSelects(); draw(); });
     return unsub;
   },
