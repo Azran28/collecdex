@@ -1025,3 +1025,6 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
   .cd-favstar { width: 36px; height: 36px; }
   .photos .ph-add { min-height: 70px; }
 }
+
+/* Mon Dex : boutons du haut sur une seule ligne en téléphone */
+@media (max-width: 760px) { .m-hide { display: none; } }
