@@ -1388,3 +1388,8 @@ body.cap-lock { overflow: hidden; }
 @media (max-height: 700px) { .bt-img { width: min(24vw, 92px); } .bt-mini { width: 36px; } }
 .bt-arena { justify-content: center; gap: 14px; }
 .bt-team-panel + h2 { margin-top: 22px; }
+
+/* Classeur : grille placée toute seule */
+.b-auto { margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; font-size: .85rem; background: rgba(61,220,151,.1); border: 1px solid rgba(61,220,151,.35); }
+.b-auto .linkbtn { font-weight: 700; }
+.b-auto svg { display: inline-block; vertical-align: -2px; }

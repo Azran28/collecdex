@@ -90,7 +90,7 @@ App.recognizer = (() => {
    * au format carte (63 × 88) dont les bords sont les plus nets. Gère les marges entre pochettes
    * et les cartes un peu décalées. Renvoie { x, y, w, h } en pixels de l'image, ou null.
    */
-  function locateCard(img, rect) {
+  function locateCard(img, rect, minFrac = 0.6) {
     const R = 63 / 88;
     const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
     // on cherche un peu au-delà de la case, au cas où la grille n'est pas parfaitement posée
@@ -121,7 +121,7 @@ App.recognizer = (() => {
     const colSum = (x, y0, y1) => { let best = 0; for (let d = -1; d <= 1; d++) { const xx = x + d; if (xx < 0 || xx >= cw) continue; const v = colC[xx * (ch + 1) + y1] - colC[xx * (ch + 1) + y0]; if (v > best) best = v; } return best; };
     const cellW = rect.w * S, cellH = rect.h * S;
     const maxW = Math.min(cw - 2, (ch - 2) * R, Math.max(cellW, cellH * R) * 1.05);
-    const minW = Math.min(cellW, cellH * R) * 0.6;
+    const minW = Math.min(cellW, cellH * R) * minFrac;
     let best = null;
     for (let w = Math.floor(maxW); w >= minW; w -= 1.5) {
       const h = w / R;
@@ -141,6 +141,279 @@ App.recognizer = (() => {
     let mean = 0; for (let i = 0; i < eh.length; i++) mean += eh[i] + ev[i]; mean /= eh.length * 2;
     if (best.score < mean * 2.2) return null;
     return { x: ax + best.x / S, y: ay + best.y / S, w: best.w / S, h: best.h / S, score: best.score / (mean || 1) };
+  }
+
+  /**
+   * Grille d'une page de classeur, trouvée toute seule.
+   * On mesure où se trouvent les longs bords verticaux et horizontaux (les bords des cartes),
+   * puis on cherche la grille régulière (cols × rows cartes, même taille, même écart) qui tombe dessus.
+   * Renvoie { x, y, w, h } en fraction de l'image (la zone des pochettes) et une confiance, ou null.
+   */
+  function detectGrid(img, cols, rows, pre = null) {
+    const P = pre || gridProfiles(img);
+    const { V, Hp, W, H } = P;
+    const fx = fitAxis(V, cols, W), fy = fitAxis(Hp, rows, H);
+    let best = null;
+    for (const X of fx) for (const Y of fy) {
+      const pen = Math.abs(Math.log((X.w / Y.w) / (63 / 88)));
+      if (pen > 0.22) continue; // forme de carte impossible
+      const gapPen = Math.abs(X.p - X.w - (Y.p - Y.w)) / Math.max(X.p, Y.p) * 2; // écarts entre pochettes comparables
+      const score = X.score + Y.score - pen * 4 - gapPen;
+      if (!best || score > best.score) best = { score, X, Y };
+    }
+    if (!best) return null;
+    const { X, Y } = best;
+    const x = (X.a - (X.p - X.w) / 2) / W, y = (Y.a - (Y.p - Y.w) / 2) / H;
+    const clamp = (v) => Math.max(0, Math.min(1, v));
+    const x0 = clamp(x), y0 = clamp(y), x1 = clamp(x + cols * X.p / W), y1 = clamp(y + rows * Y.p / H);
+    // part des grands bords de la photo expliquée par cette grille (sert à choisir le bon format de page)
+    const explained = (Prof, F, n, len) => {
+      const t = Math.max(2, Math.round(len * 0.015));
+      let mx = 0; for (const v of Prof) if (v > mx) mx = v;
+      const edges = []; for (let k = 0; k < n; k++) edges.push(F.a + k * F.p, F.a + k * F.p + F.w);
+      let tot = 0, ok = 0;
+      for (let i = 1; i < len - 1; i++) {
+        const v = Prof[i]; if (v < mx * 0.3) continue;
+        let isMax = true; for (let d = -t; d <= t; d++) if (Prof[i + d] > v) { isMax = false; break; }
+        if (!isMax) continue;
+        tot += v; if (edges.some((e) => Math.abs(e - i) <= t * 1.5)) ok += v;
+      }
+      return tot ? ok / tot : 0;
+    };
+    const fit = (explained(V, X, cols, W) + explained(Hp, Y, rows, H)) / 2;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0, score: best.score, sx: X.score, sy: Y.score, extra: Math.max(X.extra, Y.extra), fit };
+  }
+
+  /** Profils des longs bords droits de la photo (calculés une fois pour tous les formats) */
+  function gridProfiles(img) {
+    const W0 = img.naturalWidth || img.width, H0 = img.naturalHeight || img.height;
+    const S = 300 / Math.max(W0, H0);
+    const W = Math.max(40, Math.round(W0 * S)), H = Math.max(40, Math.round(H0 * S));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.filter = 'grayscale(1) blur(0.6px)';
+    g.drawImage(img, 0, 0, W, H);
+    const px = g.getImageData(0, 0, W, H).data;
+    const gray = new Float32Array(W * H);
+    for (let i = 0; i < gray.length; i++) gray[i] = px[i * 4];
+    // gradient signé : le long d'un vrai bord (carte / pochette), il garde le même signe ; le bruit et le texte s'annulent
+    const L = Math.max(6, Math.round(Math.min(W, H) / 22));
+    const V = new Float32Array(W), Hp = new Float32Array(H);
+    for (let x = 1; x < W - 1; x++) {
+      let run = 0;
+      for (let y = 0; y < H; y++) {
+        run += gray[y * W + x + 1] - gray[y * W + x - 1];
+        if (y >= L) run -= gray[(y - L) * W + x + 1] - gray[(y - L) * W + x - 1];
+        if (y >= L - 1) { const m = Math.abs(run) / L; if (m > 6) V[x] += m - 6; }
+      }
+    }
+    for (let y = 1; y < H - 1; y++) {
+      let run = 0;
+      for (let x = 0; x < W; x++) {
+        run += gray[(y + 1) * W + x] - gray[(y - 1) * W + x];
+        if (x >= L) run -= gray[(y + 1) * W + x - L] - gray[(y - 1) * W + x - L];
+        if (x >= L - 1) { const m = Math.abs(run) / L; if (m > 6) Hp[y] += m - 6; }
+      }
+    }
+    return { V, Hp, W, H };
+  }
+
+  /** Meilleures grilles sur un axe : n cartes de taille w, espacées de p, à partir de a */
+  function fitAxis(P, n, len) {
+    const t = Math.max(1, Math.round(len * 0.012));
+    const Pk = new Float32Array(len);
+    for (let i = 0; i < len; i++) { let m = 0; for (let d = -t; d <= t; d++) { const j = i + d; if (j >= 0 && j < len && P[j] > m) m = P[j]; } Pk[i] = m; }
+    let mu = 0; for (const v of P) mu += v; mu = mu / len || 1;
+    const at = (x) => { const i = Math.round(x); return i >= 0 && i < len ? Pk[i] : 0; };
+    const out = [];
+    for (let p = len * 0.35 / n; p <= len / n + 0.01; p += 1) {
+      for (let w = p * 0.8; w <= p - 0.5; w += 1) {
+        const span = (n - 1) * p + w;
+        for (let a = 0; a + span <= len; a += 1) {
+          let s = 0, low = Infinity;
+          for (let k = 0; k < n; k++) { const e = Math.min(at(a + k * p), at(a + k * p + w)); s += e; if (e < low) low = e; }
+          // une rangée de cartes en plus juste à côté = la grille est incomplète ou décalée
+          const extra = Math.max(Math.min(at(a - p), at(a - p + w)), Math.min(at(a + n * p), at(a + n * p + w)));
+          const score = (s / n + low * 0.5 - extra * 0.9) / mu;
+          out.push({ p, w, a, score, extra: extra / mu });
+        }
+      }
+    }
+    out.sort((x, y) => y.score - x.score);
+    const keep = [];
+    for (const o of out) { if (keep.every((k) => Math.abs(k.a - o.a) > 2 || Math.abs(k.p - o.p) > 2 || Math.abs(k.w - o.w) > 2)) keep.push(o); if (keep.length >= 30) break; }
+    return keep;
+  }
+
+  /**
+   * Bords exacts d'une carte dans sa pochette (grille déjà posée) : on cherche la paire de bords gauche/droite
+   * et haut/bas la plus nette, chaque axe séparément (tolère une photo un peu en biais). Null si pas net.
+   */
+  function refineCell(img, rect) {
+    const W0 = img.naturalWidth || img.width, H0 = img.naturalHeight || img.height;
+    const mx = rect.w * 0.1, my = rect.h * 0.1;
+    const ax = Math.max(0, rect.x - mx), ay = Math.max(0, rect.y - my);
+    const aw = Math.min(W0 - ax, rect.w + 2 * mx), ah = Math.min(H0 - ay, rect.h + 2 * my);
+    const Sc = 220 / Math.max(aw, ah);
+    const w = Math.max(30, Math.round(aw * Sc)), h = Math.max(30, Math.round(ah * Sc));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.filter = 'grayscale(1) blur(0.6px)';
+    g.drawImage(img, ax, ay, aw, ah, 0, 0, w, h);
+    const px = g.getImageData(0, 0, w, h).data;
+    const gray = new Float32Array(w * h); for (let i = 0; i < gray.length; i++) gray[i] = px[i * 4];
+    const L = Math.max(6, Math.round(Math.min(w, h) / 10));
+    const V = new Float32Array(w), Hh = new Float32Array(h);
+    for (let x = 1; x < w - 1; x++) { let run = 0; for (let y = 0; y < h; y++) { run += gray[y * w + x + 1] - gray[y * w + x - 1]; if (y >= L) run -= gray[(y - L) * w + x + 1] - gray[(y - L) * w + x - 1]; if (y >= L - 1) { const m = Math.abs(run) / L; if (m > 5) V[x] += m - 5; } } }
+    for (let y = 1; y < h - 1; y++) { let run = 0; for (let x = 0; x < w; x++) { run += gray[(y + 1) * w + x] - gray[(y - 1) * w + x]; if (x >= L) run -= gray[(y + 1) * w + x - L] - gray[(y - 1) * w + x - L]; if (x >= L - 1) { const m = Math.abs(run) / L; if (m > 5) Hh[y] += m - 5; } } }
+    const pair = (P, len, want, lo = 0.8, hi = 1.04) => {
+      let best = null, mu = 0; for (const v of P) mu += v; mu = mu / len || 1;
+      for (let a = 1; a < len - 1; a++) for (let b = a + Math.round(want * lo); b <= Math.min(len - 2, a + want * hi); b++) {
+        const sc = (Math.min(P[a], P[b]) * 1.5 + P[a] + P[b]) / mu + (b - a) / want * 0.8;
+        if (!best || sc > best.sc) best = { a, b, sc, q: Math.min(P[a], P[b]) / mu };
+      }
+      return best;
+    };
+    let X = pair(V, w, rect.w * Sc), Y = pair(Hh, h, rect.h * Sc);
+    if (!X || !Y) return null;
+    // un seul axe net : l'autre se déduit de la forme d'une carte (63 × 88), à ±8 %
+    if (X.q >= 2 && Y.q < 2) { const Y2 = pair(Hh, h, (X.b - X.a) / (63 / 88), 0.92, 1.08); if (Y2 && Y2.q >= 0.8) Y = { ...Y2, q: 2 }; }
+    else if (Y.q >= 2 && X.q < 2) { const X2 = pair(V, w, (Y.b - Y.a) * (63 / 88), 0.92, 1.08); if (X2 && X2.q >= 0.8) X = { ...X2, q: 2 }; }
+    if (X.q < 2 || Y.q < 2) return null;
+    const r = (63 / 88) / (((X.b - X.a) / Sc) / ((Y.b - Y.a) / Sc));
+    if (r < 0.8 || r > 1.25) return null; // pas une forme de carte
+    return { x: ax + X.a / Sc, y: ay + Y.a / Sc, w: (X.b - X.a) / Sc, h: (Y.b - Y.a) / Sc, score: Math.min(X.q, Y.q) };
+  }
+
+  // ---------- Versions d'une carte (1re édition, holo, reverse) ----------
+  /** Carte recadrée → niveaux de gris à taille fixe (et couleurs) */
+  function cardPixels(img, W = 300) {
+    const H = Math.round(W / (63 / 88));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data;
+    const L = new Float32Array(W * H), Sat = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2];
+      L[i] = 0.299 * r + 0.587 * gg + 0.114 * b;
+      const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b); Sat[i] = mx ? (mx - mn) / mx : 0;
+    }
+    return { W, H, L, Sat, rgb: d };
+  }
+
+  /**
+   * Logo « Édition 1 » : petit rond noir sous l'illustration, à gauche (Set de Base, Team Rocket, Gym, Neo…)
+   * ou à droite (Jungle, Fossile). On cherche une tache sombre, ronde, peu colorée, de la bonne taille,
+   * nettement plus sombre que ce qui l'entoure. Réglé pour ne jamais se déclencher sur une carte normale :
+   * sur une photo trop petite ou floue, le logo peut passer inaperçu (on garde alors la version normale).
+   */
+  function firstEditionStamp(P) {
+    const { W, H, L, Sat } = P, D = W * 0.045;
+    let best = null;
+    for (const [x0, x1] of [[0.005, 0.26], [0.74, 0.995]]) {
+      const X0 = Math.round(W * x0), X1 = Math.round(W * x1), Y0 = Math.round(H * 0.44), Y1 = Math.round(H * 0.6);
+      const vals = []; for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++) vals.push(L[y * W + x]);
+      vals.sort((a, b) => a - b);
+      const med = vals[vals.length >> 1];
+      const thr = med * 0.72;
+      const seen = new Uint8Array(W * H);
+      for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++) {
+        const i0 = y * W + x;
+        if (seen[i0] || L[i0] >= thr) continue;
+        const stack = [i0]; seen[i0] = 1;
+        let n = 0, minx = x, maxx = x, miny = y, maxy = y, sat = 0;
+        while (stack.length) {
+          const i = stack.pop(); n++; sat += Sat[i];
+          const xx = i % W, yy = (i / W) | 0;
+          if (xx < minx) minx = xx; if (xx > maxx) maxx = xx; if (yy < miny) miny = yy; if (yy > maxy) maxy = yy;
+          for (const j of [i - 1, i + 1, i - W, i + W]) {
+            const jx = j % W, jy = (j / W) | 0;
+            if (j < 0 || jx < X0 - 3 || jx > X1 + 3 || jy < Y0 - 3 || jy > Y1 + 3 || seen[j] || L[j] >= thr) continue;
+            seen[j] = 1; stack.push(j);
+          }
+        }
+        const bw = maxx - minx + 1, bh = maxy - miny + 1, big = Math.max(bw, bh);
+        if (big < D * 0.55 || big > D * 1.9) continue;
+        const asp = bw / bh; if (asp < 0.6 || asp > 1.65) continue;
+        const fill = n / (bw * bh); if (fill < 0.4) continue;
+        if (sat / n > 0.42) continue; // un symbole d'énergie est coloré, le logo est noir
+        let ring = 0, rn = 0;
+        for (let yy = miny - 3; yy <= maxy + 3; yy++) for (let xx = minx - 3; xx <= maxx + 3; xx++) {
+          if (xx >= minx && xx <= maxx && yy >= miny && yy <= maxy) continue;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          ring += L[yy * W + xx]; rn++;
+        }
+        ring /= rn || 1;
+        let inner = 0; for (let yy = miny; yy <= maxy; yy++) for (let xx = minx; xx <= maxx; xx++) inner += L[yy * W + xx]; inner /= bw * bh;
+        const contrast = (ring - inner) / (ring || 1);
+        if (contrast < 0.22) continue;
+        const score = contrast * fill * (1 - Math.abs(Math.log(big / D)) * 0.5);
+        if (!best || score > best.score) best = { score, x: minx / W, y: miny / H, size: big / W, side: x0 < 0.5 ? 'gauche' : 'droite' };
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Reflets « foil » dans une zone : sur une carte normale, le fond est uni (seul le texte fait des contrastes) ;
+   * sur une reverse, le fond scintille (petits points clairs, couleurs changeantes).
+   */
+  function foilIn(P, x0, x1, y0, y1) {
+    const { W, H, L, Sat } = P;
+    const X0 = Math.round(W * x0), X1 = Math.round(W * x1), Y0 = Math.round(H * y0), Y1 = Math.round(H * y1);
+    let n = 0, res = 0, sat = 0, sat2 = 0;
+    for (let y = Y0 + 2; y < Y1 - 2; y++) for (let x = X0 + 2; x < X1 - 2; x++) {
+      const i = y * W + x;
+      if (L[i] < 120) continue; // texte et symboles : ignorés
+      let m = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) m += L[i + dy * W + dx]; m /= 25;
+      if (m < 110) continue; // à côté du texte
+      res += Math.abs(L[i] - m); sat += Sat[i]; sat2 += Sat[i] * Sat[i]; n++;
+    }
+    if (n < 50) return null;
+    const ms = sat / n;
+    return { grain: res / n, satVar: Math.sqrt(Math.max(0, sat2 / n - ms * ms)), n };
+  }
+
+  /**
+   * Versions probables d'une carte d'après sa photo, parmi celles qui existent pour elle.
+   * Renvoie { list: ['holo', 'firstEdition'], sure: {…}, info: {…} }.
+   */
+  async function detectVariants(blob, variants) {
+    const v = variants || {};
+    const img = await loadImg(blob);
+    const P = cardPixels(img);
+    const info = {}, list = [], sure = {};
+    // version de base : holo / normale / reverse
+    const base = ['holo', 'normal', 'reverse'].filter((k) => v[k]);
+    let pickBase = base.length === 1 ? base[0] : null;
+    if (base.length > 1 && base.includes('reverse')) {
+      const txt = foilIn(P, 0.08, 0.92, 0.6, 0.86);
+      info.foil = txt;
+      if (txt) {
+        const f = txt.grain + txt.satVar * 40;
+        info.foilScore = Math.round(f * 10) / 10;
+        if (f >= 14) { pickBase = 'reverse'; sure.base = f >= 18; }
+        else { pickBase = base.find((k) => k !== 'reverse') || null; sure.base = f <= 9; }
+      }
+    } else if (base.length > 1) pickBase = base.includes('holo') ? 'holo' : base[0];
+    if (pickBase) list.push(pickBase);
+    if (v.firstEdition) {
+      const st = firstEditionStamp(P);
+      info.stamp = st;
+      if (st && st.score >= 0.3) { list.push('firstEdition'); sure.firstEdition = st.score >= 0.4; }
+    }
+    return { list, sure, info };
+  }
+
+  /** Essaie les formats de page connus et garde celui qui colle le mieux */
+  function detectPage(img, formats, current) {
+    const res = {}, pre = gridProfiles(img);
+    for (const [k, [cols, rows]] of Object.entries(formats)) { try { res[k] = detectGrid(img, cols, rows, pre); } catch (e) { res[k] = null; } }
+    // le format qui explique le mieux les bords des cartes (à égalité, on garde celui choisi)
+    let bestK = current;
+    for (const k of Object.keys(res)) if (res[k] && (!res[bestK] || res[k].fit > res[bestK].fit + 0.05)) bestK = k;
+    return { fmt: bestK, grid: res[bestK], all: res };
   }
 
   const loadImg = (blob) => new Promise((res, rej) => {
@@ -496,6 +769,7 @@ App.recognizer = (() => {
    * mode : 'nouvelle' (carte pas encore possédée), 'doublon' (+1 exemplaire, la photo s'ajoute),
    *        'photo' (même carte : sa photo devient le visuel, sans changer la quantité), 'rien'.
    */
+  let lastVariants = null;
   async function addScanned(c, blob, mode = null) {
     const before = App.col.get(game, c.id);
     if (!mode) mode = before && before.qty > 0 ? 'photo' : 'nouvelle';
@@ -506,6 +780,16 @@ App.recognizer = (() => {
     await App.col.add(game, { ...c, serieId: c.serieId || (c.set && c.set.serie ? c.set.serie.id : '') }, set);
     // nouvelle carte : la photo devient son visuel ; doublon : la photo s'ajoute à ses photos
     await App.col.addPhoto(key, blob, { makeDisplay: !before || !before.displayPhoto });
+    // versions reconnues sur la photo (holo / reverse / 1re édition), parmi celles qui existent pour cette carte
+    try {
+      const det = c.variants ? await detectVariants(blob, c.variants) : null;
+      if (det && det.list.length) {
+        const it = App.col.byKey(key);
+        const vars = [...new Set([...((it && it.variants) || []), ...det.list])];
+        await App.col.update(key, { variants: vars, variantsAuto: det.list });
+        lastVariants = det;
+      } else lastVariants = null;
+    } catch (e) { console.warn('versions', e); lastVariants = null; }
     return key;
   }
 
@@ -529,5 +813,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, looksLikePage, locateCard, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, stop, RATIO: 63 / 88 };
 })();

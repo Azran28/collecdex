@@ -30,7 +30,7 @@ App.views.scan = {
   guide(mode) {
     const steps = mode === 'classeur'
       ? [['camera', 'Photographie la page entière', 'Bien à plat, de face, sans reflet. La page doit remplir la photo.'],
-        ['dex', 'Ajuste la grille', 'Glisse-la sur les pochettes et tire ses coins ronds : une case par carte.'],
+        ['dex', 'La grille se place toute seule', 'Elle trouve les pochettes (et le format de la page). Si elle se trompe, glisse-la ou tire ses coins ronds.'],
         ['search', 'Vérifie et enregistre', 'Les cartes sûres sont cochées d’office. Corrige les autres si besoin.']]
       : [['camera', 'Prends la carte en photo', 'Bien à plat, bien éclairée, sans reflet sur le numéro en bas.'],
         ['capture', 'Ajuste le cadre jaune', 'Il doit entourer la carte, bords compris.'],
@@ -364,11 +364,14 @@ App.views.scan = {
         const photoId = mode === 'rien' ? null : it.photos[it.photos.length - 1];
         const myCert = cert; cert = null;
         const shotBlob = cardBlob;
+        const VN = { normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1ʳᵉ édition' };
+        const det = mode === 'rien' ? null : R.lastVariants;
+        const verLine = det && det.list.length ? `<div class="small" style="margin-top:6px">${App.icons.icon('sparkles', 13)} Version reconnue : <b>${det.list.map((v) => VN[v] || v).join(' · ')}</b> <button class="linkbtn small" data-open-card="${esc(c.id)}">modifier</button></div>` : '';
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
         const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
-        results.innerHTML = `<div class="panel capture-done">${mode === 'rien' || !cardURL ? '' : `<div class="reveal rt-${App.ui.holoTier(ad.rarity.rank(c.rarity))}"><span class="burst"></span><img src="${cardURL}" alt=""></div>`}<div>${what}${certLine}</div><br>
+        results.innerHTML = `<div class="panel capture-done">${mode === 'rien' || !cardURL ? '' : `<div class="reveal rt-${App.ui.holoTier(ad.rarity.rank(c.rarity))}"><span class="burst"></span><img src="${cardURL}" alt=""></div>`}<div>${what}${verLine}${certLine}</div><br>
           <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
@@ -431,6 +434,7 @@ App.views.scan = {
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
     let running = false, stopped = false, detected = null;
+    let autoGrid = false, autoTimer = null;   // grille trouvée toute seule / lancement automatique
     let pageCert = null;       // vérification en direct de la photo de page (null = photo importée)
     let pageId = null;         // page gardée sur cet appareil pour pouvoir recadrer plus tard
     let allSets = null;
@@ -454,7 +458,8 @@ App.views.scan = {
             <label class="btn">Choisir une photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
           </div>
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
-            <p class="small muted">Glisse la grille pour la déplacer, et ses coins ronds pour l’ajuster : chaque case doit entourer une pochette.</p>
+            <div id="b-auto" class="b-auto hidden"></div>
+            <p class="small muted">La grille se place toute seule. Si besoin, glisse-la pour la déplacer et tire ses coins ronds : chaque case doit entourer une pochette.</p>
             <div class="row action-dock"><button class="btn primary" id="b-go">▶ Reconnaître les cartes</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
           </div>
         </div>
@@ -477,7 +482,10 @@ App.views.scan = {
       let saved = ''; try { saved = sessionStorage.getItem('pageSet') || ''; } catch (e) { /* */ }
       const sel = el.querySelector('#b-set'); if (sel) { App.views.scan.fillSetSelect(sel, sets, saved); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }
     }).catch(() => {});
-    el.querySelector('#b-fmt').addEventListener('change', (e) => { fmt = e.target.value; if (photo && !running) drawGrid(); });
+    el.querySelector('#b-fmt').addEventListener('change', (e) => {
+      fmt = e.target.value; cancelAuto();
+      if (photo && !running) { const [c, r] = dims(); const gd = App.recognizer.detectGrid(photo.img, c, r); if (gd && gd.fit >= 0.55) { grid = { x: gd.x, y: gd.y, w: gd.w, h: gd.h }; autoGrid = true; } drawGrid(); }
+    });
     el.querySelector('#b-set').addEventListener('change', (e) => {
       try { sessionStorage.setItem('pageSet', e.target.value); } catch (err) { /* */ }
       e.target.closest('.set-first').classList.toggle('chosen', !!e.target.value);
@@ -507,6 +515,7 @@ App.views.scan = {
     el.querySelector('#b-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0], null); } e.target.value = ''; });
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (running) return;
+      cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
       el.querySelector('#b-gridbar').classList.add('hidden');
       el.querySelector('#b-actions').classList.remove('hidden');
@@ -529,12 +538,39 @@ App.views.scan = {
       const img = view.querySelector('img');
       img.onload = () => {
         photo = { img, url, blob };
-        grid = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 };
+        grid = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 }; autoGrid = false;
         drawGrid();
         el.querySelector('#b-actions').classList.add('hidden');
         el.querySelector('#b-gridbar').classList.remove('hidden');
+        // on cherche la grille tout seul (format compris) ; si c'est sûr, la reconnaissance démarre d'elle-même
+        setTimeout(() => {
+          let r = null;
+          try { r = App.recognizer.detectPage(img, FORMATS, fmt); } catch (e) { console.warn('grille', e); }
+          if (!photo || photo.img !== img) return;
+          const ok = r && r.grid && r.grid.fit >= 0.6 && r.grid.w > 0.2 && r.grid.h > 0.2;
+          const auto = el.querySelector('#b-auto');
+          if (!ok) { autoGrid = false; auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} Je n’ai pas trouvé la grille tout seul : place-la sur les pochettes, puis lance la reconnaissance.`; return; }
+          grid = { x: r.grid.x, y: r.grid.y, w: r.grid.w, h: r.grid.h }; autoGrid = true;
+          if (r.fmt !== fmt) { fmt = r.fmt; el.querySelector('#b-fmt').value = fmt; }
+          drawGrid();
+          let n = 3;
+          auto.classList.remove('hidden');
+          window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
+          const tick = () => {
+            auto.innerHTML = `${App.icons.icon('check', 14)} <b>Grille placée toute seule</b> (${FORMATS[fmt][2]}) : reconnaissance dans ${n} s… <button class="linkbtn" id="b-adjust">Ajuster d’abord</button>`;
+            if (n-- <= 0) { autoTimer = null; auto.classList.add('hidden'); el.querySelector('#b-go').click(); return; }
+            autoTimer = setTimeout(tick, 1000);
+          };
+          tick();
+        }, 60);
       };
     }
+    function cancelAuto() {
+      if (!autoTimer) return;
+      clearTimeout(autoTimer); autoTimer = null;
+      const a = el.querySelector('#b-auto'); if (a) a.innerHTML = `${App.icons.icon('layers', 14)} Ajuste la grille si besoin, puis lance la reconnaissance.`;
+    }
+    el.querySelector('#b-gridbar').addEventListener('click', (e) => { if (e.target.closest('#b-adjust')) cancelAuto(); });
     function drawGrid() {
       const [cols, rows] = dims();
       const box = view.querySelector('.grid-box'); if (!box) return;
@@ -545,7 +581,7 @@ App.views.scan = {
     }
     view.addEventListener('pointerdown', (e) => {
       if (!photo || running || !e.target.closest('.crop-area')) return;
-      e.preventDefault();
+      e.preventDefault(); cancelAuto(); autoGrid = false;
       const area = view.querySelector('.crop-area').getBoundingClientRect();
       const W = photo.img.clientWidth, H = photo.img.clientHeight;
       const h = e.target.dataset.h;
@@ -579,7 +615,7 @@ App.views.scan = {
       const col = i % cols, row = Math.floor(i / cols);
       const rect = { x: gx + col * cw, y: gy + row * ch, w: cw, h: ch };
       let box = null;
-      try { box = R.locateCard(img, rect); } catch (e) { console.warn(e); }
+      try { box = R.refineCell(img, rect) || R.locateCard(img, rect, autoGrid ? 0.8 : 0.6); } catch (e) { console.warn(e); }
       if (!box) {
         let w, h;
         if (cw / ch > RATIO) { h = ch * 0.94; w = h * RATIO; } else { w = cw * 0.94; h = w / RATIO; }
@@ -594,6 +630,8 @@ App.views.scan = {
     // ---------- Reconnaissance de toutes les pochettes ----------
     el.querySelector('#b-go').addEventListener('click', async () => {
       if (!photo || running) return;
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+      el.querySelector('#b-auto').classList.add('hidden');
       running = true;
       el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
       const [cols, rows] = dims(), n = cols * rows;
@@ -746,6 +784,7 @@ App.views.scan = {
                 <div class="bimgs"><img src="${c.url}" alt=""><img src="${esc(ad.img.card(cur, 'low'))}" alt="" data-alt=""></div>
                 <div class="bstate ok">${c.i + 1}. Enregistrée ✓</div>
                 <div class="small"><b>${esc(cur ? cur.name : '')}</b> <span class="muted">${esc(cur && cur.set ? cur.set.name : '')}</span></div>
+                ${c.vers && c.vers.length ? `<div class="small">${App.icons.icon('sparkles', 12)} ${c.vers.map((v) => ({ normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1ʳᵉ édition' }[v] || v)).join(' · ')} <button class="linkbtn small" data-open-card="${esc(cur.id)}">modifier</button></div>` : ''}
                 ${c.cert === 'encours' ? `<div class="small muted">${App.icons.icon('shield', 12)} Certification…</div>`
                   : c.cert === 'ok' ? `<div class="small cert-ok">${App.icons.icon('shield', 13)} Certifiée</div>`
                   : c.cert ? `<div class="small muted">${App.icons.icon('shield', 12)} Non certifiée : ${esc(c.cert)}${cur ? ` · <a href="#/scan?carte=${encodeURIComponent(cur.id)}">la capturer seule</a>` : ''}</div>` : ''}
@@ -881,6 +920,7 @@ App.views.scan = {
           const cand = c.cands.find((x) => x.id === c.choice);
           if (!cand) continue;
           const key = await R.addScanned(cand, c.blob, mode === 'nouvelle' ? null : mode);
+          c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
           keys.push(key);
           const it = App.col.byKey(key);
           c.key = key; c.cand = cand;

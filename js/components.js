@@ -43,6 +43,9 @@ App.ui = (() => {
 
   const countHTML = (p) => `<span class="count">${p.have}<span class="of">/${p.total}</span></span>`;
 
+  // « modifier » la version reconnue d'une carte : ouvre sa fiche
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-open-card]'); if (b) { e.preventDefault(); App.cardModal('pokemon', b.dataset.openCard); } });
+
   /** Tuile de carte dans une grille */
   function cardTile(card, { game = 'pokemon', item = null, showSet = false, showPrice = true, price: marketPrice = null } = {}) {
     const ad = App.games.get(game);

@@ -145,7 +145,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       </div>
       ${certified || !(it.certNote && it.certNote.reason) ? '' : `<div class="small muted" style="margin:-4px 0 8px">Pas certifiée : ${esc(it.certNote.reason)}.</div>`}
       ${ad.setLanguages ? `<div class="cd-vars-row"><span class="small muted">Langue</span><div class="chips" id="cd-lang">${ad.setLanguages().map((l) => `<button class="chip ${App.col.langOf(it) === l.id ? 'on' : ''}" data-lang="${l.id}" title="Ma carte est en ${l.name.toLowerCase()}">${l.id.toUpperCase()}</button>`).join('')}</div>${App.col.langOf(it) !== ad.langFor(setInfo.id) ? `<span class="small muted">Tu la possèdes en ${(ad.setLanguages().find((l) => l.id === App.col.langOf(it)) || { name: App.col.langOf(it) }).name.toLowerCase()}</span>` : ''}</div>` : ''}
-      ${availVariants.length > 1 ? `<div class="cd-vars-row"><span class="small muted">Versions</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div></div>` : ''}
+      ${availVariants.length > 1 ? `<div class="cd-vars-row"><span class="small muted">Versions</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div>${it.variantsAuto && it.variantsAuto.length ? `<span class="small muted" title="Reconnue automatiquement sur ta photo : touche une version pour corriger">${App.icons.icon('sparkles', 12)} reconnue sur ta photo</span>` : ''}</div>` : ''}
       ${condHTML(it)}
       <div class="cd-photos-head small muted">Mes photos <span>· touche pour en faire le visuel, ✂ pour recadrer</span></div>
       <div class="photos" id="cd-photos">
@@ -209,7 +209,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (t.closest('[data-v]') && t.closest('#cd-vars')) {
       const v = t.closest('[data-v]').dataset.v; const it = App.col.get(game, card.id);
       const vars = it.variants.includes(v) ? it.variants.filter((x) => x !== v) : [...it.variants, v];
-      await App.col.update(key, { variants: vars }); return drawMine();
+      await App.col.update(key, { variants: vars, variantsAuto: null }); return drawMine();
     }
     const cb = t.closest('[data-cond]');
     if (cb) {
