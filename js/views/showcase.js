@@ -11,7 +11,7 @@ App.views.showcase = {
     let editing = !!params.query.edit;
 
     const owned = () => App.col.all().filter((i) => i.qty > 0);
-    const val = (i) => (i.price && i.price.value) || 0;
+    const val = (i) => App.col.valueOf(i);
     const featuredItems = () => {
       const list = profile.featured.map((k) => App.col.byKey(k)).filter((i) => i && i.qty > 0);
       if (list.length) return { list, auto: false };
@@ -38,13 +38,13 @@ App.views.showcase = {
       const fan = profile.layout === 'eventail' ? `style="--rot:${(d * step).toFixed(2)}deg; --dy:${(Math.abs(d) * step * 0.9).toFixed(1)}px; z-index:${n - Math.abs(Math.round(d))}"` : '';
       return `<div class="vcard" data-card="${esc(it.id)}" data-game="${it.game}" ${fan}>
         <div class="frame-${frame}"><img src="${esc(img.src)}" alt="${esc(it.snap.name)}" data-alt="${esc(it.snap.name)}"></div>
-        ${profile.layout !== 'eventail' ? `<div class="vlabel">${esc(it.snap.name)}${it.price && it.price.value ? ` · <span style="color:var(--accent2)">${euro(it.price.value, it.price.unit)}</span>` : ''}</div>` : ''}
+        ${profile.layout !== 'eventail' ? `<div class="vlabel">${esc(it.snap.name)}${val(it) ? ` · <span style="color:var(--accent2)">${euro(val(it))}</span>` : ''}${it.cond && it.cond.kind === 'graded' ? ` <span class="condchip inline">${esc(App.col.condLabel(it.cond))}</span>` : ''}</div>` : ''}
       </div>`;
     };
 
     const draw = async () => {
       const items = owned();
-      const total = items.reduce((s, i) => s + (i.price && i.price.unit === 'EUR' ? val(i) * i.qty : 0), 0);
+      const total = App.col.totalValue(items);
       const { list: feat, auto } = featuredItems();
       const top = [...items].sort((a, b) => val(b) - val(a)).slice(0, 10);
       const fresh = new Set((await App.badges.check({ silent: true })).map((b) => b.id));
@@ -54,7 +54,7 @@ App.views.showcase = {
       const featHTML = (await Promise.all(feat.map((it, i) => vcard(it, i, feat.length)))).join('');
       const topHTML = (await Promise.all(top.map(async (it) => {
         const img = await App.col.displayImage(it, App.games.get(it.game));
-        return `<div class="vcard" data-card="${esc(it.id)}" data-game="${it.game}"><div class="frame-aucun"><img src="${esc(img.src)}" alt="" data-alt="${esc(it.snap.name)}"></div><div class="vlabel">${esc(it.snap.name)}<br><span style="color:var(--accent2)">${it.price && it.price.value ? euro(it.price.value, it.price.unit) : '—'}</span></div></div>`;
+        return `<div class="vcard" data-card="${esc(it.id)}" data-game="${it.game}"><div class="frame-aucun"><img src="${esc(img.src)}" alt="" data-alt="${esc(it.snap.name)}"></div><div class="vlabel">${esc(it.snap.name)}<br><span style="color:var(--accent2)">${val(it) ? euro(val(it)) : '—'}</span></div></div>`;
       }))).join('');
       if (!alive()) return;
 

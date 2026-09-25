@@ -928,3 +928,23 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
 @media (hover: none) {
   .ctile.owned.rt-3 .t-shine, .ctile.owned.rt-4 .t-shine, .ctile.owned.rt-5 .t-shine { opacity: 0; animation: none; }
 }
+
+/* ===== État de la carte ===== */
+.cond-box { margin: 4px 0 14px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.cond-scale { display: flex; flex-wrap: wrap; gap: 6px; }
+.cond-btn { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 58px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); cursor: pointer; font: inherit; }
+.cond-btn b { font-size: .9rem; display: flex; align-items: center; min-height: 18px; }
+.cond-btn span { font-size: .62rem; color: var(--muted); white-space: nowrap; }
+.cond-btn:hover { border-color: rgba(124,92,255,.6); }
+.cond-btn.on { background: var(--holo); color: #16172a; border-color: transparent; }
+.cond-btn.on span { color: #16172a; }
+.cond-value { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: flex-end; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.cond-value > div { display: flex; flex-direction: column; }
+.cond-value b { font-family: var(--display); font-size: 1.35rem; color: var(--accent2); }
+.condchip { position: absolute; bottom: 8px; right: 8px; z-index: 2; font-size: .64rem; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: linear-gradient(135deg, #e9edf5, #9aa3b5); color: #16172a; box-shadow: 0 2px 6px rgba(0,0,0,.4); letter-spacing: .02em; }
+.condchip.inline { position: static; display: inline-block; vertical-align: 1px; }
+@media (max-width: 760px) { .cond-btn { min-width: 0; flex: 1 1 calc(25% - 6px); padding: 5px 4px; } }
+.set-cost { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-top: 10px; font-size: .85rem; }
+.set-cost > span { display: inline-flex; align-items: center; gap: 5px; }
+.set-cost b { color: var(--accent2); }
+.set-cost a { color: var(--muted); }

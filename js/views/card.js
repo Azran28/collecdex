@@ -94,6 +94,28 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     sw.innerHTML = it && it.qty > 0 && (it.photos || []).length ? `<div class="chips"><button class="chip ${showOfficial ? '' : 'on'}" data-img="mine">${App.icons.icon('camera', 14)} Ma photo</button><button class="chip ${showOfficial ? 'on' : ''}" data-img="off">Visuel officiel</button></div>` : '';
   };
 
+  /** Bloc « État de la carte » : échelle Cardmarket, ou carte gradée (société + note), et valeur estimée */
+  const condHTML = (it) => {
+    const c = it.cond || null, graded = c && c.kind === 'graded';
+    const marketP = it.price && it.price.value && it.price.unit === 'EUR' ? it.price.value : 0;
+    const est = App.col.valueOf(it);
+    const grades = []; for (let g = 10; g >= 1; g -= 0.5) grades.push(g);
+    return `<div class="cond-box">
+      <div class="row" style="gap:8px;margin-bottom:6px"><b>État de la carte</b><span class="muted small">${c ? '' : '(non renseigné : compté comme Near Mint)'}</span></div>
+      <div class="cond-scale">${App.col.CONDITIONS.map(([k, l, d]) => `<button type="button" class="cond-btn ${!graded && c && c.grade === k ? 'on' : ''}" data-cond="${k}" title="${esc(l + ' : ' + d)}"><b>${k}</b><span>${esc(l)}</span></button>`).join('')}
+        <button type="button" class="cond-btn graded ${graded ? 'on' : ''}" data-cond="graded" title="Carte notée par une société de gradation"><b>${App.icons.icon('shield', 14)}</b><span>Gradée</span></button></div>
+      ${graded ? `<div class="row" style="gap:8px;margin-top:8px"><select data-gcomp>${App.col.GRADERS.map((g) => `<option ${c.company === g ? 'selected' : ''}>${g}</option>`).join('')}</select>
+        <select data-ggrade>${grades.map((g) => `<option value="${g}" ${+c.grade === g ? 'selected' : ''}>${String(g).replace('.', ',')}</option>`).join('')}</select>
+        <span class="small muted">Note sur 10</span></div>` : c ? `<div class="small muted" style="margin-top:6px">${esc((App.col.CONDITIONS.find((r) => r[0] === c.grade) || [])[2] || '')}</div>` : ''}
+      <div class="cond-value">
+        <div><span class="muted small">Valeur estimée</span><b>${est ? euro(est) : '—'}</b>
+          <span class="small muted">${it.valueOverride > 0 ? 'ta valeur' : marketP ? `prix marché ${euro(marketP)}${c ? ` × ${String(App.col.condMult(c)).replace('.', ',')} (${esc(App.col.condLabel(c))})` : ''}` : 'prix marché inconnu'}</span></div>
+        <label class="small muted">Ma valeur <input type="number" min="0" step="0.5" inputmode="decimal" data-override value="${it.valueOverride > 0 ? it.valueOverride : ''}" placeholder="auto" style="width:90px"> €</label>
+      </div>
+      ${graded ? '<p class="small muted" style="margin:6px 0 0">Pour une carte gradée, l’estimation est très approximative (le bonus d’une note varie énormément d’une carte à l’autre) : saisis « Ma valeur » si tu connais sa cote.</p>' : ''}
+    </div>`;
+  };
+
   const drawMine = async () => {
     const box = body.querySelector('#cd-mine');
     const it = App.col.get(game, card.id);
@@ -117,7 +139,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         <button class="btn sm ${it.favorite ? 'primary' : ''}" id="cd-fav">${it.favorite ? '★ Favorite' : '☆ Mettre en favori'}</button>
       </div>
       ${availVariants.length ? `<div class="row" style="margin-bottom:12px"><span>Versions possédées</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div></div>` : ''}
-      <div class="row" style="margin-bottom:12px"><span>Ma note</span>${App.ui.stars(it.rating || 0)}</div>
+      ${condHTML(it)}
       <div style="margin-bottom:12px"><textarea id="cd-note" placeholder="Note perso (état, provenance, gradée PSA…)">${esc(it.note || '')}</textarea></div>
       <div style="margin-bottom:6px">Mes photos de cette carte <span class="muted small">(clique pour l’utiliser comme visuel, ✂ pour la recadrer)</span></div>
       <div class="photos" id="cd-photos">
@@ -174,7 +196,16 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       const vars = it.variants.includes(v) ? it.variants.filter((x) => x !== v) : [...it.variants, v];
       await App.col.update(key, { variants: vars }); return drawMine();
     }
-    if (t.closest('[data-stars] button')) { await App.col.update(key, { rating: +t.closest('button').dataset.v }); return drawMine(); }
+    const cb = t.closest('[data-cond]');
+    if (cb) {
+      const it = App.col.byKey(key); const cur = it && it.cond;
+      const k = cb.dataset.cond;
+      let cond;
+      if (k === 'graded') cond = cur && cur.kind === 'graded' ? null : { kind: 'graded', company: 'PSA', grade: 9 };
+      else cond = cur && cur.kind !== 'graded' && cur.grade === k ? null : { kind: 'raw', grade: k };
+      await App.col.update(key, { cond });
+      return drawMine();
+    }
     if (t.closest('[data-crop]')) {
       e.stopPropagation();
       const id = t.closest('[data-crop]').dataset.crop;
@@ -210,6 +241,17 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       try { await App.col.addPhoto(App.col.keyOf(game, card.id), e.target.files[0]); App.util.toast('Photo ajoutée ✓'); }
       catch (err) { App.util.toast(err.message); }
       showOfficial = false; drawImage(); drawMine();
+    }
+    const key = App.col.keyOf(game, card.id);
+    if (e.target.matches('[data-gcomp], [data-ggrade]')) {
+      const box = e.target.closest('.cond-box');
+      await App.col.update(key, { cond: { kind: 'graded', company: box.querySelector('[data-gcomp]').value, grade: +box.querySelector('[data-ggrade]').value } });
+      return drawMine();
+    }
+    if (e.target.matches('[data-override]')) {
+      const v = parseFloat(String(e.target.value).replace(',', '.'));
+      await App.col.update(key, { valueOverride: v > 0 ? Math.round(v * 100) / 100 : null });
+      return drawMine();
     }
   });
   body.addEventListener('input', App.util.debounce(async (e) => {

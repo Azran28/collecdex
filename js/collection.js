@@ -154,6 +154,39 @@ App.col = (() => {
     if (stale.length) refreshPrices(stale, 'Prix de ta collection');
   }
 
+  // ---------- État de la carte et valeur estimée ----------
+  // Échelle Cardmarket. Le prix « tendance » de Cardmarket correspond à peu près à une carte Near Mint.
+  const CONDITIONS = [
+    ['MT', 'Mint', 'Parfaite, comme sortie du booster', 1.15],
+    ['NM', 'Near Mint', 'Quasi parfaite, micro-défauts à peine visibles', 1],
+    ['EX', 'Excellent', 'Légère usure : bords ou coins un peu blanchis', 0.8],
+    ['GD', 'Good', 'Usure visible, petites marques', 0.6],
+    ['LP', 'Light Played', 'Rayures ou petits plis', 0.45],
+    ['PL', 'Played', 'Bien usée, plis marqués', 0.3],
+    ['PO', 'Poor', 'Très abîmée', 0.15],
+  ];
+  const GRADERS = ['PSA', 'CGC', 'BGS', 'PCA'];
+  /** Multiplicateur d'une carte gradée (très approximatif : le bonus d'une note varie beaucoup d'une carte à l'autre) */
+  const gradeMult = (g) => (g >= 10 ? 4 : g >= 9.5 ? 2.8 : g >= 9 ? 2 : g >= 8.5 ? 1.6 : g >= 8 ? 1.35 : g >= 7 ? 1.15 : g >= 6 ? 1 : g >= 5 ? 0.85 : 0.7);
+  function condMult(c) {
+    if (!c) return 1;
+    if (c.kind === 'graded') return gradeMult(+c.grade || 0);
+    const row = CONDITIONS.find((r) => r[0] === c.grade);
+    return row ? row[3] : 1;
+  }
+  const condLabel = (c) => (!c ? '' : c.kind === 'graded' ? `${c.company} ${String(c.grade).replace('.', ',')}` : c.grade);
+  /** Pour trier du meilleur état au pire (inconnu = en dernier) */
+  const condRank = (c) => (!c ? -1 : c.kind === 'graded' ? 100 + (+c.grade || 0) : CONDITIONS.length - CONDITIONS.findIndex((r) => r[0] === c.grade));
+  /** Valeur estimée d'UN exemplaire, en euros : ta valeur si tu l'as saisie, sinon prix du marché × état */
+  function valueOf(it) {
+    if (!it) return 0;
+    if (it.valueOverride > 0) return it.valueOverride;
+    if (!it.price || !it.price.value || it.price.unit !== 'EUR') return 0;
+    return Math.round(it.price.value * condMult(it.cond) * 100) / 100;
+  }
+  /** Valeur totale (tous les exemplaires) */
+  const totalValue = (list) => list.reduce((s, i) => s + valueOf(i) * (i.qty || 0), 0);
+
   // ---------- Progression ----------
   /**
    * Calcule la progression d'une série.
@@ -238,6 +271,7 @@ App.col = (() => {
 
   return {
     load, saveSettings, keyOf, get, byKey, all, owned, inSet, add, update, setQty, remove,
+    CONDITIONS, GRADERS, condMult, condLabel, condRank, valueOf, totalValue,
     addPhoto, deletePhoto, replacePhoto, setPhotoSource, keepPage, getPage, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
     getProfile, saveProfile, exportAll, importAll, applyRemote, applyRemoteDelete, applyRemoteProfile, wipeLocal, notify,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },

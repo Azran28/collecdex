@@ -4,7 +4,7 @@ App.views.home = {
     const { esc, euro } = App.util;
     const items = App.col.all().filter((i) => i.qty > 0);
     const copies = items.reduce((s, i) => s + i.qty, 0);
-    const value = items.reduce((s, i) => s + (i.price && i.price.value && i.price.unit === 'EUR' ? i.price.value * i.qty : 0), 0);
+    const value = App.col.totalValue(items);
 
     el.innerHTML = `
       <section class="hero">

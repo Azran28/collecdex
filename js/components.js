@@ -36,7 +36,8 @@ App.ui = (() => {
     const it = item || App.col.get(game, card.id);
     const own = it && it.qty > 0;
     const pv = it && it.price && it.price.value != null ? it.price : marketPrice;
-    const price = pv && pv.value != null ? euro(pv.value, pv.unit) : '';
+    const mine = own ? App.col.valueOf(it) : 0; // valeur estimée selon l'état (ou ta valeur)
+    const price = mine ? euro(mine) : pv && pv.value != null ? euro(pv.value, pv.unit) : '';
     const numOnly = !own && App.settings.missingStyle === 'numero';
     const src = numOnly ? '' : ad.img.card(card, 'low');
     // niveau d'effet selon la rareté (0 = ordinaire … 5 = les plus rares) et couleur de la rareté
@@ -49,6 +50,7 @@ App.ui = (() => {
           ${numOnly ? `<div class="numonly"><b>${esc(card.localId)}</b><span>${esc(card.name)}</span></div>`
             : src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(card.name)}" data-alt="${esc(card.name)}" ${it && it.displayPhoto && App.settings.preferPhotos ? `data-photo="${esc(it.displayPhoto)}"` : ''}>` : `<span class="noimg">${esc(card.name)}</span>`}
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
+          ${own && it.cond && it.cond.kind === 'graded' ? `<span class="condchip">${esc(App.col.condLabel(it.cond))}</span>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
           ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto" title="Visuel : ta photo (et non l’image officielle)">📷</span>' : ''}
           ${!own && App.wish && App.wish.has(game, card.id) ? '<span class="wishmark" title="Dans ta liste de souhaits">♥</span>' : ''}

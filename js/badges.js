@@ -61,7 +61,7 @@ App.badges = (() => {
     const eras = new Set(items.map((i) => (byId.get(i.setId) || {}).group).filter(Boolean).map((g) => g.id));
     const vintage = items.filter((i) => { const s = byId.get(i.setId); return s && s.releaseDate && s.releaseDate < '2004'; }).length;
     const complete = [...setIds].map((id) => byId.get(id)).filter((s) => s && App.col.progress('pokemon', s).complete).length;
-    const price = (i) => (i.price && i.price.value && i.price.unit === 'EUR' ? i.price.value : 0);
+    const price = (i) => App.col.valueOf(i);
     return {
       items, n: items.length, sets: setIds.size, eras: eras.size, vintage, complete,
       maxRank: Math.max(0, ...items.map((i) => Math.max(ad.rarity.rank(i.snap.rarity), i.snap.holo ? 4 : 0))),

@@ -7,6 +7,23 @@ App.views.set = {
     if (!alive()) return;
 
     const prices = {}; // id carte → { value, unit }
+    let pricesDone = false;
+    /** Coût estimé (prix du marché) : pour finir la série, et pour la série complète */
+    const costBlock = () => {
+      const official = (c) => { const n = parseInt(c.localId, 10); return !isNaN(n) && String(n) === String(c.localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
+      const counted = App.settings.completion === 'official' ? set.cards.filter(official) : set.cards;
+      const pv = (c) => (prices[c.id] && prices[c.id].unit === 'EUR' && prices[c.id].value) || 0;
+      const miss = counted.filter((c) => !App.col.owned(game, c.id));
+      const missCost = miss.reduce((t, c) => t + pv(c), 0), fullCost = counted.reduce((t, c) => t + pv(c), 0);
+      const unknown = counted.filter((c) => !pv(c)).length;
+      const booster = `https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(set.name + ' booster')}`;
+      return `<div class="set-cost">
+        ${pricesDone ? `${miss.length ? `<span>${App.icons.icon('target', 14)} Finir la série : <b>≈ ${euro(missCost)}</b> <span class="muted">(${miss.length} carte${miss.length > 1 ? 's' : ''})</span></span>` : ''}
+          <span>${App.icons.icon('coins', 14)} Série complète : <b>≈ ${euro(fullCost)}</b></span>${unknown ? `<span class="muted small">${unknown} carte${unknown > 1 ? 's' : ''} sans prix</span>` : ''}`
+          : `<span class="muted">${App.icons.icon('coins', 14)} Estimation du coût de la série… (prix en cours de chargement)</span>`}
+        <a href="${booster}" target="_blank" rel="noopener" class="small">Prix des boosters et displays sur Cardmarket ↗</a>
+      </div>`;
+    };
     const state = { own: query.f || 'toutes', rarities: new Set(), sort: 'num', q: '' };
     const pr = ad.pullRates(set.id);
 
@@ -30,7 +47,7 @@ App.views.set = {
           <option value="num">Par numéro</option>
           <option value="rar">plus rares d’abord</option>
           <option value="price">plus chères d’abord</option>
-          <option value="rating">mieux notées (ta note)</option>
+          <option value="etat">Meilleur état (tes cartes)</option>
           <option value="name">Par nom</option>
         </select>
         <input type="search" id="st-q" placeholder="Nom ou numéro…">
@@ -53,7 +70,7 @@ App.views.set = {
 
     const drawHead = () => {
       const p = App.col.progress(game, set);
-      const value = App.col.inSet(game, set.id).reduce((s, i) => s + (i.price && i.price.value && i.price.unit === 'EUR' ? i.price.value * i.qty : 0), 0);
+      const value = App.col.totalValue(App.col.inSet(game, set.id));
       head.innerHTML = `
         <div class="muted small">${esc(set.group.name)}${set.releaseDate ? ' · ' + App.util.dateFr(set.releaseDate) : ''}</div>
         <h1 class="row" style="gap:10px">${ad.img.symbol(set) ? `<img src="${esc(ad.img.symbol(set))}" alt="" style="height:28px">` : ''}${esc(set.name)}</h1>
@@ -68,6 +85,7 @@ App.views.set = {
           <span>· comptées : <a href="#/parametres">${App.settings.completion === 'official' ? 'numérotées' : 'toutes'}</a></span>
           ${value ? `<span>· Valeur : <b style="color:var(--accent2)">${euro(value)}</b></span>` : ''}
         </div>
+        ${costBlock()}
         ${p.complete ? '' : `<div class="row set-goal" style="margin-top:12px;gap:8px">
           ${App.wish.isGoal(game, set.id) ? `<a class="btn sm goal-on" href="#/objectifs">${App.icons.icon('target', 14)} Objectif en cours</a>` : `<button class="btn sm" id="st-goal">${App.icons.icon('target', 14)} En faire un objectif</button>`}
           ${p.have ? `<a class="btn sm" href="#/objectifs?tab=manque&set=${encodeURIComponent(set.id)}">${App.icons.icon('search', 14)} Ce qu’il me manque (${p.missing})</a>` : ''}
@@ -120,12 +138,12 @@ App.views.set = {
       if (state.own === 'manquantes') cards = cards.filter((c) => !App.col.owned(game, c.id));
       if (state.rarities.size) cards = cards.filter((c) => state.rarities.has(c.rarity));
       if (state.q) { const q = norm(state.q); cards = cards.filter((c) => norm(c.name).includes(q) || norm(c.localId) === q || String(parseInt(c.localId, 10)) === q); }
-      const priceOf = (c) => { const it = App.col.get(game, c.id); return (it && it.price && it.price.value) || (prices[c.id] && prices[c.id].value) || 0; };
+      const priceOf = (c) => { const it = App.col.get(game, c.id); return (it && it.qty > 0 && App.col.valueOf(it)) || (prices[c.id] && prices[c.id].value) || 0; };
       const sorters = {
         num: (a, b) => App.util.numSort(a.localId, b.localId),
         rar: (a, b) => ad.rarity.rank(b.rarity) - ad.rarity.rank(a.rarity) || priceOf(b) - priceOf(a),
         price: (a, b) => priceOf(b) - priceOf(a),
-        rating: (a, b) => ((App.col.get(game, b.id) || {}).rating || 0) - ((App.col.get(game, a.id) || {}).rating || 0),
+        etat: (a, b) => App.col.condRank((App.col.get(game, b.id) || {}).cond) - App.col.condRank((App.col.get(game, a.id) || {}).cond),
         name: (a, b) => a.name.localeCompare(b.name, 'fr'),
       };
       return cards.sort(sorters[state.sort]);
@@ -177,7 +195,9 @@ App.views.set = {
       if (!c.rarity && full.rarity) c.rarity = full.rarity;
     }, (d, n) => task.tick(d)).then(() => {
       task.done();
+      pricesDone = true;
       if (!stopped && alive()) {
+        drawHead();
         if (set.rarityInfoMissing && set.cards.every((c) => c.rarity)) { set.rarityInfoMissing = false; drawHead(); drawPull(); }
         drawGrid();
       }

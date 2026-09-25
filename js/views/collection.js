@@ -5,7 +5,7 @@ App.views.collection = {
     const state = { q: '', game: '', set: '', rarity: '', flag: 'toutes', sort: params.query.tri || 'ajout' };
 
     const snapCard = (it) => ({ id: it.id, name: it.snap.name, localId: it.snap.localId, image: it.snap.image, rarity: it.snap.rarity, setId: it.setId, serieId: it.snap.serieId, setName: it.snap.setName });
-    const val = (it) => (it.price && it.price.value) || 0;
+    const val = (it) => App.col.valueOf(it);
 
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Mon Dex</div>
@@ -25,7 +25,7 @@ App.views.collection = {
           <option value="ajout">Tri : derniers ajouts</option>
           <option value="valeur">Tri : plus chères</option>
           <option value="rarete">Tri : plus rares</option>
-          <option value="note">Tri : mieux notées</option>
+          <option value="etat">Tri : meilleur état</option>
           <option value="nom">Tri : nom</option>
           <option value="serie">Tri : série puis numéro</option>
         </select>
@@ -73,7 +73,7 @@ App.views.collection = {
         ajout: (a, b) => b.addedAt - a.addedAt,
         valeur: (a, b) => val(b) - val(a),
         rarete: (a, b) => rk(b) - rk(a) || val(b) - val(a),
-        note: (a, b) => (b.rating || 0) - (a.rating || 0) || val(b) - val(a),
+        etat: (a, b) => App.col.condRank(b.cond) - App.col.condRank(a.cond) || val(b) - val(a),
         nom: (a, b) => a.snap.name.localeCompare(b.snap.name, 'fr'),
         serie: (a, b) => a.snap.setName.localeCompare(b.snap.setName, 'fr') || App.util.numSort(a.snap.localId, b.snap.localId),
       };
@@ -83,8 +83,8 @@ App.views.collection = {
     const draw = () => {
       const all = App.col.all().filter((i) => i.qty > 0);
       const items = filtered();
-      const total = all.reduce((s, i) => s + (i.price && i.price.unit === 'EUR' ? val(i) * i.qty : 0), 0);
-      const shownVal = items.reduce((s, i) => s + (i.price && i.price.unit === 'EUR' ? val(i) * i.qty : 0), 0);
+      const total = App.col.totalValue(all);
+      const shownVal = App.col.totalValue(items);
       el.querySelector('#c-stats').innerHTML = `
         <div class="stat"><b>${all.length}</b><span>cartes différentes</span></div>
         <div class="stat"><b>${all.reduce((s, i) => s + i.qty, 0)}</b><span>exemplaires</span></div>
@@ -149,8 +149,8 @@ App.views.collection = {
     });
     el.querySelector('#c-prices').addEventListener('click', () => App.col.refreshPrices(App.col.all().map((i) => i.key)));
     el.querySelector('#c-csv').addEventListener('click', () => {
-      const rows = [['Jeu', 'Série', 'Numéro', 'Nom', 'Rareté', 'Quantité', 'Versions', 'Favorite', 'Note', 'Prix unitaire', 'Devise', 'Commentaire']];
-      for (const it of filtered()) rows.push([App.games.info(it.game).name, it.snap.setName, it.snap.localId, it.snap.name, App.pokemonRarity.label(it.snap.rarity), it.qty, it.variants.join(' '), it.favorite ? 'oui' : '', it.rating || '', it.price && it.price.value != null ? String(it.price.value).replace('.', ',') : '', it.price ? it.price.unit || '' : '', it.note || '']);
+      const rows = [['Jeu', 'Série', 'Numéro', 'Nom', 'Rareté', 'Quantité', 'Versions', 'Favorite', 'État', 'Prix marché', 'Devise', 'Valeur estimée (€)', 'Commentaire']];
+      for (const it of filtered()) rows.push([App.games.info(it.game).name, it.snap.setName, it.snap.localId, it.snap.name, App.pokemonRarity.label(it.snap.rarity), it.qty, it.variants.join(' '), it.favorite ? 'oui' : '', App.col.condLabel(it.cond), it.price && it.price.value != null ? String(it.price.value).replace('.', ',') : '', it.price ? it.price.unit || '' : '', val(it) ? String(val(it)).replace('.', ',') : '', it.note || '']);
       const csv = '﻿' + rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
