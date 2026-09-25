@@ -22,6 +22,7 @@ App.views.home = {
           <a class="btn" href="#/vitrine">${App.icons.icon('trophy', 16)} Ma vitrine</a>
         </div>
       </section>
+      <div id="h-install"></div>
 
       <div class="section-title"><h2>Licences</h2></div>
       <div class="grid-auto licences">
@@ -40,7 +41,6 @@ App.views.home = {
         }).join('')}
       </div>
 
-      <div id="h-install"></div>
       <div id="h-goals"></div>
       <div id="h-inprogress"></div>
 
