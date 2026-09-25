@@ -46,6 +46,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   body.innerHTML = `
     <div class="cd">
       <div class="cd-img">
+        <div class="cd-fav-wrap" id="cd-favwrap"></div>
         <div class="holo-card tier-${holoTier}" id="cd-holo">
           <img id="cd-img" src="${esc(ad.img.card(base, 'high'))}" alt="${esc(card.name)}" data-alt="${esc(card.name)}">
           ${holoTier ? '<div class="holo-shine"></div><div class="holo-glare"></div>' : ''}${holoTier >= 4 ? '<div class="holo-sparkle"></div>' : ''}
@@ -60,22 +61,21 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         <div class="muted">${esc(setInfo.name)} · n° ${esc(card.localId)}${setInfo.official ? '/' + String(setInfo.official).padStart(String(card.localId).length, '0') : ''}</div>
         <h1 style="margin-top:4px">${esc(card.name)}</h1>
         <div class="row">${ad.rarity.symbol(card.rarity, 18)} <b>${esc(ad.rarity.label(card.rarity))}</b>${rate ? `<span class="pill">≈ 1 booster sur ${rate.toLocaleString('fr-FR')} pour cette rareté</span>` : ''}</div>
-        <dl>
-          ${card.category ? `<dt>Catégorie</dt><dd>${esc(card.category)}${card.stage ? ' · ' + esc(card.stage) : ''}</dd>` : ''}
-          ${card.types && card.types.length ? `<dt>Type</dt><dd>${esc(card.types.join(', '))}</dd>` : ''}
-          ${card.hp ? `<dt>PV</dt><dd>${esc(card.hp)}</dd>` : ''}
-          ${card.illustrator ? `<dt>Illustrateur</dt><dd>${esc(card.illustrator)}</dd>` : ''}
-          ${availVariants.length ? `<dt>Versions</dt><dd>${availVariants.map((v) => variantNames[v]).join(', ')}</dd>` : ''}
-          ${setInfo.releaseDate ? `<dt>Sortie</dt><dd>${dateFr(setInfo.releaseDate)}</dd>` : ''}
-        </dl>
+        <div class="cd-facts">
+          ${card.category ? `<span>${esc(card.category)}${card.stage ? ' · ' + esc(card.stage) : ''}</span>` : ''}
+          ${card.types && card.types.length ? `<span>${esc(card.types.join(', '))}</span>` : ''}
+          ${card.hp ? `<span>${esc(card.hp)} PV</span>` : ''}
+          ${availVariants.length ? `<span>${availVariants.map((v) => variantNames[v]).join(', ')}</span>` : ''}
+          ${card.illustrator ? `<span title="Illustrateur">✎ ${esc(card.illustrator)}</span>` : ''}
+          ${setInfo.releaseDate ? `<span title="Sortie">${dateFr(setInfo.releaseDate)}</span>` : ''}
+        </div>
 
-        <div class="section">
-          <h3>Valeur</h3>
-          ${priceRows.length ? `<div class="price-box">${priceRows.map(([l, v]) => `<div class="stat"><b>${euro(v)}</b><span>${l}</span></div>`).join('')}</div>
-            <div class="small muted">Cardmarket, mis à jour le ${dateFr(cm.updated)}.</div>`
-            : price ? `<div class="price-box"><div class="stat"><b>${euro(price.value, price.unit)}</b><span>Prix marché ${esc(price.source)}</span></div></div>`
+        <div class="cd-price">
+          ${priceRows.length ? `<div class="cd-price-main"><b>${euro(priceRows[0][1])}</b><span>${esc(priceRows[0][0].toLowerCase())} Cardmarket</span></div>
+            <div class="cd-price-more">${priceRows.slice(1).map(([l, v]) => `<span>${esc(l)} <b>${euro(v)}</b></span>`).join('')}</div>`
+            : price ? `<div class="cd-price-main"><b>${euro(price.value, price.unit)}</b><span>prix marché ${esc(price.source)}</span></div>`
             : '<div class="muted small">Pas de prix disponible pour cette carte.</div>'}
-          <div class="row" style="margin-top:8px"><a class="btn sm" target="_blank" rel="noopener" href="${esc(ad.cardmarketUrl(card, setInfo.name))}">Voir sur Cardmarket ↗</a></div>
+          <div class="cd-price-foot small muted">${cm && cm.updated ? `Mis à jour le ${dateFr(cm.updated)} · ` : ''}<a target="_blank" rel="noopener" href="${esc(ad.cardmarketUrl(card, setInfo.name))}">Voir sur Cardmarket ↗</a></div>
         </div>
 
         <div class="section" id="cd-mine"></div>
@@ -90,6 +90,8 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     showOfficial = !hasPhoto;
     if (hasPhoto) imgEl.src = await App.col.photoURL(it.displayPhoto);
     else imgEl.src = ad.img.card(base, 'high');
+    const fw = body.querySelector('#cd-favwrap');
+    fw.innerHTML = it && it.qty > 0 ? `<button class="cd-favstar ${it.favorite ? 'on' : ''}" id="cd-fav" title="${it.favorite ? 'Retirer des favorites' : 'Mettre en favorite'}">${App.icons.icon('star', 18)}</button>` : '';
     // visuel utilisé partout (Mon Dex, vitrine, séries) : ta photo ou le visuel officiel
     sw.innerHTML = it && it.qty > 0 && (it.photos || []).length ? `<div class="chips"><button class="chip ${showOfficial ? '' : 'on'}" data-img="mine">${App.icons.icon('camera', 14)} Ma photo</button><button class="chip ${showOfficial ? 'on' : ''}" data-img="off">Visuel officiel</button></div>` : '';
   };
@@ -121,7 +123,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     const it = App.col.get(game, card.id);
     if (!it || !it.qty) {
       box.innerHTML = `<h3>Mon Dex</h3>
-        <p class="muted">Tu n’as pas encore cette carte. Capture-la en photo pour l’ajouter à ton Dex.</p>
+        <p class="muted small" style="margin-top:0">Tu n’as pas encore cette carte : capture-la en photo pour l’ajouter.</p>
         <div class="row"><a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}">${App.icons.icon('capture', 16)} Capturer cette carte</a>
         <button class="btn ${App.wish.has(game, card.id) ? 'wish-on' : ''}" id="cd-wish">${App.wish.has(game, card.id) ? '♥ Je la cherche' : '♡ Je la cherche'}</button></div>
         <p class="small muted" style="margin:8px 0 0">${App.wish.has(game, card.id) ? 'Elle est dans ta <a href="#/objectifs?tab=souhaits">liste de souhaits</a>.' : 'Ajoute-la à ta liste de souhaits pour la retrouver (et plus tard pour les échanges).'}</p>`;
@@ -129,43 +131,47 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     }
     const photos = await Promise.all((it.photos || []).map(async (id) => ({ id, url: await App.col.photoURL(id) })));
     const certified = App.certify.isCertified(it);
-    box.innerHTML = `<h3 class="row" style="gap:8px">Mon Dex ${certified ? `<span class="cert-pill" title="Au moins une photo de cette carte a été capturée en direct et vérifiée">${App.icons.icon('shield', 14)} Certifiée</span>` : ''}</h3>
-      ${certified ? '' : `<p class="small muted" style="margin-top:-4px">${App.icons.icon('shield', 13)} Non certifiée${it.certNote && it.certNote.reason ? ` (raison : ${esc(it.certNote.reason)})` : ''}. Pour le badge, <a href="#/scan?carte=${encodeURIComponent(card.id)}">capture-la avec la caméra</a>${App.cloud.enabled && !App.cloud.user ? ' (connecté à ton compte)' : ''}.</p>`}
-      <div class="row" style="margin-bottom:12px">
-        <span>Exemplaires</span>
-        <span class="stepper"><button id="cd-minus" title="Retirer un exemplaire">−</button><span>${it.qty}</span></span>
-        <button class="btn sm danger" id="cd-remove" title="Tu ne l’as plus, ou erreur d’ajout">${App.icons.icon('trash', 14)} Retirer de mon Dex</button>
-        <a class="btn sm" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Chaque exemplaire se capture en photo">${App.icons.icon('plus', 14)} Capturer un exemplaire</a>
-        <button class="btn sm ${it.favorite ? 'primary' : ''}" id="cd-fav">${it.favorite ? '★ Favorite' : '☆ Mettre en favori'}</button>
+    box.innerHTML = `
+      <div class="cd-mine-head">
+        <h3 style="margin:0">Mon Dex</h3>
+        ${certified ? `<span class="cert-pill" title="Au moins une photo de cette carte a été capturée en direct et vérifiée">${App.icons.icon('shield', 14)} Certifiée</span>`
+          : `<a class="cert-no" href="#/scan?carte=${encodeURIComponent(card.id)}" title="${esc(`Non certifiée${it.certNote && it.certNote.reason ? ' (' + it.certNote.reason + ')' : ''}. Capture-la avec la caméra du site${App.cloud.enabled && !App.cloud.user ? ', connecté à ton compte,' : ''} pour obtenir le badge.`)}">${App.icons.icon('shield', 13)} Non certifiée</a>`}
+        <span class="spacer"></span>
+        <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="#/scan?carte=${encodeURIComponent(card.id)}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
       </div>
-      ${availVariants.length ? `<div class="row" style="margin-bottom:12px"><span>Versions possédées</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div></div>` : ''}
+      ${certified || !(it.certNote && it.certNote.reason) ? '' : `<div class="small muted" style="margin:-4px 0 8px">Pas certifiée : ${esc(it.certNote.reason)}.</div>`}
+      ${availVariants.length > 1 ? `<div class="cd-vars-row"><span class="small muted">Versions</span><div class="chips" id="cd-vars">${availVariants.map((v) => `<button class="chip ${it.variants.includes(v) ? 'on' : ''}" data-v="${v}">${variantNames[v]}</button>`).join('')}</div></div>` : ''}
       ${condHTML(it)}
-      <div style="margin-bottom:12px"><textarea id="cd-note" placeholder="Commentaire perso (provenance, défaut particulier, prix payé…)">${esc(it.note || '')}</textarea></div>
-      <div style="margin-bottom:6px">Mes photos de cette carte <span class="muted small">(clique pour l’utiliser comme visuel, ✂ pour la recadrer)</span></div>
+      <div class="cd-photos-head small muted">Mes photos <span>· touche pour en faire le visuel, ✂ pour recadrer</span></div>
       <div class="photos" id="cd-photos">
         ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt="">${App.certify.photoCertified(p.id) ? `<span class="ph-cert" title="Photo certifiée">${App.icons.icon('shield', 12)}</span>` : ''}<button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button><button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button></div>`).join('')}
-        <label class="btn sm" style="height:fit-content">📷 Ajouter une photo<input type="file" accept="image/*" id="cd-file" hidden></label>
+        <label class="ph ph-add" title="Ajouter une photo">${App.icons.icon('plus', 18)}<input type="file" accept="image/*" id="cd-file" hidden></label>
       </div>
-
-      <div class="row" style="margin-top:16px"><span class="muted small">Ajoutée le ${dateFr(it.addedAt)}</span></div>`;
+      <details class="cd-note" ${it.note ? 'open' : ''}><summary class="small">Commentaire perso</summary>
+        <textarea id="cd-note" placeholder="Provenance, défaut particulier, prix payé…">${esc(it.note || '')}</textarea></details>
+      <div class="cd-foot small muted"><span>Ajoutée le ${dateFr(it.addedAt)}</span><button class="linkbtn danger" id="cd-remove" title="Tu ne l’as plus, ou erreur d’ajout">${App.icons.icon('trash', 13)} Retirer de mon Dex</button></div>`;
   };
 
   // la carte s'incline et ses reflets suivent le doigt / la souris
   const holo = body.querySelector('#cd-holo');
   if (holo) {
-    let idleT = null;
     const setP = (x, y) => {
       holo.style.setProperty('--mx', (x * 100).toFixed(1) + '%'); holo.style.setProperty('--my', (y * 100).toFixed(1) + '%');
       holo.style.setProperty('--rx', ((0.5 - y) * 26).toFixed(2) + 'deg'); holo.style.setProperty('--ry', ((x - 0.5) * 30).toFixed(2) + 'deg');
       holo.style.setProperty('--pos', (x * 100).toFixed(1) + '%'); holo.style.setProperty('--hyp', Math.min(1, Math.hypot(x - 0.5, y - 0.5) * 2).toFixed(2));
     };
-    holo.addEventListener('pointermove', (e) => {
-      const r = holo.getBoundingClientRect();
-      holo.classList.add('active'); holo.classList.remove('idle');
-      setP(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
-      clearTimeout(idleT);
+    // on écoute la zone autour de la carte (qui, elle, ne bouge pas) et on calcule la position
+    // sur la carte « à plat » : sinon, en s'inclinant, la carte échappe à la souris sur ses bords et tremble
+    const zone = holo.parentElement;
+    zone.addEventListener('pointermove', (e) => {
+      const z = zone.getBoundingClientRect();
+      const left = z.left + holo.offsetLeft, top = z.top + holo.offsetTop, w = holo.offsetWidth, h = holo.offsetHeight;
+      const x = (e.clientX - left) / w, y = (e.clientY - top) / h;
+      if (x < -0.05 || x > 1.05 || y < -0.05 || y > 1.05) { holo.classList.remove('active'); setP(0.5, 0.5); return; }
+      holo.classList.add('active');
+      setP(Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)));
     });
-    holo.addEventListener('pointerleave', () => { holo.classList.remove('active'); setP(0.5, 0.5); });
+    zone.addEventListener('pointerleave', () => { holo.classList.remove('active'); setP(0.5, 0.5); });
     setP(0.5, 0.5);
     // pas de mouvement automatique : la carte ne bouge que sous la souris / le doigt
   }
@@ -190,7 +196,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       if (it.qty === 1 && !confirm('Retirer cette carte de ta collection ?')) return;
       await App.col.setQty(key, it.qty - 1); drawImage(); return drawMine();
     }
-    if (t.closest('#cd-fav')) { const it = App.col.get(game, card.id); await App.col.update(key, { favorite: !it.favorite }); return drawMine(); }
+    if (t.closest('#cd-fav')) { const it = App.col.get(game, card.id); await App.col.update(key, { favorite: !it.favorite }); App.util.toast(it.favorite ? '★ Ajoutée à tes favorites' : 'Retirée des favorites'); drawImage(); return drawMine(); }
     if (t.closest('[data-v]') && t.closest('#cd-vars')) {
       const v = t.closest('[data-v]').dataset.v; const it = App.col.get(game, card.id);
       const vars = it.variants.includes(v) ? it.variants.filter((x) => x !== v) : [...it.variants, v];

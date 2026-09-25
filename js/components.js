@@ -98,15 +98,20 @@ App.ui = (() => {
     let cur = null, raf = 0, last = null;
     const reset = (elm) => { if (elm) { elm.style.removeProperty('--rx'); elm.style.removeProperty('--ry'); elm.classList.remove('tilting'); } };
     document.addEventListener('pointermove', (e) => {
-      const elm = e.target.closest && e.target.closest('.ctile .cimg, .vcard > div');
+      // on repère la tuile (qui ne bouge pas) puis sa carte : la carte inclinée n'échappe plus à la souris sur ses bords
+      const tile = e.target.closest && e.target.closest('.ctile, .v-featured .vcard');
+      const elm = tile ? tile.querySelector(tile.classList.contains('ctile') ? '.cimg' : ':scope > div') : null;
       if (elm !== cur) { reset(cur); cur = elm; }
       if (!elm) return;
       last = e;
       if (raf) return;
       raf = requestAnimationFrame(() => {
         raf = 0; if (!cur || !last) return;
-        const r = cur.getBoundingClientRect();
-        const x = Math.min(1, Math.max(0, (last.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (last.clientY - r.top) / r.height));
+        // position sur la carte « à plat » (sans l'inclinaison) : calculée depuis sa tuile
+        const t = cur.parentElement.getBoundingClientRect();
+        const rx = (last.clientX - t.left - cur.offsetLeft) / cur.offsetWidth, ry = (last.clientY - t.top - cur.offsetTop) / cur.offsetHeight;
+        if (rx < -0.04 || rx > 1.04 || ry < -0.04 || ry > 1.04) { reset(cur); return; } // souris sur le nom ou le prix, sous la carte
+        const x = Math.min(1, Math.max(0, rx)), y = Math.min(1, Math.max(0, ry));
         cur.classList.add('tilting');
         cur.style.setProperty('--rx', ((0.5 - y) * 26).toFixed(2) + 'deg');
         cur.style.setProperty('--ry', ((x - 0.5) * 30).toFixed(2) + 'deg');
