@@ -844,7 +844,7 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
   background: linear-gradient(110deg, var(--bg2) 30%, #1f2540 45%, var(--bg2) 60%) 0 0 / 250% 100%;
   animation: skel 1.4s linear infinite;
 }
-.ctile .cimg:has(img[src]) { animation: none; }
+.ctile .cimg.ld, .ctile .cimg:has(.numonly), .ctile .cimg:has(.noimg) { animation: none; background: var(--bg2); }
 @keyframes skel { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 .ctile .cimg.tilting { transition: transform .06s linear, box-shadow .25s; }
 .ctile:hover .cimg { transform: perspective(700px) translateY(-4px) rotateX(var(--rx)) rotateY(var(--ry)); box-shadow: 0 14px 28px rgba(0,0,0,.5); }
@@ -881,9 +881,9 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
 /* vitrine : cartes qui flottent doucement, reflet au survol */
 .v-featured .vcard > div { position: relative; transition: transform .35s cubic-bezier(.2,.8,.2,1); transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
 .v-featured .vcard > div.tilting { transition: transform .06s linear; }
-.v-featured:not(.layout-eventail) .vcard { animation: vfloat 6s ease-in-out infinite; }
-.v-featured:not(.layout-eventail) .vcard:nth-child(2n) { animation-delay: -2s; }
-.v-featured:not(.layout-eventail) .vcard:nth-child(3n) { animation-delay: -4s; }
+.v-featured:not(.layout-eventail):not(.layout-classeur) .vcard { animation: vfloat 6s ease-in-out infinite; }
+.v-featured:not(.layout-eventail):not(.layout-classeur) .vcard:nth-child(2n) { animation-delay: -2s; }
+.v-featured:not(.layout-eventail):not(.layout-classeur) .vcard:nth-child(3n) { animation-delay: -4s; }
 @keyframes vfloat { 50% { transform: translateY(-6px); } }
 .v-featured .vcard > div::after { content: ""; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; opacity: 0; transition: opacity .25s;
   background: radial-gradient(farthest-corner circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.45), transparent 45%); mix-blend-mode: overlay; }

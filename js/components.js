@@ -23,6 +23,9 @@ App.ui = (() => {
     }
   }, true);
 
+  // image de carte chargée : on arrête le reflet de chargement
+  window.addEventListener('load', (e) => { const el = e.target; if (el instanceof HTMLImageElement && el.parentElement && el.parentElement.classList.contains('cimg')) el.parentElement.classList.add('ld'); }, true);
+
   const progressBar = (p) => `<div class="progress ${p.complete ? 'done' : ''}"><span style="width:${Math.min(100, p.pct)}%"></span></div>`;
 
   const countHTML = (p) => `<span class="count">${p.have}<span class="of">/${p.total}</span></span>`;
