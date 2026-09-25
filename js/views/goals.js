@@ -46,8 +46,8 @@ App.views.goals = {
       <div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/collection">Mon Dex</a> › Mes objectifs</div>
       <h1 style="margin-bottom:12px">Mes objectifs</h1>
       <div class="goal-tabs" role="tablist">
-        ${[['objectifs', 'target', 'Objectifs', goals.length], ['manque', 'search', 'Ce qu’il me manque', ''], ['souhaits', 'heart', 'Liste de souhaits', wl.length]]
-          .map(([k, ic, l, n]) => `<a class="goal-tab ${tab === k ? 'on' : ''}" href="#/objectifs?tab=${k}" role="tab">${App.icons.icon(ic, 16)}<span>${l}</span>${n !== '' ? `<b>${n}</b>` : ''}</a>`).join('')}
+        ${[['objectifs', 'target', 'Objectifs', 'Objectifs', goals.length], ['manque', 'search', 'Ce qu’il me manque', 'Manquantes', ''], ['souhaits', 'heart', 'Liste de souhaits', 'Souhaits', wl.length]]
+          .map(([k, ic, l, sh, n]) => `<a class="goal-tab ${tab === k ? 'on' : ''}" href="#/objectifs?tab=${k}" role="tab">${App.icons.icon(ic, 16)}<span class="lg">${l}</span><span class="sh">${sh}</span>${n !== '' ? `<b>${n}</b>` : ''}</a>`).join('')}
       </div>
       <div id="g-body" class="goals-page"></div>`;
     const body = el.querySelector('#g-body');
@@ -57,7 +57,7 @@ App.views.goals = {
       const gs = await App.wish.goals();
       body.innerHTML = `
         <div class="panel goal-new">
-          <b>${App.icons.icon('plus', 15)} Nouvel objectif</b>
+          <b class="row" style="gap:6px">${App.icons.icon('target', 16)} Nouvel objectif</b>
           <div class="row" style="margin-top:8px">
             <select id="g-set" style="flex:1;min-width:200px"><option value="">Choisis une série à compléter…</option></select>
             <label class="small muted">Avant le <input type="date" id="g-date"></label>

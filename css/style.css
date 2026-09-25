@@ -806,3 +806,11 @@ a.chip { text-decoration: none; }
   .miss-sum .btn { margin-left: 0; }
   .goal-tab { padding: 8px 11px; font-size: .82rem; }
 }
+input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; }
+.goal-tab .sh { display: none; }
+@media (max-width: 760px) {
+  .goal-tabs { gap: 6px; }
+  .goal-tab { flex: 1 1 0; justify-content: center; gap: 5px; padding: 8px 6px; }
+  .goal-tab .lg { display: none; }
+  .goal-tab .sh { display: inline; }
+}
