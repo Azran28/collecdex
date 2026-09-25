@@ -916,3 +916,15 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
 .slim-link:hover { color: var(--text); }
 .home-slim { display: flex; flex-wrap: wrap; gap: 6px 4px; margin: 20px 0 0; padding: 10px 14px; border-radius: 12px; border: 1px dashed var(--line); }
 .home-slim .slim-link:first-child svg { color: #a78bfa; }
+
+/* Réglages d'Arnaud : aucune carte ne bouge toute seule, pas de soulèvement au survol, rotation plus marquée */
+.ctile:hover .cimg { transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry)); }
+.ctile .cimg { transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry)); }
+.v-featured .vcard, .v-featured:not(.layout-eventail):not(.layout-classeur) .vcard { animation: none !important; }
+.v-featured .vcard > div { transform: perspective(650px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+.v-featured.layout-eventail .vcard:hover { transform: rotate(var(--rot, 0deg)) translateY(var(--dy, 0px)) !important; z-index: 20 !important; }
+.holo-card.idle, .holo-card.idle .holo-shine { animation: none !important; }
+.holo-card { transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+@media (hover: none) {
+  .ctile.owned.rt-3 .t-shine, .ctile.owned.rt-4 .t-shine, .ctile.owned.rt-5 .t-shine { opacity: 0; animation: none; }
+}

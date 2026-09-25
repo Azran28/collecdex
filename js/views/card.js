@@ -134,18 +134,18 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     let idleT = null;
     const setP = (x, y) => {
       holo.style.setProperty('--mx', (x * 100).toFixed(1) + '%'); holo.style.setProperty('--my', (y * 100).toFixed(1) + '%');
-      holo.style.setProperty('--rx', ((0.5 - y) * 16).toFixed(2) + 'deg'); holo.style.setProperty('--ry', ((x - 0.5) * 20).toFixed(2) + 'deg');
+      holo.style.setProperty('--rx', ((0.5 - y) * 26).toFixed(2) + 'deg'); holo.style.setProperty('--ry', ((x - 0.5) * 30).toFixed(2) + 'deg');
       holo.style.setProperty('--pos', (x * 100).toFixed(1) + '%'); holo.style.setProperty('--hyp', Math.min(1, Math.hypot(x - 0.5, y - 0.5) * 2).toFixed(2));
     };
     holo.addEventListener('pointermove', (e) => {
       const r = holo.getBoundingClientRect();
       holo.classList.add('active'); holo.classList.remove('idle');
       setP(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
-      clearTimeout(idleT); idleT = setTimeout(() => { holo.classList.remove('active'); holo.classList.add('idle'); }, 2500);
+      clearTimeout(idleT);
     });
-    holo.addEventListener('pointerleave', () => { holo.classList.remove('active'); setP(0.5, 0.5); holo.classList.add('idle'); });
+    holo.addEventListener('pointerleave', () => { holo.classList.remove('active'); setP(0.5, 0.5); });
     setP(0.5, 0.5);
-    if (holoTier) holo.classList.add('idle'); // sans souris (téléphone) : la carte bouge doucement toute seule
+    // pas de mouvement automatique : la carte ne bouge que sous la souris / le doigt
   }
 
   body.addEventListener('click', async (e) => {

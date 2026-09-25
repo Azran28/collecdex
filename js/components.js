@@ -92,8 +92,8 @@ App.ui = (() => {
         const r = cur.getBoundingClientRect();
         const x = Math.min(1, Math.max(0, (last.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (last.clientY - r.top) / r.height));
         cur.classList.add('tilting');
-        cur.style.setProperty('--rx', ((0.5 - y) * 14).toFixed(2) + 'deg');
-        cur.style.setProperty('--ry', ((x - 0.5) * 16).toFixed(2) + 'deg');
+        cur.style.setProperty('--rx', ((0.5 - y) * 26).toFixed(2) + 'deg');
+        cur.style.setProperty('--ry', ((x - 0.5) * 30).toFixed(2) + 'deg');
         cur.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
         cur.style.setProperty('--my', (y * 100).toFixed(1) + '%');
       });
