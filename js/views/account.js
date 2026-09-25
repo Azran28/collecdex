@@ -83,7 +83,7 @@ App.views.account = {
           await C.signIn(email, pw);
         }
         App.util.toast('Connecté ✓ — synchronisation de ta collection…');
-        if (!E) { location.hash = '#/compte'; return; }
+        if (!E) { location.hash = (await App.friends.takeInvite()) ? '#/amis' : '#/compte'; return; }
         draw();
       } catch (err) { msg(err.message); btn.disabled = false; }
     });

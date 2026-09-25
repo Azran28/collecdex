@@ -52,26 +52,28 @@ App.badges = (() => {
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   let setsCache = null;
-  async function context() {
-    const items = App.col.all().filter((i) => i.qty > 0);
+  async function context(list = null, isCert = null) {
+    const items = (list || App.col.all()).filter((i) => i.qty > 0);
+    const certOf = isCert || ((i) => App.certify && App.certify.isCertified(i));
     const ad = App.games.get('pokemon');
     if (!setsCache) setsCache = await ad.listSets().catch(() => []);
     const byId = new Map(setsCache.map((s) => [s.id, s]));
     const setIds = new Set(items.map((i) => i.setId));
     const eras = new Set(items.map((i) => (byId.get(i.setId) || {}).group).filter(Boolean).map((g) => g.id));
     const vintage = items.filter((i) => { const s = byId.get(i.setId); return s && s.releaseDate && s.releaseDate < '2004'; }).length;
-    const complete = [...setIds].map((id) => byId.get(id)).filter((s) => s && App.col.progress('pokemon', s).complete).length;
+    const complete = [...setIds].map((id) => byId.get(id)).filter((s) => s && App.col.progress('pokemon', s, list ? items : null).complete).length;
     const price = (i) => App.col.valueOf(i);
     return {
       items, n: items.length, sets: setIds.size, eras: eras.size, vintage, complete,
       maxRank: Math.max(0, ...items.map((i) => Math.max(ad.rarity.rank(i.snap.rarity), i.snap.holo ? 4 : 0))),
       value: items.reduce((s, i) => s + price(i) * i.qty, 0), maxPrice: Math.max(0, ...items.map(price)),
-      cert: items.filter((i) => App.certify && App.certify.isCertified(i)).length,
+      cert: items.filter(certOf).length,
       dup: items.reduce((s, i) => s + Math.max(0, i.qty - 1), 0), fav: items.filter((i) => i.favorite).length,
     };
   }
-  async function unlocked() {
-    const x = await context();
+  /** Badges obtenus (les tiens, ou ceux d'un ami : list = ses cartes, isCert = ses certifications) */
+  async function unlocked(list = null, isCert = null) {
+    const x = await context(list, isCert);
     return L.filter((b) => { try { return b.test(x); } catch (e) { return false; } });
   }
 

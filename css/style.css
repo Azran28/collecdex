@@ -1236,3 +1236,36 @@ body.cap-lock { overflow: hidden; }
 @media (max-width: 760px) {
   .scan-dock .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* ===================== AMIS ===================== */
+.acc-chip { position: relative; }
+.acc-dot { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ff4fa3; color: #fff; font-size: .68rem; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #0c0e19; }
+.fr-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: 10px; background: #ff4fa3; color: #fff; font-size: .72rem; font-weight: 800; vertical-align: 2px; }
+.v-friends .fr-count { margin-left: 6px; }
+.fr-av { display: inline-flex; flex: none; align-items: center; justify-content: center; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #3a2f7a, #171a33) center / cover no-repeat; background-size: 115%; border: 2px solid rgba(255,255,255,.14); font-weight: 800; color: #fff; }
+.fr-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.fr-cols h2, .fr-incoming h2 { margin-top: 0; }
+.fr-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.fr-row + .fr-row { border-top: 1px solid var(--line); }
+.fr-row.panel { padding: 10px 14px; margin-bottom: 8px; }
+.fr-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fr-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.fr-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 12px 10px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface, #161a2e); text-align: center; }
+.fr-open { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text); text-decoration: none; }
+.fr-open b { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-link { display: flex; gap: 8px; }
+.fr-link input { flex: 1; min-width: 0; font-size: .8rem; }
+.fr-invite { display: flex; gap: 14px; align-items: flex-start; border-color: #ff4fa3; background: linear-gradient(135deg, rgba(255,79,163,.12), rgba(124,92,255,.1)); }
+.fr-inv-ico, .fr-home-ico { flex: none; width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #ff4fa3, #7c5cff); }
+.fr-home-ico { width: 34px; height: 34px; border-radius: 10px; }
+.v-ihave { color: var(--ok); font-weight: 700; }
+@media (max-width: 760px) {
+  .fr-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .fr-row .btn.sm { padding: 6px 10px; }
+}
+
+.match-list { list-style: none; padding: 0; margin: 14px auto 8px; display: inline-flex; flex-direction: column; gap: 8px; text-align: left; }
+.match-list li { display: flex; align-items: center; gap: 10px; color: var(--text); }
+.match-list li svg { color: #ff7cc0; flex: none; }
+.fr-card .linkbtn { font-size: .76rem; }

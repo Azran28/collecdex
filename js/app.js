@@ -9,6 +9,8 @@ App.views = App.views || {};
     [/^\/collection\/?$/, 'collection', () => ({})],
     [/^\/vitrine\/?$/, 'showcase', () => ({})],
     [/^\/match\/?$/, 'match', () => ({})],
+    [/^\/amis\/?$/, 'friends', () => ({})],
+    [/^\/ami\/([^/]+)\/?$/, 'showcase', (m) => ({ friend: decodeURIComponent(m[1]) })],
     [/^\/connexion\/?$/, 'account', () => ({})],
     [/^\/scan\/?$/, 'scan', () => ({})],
     [/^\/parametres\/?$/, 'settings', () => ({})],
@@ -16,7 +18,7 @@ App.views = App.views || {};
     [/^\/objectifs\/?$/, 'goals', () => ({})],
     [/^\/capsules\/?$/, 'capsules', () => ({})],
   ];
-  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', goals: 'collection', capsules: 'capsules' };
+  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', friends: 'compte', goals: 'collection', capsules: 'capsules' };
 
   let cleanup = null;
   let renderId = 0;
@@ -100,6 +102,15 @@ App.views = App.views || {};
         av.innerHTML = url ? '' : (u ? `<span class="acc-initial">${App.util.esc(pseudo[0].toUpperCase())}</span>` : App.icons.icon('user', 16));
       };
       App.cloud.on(paint); App.col.on(() => paint()); paint();
+      // demandes d'ami reçues : pastille sur l'avatar
+      const paintFriends = () => {
+        const n = App.cloud.user ? App.friends.pendingIn() : 0;
+        let dot = nav.querySelector('.acc-dot');
+        if (!n) { if (dot) dot.remove(); return; }
+        if (!dot) { dot = document.createElement('span'); dot.className = 'acc-dot'; nav.appendChild(dot); }
+        dot.textContent = n; dot.title = `${n} demande${n > 1 ? 's' : ''} d’ami`;
+      };
+      App.friends.on(paintFriends);
       // capsules à ouvrir : pastille dans l'en-tête
       const caps = document.getElementById('nav-caps');
       const paintCaps = () => {

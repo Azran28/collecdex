@@ -230,6 +230,26 @@ App.cloud = (() => {
     return data;
   }
 
+  /** Photo d'un ami (lecture seule, autorisée par le serveur seulement si vous êtes amis) */
+  const friendPhotos = new Map();
+  function fetchFriendPhoto(owner, id) {
+    const k = owner + '/' + id;
+    if (!friendPhotos.has(k)) {
+      friendPhotos.set(k, (async () => {
+        if (!user) return '';
+        const { data, error } = await sb.storage.from('photos').download(`${owner}/${id}.jpg`);
+        return error || !data ? '' : URL.createObjectURL(data);
+      })().catch(() => ''));
+    }
+    return friendPhotos.get(k);
+  }
+  /** Mon pseudo réservé sur le serveur (null si aucun) */
+  async function myPseudo() {
+    if (!user) return null;
+    const { data } = await sb.from('pseudos').select('pseudo').eq('user_id', user.id).maybeSingle();
+    return data ? data.pseudo : null;
+  }
+
   // ---------- Compte ----------
   const redirect = () => location.origin + location.pathname;
   const tr = (e) => {
@@ -261,7 +281,7 @@ App.cloud = (() => {
   }
 
   return {
-    enabled, init, sync, flush, flushNow, rpc, fetchPhoto,
+    enabled, init, sync, flush, flushNow, rpc, fetchPhoto, fetchFriendPhoto, myPseudo,
     markItem, markDelete, markPhoto, markPhotoDelete, markProfile,
     signUp, signIn, signOut, resetPassword, newPassword,
     get user() { return user; }, get state() { return state; }, get error() { return lastError; },

@@ -7,13 +7,47 @@ App.views.showcase = {
   async render(el, params, alive) {
     const { esc, euro } = App.util;
     const V = App.views.showcase;
-    let profile = await App.col.getProfile();
-    let editing = !!params.query.edit;
+    // Vitrine d'un ami (lecture seule) ou la tienne
+    const friendId = params.friend || null;
+    let S; // source des données affichées
+    if (friendId) {
+      el.innerHTML = App.ui.loading('Chargement de sa vitrine…');
+      let d;
+      try { d = await App.friends.showcase(friendId); }
+      catch (e) {
+        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a></div><div class="panel">${esc(e.message)}</div>`;
+        return;
+      }
+      if (!alive()) return;
+      const items = (d.items || []).filter((i) => i && i.qty > 0);
+      const byKey = new Map(items.map((i) => [i.key, i]));
+      const certs = new Map((d.certs || []).map((c) => [c.photo_id, c.key]));
+      const prof = Object.assign({ pseudo: 'Dresseur', bio: '', theme: 'nuit', frame: 'or', layout: 'vedette', featured: [], frames: {}, showStats: true, showBadges: true, showTop: true }, d.profile || {});
+      if (d.pseudo) prof.pseudo = d.pseudo;
+      S = {
+        friend: true, profile: prof, items: () => items, byKey: (k) => byKey.get(k),
+        owns: (game, id) => items.some((i) => i.game === game && i.id === id),
+        cert: (it) => (it.photos || []).some((p) => certs.get(p) === it.key),
+        img: async (it, ad, q = 'low') => {
+          if (it.displayPhoto) { const u = await App.cloud.fetchFriendPhoto(friendId, it.displayPhoto); if (u) return { src: u, mine: true }; }
+          return { src: ad.img.card({ image: it.snap.image, id: it.id, setId: it.setId, localId: it.snap.localId, serieId: it.snap.serieId, lang: it.lang || 'fr' }, q), mine: false };
+        },
+        avatar: async (p) => (p.avatarPoke && p.avatarPoke.id ? App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny) : p.avatar ? App.cloud.fetchFriendPhoto(friendId, p.avatar) : ''),
+      };
+    } else {
+      S = {
+        friend: false, profile: await App.col.getProfile(), items: () => App.col.all().filter((i) => i.qty > 0), byKey: (k) => App.col.byKey(k),
+        owns: (game, id) => App.col.owned(game, id), cert: (it) => App.certify.isCertified(it),
+        img: (it, ad, q) => App.col.displayImage(it, ad, q), avatar: (p) => App.capsules.avatarURL(p),
+      };
+    }
+    let profile = S.profile;
+    let editing = !S.friend && !!params.query.edit;
 
-    const owned = () => App.col.all().filter((i) => i.qty > 0);
+    const owned = () => S.items();
     const val = (i) => App.col.valueOf(i);
     const featuredItems = () => {
-      const list = profile.featured.map((k) => App.col.byKey(k)).filter((i) => i && i.qty > 0);
+      const list = profile.featured.map((k) => S.byKey(k)).filter((i) => i && i.qty > 0);
       if (list.length) return { list, auto: false };
       const favs = owned().filter((i) => i.favorite);
       const auto = (favs.length ? favs : owned()).sort((a, b) => val(b) - val(a)).slice(0, profile.layout === 'classeur' ? 9 : 7);
@@ -25,13 +59,14 @@ App.views.showcase = {
       try {
         const ad = App.games.get('pokemon');
         const sets = await ad.listSets();
-        completedSets = sets.filter((s) => App.col.inSet('pokemon', s.id).length && App.col.progress('pokemon', s).complete);
+        const its = S.friend ? owned() : null;
+        completedSets = sets.filter((s) => (its ? its.some((i) => i.setId === s.id) : App.col.inSet('pokemon', s.id).length) && App.col.progress('pokemon', s, its).complete);
       } catch (e) { completedSets = []; }
     };
 
     const vcard = async (it, i, n) => {
       const ad = App.games.get(it.game);
-      const img = await App.col.displayImage(it, ad, 'high');
+      const img = await S.img(it, ad, 'high');
       const frame = profile.frames[it.key] || profile.frame;
       // éventail : l'angle se resserre quand il y a beaucoup de cartes (tout doit tenir dans la vitrine)
       const d = i - (n - 1) / 2, step = n > 1 ? Math.min(7, 32 / (n - 1)) : 0;
@@ -47,21 +82,25 @@ App.views.showcase = {
       const total = App.col.totalValue(items);
       const { list: feat, auto } = featuredItems();
       const top = [...items].sort((a, b) => val(b) - val(a)).slice(0, 10);
-      const fresh = new Set((await App.badges.check({ silent: true })).map((b) => b.id));
-      const got = await App.badges.unlocked();
-      const wl = (profile.wishlist || []).filter((w) => !App.col.owned(w.game, w.id));
-      const avatar = await App.capsules.avatarURL(profile);
+      const fresh = S.friend ? new Set() : new Set((await App.badges.check({ silent: true })).map((b) => b.id));
+      const got = S.friend ? await App.badges.unlocked(owned(), S.cert) : await App.badges.unlocked();
+      const wl = (profile.wishlist || []).filter((w) => !S.owns(w.game, w.id));
+      const avatar = await S.avatar(profile);
       const featHTML = (await Promise.all(feat.map((it, i) => vcard(it, i, feat.length)))).join('');
       const topHTML = (await Promise.all(top.map(async (it) => {
-        const img = await App.col.displayImage(it, App.games.get(it.game));
+        const img = await S.img(it, App.games.get(it.game));
         return `<div class="vcard" data-card="${esc(it.id)}" data-game="${it.game}"><div class="frame-aucun"><img src="${esc(img.src)}" alt="" data-alt="${esc(it.snap.name)}"></div><div class="vlabel">${esc(it.snap.name)}<br><span style="color:var(--accent2)">${val(it) ? euro(val(it)) : '—'}</span></div></div>`;
       }))).join('');
       if (!alive()) return;
 
       el.innerHTML = `
+        ${S.friend ? `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a> › ${esc(profile.pseudo)}</div>
+        <div class="row v-top" style="margin-bottom:14px"><h1>Vitrine de ${esc(profile.pseudo)}</h1><span class="spacer"></span>
+          <a class="btn ghost" href="#/amis">${App.icons.icon('users', 16)}<span class="m-hide"> Mes amis</span></a></div>` : `
         <div class="row v-top" style="margin-bottom:14px"><h1>Ma vitrine</h1><span class="spacer"></span>
+          <a class="btn ${App.friends.pendingIn() ? 'primary' : 'ghost'} v-friends" href="#/amis" title="Mes amis">${App.icons.icon('users', 16)}<span class="m-hide"> Amis</span>${App.friends.pendingIn() ? `<span class="fr-count">${App.friends.pendingIn()}</span>` : ''}</a>
           <a class="btn ghost" href="#/parametres" title="Compte, synchronisation et paramètres">${App.icons.icon('gear', 16)}<span class="m-hide"> Compte et réglages</span></a>
-          <button class="btn ${editing ? 'primary' : ''}" id="v-edit">${editing ? '✓ Terminer' : '✎ Personnaliser'}</button></div>
+          <button class="btn ${editing ? 'primary' : ''}" id="v-edit">${editing ? '✓ Terminer' : '✎ Personnaliser'}</button></div>`}
         <section class="vitrine theme-${esc(profile.theme)}" id="v-page">
           <div class="v-head">
             <div class="v-avatar" style="${avatar ? `background-image:url('${avatar}')` : ''}">${avatar ? '' : esc((profile.pseudo || '?')[0].toUpperCase())}</div>
@@ -74,11 +113,11 @@ App.views.showcase = {
             <div class="stat"><b>${items.length}</b><span>cartes</span></div>
             <div class="stat"><b>${euro(total)}</b><span>valeur estimée</span></div>
             <div class="stat"><b>${completedSets.length}</b><span>séries complétées</span></div>
-            <div class="stat"><b>${items.filter((i) => App.certify.isCertified(i)).length}</b><span>certifiées</span></div>
+            <div class="stat"><b>${items.filter((i) => S.cert(i)).length}</b><span>certifiées</span></div>
           </div>` : ''}
           ${feat.length ? `<div class="v-featured layout-${esc(profile.layout)}" style="--n:${feat.length}">${featHTML}</div>
-            ${editing ? '' : `<p class="small muted v-pick-link">${auto ? 'Sélection automatique (favorites ou plus chères). ' : ''}<a href="#" id="v-pickcards2">${App.icons.icon('star', 13)} Choisir mes cartes à l’honneur</a></p>`}`
-            : '<div class="empty">Ajoute des cartes à ta collection pour remplir ta vitrine.</div>'}
+            ${editing || S.friend ? '' : `<p class="small muted v-pick-link">${auto ? 'Sélection automatique (favorites ou plus chères). ' : ''}<a href="#" id="v-pickcards2">${App.icons.icon('star', 13)} Choisir mes cartes à l’honneur</a></p>`}`
+            : `<div class="empty">${S.friend ? 'Pas encore de cartes dans sa collection.' : 'Ajoute des cartes à ta collection pour remplir ta vitrine.'}</div>`}
           ${profile.showBadges ? `<div class="v-achievements">
             <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Badges</h2><span class="muted small">${got.length} / ${App.badges.total}</span><span class="spacer"></span>
               ${App.badges.total > got.length ? `<span class="small muted">${App.icons.icon('lock', 13)} ${App.badges.total - got.length} badge${App.badges.total - got.length > 1 ? 's' : ''} secret${App.badges.total - got.length > 1 ? 's' : ''} à débloquer</span>` : ''}</div>
@@ -86,8 +125,8 @@ App.views.showcase = {
           </div>` : ''}
           ${profile.showBadges && completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : App.icons.icon('trophy', 14)}${esc(s.name)}</span>`).join('')}</div>` : ''}
           ${profile.showWish !== false && wl.length ? `<div class="v-wish">
-            <div class="row" style="margin:26px 0 10px"><h2 style="margin:0">${App.icons.icon('heart', 18)} Je recherche</h2><span class="muted small">${wl.length} carte${wl.length > 1 ? 's' : ''}</span><span class="spacer"></span><a class="small" href="#/objectifs?tab=souhaits">Gérer ›</a></div>
-            <div class="v-wish-grid">${wl.slice(0, 12).map((w) => `<div class="vcard" data-card="${esc(w.id)}" data-game="${w.game}"><div class="frame-aucun"><img src="${esc(App.games.get(w.game).img.card({ image: w.image, id: w.id, setId: w.setId, localId: w.localId, serieId: w.serieId }, 'low'))}" alt="" loading="lazy" data-alt="${esc(w.name)}"></div><div class="vlabel">${esc(w.name)}<br><span class="muted" style="font-weight:500">${esc(w.setName || '')}</span></div></div>`).join('')}${wl.length > 12 ? `<a class="v-wish-more" href="#/objectifs?tab=souhaits">+${wl.length - 12}</a>` : ''}</div>
+            <div class="row" style="margin:26px 0 10px"><h2 style="margin:0">${App.icons.icon('heart', 18)} ${S.friend ? 'Recherche' : 'Je recherche'}</h2><span class="muted small">${wl.length} carte${wl.length > 1 ? 's' : ''}${S.friend && wl.some((w) => App.col.owned(w.game, w.id)) ? ` · <b style="color:var(--ok)">tu en as ${wl.filter((w) => App.col.owned(w.game, w.id)).length}</b>` : ''}</span><span class="spacer"></span>${S.friend ? '' : '<a class="small" href="#/objectifs?tab=souhaits">Gérer ›</a>'}</div>
+            <div class="v-wish-grid">${wl.slice(0, 12).map((w) => `<div class="vcard" data-card="${esc(w.id)}" data-game="${w.game}"><div class="frame-aucun"><img src="${esc(App.games.get(w.game).img.card({ image: w.image, id: w.id, setId: w.setId, localId: w.localId, serieId: w.serieId }, 'low'))}" alt="" loading="lazy" data-alt="${esc(w.name)}"></div><div class="vlabel">${esc(w.name)}<br><span class="muted" style="font-weight:500">${esc(w.setName || '')}</span>${S.friend && App.col.owned(w.game, w.id) ? '<br><span class="v-ihave">✓ Tu l’as</span>' : ''}</div></div>`).join('')}${wl.length > 12 ? `<a class="v-wish-more" href="#/objectifs?tab=souhaits">+${wl.length - 12}</a>` : ''}</div>
           </div>` : ''}
           ${profile.showTop && top.length ? `<h2 style="margin-top:26px">Les ${top.length} plus précieuses</h2><div class="v-featured layout-grille" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${topHTML}</div>` : ''}
         </section>
@@ -217,6 +256,7 @@ App.views.showcase = {
 
     await loadBadges();
     await draw();
+    if (S.friend) return;
     // La collection change souvent en arrière-plan (prix du jour, synchro…) : on ne redessine la vitrine
     // que si ce qu'elle montre a vraiment changé, une seule fois, et sans faire sauter le défilement.
     const sig = () => owned().map((i) => `${i.key}:${i.qty}:${i.favorite ? 1 : 0}:${i.displayPhoto || ''}:${App.col.valueOf(i)}`).join('|');

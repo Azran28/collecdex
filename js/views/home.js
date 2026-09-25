@@ -22,6 +22,7 @@ App.views.home = {
           <a class="btn" href="#/compte">${App.icons.icon('trophy', 16)} Ma vitrine</a>
         </div>
       </section>
+      <div id="h-friends"></div>
       <div id="h-caps"></div>
       <div id="h-install"></div>
 
@@ -73,9 +74,17 @@ App.views.home = {
         ${st.stock ? '<span class="btn sm primary">Ouvrir</span>' : ''}</a>`;
     };
     const offCaps = App.capsules.on(drawCaps); drawCaps();
+    // demandes d'ami reçues
+    const drawFriends = () => {
+      const box = el.querySelector('#h-friends'); if (!box) return;
+      const n = App.cloud.user ? App.friends.pendingIn() : 0;
+      box.innerHTML = n ? `<a class="cap-home fr-home" href="#/amis"><span class="fr-home-ico">${App.icons.icon('users', 20)}</span>
+        <div><b>${n} demande${n > 1 ? 's' : ''} d’ami</b><span>Accepte pour voir sa vitrine</span></div><span class="btn sm primary">Voir</span></a>` : '';
+    };
+    const offFriends = App.friends.on(drawFriends); drawFriends();
     // le compte à rebours défile en direct
     const capTick = setInterval(() => { const c = el.querySelector('.hc-cd'); if (c) c.textContent = App.capsules.countdown(); }, 1000);
-    const unsub = () => { unsubCol(); offCaps(); clearInterval(capTick); if (offInstall) offInstall(); };
+    const unsub = () => { unsubCol(); offCaps(); offFriends(); clearInterval(capTick); if (offInstall) offInstall(); };
 
     // Séries en cours + séries complétées
     try {

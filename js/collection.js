@@ -199,9 +199,10 @@ App.col = (() => {
    * Calcule la progression d'une série.
    * set = { id, total, official, cards? }. Si les cartes sont connues, on calcule aussi par rareté.
    */
-  function progress(game, set) {
+  /** Progression d'une série ; items : cartes d'un autre dresseur (vitrine d'un ami), sinon les tiennes */
+  function progress(game, set, items = null) {
     const mode = App.settings.completion;
-    const ownedItems = inSet(game, set.id);
+    const ownedItems = items ? items.filter((i) => i.game === game && i.setId === set.id && i.qty > 0) : inSet(game, set.id);
     const isOfficial = (localId) => { const n = parseInt(localId, 10); return !isNaN(n) && String(n) === String(localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
     let total, have, byRarity = null;
     if (set.cards && set.cards.length) {
