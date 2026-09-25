@@ -44,6 +44,13 @@ Il faut une connexion internet : les cartes, images et prix sont téléchargés 
 - **Page des séries** : trie par date (récentes ou anciennes), nom, progression, nombre de cartes possédées, séries presque complètes ou taille ; filtre par époque, par année, par état ; masque les promos.
 - **Paramètres** : langue, façon de compter la complétion, **sauvegarde / restauration**.
 
+## L'appli sur ton téléphone
+- Ouvre le site sur ton téléphone : un bandeau **« Installe CollecDex »** apparaît sous l'accueil. Touche **Installer**, et l'icône CollecDex arrive sur ton écran d'accueil.
+- Sur iPhone : dans **Safari**, bouton **Partager** puis **« Sur l'écran d'accueil »** (le bouton Installer t'explique).
+- Le bouton est aussi dans **Paramètres › Application** (marche aussi sur ordinateur, avec Chrome ou Edge).
+- L'appli s'ouvre en plein écran et reste consultable **sans réseau** : ta collection, tes photos, les séries et visuels déjà vus. Les prix, la synchro et la capture ont besoin du réseau.
+- Les mises à jour arrivent toutes seules, comme sur le site.
+
 ## Le site en ligne
 
 Le site est aussi en ligne : **https://azran28.github.io/collecdex/** (PC, téléphone, tablette). Connecte-toi avec ton compte (bouton « Se connecter » en haut à droite) : ta collection, tes photos et ta vitrine sont synchronisées entre tous tes appareils. Les mises à jour du site en ligne sont automatiques : recharge simplement la page.
