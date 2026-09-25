@@ -33,6 +33,7 @@ App.icons = (() => {
     download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17"/>',
     share: '<path d="M12 15V3M8 6.5 12 3l4 3.5"/><path d="M7 10H5.5A1.5 1.5 0 0 0 4 11.5v8A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 18.5 10H17"/>',
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    capsule: '<path d="M6.5 11.5V9a5.5 5.5 0 0 1 11 0v2.5M6.5 12.5V15a5.5 5.5 0 0 0 11 0v-2.5"/><path d="M5 12h14"/><path d="m12 5.6.8 1.7 1.8.2-1.3 1.2.4 1.8-1.7-1-1.7 1 .4-1.8-1.3-1.2 1.8-.2z" fill="currentColor" stroke="none"/>',
     layers: '<path d="M12 3 2 8.5l10 5.5 10-5.5z"/><path d="m2 13.5 10 5.5 10-5.5"/>',
   };
   const icon = (name, size = 20, extra = '') => `<svg class="ic ${extra}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;

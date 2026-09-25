@@ -12,8 +12,9 @@ App.views = App.views || {};
     [/^\/parametres\/?$/, 'settings', () => ({})],
     [/^\/compte\/?$/, 'account', () => ({})],
     [/^\/objectifs\/?$/, 'goals', () => ({})],
+    [/^\/capsules\/?$/, 'capsules', () => ({})],
   ];
-  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'vitrine', scan: 'scan', settings: 'parametres', account: 'compte', goals: 'collection' };
+  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'vitrine', scan: 'scan', settings: 'parametres', account: 'compte', goals: 'collection', capsules: 'capsules' };
 
   let cleanup = null;
   let renderId = 0;
@@ -91,11 +92,23 @@ App.views = App.views || {};
         const pseudo = u ? (p.pseudo && p.pseudo !== 'Dresseur' ? p.pseudo : (u.email || '').split('@')[0]) : 'Se connecter';
         nav.querySelector('.acc-lbl').textContent = pseudo;
         const av = nav.querySelector('.acc-avatar');
-        const url = u && p.avatar ? await App.col.photoURL(p.avatar).catch(() => '') : '';
+        const url = u ? await App.capsules.avatarURL(p) : '';
         av.style.backgroundImage = url ? `url('${url}')` : '';
         av.innerHTML = url ? '' : (u ? `<span class="acc-initial">${App.util.esc(pseudo[0].toUpperCase())}</span>` : App.icons.icon('user', 16));
       };
       App.cloud.on(paint); App.col.on(() => paint()); paint();
+      // capsules à ouvrir : pastille dans l'en-tête
+      const caps = document.getElementById('nav-caps');
+      const paintCaps = () => {
+        const st = App.capsules.state;
+        caps.hidden = !App.cloud.user || App.capsules.missing || !st;
+        if (caps.hidden) return;
+        const n = caps.querySelector('.caps-n');
+        n.hidden = !st.stock; n.textContent = st.stock;
+        caps.classList.toggle('full', st.stock >= st.max);
+        caps.title = st.stock ? `${st.stock} capsule${st.stock > 1 ? 's' : ''} à ouvrir` : `Prochaine capsule dans ${App.capsules.countdown()}`;
+      };
+      App.capsules.on(paintCaps); paintCaps();
       await App.cloud.init();
     }
     route();

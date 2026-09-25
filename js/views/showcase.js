@@ -50,7 +50,7 @@ App.views.showcase = {
       const fresh = new Set((await App.badges.check({ silent: true })).map((b) => b.id));
       const got = await App.badges.unlocked();
       const wl = (profile.wishlist || []).filter((w) => !App.col.owned(w.game, w.id));
-      const avatar = profile.avatar ? await App.col.photoURL(profile.avatar) : '';
+      const avatar = await App.capsules.avatarURL(profile);
       const featHTML = (await Promise.all(feat.map((it, i) => vcard(it, i, feat.length)))).join('');
       const topHTML = (await Promise.all(top.map(async (it) => {
         const img = await App.col.displayImage(it, App.games.get(it.game));
@@ -115,7 +115,8 @@ App.views.showcase = {
             <div class="row" style="gap:6px;flex-wrap:nowrap"><input type="text" id="e-pseudo" value="${esc(profile.pseudo)}" placeholder="Pseudo" maxlength="20" style="flex:1;min-width:0"><button class="btn sm primary" id="e-pseudo-ok">Valider</button></div>
             <div class="small muted" id="e-pseudo-msg" style="margin:4px 0 10px">${App.cloud.user ? 'Chaque pseudo est unique : 3 à 20 caractères.' : 'Connecte-toi pour réserver ton pseudo (il est unique).'}</div>
             <p><textarea id="e-bio" placeholder="Quelques mots sur ta collection…">${esc(profile.bio)}</textarea></p>
-            <div class="row"><label class="btn sm">🖼 Photo de profil<input type="file" accept="image/*" id="e-avatar" hidden></label>${profile.avatar ? '<button class="btn sm ghost" id="e-avatar-del">Retirer</button>' : ''}</div>
+            <div class="row"><button class="btn sm" id="e-avatar-pick">${App.icons.icon('capsule', 14)} Choisir mon avatar parmi mes Pokémon</button>${profile.avatar || profile.avatarPoke ? '<button class="btn sm ghost" id="e-avatar-del">Retirer</button>' : ''}</div>
+            <div class="small muted" style="margin-top:4px">${App.cloud.user ? 'Tu attrapes des Pokémon en ouvrant tes <a href="#/capsules">capsules</a>.' : 'Connecte-toi pour ouvrir des capsules et attraper des Pokémon.'}</div>
             <h3 style="margin-top:16px">Afficher</h3>
             <label class="check"><input type="checkbox" id="e-stats" ${profile.showStats ? 'checked' : ''}> Statistiques</label><br>
             <label class="check"><input type="checkbox" id="e-badges" ${profile.showBadges ? 'checked' : ''}> Badges</label><br>
@@ -176,7 +177,14 @@ App.views.showcase = {
         else profile.featured.push(k);
         return save();
       }
-      if (t.closest('#e-avatar-del')) { if (profile.avatar) App.cloud.markPhotoDelete(profile.avatar); profile.avatar = null; return save(); }
+      if (t.closest('#e-avatar-del')) { if (profile.avatar) App.cloud.markPhotoDelete(profile.avatar); profile.avatar = null; profile.avatarPoke = null; return save(); }
+      if (t.closest('#e-avatar-pick')) {
+        const pick = await App.views.capsules.pickAvatar();
+        if (!pick) return;
+        if (profile.avatar) App.cloud.markPhotoDelete(profile.avatar);
+        profile.avatar = null; profile.avatarPoke = pick;
+        return save();
+      }
       const vc = t.closest('#v-page .vcard');
       if (vc && !editing) App.cardModal(vc.dataset.game, vc.dataset.card);
     });

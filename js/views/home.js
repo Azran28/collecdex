@@ -22,6 +22,7 @@ App.views.home = {
           <a class="btn" href="#/vitrine">${App.icons.icon('trophy', 16)} Ma vitrine</a>
         </div>
       </section>
+      <div id="h-caps"></div>
       <div id="h-install"></div>
 
       <div class="section-title"><h2>Licences</h2></div>
@@ -62,7 +63,17 @@ App.views.home = {
     // proposition d'installer l'appli (téléphone seulement, discret, masquable)
     let offInstall = null;
     App.install.banner(el.querySelector('#h-install')).then((f) => { offInstall = f; });
-    const unsub = () => { unsubCol(); if (offInstall) offInstall(); };
+    // capsules à ouvrir (compte connecté)
+    const drawCaps = () => {
+      const box = el.querySelector('#h-caps'); if (!box) return;
+      const st = App.capsules.state;
+      if (!st || App.capsules.missing) { box.innerHTML = ''; return; }
+      box.innerHTML = `<a class="cap-home" href="#/capsules">${App.views.capsules.capsuleSVG('', 34)}
+        <div><b>${st.stock ? `${st.stock} capsule${st.stock > 1 ? 's' : ''} à ouvrir` : 'Capsules'}</b><span>${st.stock >= st.max ? 'Réserve pleine : ouvre-les !' : st.next_at ? `Prochaine dans ${App.capsules.countdown()}` : ''}</span></div>
+        ${st.stock ? '<span class="btn sm primary">Ouvrir</span>' : ''}</a>`;
+    };
+    const offCaps = App.capsules.on(drawCaps); drawCaps();
+    const unsub = () => { unsubCol(); offCaps(); if (offInstall) offInstall(); };
 
     // Séries en cours + séries complétées
     try {

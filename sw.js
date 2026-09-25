@@ -95,8 +95,8 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Visuels officiels des cartes : copie gardée d'abord (ils ne changent pas)
-  if (u.hostname === 'assets.tcgdex.net') {
+  // Visuels officiels des cartes et des Pokémon (capsules) : copie gardée d'abord (ils ne changent pas)
+  if (u.hostname === 'assets.tcgdex.net' || (u.hostname === 'raw.githubusercontent.com' && u.pathname.startsWith('/PokeAPI/sprites/'))) {
     e.respondWith((async () => {
       const c = await caches.open(IMAGES);
       const hit = await c.match(req.url);
