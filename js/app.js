@@ -66,6 +66,8 @@ App.views = App.views || {};
     } catch (e) { /* hors ligne : on garde la version en cache */ }
   }
   checkVersion();
+  setTimeout(checkVersion, 5000); // seconde vérification (réseau lent au lancement, appli installée…)
+  window.addEventListener('pageshow', (e) => { if (e.persisted) checkVersion(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
 
   // icônes et logo de l'en-tête

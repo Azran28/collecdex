@@ -68,7 +68,7 @@ App.install = (() => {
       if (!isMobile || st === 'installed' || dismissed) { host.innerHTML = ''; return; }
       host.innerHTML = `<div class="install-banner">
         <img src="icons/icon-192.png" alt="" width="40" height="40">
-        <div><b>Installe CollecDex</b><span>Une icône sur ton écran d’accueil, en plein écran, même sans réseau.</span></div>
+        <div><b>Installe CollecDex</b><span>Sur ton écran d’accueil, en plein écran, même hors ligne.</span></div>
         <button class="btn sm primary" data-install>Installer</button>
         <button class="install-x" data-install-x title="Plus tard" aria-label="Masquer">×</button>
       </div>`;
