@@ -44,6 +44,14 @@ Il faut une connexion internet : les cartes, images et prix sont téléchargés 
 - **Page des séries** : trie par date (récentes ou anciennes), nom, progression, nombre de cartes possédées, séries presque complètes ou taille ; filtre par époque, par année, par état ; masque les promos.
 - **Paramètres** : langue, façon de compter la complétion, **sauvegarde / restauration**.
 
+## Capsules et Pokédex
+- **Une capsule arrive toutes les heures** (10 au maximum en réserve). Ouvre-la dans **Capsules** (la petite capsule en haut de l'écran, avec le nombre à ouvrir, ou la carte sur l'accueil) : tu attrapes un Pokémon.
+- Chances : commun 50 %, peu commun 28 %, rare 15 %, très rare 4,5 %, légendaire 2 %, fabuleux 0,5 %, et 1 % de chance qu'il soit **chromatique** (couleurs spéciales). Plus il est rare, plus l'ouverture est spectaculaire. Touche l'écran pour passer l'animation.
+- **Mon Pokédex** (même page) : les 1025 Pokémon rangés par région, ceux que tu as attrapés, combien de fois, et les chromatiques.
+- **Avatar** : touche un de tes Pokémon puis « En faire mon avatar » (ou Vitrine › Personnaliser › Choisir mon avatar). L'ancienne photo de profil disparaît.
+- Il faut être connecté : les capsules et les tirages sont gardés sur le serveur, pour que personne ne puisse tricher avec l'heure du téléphone.
+- **À faire une fois** : dans Supabase, *SQL Editor* → coller le contenu de `supabase-v3.sql` → *Run*.
+
 ## L'appli sur ton téléphone
 - Ouvre le site sur ton téléphone : un bandeau **« Installe CollecDex »** apparaît sous l'accueil. Touche **Installer**, et l'icône CollecDex arrive sur ton écran d'accueil.
 - Sur iPhone : dans **Safari**, bouton **Partager** puis **« Sur l'écran d'accueil »** (le bouton Installer t'explique).

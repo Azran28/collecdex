@@ -14,7 +14,7 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - **En ligne** : https://azran28.github.io/collecdex/ (GitHub Pages, dépôt `Azran28/collecdex`, branche `main`, fichier `.nojekyll`).
 - **Sur le PC d'Arnaud** : `C:\Users\Arnaud\Documents\Collection`, lancé par `Lancer CollecDex.bat` (petit serveur `serveur.ps1` sur le port 8765). Même code que le dépôt.
 - **Comptes et synchro** : Supabase, projet `zjzfwhtqrigfmqzfebzy` (offre gratuite), clé publique dans `js/config.js`.
-  Scripts SQL à exécuter une fois, dans l'ordre, dans *SQL Editor* : `supabase-setup.sql` → `supabase-certif.sql` → `supabase-v2.sql`.
+  Scripts SQL à exécuter une fois, dans l'ordre, dans *SQL Editor* : `supabase-setup.sql` → `supabase-certif.sql` → `supabase-v2.sql` → `supabase-v3.sql` (capsules).
 
 ## Mettre une version en ligne
 1. `stamp.sh` (ou équivalent) : met un numéro de version `?v=AAAAMMJJ-HHMMSS` sur tous les scripts/styles de `index.html`, dans `window.APP_VERSION` et dans `version.json`.
@@ -33,6 +33,8 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - `js/certify.js` : certification en direct (défi tiré par le serveur, film de 2 s, mouvement, flux figé, détection d'écran, empreinte dHash, vérification que la carte choisie est bien la plus ressemblante de sa série).
 - `js/wish.js` (`App.wish`) : liste de souhaits et objectifs, rangés dans le profil (`profile.wishlist`, `profile.goals`) donc synchronisés ; `js/views/goals.js` : page « Mes objectifs » (`#/objectifs`, onglets objectifs / ce qu'il me manque / souhaits).
 - `js/install.js` (`App.install`) + `sw.js` + `manifest.webmanifest` + `icons/` : appli installable. Le service worker ne touche jamais `version.json`, ni l'API TCGdex, ni Supabase ; pages en réseau d'abord ; fichiers `?v=` gardés (seule la dernière version de chaque fichier) ; visuels `assets.tcgdex.net` gardés (1500 max) ; polices et bibliothèques CDN gardées. Nouveau fichier JS → l'ajouter dans `index.html` avec `?v=` (le service worker le met en cache tout seul).
+- Capsules : `supabase-v3.sql` (tables `dex_species` avec la rareté des 1025 Pokémon, `capsule_state`, `caught` en lecture seule ; fonctions `capsule_status`, `capsule_open` qui fait le tirage, `capsule_dex`). `js/pokedex.js` (`App.pokedex` : noms FR, rareté identique au SQL, visuels PokéAPI `official-artwork`), `js/capsules.js` (`App.capsules`), `js/views/capsules.js` (page `#/capsules`, animation d'ouverture, `pickAvatar`, `setAvatar`). Avatar = `profile.avatarPoke = {id, shiny}` (l'ancienne photo `profile.avatar` reste lue si pas de Pokémon). La capsule est un dessin original (pas de Poké Ball). Classes d'état de l'animation préfixées `co-` (une classe globale `.reveal` existe déjà).
+- Tester du SQL : PostgreSQL 16 est installé dans l'espace de travail (`/usr/lib/postgresql/16/bin`), avec une fausse `auth.uid()`.
 - `js/badges.js` : 35 badges secrets. `js/icons.js` : icônes SVG et logo.
 - `js/views/*.js` : une page par fichier (accueil, séries, série, fiche carte, Mon Dex, vitrine, capture, paramètres, compte).
 - `css/style.css` : styles de base puis blocs successifs (« THÈME POP », certification, holo, badges, passe responsive). Les règles mobiles sont sous `@media (max-width: 760px)`.

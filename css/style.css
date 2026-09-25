@@ -1113,9 +1113,9 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 
 /* ---------- ouverture (plein écran) ---------- */
 body.cap-lock { overflow: hidden; }
-.cap-ov { position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; --tc: #fff; }
+.cap-ov { position: fixed; inset: 0; z-index: 3000; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; --tc: #fff; }
 .cap-ov.co-out { opacity: 0; transition: opacity .25s; }
-.cap-ov-bg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 42%, #22254a 0%, #0b0d1c 70%); opacity: .97; }
+.cap-ov-bg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 42%, #22254a 0%, #0b0d1c 70%); }
 .cap-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 5; }
 .cap-scene { position: relative; width: 300px; height: 300px; display: flex; align-items: center; justify-content: center; }
 .cap-ball { position: relative; z-index: 3; transform: translateY(-120vh); }
