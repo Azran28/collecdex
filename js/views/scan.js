@@ -40,7 +40,7 @@ App.views.scan = {
       <h3 style="margin-top:0">Comment ça marche</h3>
       <ol class="sg-steps">${steps.map(([ic, t, d], i) => `<li><span class="sg-n">${i + 1}</span><span class="sg-ic">${App.icons.icon(ic, 18)}</span><span><b>${t}</b><br><span class="muted small">${d}</span></span></li>`).join('')}</ol>
       <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${certOn
-        ? 'Utilise le bouton « Caméra » du site et suis la consigne après la photo (2 secondes) : tes cartes bien reconnues recevront le badge.'
+        ? 'Utilise le bouton « Caméra » du site et suis la consigne après la photo (1 seconde) : tes cartes bien reconnues recevront le badge.'
         : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
       ${mode === 'classeur' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si ta page ne contient qu’une série, choisis-la dans « Série de la page ».</p>' : '<p class="small muted" style="margin:10px 0 0">Astuce : si tu connais la série, choisis-la au-dessus : c’est bien plus fiable.</p>'}
     </div>`;
@@ -213,7 +213,7 @@ App.views.scan = {
     el.querySelector('#sc-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = App.views.scan.guide('carte');
-        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Capture certifiée</b> : après la photo, garde la carte dans le cadre et suis la consigne à l’écran (2 secondes).</span>` : '');
+        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Capture certifiée</b> : après la photo, garde la carte dans le cadre et suis la consigne à l’écran (1 seconde).</span>` : '');
         App.certify.prepare();
       }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra dans le navigateur, ou utilise « Choisir une photo ».</span>`); }
@@ -485,7 +485,7 @@ App.views.scan = {
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#b-shot').classList.remove('hidden');
-        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Page certifiée</b> : après la photo, suis la consigne à l’écran (2 secondes). Les cartes bien reconnues seront certifiées.</span>` : '');
+        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Page certifiée</b> : après la photo, suis la consigne à l’écran (1 seconde). Les cartes bien reconnues seront certifiées.</span>` : '');
         App.certify.prepare('page');
       }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}</span>`); }
