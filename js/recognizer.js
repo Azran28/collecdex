@@ -377,31 +377,44 @@ App.recognizer = (() => {
 
   /**
    * Versions probables d'une carte d'après sa photo, parmi celles qui existent pour elle.
+   * Tout est comparé au visuel officiel de la même carte (même zones) : ça neutralise la netteté
+   * et la taille de la photo, et un symbole imprimé sur la carte n'est pas pris pour un logo.
    * Renvoie { list: ['holo', 'firstEdition'], sure: {…}, info: {…} }.
    */
-  async function detectVariants(blob, variants) {
+  async function detectVariants(blob, variants, officialSrc = '') {
     const v = variants || {};
     const img = await loadImg(blob);
     const P = cardPixels(img);
+    let O = null;
+    if (officialSrc) {
+      try { const b = await fetch(officialSrc).then((r) => (r.ok ? r.blob() : null)); if (b) O = cardPixels(await createImageBitmap(b)); } catch (e) { O = null; }
+    }
     const info = {}, list = [], sure = {};
     // version de base : holo / normale / reverse
     const base = ['holo', 'normal', 'reverse'].filter((k) => v[k]);
     let pickBase = base.length === 1 ? base[0] : null;
     if (base.length > 1 && base.includes('reverse')) {
-      const txt = foilIn(P, 0.08, 0.92, 0.6, 0.86);
-      info.foil = txt;
-      if (txt) {
-        const f = txt.grain + txt.satVar * 40;
-        info.foilScore = Math.round(f * 10) / 10;
-        if (f >= 14) { pickBase = 'reverse'; sure.base = f >= 18; }
-        else { pickBase = base.find((k) => k !== 'reverse') || null; sure.base = f <= 9; }
+      const other = base.find((k) => k !== 'reverse') || null;
+      pickBase = other;
+      if (O) {
+        // reverse = le fond (zone du texte) brille, pas l'illustration : on compare au visuel officiel
+        const f = (Q, x0, x1, y0, y1) => { const r = foilIn(Q, x0, x1, y0, y1); return r ? r.grain + r.satVar * 40 : null; };
+        const tP = f(P, 0.08, 0.92, 0.6, 0.86), aP = f(P, 0.12, 0.88, 0.14, 0.44), tO = f(O, 0.08, 0.92, 0.6, 0.86), aO = f(O, 0.12, 0.88, 0.14, 0.44);
+        if (tP && aP && tO && aO) {
+          const ratio = (tP / tO) / (aP / aO);
+          info.reverseRatio = Math.round(ratio * 100) / 100;
+          if (ratio >= 1.7) { pickBase = 'reverse'; sure.base = ratio >= 2.2; } else sure.base = ratio <= 1.3;
+        }
       }
     } else if (base.length > 1) pickBase = base.includes('holo') ? 'holo' : base[0];
     if (pickBase) list.push(pickBase);
     if (v.firstEdition) {
       const st = firstEditionStamp(P);
-      info.stamp = st;
-      if (st && st.score >= 0.3) { list.push('firstEdition'); sure.firstEdition = st.score >= 0.4; }
+      const so = O ? firstEditionStamp(O) : null;
+      info.stamp = st; info.stampOfficial = so;
+      // une tache sombre à cet endroit sur la photo, mais pas sur le visuel officiel (qui n'a pas le logo)
+      const ok = st && st.score >= 0.3 && (!O || !so || so.score < 0.15 || Math.abs(so.y - st.y) > 0.04 || so.side !== st.side);
+      if (ok) { list.push('firstEdition'); sure.firstEdition = st.score >= 0.4; }
     }
     return { list, sure, info };
   }
@@ -782,7 +795,7 @@ App.recognizer = (() => {
     await App.col.addPhoto(key, blob, { makeDisplay: !before || !before.displayPhoto });
     // versions reconnues sur la photo (holo / reverse / 1re édition), parmi celles qui existent pour cette carte
     try {
-      const det = c.variants ? await detectVariants(blob, c.variants) : null;
+      const det = c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
       if (det && det.list.length) {
         const it = App.col.byKey(key);
         const vars = [...new Set([...((it && it.variants) || []), ...det.list])];
