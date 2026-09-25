@@ -17,7 +17,7 @@ App.views.friends = {
       el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Mes amis</div><h1>Mes amis</h1>
         ${inv ? `<section class="panel fr-invite"><div class="fr-inv-ico">${App.icons.icon('users', 26)}</div><div><b>${esc(inv)} t’invite sur CollecDex !</b>
           <p class="small muted" style="margin:4px 0 10px">Crée ton compte (ou connecte-toi) : l’invitation t’attendra ici pour devenir amis et voir sa vitrine.</p>
-          <a class="btn primary" href="#/connexion">${App.icons.icon('user', 16)} Créer mon compte / me connecter</a></div></section>`
+          <div class="row" style="gap:8px"><a class="btn primary" href="#/connexion?nouveau=1">${App.icons.icon('user', 16)} Créer mon compte</a><a class="btn ghost" href="#/connexion">J’ai déjà un compte</a></div></div></section>`
           : `<div class="panel"><p>Connecte-toi pour ajouter des amis, voir leur vitrine et leur montrer la tienne.</p><a class="btn primary" href="#/connexion">${App.icons.icon('user', 16)} Me connecter</a></div>`}`;
       return;
     }

@@ -15,7 +15,7 @@ App.views.showcase = {
       let d;
       try { d = await App.friends.showcase(friendId); }
       catch (e) {
-        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a></div><div class="panel">${esc(e.message)}</div>`;
+        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a></div><div class="panel">${App.cloud.user ? esc(e.message) : `Connecte-toi pour voir la vitrine de tes amis.<div style="margin-top:10px"><a class="btn primary" href="#/connexion">Me connecter</a></div>`}</div>`;
         return;
       }
       if (!alive()) return;

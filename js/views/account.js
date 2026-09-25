@@ -12,7 +12,7 @@ App.views.account = {
       return;
     }
 
-    let tab = 'connexion';
+    let tab = params.query.nouveau ? 'inscription' : 'connexion';
     const draw = () => {
       const u = C.user;
       if (u && params.query.reset) {
