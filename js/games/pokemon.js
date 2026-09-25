@@ -6,6 +6,18 @@
   const API = 'https://api.tcgdex.net/v2';
   const DAY = 24 * 3600 * 1000;
   const lang = () => (App.settings && App.settings.lang) || 'fr';
+  // Langue choisie pour une série en particulier (sinon la langue générale des Paramètres)
+  const setOfCard = (cardId) => String(cardId).slice(0, String(cardId).lastIndexOf('-'));
+  const langFor = (setId) => ((App.settings && App.settings.setLangs) || {})[setId] || lang();
+  const LANGS = { fr: 'Français', en: 'Anglais', de: 'Allemand', it: 'Italien', es: 'Espagnol' };
+  /** Langues proposées sur la page d'une série : français, anglais (+ la langue générale si autre) */
+  const setLanguages = () => [...new Set(['fr', 'en', lang()])].map((id) => ({ id, name: LANGS[id] || id }));
+  function setLangFor(setId, l) {
+    const m = { ...(App.settings.setLangs || {}) };
+    if (!l || l === lang()) delete m[setId]; else m[setId] = l;
+    App.settings.setLangs = m;
+    return App.col.saveSettings();
+  }
 
   // ---------- Réseau + cache ----------
   const inflight = {};
@@ -43,7 +55,9 @@
   // ---------- Images ----------
   const img = {
     card: (c, q = 'low') => {
-      if (c && c.image) return `${c.image}/${q}.webp`;
+      const sid = c && (c.setId || (c.id ? setOfCard(c.id) : ''));
+      const want = sid && ((App.settings && App.settings.setLangs) || {})[sid]; // langue choisie pour cette série
+      if (c && c.image) return `${want ? c.image.replace(/(assets\.tcgdex\.net\/)[a-z-]+\//, `$1${want}/`) : c.image}/${q}.webp`;
       // pas d'image dans cette langue : on tente l'image anglaise
       if (c && c.id && c.setId) {
         const serie = c.serieId || '';
@@ -123,7 +137,7 @@
   const CARD_FIELDS = 'id localId name image rarity category types illustrator variants { normal reverse holo firstEdition }';
 
   async function getSet(id) {
-    const L = lang();
+    const L = langFor(id);
     return cached(`pk3:${L}:set:${id}`, 7 * DAY, async () => {
       let meta = null, cards = null;
       // 1) infos de la série
@@ -160,7 +174,7 @@
 
   /** Détail complet d'une carte (avec prix du jour) */
   async function getCard(id, { fresh = false } = {}) {
-    const L = lang();
+    const L = langFor(setOfCard(id));
     return cached(`pk:${L}:card:${id}`, fresh ? 0 : DAY, async () => {
       const c = await getJSON(`/${L}/cards/${encodeURIComponent(id)}`);
       return c;
@@ -243,7 +257,7 @@
   App.games.register('pokemon', {
     id: 'pokemon',
     name: 'Pokémon',
-    listSets, getSet, getCard, search, versions, findByNumber, price, img, cardmarketUrl,
+    listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, findByNumber, price, img, cardmarketUrl,
     rarity: App.pokemonRarity,
     pullRates: (setId) => App.pokemonPullRates[setId] || null,
     source: { name: 'TCGdex', url: 'https://tcgdex.dev' },

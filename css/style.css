@@ -1028,3 +1028,14 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 
 /* Mon Dex : boutons du haut sur une seule ligne en téléphone */
 @media (max-width: 760px) { .m-hide { display: none; } }
+
+/* Langue des cartes d'une série (en haut à droite du bloc) */
+.set-hero { position: relative; }
+.set-lang { position: absolute; top: 14px; right: 14px; display: flex; padding: 3px; gap: 2px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid var(--line, rgba(255,255,255,.1)); }
+.set-lang button { border: 0; background: transparent; color: var(--muted, #9aa3b8); font: inherit; font-size: .78rem; font-weight: 800; letter-spacing: .04em; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.set-lang button:hover { color: var(--text, #fff); }
+.set-lang button.on { background: var(--text); color: var(--bg); }
+@media (max-width: 760px) {
+  .set-lang { top: 10px; right: 10px; }
+  .set-lang button { padding: 5px 9px; }
+}

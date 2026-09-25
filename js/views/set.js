@@ -34,6 +34,7 @@ App.views.set = {
           ${ad.img.logo(set) ? App.ui.setLogo(game, set, { big: true }).replace('<img ', '<img class="logo-big" ') : App.ui.setLogo(game, set, { big: true })}
         </div>
         <div id="st-head"></div>
+        ${ad.setLanguages ? `<div class="set-lang" role="group" aria-label="Langue des cartes de cette série">${ad.setLanguages().map((l) => `<button class="${ad.langFor(set.id) === l.id ? 'on' : ''}" data-lang="${l.id}" title="Cartes en ${l.name.toLowerCase()}">${l.id.toUpperCase()}</button>`).join('')}</div>` : ''}
       </section>
 
       <section class="panel section" id="st-rar"></section>
@@ -59,6 +60,14 @@ App.views.set = {
       <p class="muted small" style="margin-top:22px">Données cartes : <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a>. Prix : tendance Cardmarket (€), mise à jour quotidienne.</p>
     `;
 
+    const langBox = el.querySelector('.set-lang');
+    if (langBox) langBox.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-lang]');
+      if (!b || b.classList.contains('on')) return;
+      langBox.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+      await ad.setLangFor(set.id, b.dataset.lang);
+      window.dispatchEvent(new HashChangeEvent('hashchange')); // on redessine la page dans la nouvelle langue
+    });
     const head = el.querySelector('#st-head');
     head.addEventListener('click', async (e) => {
       if (!e.target.closest('#st-goal')) return;
