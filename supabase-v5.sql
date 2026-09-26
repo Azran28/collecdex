@@ -1,9 +1,9 @@
 -- CollecDex v5 (à exécuter UNE fois dans Supabase → SQL Editor → Run, après supabase-v4.sql)
--- Boutique des capsules : on vend ses Pokémon contre des points, et on achète des capsules (ou des grandes capsules).
--- Tout se passe ici, sur le serveur : impossible de se donner des points depuis le téléphone.
+-- Boutique des capsules : on vend ses Pokémon contre des éclats (la monnaie du site), et on achète des capsules (ou des grandes capsules).
+-- Tout se passe ici, sur le serveur : impossible de se donner des éclats depuis le téléphone.
 
 -- ===== Porte-monnaie et capsules achetées =====
-alter table public.capsule_state add column if not exists coins int not null default 0;  -- points
+alter table public.capsule_state add column if not exists coins int not null default 0;  -- éclats (la monnaie)
 alter table public.capsule_state add column if not exists bonus int not null default 0;  -- capsules achetées (hors limite des 10)
 alter table public.capsule_state add column if not exists big int not null default 0;    -- grandes capsules
 
@@ -28,7 +28,7 @@ returns int language sql immutable as $$
   select (array[1, 3, 8, 20, 100, 150])[t] * case when sh then 5 else 1 end;
 $$;
 
--- État complet (réserve gratuite + capsules achetées + points)
+-- État complet (réserve gratuite + capsules achetées + éclats)
 create or replace function public._capsule_json(s public.capsule_state)
 returns json language sql stable as $$
   select json_build_object('stock', s.stock, 'max', 10, 'now', now(),
@@ -119,7 +119,7 @@ begin
   return (_capsule_json(s)::jsonb || jsonb_build_object('gain', gain, 'sold', nb))::json;
 end $$;
 
--- Achète des capsules : 'capsule' (20 points) ou 'grande' (150 points)
+-- Achète des capsules : 'capsule' (20 éclats) ou 'grande' (150 éclats)
 create or replace function public.capsule_buy(p_kind text, p_n int default 1)
 returns json language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid(); s capsule_state; price int; cost int;
@@ -130,7 +130,7 @@ begin
   if price is null then raise exception 'Article inconnu'; end if;
   cost := price * p_n;
   s := _capsule_refill(me);
-  if s.coins < cost then raise exception 'Pas assez de points (il en faut %)', cost; end if;
+  if s.coins < cost then raise exception 'Pas assez d''éclats (il en faut %)', cost; end if;
   if p_kind = 'capsule' then update capsule_state set coins = coins - cost, bonus = bonus + p_n where user_id = me returning * into s;
   else update capsule_state set coins = coins - cost, big = big + p_n where user_id = me returning * into s; end if;
   insert into capsule_log (user_id, kind, what, n, coins) values (me, 'achat', p_kind, p_n, -cost);

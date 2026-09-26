@@ -1,7 +1,7 @@
 /*
  * Capsules : une nouvelle toutes les heures (10 maximum), on l'ouvre pour attraper un Pokémon.
  * Tout se passe sur le serveur (supabase-v3.sql) : réserve, tirage, liste des Pokémon attrapés.
- * Boutique (supabase-v5.sql) : vendre ses Pokémon contre des points, acheter des capsules et des grandes capsules.
+ * Boutique (supabase-v5.sql) : vendre ses Pokémon contre des éclats (la monnaie), acheter des capsules et des grandes capsules.
  */
 App.capsules = (() => {
   let st = null;          // { stock, max, next_at (ms), coins, bonus, big, shop }

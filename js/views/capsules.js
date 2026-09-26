@@ -70,7 +70,7 @@
   function speciesModal(id, d, onChange) {
     let sh = false;
     const st = App.capsules.state, shop = !!(st && st.shop);
-    const pts = (n) => `${n} point${n > 1 ? 's' : ''}`;
+    const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
     const body = App.util.openModal(`<div class="sp-modal">
       <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id)}" alt="${esc(P().name(id))}"></div>
       <div class="sp-info">
@@ -192,7 +192,7 @@
         if (sb) {
           const prof = await App.col.getProfile().catch(() => ({}));
           if (prof.avatarPoke && prof.avatarPoke.id === r.species && !!prof.avatarPoke.shiny === !!r.shiny && r.count === 1) { App.util.toast('C’est ton avatar : impossible de le vendre', 3500); return; }
-          if ((t >= 5 || r.shiny) && !confirm(`Vendre ${P().name(r.species)}${r.shiny ? ' chromatique' : ''} pour ${p} points ?`)) return;
+          if ((t >= 5 || r.shiny) && !confirm(`Vendre ${P().name(r.species)}${r.shiny ? ' chromatique' : ''} pour ${p} éclats ?`)) return;
           sb.disabled = true;
           try { const x = await App.capsules.sell(r.species, r.shiny, 1); App.sfx.click(); sb.innerHTML = `${App.icons.icon('check', 16)} Vendu (+${x.gain})`; ov.querySelector('[data-avatar]').disabled = true; }
           catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
@@ -282,8 +282,8 @@
         drawShop();
       };
 
-      // ---------- Boutique : points, achats, vente des doublons ----------
-      const pts = (n) => `${n} point${n > 1 ? 's' : ''}`;
+      // ---------- Boutique : éclats (la monnaie), achats, vente des doublons ----------
+      const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
       const drawShop = () => {
         const box = $('#cp-shop'), s = App.capsules.state;
         if (!box) return;
@@ -291,11 +291,11 @@
         box.hidden = false;
         if (!s.shop) { box.innerHTML = `<h2 style="margin-top:0">${App.icons.icon('shop', 20)} Boutique</h2><p class="small"><b>Il reste une étape :</b> lancer le script <code>supabase-v5.sql</code> dans Supabase (SQL Editor) pour vendre tes Pokémon et acheter des capsules.</p>`; return; }
         const d = App.capsules.dupes(dex), P1 = s.prices.capsule, P2 = s.prices.grande;
-        box.innerHTML = `<div class="shop-head"><h2>${App.icons.icon('shop', 20)} Boutique</h2><div class="coins-pill" title="Tes points">${App.icons.icon('coin', 18)} <b>${s.coins}</b> point${s.coins > 1 ? 's' : ''}</div></div>
+        box.innerHTML = `<div class="shop-head"><h2>${App.icons.icon('shop', 20)} Boutique</h2><div class="coins-pill" title="Tes éclats (gagnés en vendant tes Pokémon)">${App.icons.icon('coin', 18)} <b>${s.coins}</b> éclat${s.coins > 1 ? 's' : ''}</div></div>
           <div class="shop-grid">
-            <div class="shop-item"><div class="shop-art">${capsuleSVG('', 46)}</div><div class="shop-txt"><b>Capsule</b><span>La même que celle de chaque heure, en plus de ta réserve.</span></div>
+            <div class="shop-item ${s.coins >= P1 ? 'can' : ''}"><div class="shop-art">${capsuleSVG('', 46)}</div><div class="shop-txt"><b>Capsule</b><span>La même que celle de chaque heure, en plus de ta réserve.</span></div>
               <button class="btn sm ${s.coins >= P1 ? 'primary' : ''}" data-buy="capsule" ${s.coins >= P1 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P1}</button></div>
-            <div class="shop-item gold"><div class="shop-art">${capsuleSVG('', 46, true)}</div><div class="shop-txt"><b>Grande capsule</b><span>Au moins rare, 1 chance sur 5 d’un légendaire ou d’un fabuleux, chromatique 3 %.</span></div>
+            <div class="shop-item gold ${s.coins >= P2 ? 'can' : ''}"><div class="shop-art">${capsuleSVG('', 46, true)}</div><div class="shop-txt"><b>Grande capsule</b><span>Au moins rare, 1 chance sur 5 d’un légendaire ou d’un fabuleux, chromatique 3 %.</span></div>
               <button class="btn sm ${s.coins >= P2 ? 'gold-btn' : ''}" data-buy="grande" ${s.coins >= P2 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P2}</button></div>
             <div class="shop-item"><div class="shop-art coin-art">${App.icons.icon('coin', 34)}</div><div class="shop-txt"><b>Vendre mes doublons</b><span>${d.n ? `${d.n} Pokémon en double → <b>+${pts(d.gain)}</b>. Tu gardes un exemplaire de chaque, et tous tes chromatiques.` : 'Aucun doublon pour l’instant (tu gardes toujours un exemplaire de chaque).'}</span></div>
               <button class="btn sm" data-dupes ${d.n ? '' : 'disabled'}>Vendre${d.n ? ` (+${d.gain})` : ''}</button></div>

@@ -1420,7 +1420,9 @@ body.cap-lock { overflow: hidden; }
 .coins-pill b { font-size: 1.15rem; color: #fff3c4; }
 .shop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .shop-item { display: grid; grid-template-columns: 52px 1fr; grid-template-rows: 1fr auto; gap: 6px 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--surface2, #1b1f3a); border: 1px solid var(--line); }
-.shop-item.gold { border-color: rgba(255,200,61,.45); background: linear-gradient(160deg, rgba(255,200,61,.10), transparent 60%), var(--surface2, #1b1f3a); }
+/* bordure seulement quand on a de quoi l'acheter */
+.shop-item.can { border-color: rgba(124,92,255,.65); box-shadow: 0 0 0 1px rgba(124,92,255,.25), 0 6px 18px rgba(124,92,255,.18); }
+.shop-item.gold.can { border-color: rgba(255,200,61,.7); box-shadow: 0 0 0 1px rgba(255,200,61,.25), 0 6px 18px rgba(255,200,61,.16); background: linear-gradient(160deg, rgba(255,200,61,.10), transparent 60%), var(--surface2, #1b1f3a); }
 .shop-item .shop-art { grid-row: 1 / span 2; display: flex; align-items: center; justify-content: center; }
 .shop-item .coin-art { color: #ffc83d; }
 .shop-item .shop-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
