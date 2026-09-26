@@ -69,9 +69,10 @@ App.views.home = {
       const box = el.querySelector('#h-caps'); if (!box) return;
       const st = App.capsules.state;
       if (!st || App.capsules.missing) { box.innerHTML = ''; return; }
+      const tot = App.capsules.total();
       box.innerHTML = `<a class="cap-home" href="#/capsules">${App.views.capsules.capsuleSVG('', 34)}
-        <div><b>${st.stock ? `${st.stock} capsule${st.stock > 1 ? 's' : ''} à ouvrir` : 'Capsules'}</b><span>${st.stock >= st.max ? 'Réserve pleine : ouvre-les !' : st.next_at ? `Prochaine dans <b class="hc-cd">${App.capsules.countdown()}</b>` : ''}</span></div>
-        ${st.stock ? '<span class="btn sm primary">Ouvrir</span>' : ''}</a>`;
+        <div><b>${tot ? `${tot} capsule${tot > 1 ? 's' : ''} à ouvrir` : 'Capsules'}</b><span>${st.stock >= st.max ? 'Réserve pleine : ouvre-les !' : st.next_at ? `Prochaine dans <b class="hc-cd">${App.capsules.countdown()}</b>` : ''}${st.shop && st.coins ? ` · ${st.coins} point${st.coins > 1 ? 's' : ''}` : ''}</span></div>
+        ${tot ? '<span class="btn sm primary">Ouvrir</span>' : ''}</a>`;
     };
     const offCaps = App.capsules.on(drawCaps); drawCaps();
     // demandes d'ami reçues

@@ -6,11 +6,14 @@
 
   /** Capsule CollecDex (dessin original) : moitié haute holographique, moitié basse sombre, étoile */
   let uid = 0;
-  function capsuleSVG(cls = '', size = 120) {
+  function capsuleSVG(cls = '', size = 120, gold = false) {
     const g = 'capg' + (++uid), d = 'capd' + uid, h = 'caph' + uid;
-    return `<svg class="capsule ${cls}" width="${size}" height="${Math.round(size * 1.25)}" viewBox="0 0 120 150" aria-hidden="true">
+    // grande capsule : moitié haute dorée
+    const top = gold ? '<stop offset="0" stop-color="#fff6c2"/><stop offset=".35" stop-color="#ffd23f"/><stop offset=".75" stop-color="#ff9d2e"/><stop offset="1" stop-color="#c96b00"/>'
+      : '<stop offset="0" stop-color="#ffd23f"/><stop offset=".38" stop-color="#ff4fa3"/><stop offset=".72" stop-color="#7c5cff"/><stop offset="1" stop-color="#34d5ff"/>';
+    return `<svg class="capsule ${cls} ${gold ? 'gold' : ''}" width="${size}" height="${Math.round(size * 1.25)}" viewBox="0 0 120 150" aria-hidden="true">
       <defs>
-        <linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset=".38" stop-color="#ff4fa3"/><stop offset=".72" stop-color="#7c5cff"/><stop offset="1" stop-color="#34d5ff"/></linearGradient>
+        <linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1">${top}</linearGradient>
         <linearGradient id="${d}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3160"/><stop offset="1" stop-color="#141733"/></linearGradient>
         <radialGradient id="${h}" cx=".32" cy=".25" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
       </defs>
@@ -63,23 +66,53 @@
     App.util.toast(`${P().name(id)} est ton nouvel avatar ✓`);
   }
 
-  /** Fiche d'un Pokémon attrapé */
-  function speciesModal(id, d) {
+  /** Fiche d'un Pokémon attrapé (avec la vente, si la boutique est installée) ; onChange() après une vente */
+  function speciesModal(id, d, onChange) {
     let sh = false;
+    const st = App.capsules.state, shop = !!(st && st.shop);
+    const pts = (n) => `${n} point${n > 1 ? 's' : ''}`;
     const body = App.util.openModal(`<div class="sp-modal">
       <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id)}" alt="${esc(P().name(id))}"></div>
       <div class="sp-info">
         <div class="muted small">${P().num(id)} · ${esc(P().region(id))}</div>
         <h2>${esc(P().name(id))}</h2>
         <div class="row" style="gap:8px">${tierPill(P().tier(id))}${d.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
-        <p class="small muted">Attrapé ${d.n} fois${d.shiny ? ` (dont ${d.shiny} chromatique${d.shiny > 1 ? 's' : ''})` : ''} · la première fois le ${App.util.dateFr(new Date(d.first).toISOString())}.</p>
+        <p class="small muted" id="sp-count"></p>
         ${d.shiny ? '<div class="chips" id="sp-sw"><button class="chip on" data-sh="0">Normal</button><button class="chip" data-sh="1">✦ Chromatique</button></div>' : ''}
         <button class="btn primary" id="sp-av" style="margin-top:12px">${App.icons.icon('user', 16)} En faire mon avatar</button>
+        ${shop ? `<div class="sp-sell" id="sp-sell"></div>` : ''}
       </div></div>`);
+    const drawSell = async () => {
+      body.querySelector('#sp-count').textContent = d.n > 0 ? `Attrapé ${d.n} fois${d.shiny ? ` (dont ${d.shiny} chromatique${d.shiny > 1 ? 's' : ''})` : ''} · la première fois le ${App.util.dateFr(new Date(d.first).toISOString())}.` : 'Tu n’as plus ce Pokémon.';
+      const box = body.querySelector('#sp-sell'); if (!box) return;
+      const have = sh ? d.shiny : d.n - d.shiny, p = App.capsules.price(id, sh);
+      box.innerHTML = have > 0 ? `<div class="small muted">${sh ? 'Chromatique' : 'Normal'} : ${have} exemplaire${have > 1 ? 's' : ''} · se vend <b>${pts(p)}</b></div>
+        <div class="row" style="gap:8px;margin-top:6px"><button class="btn sm" data-sell="1">${App.icons.icon('coin', 14)} Vendre 1 (+${p})</button>
+        ${have > 2 ? `<button class="btn sm ghost" data-sell="${have - 1}">Vendre ${have - 1}, en garder 1 (+${p * (have - 1)})</button>` : ''}</div>`
+        : `<div class="small muted">Aucun exemplaire ${sh ? 'chromatique' : 'normal'} à vendre.</div>`;
+    };
+    drawSell();
     body.addEventListener('click', async (e) => {
       const b = e.target.closest('#sp-sw [data-sh]');
-      if (b) { sh = b.dataset.sh === '1'; body.querySelectorAll('#sp-sw .chip').forEach((c) => c.classList.toggle('on', c === b)); body.querySelector('#sp-img').src = P().img(id, sh); }
+      if (b) { sh = b.dataset.sh === '1'; body.querySelectorAll('#sp-sw .chip').forEach((c) => c.classList.toggle('on', c === b)); body.querySelector('#sp-img').src = P().img(id, sh); drawSell(); }
       if (e.target.closest('#sp-av')) { await setAvatar(id, sh); App.util.closeModal(); }
+      const sb = e.target.closest('[data-sell]');
+      if (sb) {
+        const n = +sb.dataset.sell, have = sh ? d.shiny : d.n - d.shiny;
+        const prof = await App.col.getProfile().catch(() => ({}));
+        const isAv = prof.avatarPoke && prof.avatarPoke.id === id && !!prof.avatarPoke.shiny === sh;
+        if (isAv && n >= have) { App.util.toast('C’est ton avatar : change d’avatar avant de vendre ton dernier exemplaire', 4000); return; }
+        if (n >= d.n && !confirm(`Vendre ton dernier ${P().name(id)} ? Il quittera ton Pokédex.`)) return;
+        if (P().tier(id) >= 5 && n >= have && !confirm(`${P().name(id)} est ${P().TIER[P().tier(id)].name.toLowerCase()} : le vendre quand même ?`)) return;
+        sb.disabled = true;
+        try {
+          const r = await App.capsules.sell(id, sh, n);
+          App.sfx.click();
+          App.util.toast(`+${pts(r.gain)} (tu as ${pts(r.coins)})`);
+          if (d.n <= 0) { App.util.closeModal(); } else drawSell();
+          if (onChange) onChange();
+        } catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
+      }
     });
   }
 
@@ -88,13 +121,13 @@
    * puis le Pokémon apparaît avec un effet d'autant plus spectaculaire qu'il est rare.
    * Toucher l'écran passe l'animation.
    */
-  async function openAnimation() {
+  async function openAnimation(kind = 'normal') {
     const ov = document.createElement('div');
     ov.className = 'cap-ov';
     ov.innerHTML = `<div class="cap-ov-bg"></div><div class="cap-flash"></div>
       <div class="cap-scene">
         <div class="cap-rays"></div><div class="cap-halo"></div><div class="cap-burst"></div>
-        <div class="cap-ball">${capsuleSVG('', 132)}</div>
+        <div class="cap-ball">${capsuleSVG('', kind === 'grande' ? 150 : 132, kind === 'grande')}</div>
         <div class="cap-mon"><img alt=""></div>
         <div class="cap-sparkles"></div>
       </div>
@@ -108,7 +141,7 @@
     const close = () => { ov.classList.add('co-out'); document.body.classList.remove('cap-lock'); setTimeout(() => ov.remove(), 250); };
 
     // le tirage part tout de suite (réseau) pendant que la capsule tombe
-    const res = App.capsules.open().then((r) => ({ r }), (e) => ({ e }));
+    const res = App.capsules.open(kind).then((r) => ({ r }), (e) => ({ e }));
     App.sfx.unlock();
     ov.classList.add('co-drop');
     setTimeout(() => App.sfx.drop(), 430); // la capsule touche le sol
@@ -138,29 +171,42 @@
     await wait(t >= 5 ? 900 : 550);
     ov.classList.add('co-reveal');
     const isNew = r.count === 1;
+    const left = kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
+    const shop = r.coins !== undefined, p = shop ? App.capsules.price(r.species, r.shiny) : 0;
     ov.querySelector('.cap-text').innerHTML = `
       ${t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
       <div class="cap-name">${esc(P().name(r.species))}</div>
       <div class="row cap-tags">${tierPill(t)}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? '<span class="new-pill">Nouveau !</span>' : `<span class="dup-pill">×${r.count}</span>`}</div>
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
       <div class="row cap-btns">
-        ${r.stock > 0 ? `<button class="btn primary" data-again>${App.icons.icon('capsule', 16)} Ouvrir la suivante (${r.stock})</button>` : ''}
+        ${left > 0 ? `<button class="btn primary" data-again>${App.icons.icon('capsule', 16)} Ouvrir la suivante (${left})</button>` : ''}
         <button class="btn" data-avatar>En faire mon avatar</button>
+        ${shop ? `<button class="btn" data-sell>${App.icons.icon('coin', 16)} Vendre (+${p})</button>` : ''}
         <button class="btn ghost" data-close>Fermer</button>
       </div>`;
     ov.querySelector('.cap-hint').remove();
     return new Promise((resolve) => {
       ov.querySelector('.cap-btns').addEventListener('click', async (e) => {
         if (e.target.closest('[data-avatar]')) { await setAvatar(r.species, r.shiny); e.target.closest('[data-avatar]').disabled = true; return; }
+        const sb = e.target.closest('[data-sell]');
+        if (sb) {
+          const prof = await App.col.getProfile().catch(() => ({}));
+          if (prof.avatarPoke && prof.avatarPoke.id === r.species && !!prof.avatarPoke.shiny === !!r.shiny && r.count === 1) { App.util.toast('C’est ton avatar : impossible de le vendre', 3500); return; }
+          if ((t >= 5 || r.shiny) && !confirm(`Vendre ${P().name(r.species)}${r.shiny ? ' chromatique' : ''} pour ${p} points ?`)) return;
+          sb.disabled = true;
+          try { const x = await App.capsules.sell(r.species, r.shiny, 1); App.sfx.click(); sb.innerHTML = `${App.icons.icon('check', 16)} Vendu (+${x.gain})`; ov.querySelector('[data-avatar]').disabled = true; }
+          catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
+          return;
+        }
         if (e.target.closest('[data-again]')) { close(); resolve({ r, again: true }); return; }
         if (e.target.closest('[data-close]')) { close(); resolve({ r, again: false }); }
       });
     });
   }
 
-  async function openLoop(after) {
+  async function openLoop(after, kind = 'normal') {
     for (;;) {
-      const x = await openAnimation();
+      const x = await openAnimation(kind);
       if (after) after();
       if (!x || !x.again) return;
     }
@@ -189,13 +235,16 @@
           <div class="cap-main">
             <h1>Capsules</h1>
             <div id="cp-status" class="cap-status muted">Chargement…</div>
-            <div class="row" style="gap:10px;margin-top:12px"><button class="btn primary big" id="cp-open" disabled>${App.icons.icon('capsule', 18)} Ouvrir une capsule</button>
+            <div class="row cap-actions"><button class="btn primary big" id="cp-open" disabled>${App.icons.icon('capsule', 18)} Ouvrir une capsule</button>
+              <button class="btn big gold-btn hidden" id="cp-open-big">${App.icons.icon('capsule', 18)} Ouvrir une grande capsule <span class="gb-n" id="cp-big-n"></span></button>
               <button class="btn ghost cp-sound" id="cp-sound" title="Sons de l’ouverture">${App.icons.icon(App.sfx.enabled ? 'sound' : 'mute', 18)}</button></div>
             <details class="cap-odds"><summary class="small">Chances d’obtention</summary>
               <div class="cap-odds-list">${[1, 2, 3, 4, 5, 6].map((t) => `<span>${tierPill(t)} <b>${String(P().TIER[t].odds).replace('.', ',')} %</b></span>`).join('')}<span><span class="shiny-pill">✦ Chromatique</span> <b>1 %</b></span></div>
-              <p class="small muted">Une capsule arrive toutes les heures, 10 au maximum en réserve : pense à passer les ouvrir !</p></details>
+              <p class="small muted">Une capsule arrive toutes les heures, 10 au maximum en réserve : pense à passer les ouvrir !</p>
+              <p class="small"><b>Grande capsule</b> (boutique) : jamais de commun ni de peu commun — ${tierPill(3)} 45 %, ${tierPill(4)} 33 %, ${tierPill(5)} 17 %, ${tierPill(6)} 5 % ; chromatique 3 %.</p></details>
           </div>
         </section>
+        <section class="panel cap-shop" id="cp-shop"></section>
         <section class="section">
           <div class="section-title"><h2>Mon Pokédex</h2><span class="spacer"></span><span class="muted small" id="cp-count"></span></div>
           <div id="cp-bar"></div>
@@ -222,11 +271,36 @@
           btn.disabled = true; return;
         }
         if (!s) { box.textContent = 'Chargement…'; btn.disabled = true; return; }
+        const n = s.stock + s.bonus;
         box.innerHTML = `<div class="cap-pips">${Array.from({ length: s.max }, (_, i) => `<i class="${i < s.stock ? 'on' : ''}"></i>`).join('')}</div>
-          <div><b>${s.stock}</b> capsule${s.stock > 1 ? 's' : ''} à ouvrir${s.stock >= s.max ? ' <span class="small">(réserve pleine !)</span>' : ''}</div>
-          ${s.next_at ? `<div class="small">Prochaine capsule dans <b id="cp-cd">${App.capsules.countdown()}</b></div>` : ''}`;
-        btn.disabled = s.stock < 1;
-        $('#cp-stage').classList.toggle('is-empty', s.stock < 1);
+          <div><b>${n}</b> capsule${n > 1 ? 's' : ''} à ouvrir${s.bonus ? ` <span class="small">(dont ${s.bonus} achetée${s.bonus > 1 ? 's' : ''})</span>` : ''}${s.stock >= s.max ? ' <span class="small">(réserve pleine !)</span>' : ''}</div>
+          ${s.big ? `<div><b style="color:#ffc83d">${s.big}</b> grande${s.big > 1 ? 's' : ''} capsule${s.big > 1 ? 's' : ''}</div>` : ''}
+          ${s.next_at ? `<div class="small">Prochaine capsule gratuite dans <b id="cp-cd">${App.capsules.countdown()}</b></div>` : ''}`;
+        btn.disabled = n < 1;
+        const bb = $('#cp-open-big'); bb.classList.toggle('hidden', !s.big); $('#cp-big-n').textContent = s.big > 1 ? `×${s.big}` : '';
+        $('#cp-stage').classList.toggle('is-empty', n < 1 && !s.big);
+        drawShop();
+      };
+
+      // ---------- Boutique : points, achats, vente des doublons ----------
+      const pts = (n) => `${n} point${n > 1 ? 's' : ''}`;
+      const drawShop = () => {
+        const box = $('#cp-shop'), s = App.capsules.state;
+        if (!box) return;
+        if (!s || App.capsules.missing) { box.hidden = true; return; }
+        box.hidden = false;
+        if (!s.shop) { box.innerHTML = `<h2 style="margin-top:0">${App.icons.icon('shop', 20)} Boutique</h2><p class="small"><b>Il reste une étape :</b> lancer le script <code>supabase-v5.sql</code> dans Supabase (SQL Editor) pour vendre tes Pokémon et acheter des capsules.</p>`; return; }
+        const d = App.capsules.dupes(dex), P1 = s.prices.capsule, P2 = s.prices.grande;
+        box.innerHTML = `<div class="shop-head"><h2>${App.icons.icon('shop', 20)} Boutique</h2><div class="coins-pill" title="Tes points">${App.icons.icon('coin', 18)} <b>${s.coins}</b> point${s.coins > 1 ? 's' : ''}</div></div>
+          <div class="shop-grid">
+            <div class="shop-item"><div class="shop-art">${capsuleSVG('', 46)}</div><div class="shop-txt"><b>Capsule</b><span>La même que celle de chaque heure, en plus de ta réserve.</span></div>
+              <button class="btn sm ${s.coins >= P1 ? 'primary' : ''}" data-buy="capsule" ${s.coins >= P1 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P1}</button></div>
+            <div class="shop-item gold"><div class="shop-art">${capsuleSVG('', 46, true)}</div><div class="shop-txt"><b>Grande capsule</b><span>Au moins rare, 1 chance sur 5 d’un légendaire ou d’un fabuleux, chromatique 3 %.</span></div>
+              <button class="btn sm ${s.coins >= P2 ? 'gold-btn' : ''}" data-buy="grande" ${s.coins >= P2 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P2}</button></div>
+            <div class="shop-item"><div class="shop-art coin-art">${App.icons.icon('coin', 34)}</div><div class="shop-txt"><b>Vendre mes doublons</b><span>${d.n ? `${d.n} Pokémon en double → <b>+${pts(d.gain)}</b>. Tu gardes un exemplaire de chaque, et tous tes chromatiques.` : 'Aucun doublon pour l’instant (tu gardes toujours un exemplaire de chaque).'}</span></div>
+              <button class="btn sm" data-dupes ${d.n ? '' : 'disabled'}>Vendre${d.n ? ` (+${d.gain})` : ''}</button></div>
+          </div>
+          <p class="small muted" style="margin:10px 0 0">Prix de vente : commun 1 · peu commun 3 · rare 8 · très rare 20 · légendaire 100 · fabuleux 150 · chromatique ×5. Touche un Pokémon de ton Pokédex pour le vendre à l’unité.</p>`;
       };
 
       const drawGrid = () => {
@@ -258,14 +332,34 @@
         $('#cp-bar').innerHTML = `<div style="margin:6px 0 14px">${App.ui.progressBar(p)}</div>`;
       };
 
-      const refreshDex = async (fresh) => { dex = await App.capsules.dex({ fresh }).catch(() => new Map()); if (!alive()) return; drawCount(); drawGrid(); };
+      const refreshDex = async (fresh) => { dex = await App.capsules.dex({ fresh }).catch(() => new Map()); if (!alive()) return; drawCount(); drawGrid(); drawShop(); };
 
       el.addEventListener('click', (e) => {
         const r = e.target.closest('[data-r]');
         if (r) { state.region = +r.dataset.r; el.querySelectorAll('#cp-regions .chip').forEach((c) => c.classList.toggle('on', c === r)); return drawGrid(); }
         const sp = e.target.closest('[data-sp]');
-        if (sp) return speciesModal(+sp.dataset.sp, dex.get(+sp.dataset.sp));
+        if (sp) return speciesModal(+sp.dataset.sp, dex.get(+sp.dataset.sp), () => refreshDex(false));
         if (e.target.closest('#cp-open')) openLoop(() => { drawStatus(); refreshDex(false); });
+        if (e.target.closest('#cp-open-big')) openLoop(() => { drawStatus(); refreshDex(false); }, 'grande');
+        const buy = e.target.closest('[data-buy]');
+        if (buy) {
+          buy.disabled = true;
+          App.capsules.buy(buy.dataset.buy, 1).then(() => {
+            App.sfx.click();
+            App.util.toast(buy.dataset.buy === 'grande' ? 'Grande capsule achetée ✓ — ouvre-la en haut de la page !' : 'Capsule achetée ✓');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }).catch((err) => { App.util.toast(err.message, 4000); drawShop(); });
+          return;
+        }
+        const dp = e.target.closest('[data-dupes]');
+        if (dp) {
+          const d = App.capsules.dupes(dex);
+          if (!d.n || !confirm(`Vendre ${d.n} doublon${d.n > 1 ? 's' : ''} pour ${pts(d.gain)} ? Tu gardes un exemplaire de chaque Pokémon et tous tes chromatiques.`)) return;
+          dp.disabled = true;
+          App.capsules.sellDupes().then((r) => { App.sfx.click(); App.util.toast(`+${pts(r.gain)} (${r.sold} doublon${r.sold > 1 ? 's' : ''} vendu${r.sold > 1 ? 's' : ''})`); refreshDex(false); })
+            .catch((err) => { App.util.toast(err.message, 4000); dp.disabled = false; });
+          return;
+        }
         const sb = e.target.closest('#cp-sound');
         if (sb) {
           App.settings.sound = !App.sfx.enabled; App.col.saveSettings();

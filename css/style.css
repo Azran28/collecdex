@@ -1407,3 +1407,27 @@ body.cap-lock { overflow: hidden; }
 @keyframes r-flash { to { opacity: 0; } }
 .r-cert { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; line-height: 1.35; }
 .r-cert input { margin-top: 2px; }
+
+/* ===== Capsules : boutique (points, achats, ventes) ===== */
+.cap-actions { gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.gold-btn { background: linear-gradient(135deg, #ffe27a, #ffb52e 55%, #ff8a1f); color: #2a1600; border-color: transparent; font-weight: 800; box-shadow: 0 6px 18px rgba(255,170,40,.28); }
+.gold-btn:hover { filter: brightness(1.06); color: #2a1600; }
+.gold-btn .gb-n { font-size: .8em; opacity: .8; }
+.cap-shop { margin-top: 16px; }
+.shop-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.shop-head h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+.coins-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; background: linear-gradient(135deg, rgba(255,210,63,.18), rgba(255,138,31,.12)); border: 1px solid rgba(255,200,61,.45); color: #ffd76a; font-size: .95rem; }
+.coins-pill b { font-size: 1.15rem; color: #fff3c4; }
+.shop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.shop-item { display: grid; grid-template-columns: 52px 1fr; grid-template-rows: 1fr auto; gap: 6px 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--surface2, #1b1f3a); border: 1px solid var(--line); }
+.shop-item.gold { border-color: rgba(255,200,61,.45); background: linear-gradient(160deg, rgba(255,200,61,.10), transparent 60%), var(--surface2, #1b1f3a); }
+.shop-item .shop-art { grid-row: 1 / span 2; display: flex; align-items: center; justify-content: center; }
+.shop-item .coin-art { color: #ffc83d; }
+.shop-item .shop-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.shop-item .shop-txt span { font-size: .78rem; color: var(--muted); line-height: 1.35; }
+.shop-item .btn { justify-self: start; }
+.sp-sell { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+@media (max-width: 760px) {
+  .shop-grid { grid-template-columns: 1fr; }
+  .cap-actions .btn.big { flex: 1 1 100%; justify-content: center; }
+}
