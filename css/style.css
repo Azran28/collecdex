@@ -687,7 +687,7 @@ a.chip { text-decoration: none; }
 }
 
 /* ===== Page Capturer : choix du mode, zone photo, mode d'emploi, boutons toujours accessibles ===== */
-.mode-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 640px; margin-bottom: 16px; }
+.mode-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; max-width: 900px; margin-bottom: 16px; }
 .mode-card { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; text-decoration: none; color: var(--text);
   background: var(--surface); border: 2px solid var(--line); transition: border-color .15s, background .15s, transform .1s; }
 .mode-card:hover { border-color: rgba(124,92,255,.6); }
@@ -1393,3 +1393,17 @@ body.cap-lock { overflow: hidden; }
 .b-auto { margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; font-size: .85rem; background: rgba(61,220,151,.1); border: 1px solid rgba(61,220,151,.35); }
 .b-auto .linkbtn { font-weight: 700; }
 .b-auto svg { display: inline-block; vertical-align: -2px; }
+
+/* ===== Classeur : cases trouvées une par une (photo en biais) ===== */
+.cells-ov { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.cells-ov polygon { fill: none; stroke: var(--accent2); stroke-width: 2.5; stroke-linejoin: round; filter: drop-shadow(0 0 2px rgba(0,0,0,.8)); }
+.cells-ov text { fill: var(--accent2); font-size: 13px; font-weight: 900; paint-order: stroke; stroke: #000; stroke-width: 3px; }
+
+/* ===== Rafale ===== */
+.r-live { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 3; max-width: calc(100% - 20px); padding: 6px 12px; border-radius: 999px; background: rgba(10,11,22,.78); color: #fff; font-size: .82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; display: flex; align-items: center; gap: 6px; }
+.r-live.go { background: rgba(124,92,255,.9); }
+.r-live.ok { background: rgba(26,150,98,.92); }
+.scan-view.r-flash::after { content: ''; position: absolute; inset: 0; background: #fff; opacity: .75; animation: r-flash .26s ease-out forwards; pointer-events: none; z-index: 4; }
+@keyframes r-flash { to { opacity: 0; } }
+.r-cert { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; line-height: 1.35; }
+.r-cert input { margin-top: 2px; }

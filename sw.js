@@ -101,9 +101,15 @@ self.addEventListener('fetch', (e) => {
       const c = await caches.open(IMAGES);
       const hit = await c.match(req.url);
       if (hit) return hit;
-      const r = await fetch(req.url, { mode: 'cors', credentials: 'omit' });
-      if (r.ok) { await c.put(req.url, r.clone()); trim(c, MAX_IMAGES); }
-      return r;
+      // le serveur d'images refuse parfois une requête au hasard (en-tête CORS en double) : on réessaie
+      for (let i = 0; i < 3; i++) {
+        try {
+          const r = await fetch(req.url, { mode: 'cors', credentials: 'omit' });
+          if (r.ok) { await c.put(req.url, r.clone()); trim(c, MAX_IMAGES); }
+          return r;
+        } catch (err) { await new Promise((res) => setTimeout(res, 150 * (i + 1))); }
+      }
+      return fetch(req); // dernier essai tel que demandé par la page (une simple image n'a pas besoin de CORS)
     })());
     return;
   }

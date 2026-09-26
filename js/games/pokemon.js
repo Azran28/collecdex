@@ -38,14 +38,25 @@
     return inflight[key];
   }
 
+  /** TCGdex refuse parfois une requête au hasard (en-tête CORS en double) : on réessaie un peu plus tard */
+  async function retryFetch(url, opts, tries = 3) {
+    let err;
+    for (let i = 0; i < tries; i++) {
+      try { const r = await fetch(url, opts); if (r.ok || r.status === 404 || i === tries - 1) return r; err = new Error('HTTP ' + r.status); }
+      catch (e) { err = e; }
+      await new Promise((res) => setTimeout(res, 250 * (i + 1)));
+    }
+    throw err;
+  }
+
   async function getJSON(path) {
-    const r = await fetch(API + path);
+    const r = await retryFetch(API + path);
     if (!r.ok) throw new Error(`TCGdex a répondu ${r.status} pour ${path}`);
     return r.json();
   }
 
   async function gql(query) {
-    const r = await fetch(API + '/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
+    const r = await retryFetch(API + '/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
     if (!r.ok) throw new Error('GraphQL ' + r.status);
     const j = await r.json();
     if (j.errors && !j.data) throw new Error(j.errors[0].message);
@@ -129,17 +140,18 @@
       category: c.category || '',
       types: c.types || [],
       illustrator: c.illustrator || '',
+      hp: c.hp ? parseInt(c.hp, 10) || null : null,
       variants: c.variants || null,
       setId: set.id,
       serieId: set.group ? set.group.id : '',
     };
   }
 
-  const CARD_FIELDS = 'id localId name image rarity category types illustrator variants { normal reverse holo firstEdition }';
+  const CARD_FIELDS = 'id localId name image rarity category types illustrator hp variants { normal reverse holo firstEdition }';
 
   async function getSet(id) {
     const L = langFor(id);
-    return cached(`pk3:${L}:set:${id}`, 7 * DAY, async () => {
+    return cached(`pk4:${L}:set:${id}`, 7 * DAY, async () => {
       let meta = null, cards = null;
       // 1) infos de la série
       try {
