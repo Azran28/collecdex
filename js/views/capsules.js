@@ -208,7 +208,7 @@
       <div class="cap-name">${esc(P().name(r.species))}</div>
       <div class="row cap-tags">${tierPill(t)}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? '<span class="new-pill">Nouveau !</span>' : `<span class="dup-pill">×${r.count}</span>`}</div>
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
-      ${left > 0 ? `<div class="small cap-tap">Touche ${esc(P().name(r.species))} pour ouvrir la suivante</div>` : ''}
+      <div class="small cap-tap">Touche ${esc(P().name(r.species))} ${left > 0 ? 'pour ouvrir la suivante' : 'pour revenir à tes capsules'}</div>
       <div class="row cap-btns">
         ${left > 0 ? `<button class="btn primary" data-again>${App.icons.icon('capsule', 16)} Ouvrir la suivante (${left})</button>` : ''}
         <button class="btn" data-avatar>En faire mon avatar</button>
@@ -217,12 +217,10 @@
       </div>`;
     ov.querySelector('.cap-hint').remove();
     return new Promise((resolve) => {
-      // toucher le Pokémon = ouvrir la suivante (s'il en reste)
+      // toucher le Pokémon = ouvrir la suivante (s'il en reste), sinon revenir à la page des capsules
       const mon = ov.querySelector('.cap-mon');
-      if (left > 0) {
-        mon.classList.add('tap-next');
-        mon.addEventListener('click', () => { close(); resolve({ r, again: true }); }, { once: true });
-      }
+      mon.classList.add('tap-next');
+      mon.addEventListener('click', () => { close(); resolve({ r, again: left > 0 }); }, { once: true });
       ov.querySelector('.cap-btns').addEventListener('click', async (e) => {
         if (e.target.closest('[data-avatar]')) { await setAvatar(r.species, r.shiny); e.target.closest('[data-avatar]').disabled = true; return; }
         const sb = e.target.closest('[data-sell]');

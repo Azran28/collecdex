@@ -22,7 +22,7 @@ App.views.scan = {
     return `<div class="scan-empty">
       <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}">${mode === 'classeur' ? '<i></i>'.repeat(9) : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
       <b>${mode === 'classeur' ? 'Photo d’une page de classeur' : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
-      <span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>
+      <span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : mode === 'classeur' ? 'Appuie sur « Prendre la page en photo »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>
     </div>`;
   },
 
@@ -33,7 +33,7 @@ App.views.scan = {
         ['shield', 'Dos, puis face', 'Pour la certification : montre le dos de chaque carte, retourne-la et tiens-la immobile : elle est prise toute seule.'],
         ['search', 'Vérifie et enregistre', 'Les cartes sont lues pendant que tu continues. Les sûres sont cochées d’office.']]
       : mode === 'classeur'
-      ? [['camera', 'Photographie la page entière', 'Bien à plat, de face, sans reflet. La page doit remplir la photo.'],
+      ? [['camera', 'Photographie la page entière', '« Prendre la page en photo » ouvre l’appareil photo du téléphone (meilleure qualité). Bien à plat, de face, sans reflet : la page doit remplir la photo.'],
         ['dex', 'La grille se place toute seule', 'Elle trouve les pochettes (et le format de la page). Si elle se trompe, glisse-la ou tire ses coins ronds.'],
         ['search', 'Vérifie et enregistre', 'Les cartes sûres sont cochées d’office. Corrige les autres si besoin.']]
       : [['camera', 'Prends la carte en photo', 'Bien à plat, bien éclairée, sans reflet sur le numéro en bas.'],
@@ -517,10 +517,12 @@ App.views.scan = {
             <label class="small">Format de la page
               <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
           </div>`;
+    // page de classeur (pas de certification) : l'appareil photo du téléphone d'abord — plein écran, pleine qualité
     const pageBtns = `<div class="row action-dock scan-dock" style="margin-top:14px" id="b-actions">
-            <button class="btn primary" id="b-cam">${App.icons.icon('camera', 16)} Caméra</button>
+            <label class="btn primary" id="b-native">${App.icons.icon('camera', 16)} Prendre la page en photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
-            <label class="btn">Choisir une photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
+            <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
+            <button class="btn ghost" id="b-cam">Caméra dans la page</button>
           </div>
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <div id="b-auto" class="b-auto hidden"></div>
@@ -595,6 +597,9 @@ App.views.scan = {
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); setStatus('');
+        el.querySelector('#b-native').classList.add('hidden'); el.querySelector('#b-cam').classList.add('hidden');
+        // la vidéo entière à l'écran, sans avoir à faire défiler
+        setTimeout(() => window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 60), behavior: 'smooth' }), 350);
       }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}</span>`); }
     });
@@ -607,9 +612,12 @@ App.views.scan = {
       cam.stop();
       startGrid(b, null);
     });
-    el.querySelector('#b-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0], null); } e.target.value = ''; });
+    const fromFile = (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0], null); } e.target.value = ''; };
+    el.querySelector('#b-file').addEventListener('change', fromFile); // appareil photo du téléphone
+    el.querySelector('#b-file2').addEventListener('change', fromFile); // galerie
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (running) return;
+      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden');
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
       el.querySelector('#b-gridbar').classList.add('hidden');
