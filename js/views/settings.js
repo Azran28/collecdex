@@ -24,6 +24,10 @@ App.views.settings = {
           <div id="p-install"></div>
         </section>
         <section class="panel">
+          <h2>Notifications</h2>
+          <div id="p-notify"></div>
+        </section>
+        <section class="panel">
           <h2>Sauvegarde</h2>
           <p class="muted small">Ta collection est enregistrée dans ce navigateur, sur ce PC. Fais une sauvegarde de temps en temps (elle contient aussi tes photos et ta vitrine).</p>
           <div class="row"><button class="btn primary" id="p-export">⬇ Télécharger une sauvegarde</button>
@@ -44,6 +48,7 @@ App.views.settings = {
 
     const $ = (s) => el.querySelector(s);
     const offInstall = App.install.panel($('#p-install'));
+    const offNotify = App.notify.panel($('#p-notify'));
     const accOff = App.views.account.render($('#p-account'), { query: {}, embedded: true });
     $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket; $('#p-sound').checked = S.sound !== false;
     const save = async (msg = 'Enregistré ✓') => { await App.col.saveSettings(); App.util.toast(msg); };
@@ -96,6 +101,6 @@ App.views.settings = {
       await App.db.clear('items'); await App.db.clear('photos'); await App.db.del('kv', 'profile');
       location.reload();
     };
-    return () => { offInstall(); accOff.then((f) => { if (typeof f === 'function') f(); }); };
+    return () => { offInstall(); offNotify(); accOff.then((f) => { if (typeof f === 'function') f(); }); };
   },
 };

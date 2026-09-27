@@ -139,7 +139,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       <div class="cd-mine-head">
         <h3 style="margin:0">Mon Dex</h3>
         ${certified ? `<span class="cert-pill" title="Au moins une photo de cette carte a été capturée en direct et vérifiée">${App.icons.icon('shield', 14)} Certifiée</span>`
-          : `<a class="cert-no" href="#/scan?carte=${encodeURIComponent(card.id)}" title="${esc(`Non certifiée${it.certNote && it.certNote.reason ? ' (' + it.certNote.reason + ')' : ''}. Capture-la avec la caméra du site${App.cloud.enabled && !App.cloud.user ? ', connecté à ton compte,' : ''} pour obtenir le badge.`)}">${App.icons.icon('shield', 13)} Non certifiée</a>`}
+          : `<a class="cert-no" href="#/scan?carte=${encodeURIComponent(card.id)}" title="${esc(`Non certifiée${it.certNote && it.certNote.reason ? ' (' + it.certNote.reason + ')' : ''}. Capture-la avec la caméra du site${App.cloud.enabled && !App.cloud.user ? ', connecté à ton compte,' : ''} pour obtenir le badge.`)}">${App.icons.icon('shield', 13)} Non certifiée · <u>la certifier</u></a>`}
         <span class="spacer"></span>
         <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="#/scan?carte=${encodeURIComponent(card.id)}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
       </div>

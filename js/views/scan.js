@@ -30,7 +30,7 @@ App.views.scan = {
   guide(mode) {
     const steps = mode === 'rafale'
       ? [['rafale', 'Lance la rafale', 'Présente tes cartes une par une dans le cadre jaune : dès qu’une carte est immobile, elle est prise toute seule.'],
-        ['shield', 'Suis la flèche', 'Pour la certification : bouge la carte comme indiqué (1 seconde), puis passe à la suivante.'],
+        ['shield', 'Retourne la carte', 'Pour la certification : montre le dos, remets-la face visible, puis passe à la suivante.'],
         ['search', 'Vérifie et enregistre', 'Les cartes sont lues pendant que tu continues. Les sûres sont cochées d’office.']]
       : mode === 'classeur'
       ? [['camera', 'Photographie la page entière', 'Bien à plat, de face, sans reflet. La page doit remplir la photo.'],
@@ -43,8 +43,10 @@ App.views.scan = {
     return `<div class="panel scan-guide-panel">
       <h3 style="margin-top:0">Comment ça marche</h3>
       <ol class="sg-steps">${steps.map(([ic, t, d], i) => `<li><span class="sg-n">${i + 1}</span><span class="sg-ic">${App.icons.icon(ic, 18)}</span><span><b>${t}</b><br><span class="muted small">${d}</span></span></li>`).join('')}</ol>
-      <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${certOn
-        ? 'Utilise le bouton « Caméra » du site et suis la consigne après la photo (1 seconde) : tes cartes bien reconnues recevront le badge.'
+      <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${mode === 'classeur'
+        ? 'Pas de badge pour une page de classeur. Pour certifier une carte, capture-la seule (ou en rafale) avec la caméra du site : tu pourras le faire plus tard depuis sa fiche.'
+        : certOn
+        ? 'Utilise le bouton « Caméra » du site. Après la photo, retourne la carte (montre le dos) puis remets-la face visible : tes cartes bien reconnues recevront le badge.'
         : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
       ${mode === 'rafale' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si tes cartes viennent toutes de la même série, choisis-la au-dessus : c’est plus rapide et bien plus fiable.</p>' : mode === 'classeur' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si ta page ne contient qu’une série, choisis-la dans « Série de la page ».</p>' : '<p class="small muted" style="margin:10px 0 0">Astuce : si tu connais la série, choisis-la au-dessus : c’est bien plus fiable.</p>'}
     </div>`;
@@ -221,7 +223,7 @@ App.views.scan = {
     el.querySelector('#sc-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = App.views.scan.guide('carte');
-        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Capture certifiée</b> : après la photo, garde la carte dans le cadre et suis la consigne à l’écran (1 seconde).</span>` : '');
+        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Capture certifiée</b> : après la photo, retourne la carte dans le cadre (montre le dos), puis remets-la face visible.</span>` : '');
         App.certify.prepare();
       }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra dans le navigateur, ou utilise « Choisir une photo ».</span>`); }
@@ -494,7 +496,7 @@ App.views.scan = {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn ? `<label class="r-cert small"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 14)} <span>Certifier chaque carte <span class="muted">(bouger la carte comme indiqué, 1 seconde)</span></span></label>` : ''}
+          ${certOn ? `<label class="r-cert small"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 14)} <span>Certifier chaque carte <span class="muted">(la retourner puis la remettre face visible, 2 secondes)</span></span></label>` : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
@@ -550,9 +552,7 @@ App.views.scan = {
     });
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try {
-        await cam.start(); el.querySelector('#b-shot').classList.remove('hidden');
-        setStatus(App.certify.available() ? `<span class="small">${App.icons.icon('shield', 14)} <b>Page certifiée</b> : après la photo, suis la consigne à l’écran (1 seconde). Les cartes bien reconnues seront certifiées.</span>` : '');
-        App.certify.prepare('page');
+        await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); setStatus('');
       }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}</span>`); }
     });
@@ -561,14 +561,9 @@ App.views.scan = {
       setStatus('<div class="spinner"></div><div style="text-align:center">Photo en haute définition…</div>');
       const b = await cam.photo();
       if (!b) { setStatus(''); el.querySelector('#b-shot').classList.remove('hidden'); return; }
-      await new Promise((r) => setTimeout(r, 400)); // le flux reprend après la photo
-      let res = null;
-      if (App.certify.available()) {
-        setStatus('');
-        try { res = await App.certify.live(cam.video, view, cam.region(), 'page'); } catch (err) { console.warn(err); res = { passed: false, reasons: ['vérification impossible'] }; }
-      }
+      // pas de certification pour une page de classeur (on ne peut pas retourner 9 cartes)
       cam.stop();
-      startGrid(b, res);
+      startGrid(b, null);
     });
     el.querySelector('#b-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0], null); } e.target.value = ''; });
     el.querySelector('#b-reset').addEventListener('click', () => {
@@ -1078,7 +1073,7 @@ App.views.scan = {
         for (const { c } of todo) {
           c.saved = true; c.checked = false;
           const pc = burst ? c.live : pageCert; c.pc = pc;
-          c.cert = !App.cloud.enabled || !c.photoId ? '' : !App.cloud.user ? 'connecte-toi pour certifier' : !pc ? (burst && c.live === null ? 'certification désactivée' : 'photo importée') : !pc.passed ? pc.reasons[0] : 'encours';
+          c.cert = !App.cloud.enabled || !c.photoId ? '' : !burst ? 'pas de badge pour une page de classeur' : !App.cloud.user ? 'connecte-toi pour certifier' : !pc ? (c.live === null ? 'certification désactivée' : 'photo importée') : !pc.passed ? pc.reasons[0] : 'encours';
           if (c.cert && c.cert !== 'encours') App.certify.note(c.key, c.photoId, c.cert === 'photo importée' ? 'photo importée depuis la galerie' : c.cert);
         }
         // certification des cartes bien reconnues (l'une après l'autre, en arrière-plan)

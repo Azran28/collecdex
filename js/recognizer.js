@@ -822,15 +822,21 @@ App.recognizer = (() => {
     return v;
   };
   async function backScore(blob) {
-    if (!backRef) { const bin = atob(BACK.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); backRef = normRGB(a, BACK.w * BACK.h); }
     const bmp = await createImageBitmap(blob);
-    const W = BACK.w, H = BACK.h, n = W * H, c = document.createElement('canvas'); c.width = W; c.height = H;
+    return backScoreOf(bmp, bmp.width, bmp.height);
+  }
+  let backCanvas = null;
+  /** Même mesure, directement sur une image déjà dessinée (canvas, image de la caméra) : sert à la certification en direct */
+  function backScoreOf(src, SW, SH) {
+    if (!backRef) { const bin = atob(BACK.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); backRef = normRGB(a, BACK.w * BACK.h); }
+    const W = BACK.w, H = BACK.h, n = W * H;
+    const c = backCanvas || (backCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
     const g = c.getContext('2d', { willReadFrequently: true }); g.filter = 'blur(0.6px)';
     let best = -1;
     for (const sc of [0.78, 0.84, 0.9]) for (const dx of [-0.05, 0, 0.05]) for (const dy of [-0.05, 0, 0.05]) {
-      const bw = bmp.width * sc, bh = bmp.height * sc;
+      const bw = SW * sc, bh = SH * sc;
       g.clearRect(0, 0, W, H);
-      g.drawImage(bmp, bmp.width * (0.5 + dx) - bw / 2, bmp.height * (0.5 + dy) - bh / 2, bw, bh, 0, 0, W, H);
+      g.drawImage(src, SW * (0.5 + dx) - bw / 2, SH * (0.5 + dy) - bh / 2, bw, bh, 0, 0, W, H);
       const d = g.getImageData(0, 0, W, H).data, px = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) { px[i * 3] = d[i * 4]; px[i * 3 + 1] = d[i * 4 + 1]; px[i * 3 + 2] = d[i * 4 + 2]; }
       const v = normRGB(px, n); let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * backRef[i];
@@ -1050,5 +1056,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
 })();

@@ -277,7 +277,9 @@ App.cloud = (() => {
     const { error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw new Error(tr(error));
   }
-  async function signOut() { await sb.auth.signOut(); user = null; setState('deconnecte'); }
+  async function signOut() {
+    if (App.notify) await App.notify.disable().catch(() => {}); // plus de notifications de ce compte sur cet appareil
+    await sb.auth.signOut(); user = null; setState('deconnecte'); }
   async function resetPassword(email) {
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: redirect() });
     if (error) throw new Error(tr(error));

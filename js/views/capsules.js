@@ -66,22 +66,38 @@
     App.util.toast(`${P().name(id)} est ton nouvel avatar ✓`);
   }
 
-  /** Fiche d'un Pokémon attrapé (avec la vente, si la boutique est installée) ; onChange() après une vente */
-  function speciesModal(id, d, onChange) {
+  /** Petite case d'un Pokémon dans la fiche (évolutions, chromatique) : grisée avec « ? » s'il n'est pas attrapé */
+  const evoCell = (i, got, shiny, cur) => `<button class="evo-cell ${got ? 'got' : 'miss'} ${i === cur && !shiny ? 'cur' : ''}" data-evo="${i}" style="--tc:${P().TIER[P().tier(i)].color}" title="${esc(P().name(i))}${shiny ? ' chromatique' : ''}${got ? '' : ' (pas encore attrapé)'}">
+      <span class="evo-img"><img src="${P().img(i, shiny)}" alt="" loading="lazy">${shiny ? '<span class="evo-sh">✦</span>' : ''}</span>
+      <span class="evo-n">${esc(P().name(i))}</span></button>`;
+
+  /** Fiche d'un Pokémon (attrapé ou non) : évolutions, version chromatique, avatar et vente ; onChange() après une vente */
+  function speciesModal(id, dex, onChange) {
+    const d = dex.get(id);
+    const got = !!d;
     let sh = false;
-    const st = App.capsules.state, shop = !!(st && st.shop);
+    const st = App.capsules.state, shop = !!(got && st && st.shop);
     const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
-    const body = App.util.openModal(`<div class="sp-modal">
-      <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id)}" alt="${esc(P().name(id))}"></div>
+    const fam = P().family(id);
+    const evoHTML = fam.flat().length > 1 ? `<div class="sp-evo"><h3>Évolutions</h3><div class="evo-line">${fam.map((stage) => `<div class="evo-stage">${stage.map((i) => evoCell(i, dex.has(i), false, id)).join('')}</div>`).join('<span class="evo-arrow" aria-hidden="true">›</span>')}</div></div>` : '';
+    const shinyHTML = `<div class="sp-evo"><h3>Version chromatique</h3><div class="evo-line">${evoCell(id, !!(d && d.shiny), true, id)}
+      <p class="small muted" style="margin:0;align-self:center">${d && d.shiny ? `Tu l’as attrapé en chromatique ${d.shiny > 1 ? d.shiny + ' fois' : ''} ✦` : 'Pas encore attrapé en chromatique (1 % de chance à chaque capsule, 3 % avec une grande capsule).'}</p></div></div>`;
+    const body = App.util.openModal(`<div class="sp-modal ${got ? '' : 'sp-miss'}">
+      <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id)}" alt="${esc(P().name(id))}">${got ? '' : '<span class="sp-q">?</span>'}</div>
       <div class="sp-info">
         <div class="muted small">${P().num(id)} · ${esc(P().region(id))}</div>
         <h2>${esc(P().name(id))}</h2>
-        <div class="row" style="gap:8px">${tierPill(P().tier(id))}${d.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
-        <p class="small muted" id="sp-count"></p>
-        ${d.shiny ? '<div class="chips" id="sp-sw"><button class="chip on" data-sh="0">Normal</button><button class="chip" data-sh="1">✦ Chromatique</button></div>' : ''}
-        <button class="btn primary" id="sp-av" style="margin-top:12px">${App.icons.icon('user', 16)} En faire mon avatar</button>
+        <div class="row" style="gap:8px">${tierPill(P().tier(id))}${d && d.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
+        <p class="small muted" id="sp-count">${got ? '' : 'Pas encore attrapé : ouvre des capsules pour le trouver !'}</p>
+        ${d && d.shiny ? '<div class="chips" id="sp-sw"><button class="chip on" data-sh="0">Normal</button><button class="chip" data-sh="1">✦ Chromatique</button></div>' : ''}
+        ${got ? `<button class="btn primary" id="sp-av" style="margin-top:12px">${App.icons.icon('user', 16)} En faire mon avatar</button>` : ''}
         ${shop ? `<div class="sp-sell" id="sp-sell"></div>` : ''}
-      </div></div>`);
+      </div></div>${evoHTML}${shinyHTML}`);
+    body.addEventListener('click', (e) => {
+      const ev = e.target.closest('[data-evo]');
+      if (ev && +ev.dataset.evo !== id) speciesModal(+ev.dataset.evo, dex, onChange);
+    });
+    if (!got) return;
     const drawSell = async () => {
       body.querySelector('#sp-count').textContent = d.n > 0 ? `Attrapé ${d.n} fois${d.shiny ? ` (dont ${d.shiny} chromatique${d.shiny > 1 ? 's' : ''})` : ''} · la première fois le ${App.util.dateFr(new Date(d.first).toISOString())}.` : 'Tu n’as plus ce Pokémon.';
       const box = body.querySelector('#sp-sell'); if (!box) return;
@@ -109,7 +125,7 @@
           const r = await App.capsules.sell(id, sh, n);
           App.sfx.click();
           App.util.toast(`+${pts(r.gain)} (tu as ${pts(r.coins)})`);
-          if (d.n <= 0) { App.util.closeModal(); } else drawSell();
+          if (d.n <= 0) { dex.delete(id); App.util.closeModal(); } else drawSell();
           if (onChange) onChange();
         } catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
       }
@@ -178,6 +194,7 @@
       <div class="cap-name">${esc(P().name(r.species))}</div>
       <div class="row cap-tags">${tierPill(t)}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? '<span class="new-pill">Nouveau !</span>' : `<span class="dup-pill">×${r.count}</span>`}</div>
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
+      ${left > 0 ? `<div class="small cap-tap">Touche ${esc(P().name(r.species))} pour ouvrir la suivante</div>` : ''}
       <div class="row cap-btns">
         ${left > 0 ? `<button class="btn primary" data-again>${App.icons.icon('capsule', 16)} Ouvrir la suivante (${left})</button>` : ''}
         <button class="btn" data-avatar>En faire mon avatar</button>
@@ -186,6 +203,12 @@
       </div>`;
     ov.querySelector('.cap-hint').remove();
     return new Promise((resolve) => {
+      // toucher le Pokémon = ouvrir la suivante (s'il en reste)
+      const mon = ov.querySelector('.cap-mon');
+      if (left > 0) {
+        mon.classList.add('tap-next');
+        mon.addEventListener('click', () => { close(); resolve({ r, again: true }); }, { once: true });
+      }
       ov.querySelector('.cap-btns').addEventListener('click', async (e) => {
         if (e.target.closest('[data-avatar]')) { await setAvatar(r.species, r.shiny); e.target.closest('[data-avatar]').disabled = true; return; }
         const sb = e.target.closest('[data-sell]');
@@ -253,7 +276,7 @@
           </div>
           <div class="toolbar">
             <select id="cp-tier"><option value="0">Toutes les raretés</option>${[1, 2, 3, 4, 5, 6].map((t) => `<option value="${t}">${esc(P().TIER[t].name)}</option>`).join('')}</select>
-            <label class="check small"><input type="checkbox" id="cp-only"> Attrapés seulement</label>
+            <label class="check small" id="cp-only-l" ${state.region ? '' : 'hidden'}><input type="checkbox" id="cp-only"> Attrapés seulement</label>
             <span class="spacer"></span><span class="muted small" id="cp-shown"></span>
           </div>
           <div class="dex-grid" id="cp-grid"></div>
@@ -305,6 +328,8 @@
 
       const drawGrid = () => {
         const R = state.region, G = P().GEN_END;
+        // « Attrapés seulement » n'a de sens que dans une région (« Tous » ne montre déjà que les attrapés)
+        $('#cp-only-l').hidden = !R;
         const from = R ? (R === 1 ? 1 : G[R - 2] + 1) : 1, to = R ? G[R - 1] : P().TOTAL;
         const ids = [];
         for (let i = from; i <= to; i++) {
@@ -313,15 +338,15 @@
           ids.push(i);
         }
         // « Tous » : seulement les Pokémon attrapés (sinon 1025 cases)
-        const list = R === 0 && !state.only ? ids.filter((i) => dex.has(i)) : ids;
-        $('#cp-shown').textContent = R === 0 && !state.only ? '' : `${list.length} affichés`;
+        const list = R === 0 ? ids.filter((i) => dex.has(i)) : ids;
+        $('#cp-shown').textContent = R === 0 ? '' : `${list.length} affichés`;
         $('#cp-grid').innerHTML = list.length ? list.map((i) => {
           const d = dex.get(i);
           const t = P().tier(i);
           return d ? `<button class="dex-cell got" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="${esc(P().name(i))}">
               <img src="${P().img(i)}" alt="" loading="lazy"><span class="dn">${esc(P().name(i))}</span><span class="dnum">${P().num(i)}</span>
               ${d.n > 1 ? `<span class="dq">×${d.n}</span>` : ''}${d.shiny ? '<span class="dsh" title="Chromatique">✦</span>' : ''}</button>`
-            : `<div class="dex-cell miss" style="--tc:${P().TIER[t].color}"><span class="dq-miss">?</span><span class="dnum">${P().num(i)}</span></div>`;
+            : `<button class="dex-cell miss" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="Pas encore attrapé"><span class="dq-miss">?</span><span class="dnum">${P().num(i)}</span></button>`;
         }).join('') : `<div class="empty panel">${dex.size ? 'Aucun Pokémon ici avec ces filtres.' : 'Ton Pokédex est vide : ouvre ta première capsule !'}</div>`;
       };
 
@@ -338,7 +363,7 @@
         const r = e.target.closest('[data-r]');
         if (r) { state.region = +r.dataset.r; el.querySelectorAll('#cp-regions .chip').forEach((c) => c.classList.toggle('on', c === r)); return drawGrid(); }
         const sp = e.target.closest('[data-sp]');
-        if (sp) return speciesModal(+sp.dataset.sp, dex.get(+sp.dataset.sp), () => refreshDex(false));
+        if (sp) return speciesModal(+sp.dataset.sp, dex, () => refreshDex(false));
         if (e.target.closest('#cp-open')) openLoop(() => { drawStatus(); refreshDex(false); });
         if (e.target.closest('#cp-open-big')) openLoop(() => { drawStatus(); refreshDex(false); }, 'grande');
         const buy = e.target.closest('[data-buy]');

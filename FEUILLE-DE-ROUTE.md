@@ -4,7 +4,7 @@
 - Site : https://azran28.github.io/collecdex/ (GitHub Pages, dépôt Azran28/collecdex, branche main). Claude publie les mises à jour directement.
 - **Appli installable** (PWA) : icône sur l'écran d'accueil, plein écran, hors ligne (service worker `sw.js`, manifeste `manifest.webmanifest`, icônes dans `icons/`).
 - Comptes et synchronisation : Supabase, projet zjzfwhtqrigfmqzfebzy (offre gratuite). Tables `items` et `profiles` + stockage `photos`, protégés par RLS.
-- Scripts SQL à exécuter une fois, dans l'ordre : `supabase-setup.sql`, `supabase-certif.sql`, `supabase-v2.sql`, `supabase-v3.sql` (capsules), `supabase-v4.sql` (amis), `supabase-v5.sql` (boutique des capsules), `supabase-v6.sql` (sécurité). Pour que d'autres puissent s'inscrire : désactiver « Confirm email » dans Supabase (l'envoi d'e-mails gratuit ne marche que pour Arnaud). `supabase-mes-certificats.sql` (certifie les cartes déjà présentes chez Arnaud) est seulement sur son PC, pas sur GitHub.
+- Scripts SQL à exécuter une fois, dans l'ordre : `supabase-setup.sql`, `supabase-certif.sql`, `supabase-v2.sql`, `supabase-v3.sql` (capsules), `supabase-v4.sql` (amis), `supabase-v5.sql` (boutique des capsules), `supabase-v6.sql` (sécurité), `supabase-v7.sql` (certification par retournement, notifications) + fonction `capsule-notify` dans Edge Functions. Pour que d'autres puissent s'inscrire : désactiver « Confirm email » dans Supabase (l'envoi d'e-mails gratuit ne marche que pour Arnaud). `supabase-mes-certificats.sql` (certifie les cartes déjà présentes chez Arnaud) est seulement sur son PC, pas sur GitHub.
 - Version PC (localhost:8765 via `Lancer CollecDex.bat`) : même code, avec compte et synchronisation.
 - Contexte permanent pour Claude : `CLAUDE.md` et cette feuille de route `FEUILLE-DE-ROUTE.md` (dans le dépôt et le dossier du PC ; copie dans le projet claude.ai « Collection »).
 
@@ -50,9 +50,10 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 
 **6. Confort** (en cours)
 - ✅ Application installable sur le téléphone (icône, plein écran, hors ligne).
-- Notifications (badge, carte recherchée proposée, prix) : reportées.
+- ✅ Notifications (réglables dans Paramètres) : réserve de capsules pleine. À ajouter : demande d'ami reçue, carte recherchée proposée, badge débloqué.
 
 ## Historique des versions
+- **v2.15 (27 sept., après-midi)** : **nouvelle certification** — il faut retourner la carte (montrer le dos, puis la face) ; filmer un écran ou une photo ne marche plus ; bande de 5 images gardée comme preuve ; plus de badge en page de classeur (recapture seule depuis la fiche). **Notifications** (Paramètres › Notifications) : « ma réserve de capsules est pleine », même site fermé. Capsules : fiche de chaque Pokémon (même non attrapé) avec ses évolutions et sa version chromatique, toucher le Pokémon pour ouvrir la suivante, « Attrapés seulement » seulement dans une région. `supabase-v7.sql` + fonction `capsule-notify` à créer.
 - **v2.14 (27 sept., après-midi)** : relecture complète et sécurité — les données des amis sont filtrées (un avatar ou une vitrine piégés ne peuvent plus exécuter de code, même via une simple demande d'ami), règles de sécurité du navigateur (CSP), bibliothèques à version figée et vérifiée, module de connexion téléchargé plus tôt (accueil plus rapide), « Effacer toute ma collection » efface aussi dans le compte quand on est connecté, script `supabase-v6.sql` (pseudos non listables, nombre de cartes caché pour les demandes en attente, taille max des données).
 - **v2.13 (27 sept., midi)** : projet prêt pour Claude Code — `FEUILLE-DE-ROUTE.md` dans le dossier, `stamp.ps1` (numéro de version sous Windows), `.gitignore` (fichiers perso du PC), `.claude/settings.json` (commandes git autorisées), `CLAUDE.md` : où travaille Claude selon la session et mise en place de Git sur le PC.
 - **v2.12 (27 sept., midi)** : « Match » devient **Combat** (menu, page, adresse #/combat), modes **Basique** / **Avancé**, victoires/défaites comptées par mode, une attaque ne dépense plus que son coût en énergie (le reste est gardé), textes de la page raccourcis, équipes en onglets sur téléphone.
