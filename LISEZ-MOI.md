@@ -10,6 +10,16 @@
 
 Il faut une connexion internet : les cartes, images et prix sont téléchargés depuis TCGdex puis gardés en mémoire.
 
+
+## Travailler avec Claude Code
+1. Ouvre l'application Claude sur ton PC, onglet **Code**.
+2. Démarre une session **locale** en choisissant le dossier `C:\Users\Arnaud\Documents\Collection`.
+3. Premier message conseillé : « Lis CLAUDE.md et FEUILLE-DE-ROUTE.md, puis prépare Git dans ce dossier comme expliqué dans CLAUDE.md. »
+4. La première fois, Claude aura peut-être besoin que tu installes **Git pour Windows** (https://git-scm.com/download/win, garder les options par défaut). Au premier envoi sur GitHub, une fenêtre de connexion GitHub s'ouvre : connecte-toi toi-même.
+5. Ensuite, demande ce que tu veux comme d'habitude : Claude modifie directement les fichiers du dossier, teste sur `localhost:8765` (pense à lancer `Lancer CollecDex.bat`) et met en ligne.
+
+Claude Code te demandera parfois la permission avant de lancer une commande : c'est normal. Les commandes courantes (git, numéro de version) sont déjà autorisées dans `.claude/settings.json`.
+
 ## Ce que tu peux faire
 
 - **Séries favorites** : l'étoile en haut à gauche d'une série (ou à côté de son nom) la met en favori. Tes favorites apparaissent en tête d'Explorer, et le filtre « ★ Favorites » ne montre qu'elles.

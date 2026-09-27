@@ -1,0 +1,12 @@
+# Fichiers qui restent sur le PC d'Arnaud (jamais sur GitHub)
+_tests-scanner/
+test/
+test-classeur.png
+supabase-mes-certificats.sql
+# Réglages personnels de Claude Code
+.claude/settings.local.json
+CLAUDE.local.md
+# Système
+Thumbs.db
+desktop.ini
+.DS_Store
