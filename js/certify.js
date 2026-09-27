@@ -211,17 +211,93 @@ App.certify = (() => {
 
   const available = () => !!(App.cloud.enabled && App.cloud.user);
 
-  async function prepare(kind = 'carte') {
-    if (!available() || kind === 'page') return null;
+  async function prepare(kind = 'carte', n = 9) {
+    if (!available()) return null;
     const c = challenges[kind];
-    if (c && Date.now() - c.at < 8 * 60 * 1000) return c;
+    if (kind === 'carte' && c && Date.now() - c.at < 8 * 60 * 1000) return c;
     try {
-      let d;
-      try { d = await App.cloud.rpc('cert_start', { p_kind: kind }); }
-      catch (e) { if (kind === 'carte') d = await App.cloud.rpc('cert_start'); else throw e; } // serveur sans la mise à jour v2
+      // page de classeur : un tirage neuf à chaque fois (le numéro dépend du nombre de cases)
+      const d = await App.cloud.rpc('cert_start', kind === 'page' ? { p_kind: 'page', p_n: n } : { p_kind: kind });
       challenges[kind] = { id: d.id, challenge: d.challenge, at: Date.now() };
     } catch (e) { console.warn('certification', e); challenges[kind] = null; }
     return challenges[kind];
+  }
+
+  /**
+   * Certification d'une PAGE de classeur : le serveur tire au sort une case ; on fait glisser cette carte
+   * à moitié hors de sa pochette, puis on la remet. On filme : seule cette case doit changer nettement
+   * (les autres restent pareilles : ce n'est pas le téléphone qui bouge), puis revenir comme avant.
+   * Une photo ou un écran ne permet pas de bouger une seule carte ; une vidéo préparée ne connaît pas le numéro.
+   * cells : quadrilatères des pochettes (fractions de l'image vidéo). host : l'élément de la vidéo.
+   */
+  async function livePage(video, host, cells) {
+    const ch = await prepare('page', cells.length);
+    challenges.page = null;
+    if (!ch) return { passed: false, reasons: [available() ? 'serveur de certification injoignable (supabase-v8.sql ?)' : 'connecte-toi pour certifier'] };
+    const m = /^case-(\d+)$/.exec(ch.challenge || '');
+    if (!m) return { passed: false, reasons: ['serveur de certification pas à jour (supabase-v8.sql)'] };
+    const target = Math.min(cells.length, +m[1]) - 1;
+    const W = video.videoWidth, H = video.videoHeight;
+    // cases (un peu rétrécies : on regarde la carte, pas les bords de la pochette)
+    const boxes = cells.map((q) => {
+      const xs = q.map((p) => p[0] * W), ys = q.map((p) => p[1] * H);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      return { x: x0 + (x1 - x0) * 0.12, y: y0 + (y1 - y0) * 0.12, w: (x1 - x0) * 0.76, h: (y1 - y0) * 0.76 };
+    });
+    const grab = () => boxes.map((b) => grayOf(video, b.x, b.y, b.w, b.h, 16, 22));
+    const mad = (A, B) => { let d = 0; for (let i = 0; i < A.length; i++) d += Math.abs(A[i] - B[i]); return d / A.length; };
+    const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
+    // consigne : la case tirée au sort s'allume
+    const ov = document.createElement('div');
+    ov.className = 'page-cert';
+    const poly = (q) => q.map(([x, y]) => `${(x * 100).toFixed(2)},${(y * 100).toFixed(2)}`).join(' ');
+    const tq = cells[target], tx = (tq[0][0] + tq[1][0] + tq[2][0] + tq[3][0]) / 4 * 100, ty = (tq[0][1] + tq[1][1] + tq[2][1] + tq[3][1]) / 4 * 100;
+    ov.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">${cells.map((q, i) => `<polygon points="${poly(q)}" class="${i === target ? 'tgt' : ''}"/>`).join('')}</svg>
+      <div class="pc-num" style="left:${tx}%;top:${ty}%">${target + 1}</div>
+      <div class="pc-txt">Fais glisser la carte <b>${target + 1}</b> à moitié hors de sa pochette, puis remets-la</div><div class="cert-bar"><span></span></div>`;
+    host.appendChild(ov);
+    const txt = ov.querySelector('.pc-txt'), bar = ov.querySelector('.cert-bar span');
+    // image de référence (moyenne de 2 images) et bande-preuve (la case avant, sortie, remise)
+    const SW = 72, SH = 100, strip = Object.assign(document.createElement('canvas'), { width: SW * 3, height: SH }), sg = strip.getContext('2d');
+    const tb = boxes[target], keep = (slot) => sg.drawImage(video, tb.x, tb.y, tb.w, tb.h, slot * SW, 0, SW, SH);
+    await new Promise((r) => setTimeout(r, 150));
+    let base = grab(); keep(0);
+    const hash = dhash(grayOf(video, 0, 0, W, H, 9, 8));
+    let phase = 'sortir', streak = 0, peak = 0, othersAtPeak = 0, moved = 0, frozen = 0, prevT = null;
+    const t0 = Date.now(), LIMIT = 15000;
+    while (Date.now() - t0 < LIMIT) {
+      await new Promise((r) => setTimeout(r, 100));
+      const cur = grab();
+      const diffs = cur.map((g, i) => mad(g, base[i]));
+      const tgt = diffs[target], others = med(diffs.filter((_, i) => i !== target));
+      if (prevT && mad(cur[target], prevT) === 0) frozen++; // images strictement identiques = image injectée (une vraie caméra a toujours un peu de bruit)
+      prevT = cur[target];
+      if (others > 16) { // tout bouge : c'est le téléphone, pas la carte (avant le geste : on repart de l'image actuelle)
+        moved++; txt.innerHTML = 'Tiens le téléphone immobile…'; if (phase === 'sortir') base = cur; streak = 0; continue;
+      }
+      if (phase === 'sortir') {
+        txt.innerHTML = `Fais glisser la carte <b>${target + 1}</b> à moitié hors de sa pochette, puis remets-la`;
+        if (tgt >= 18 && tgt >= others * 3 + 6) { if (++streak >= 2) { phase = 'remettre'; streak = 0; peak = tgt; othersAtPeak = others; keep(1); txt.innerHTML = `Remets la carte <b>${target + 1}</b> dans sa pochette`; ov.classList.add('out'); } }
+        else streak = 0;
+      } else {
+        if (tgt > peak) { peak = tgt; othersAtPeak = others; }
+        if (tgt <= Math.max(9, peak * 0.4)) { if (++streak >= 3) { keep(2); break; } } else streak = 0;
+      }
+      bar.style.width = Math.min(100, Math.round(((Date.now() - t0) / LIMIT) * 100)) + '%';
+    }
+    ov.remove();
+    const done = phase === 'remettre' && streak >= 3;
+    const reasons = [];
+    if (phase === 'sortir') reasons.push(`la carte ${target + 1} n’a pas bougé (ou tout a bougé en même temps)`);
+    else if (!done) reasons.push(`la carte ${target + 1} n’a pas été remise dans sa pochette`);
+    if (frozen >= 25) reasons.push('image figée (ce n’est pas une caméra en direct)');
+    const passed = reasons.length === 0;
+    const r2 = (v) => Math.round(v * 10) / 10;
+    return {
+      passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash,
+      strip: passed ? await new Promise((res) => strip.toBlob(res, 'image/jpeg', 0.8)) : null,
+      scores: { passed, challenge: ch.challenge, kind: 'page', cells: cells.length, page: { peak: r2(peak), others: r2(othersAtPeak), moved, frozen, ms: Date.now() - t0 } },
+    };
   }
 
   /** Consignes affichées sur la vidéo selon l'étape */
@@ -391,16 +467,18 @@ App.certify = (() => {
   /** Liste venant du serveur (seule source qui compte) */
   function setFromServer(rows) {
     certs.clear();
-    rows.forEach((r) => certs.set(r.photo_id, { key: r.key, at: Date.parse(r.created_at) || 0 }));
+    rows.forEach((r) => certs.set(r.photo_id, { key: r.key, at: Date.parse(r.created_at) || 0, page: /^case-/.test(r.challenge || '') }));
     save(); emit();
   }
   /** La carte (objet de collection) a-t-elle une photo certifiée ? */
   const isCertified = (it) => !!(it && it.qty > 0 && (it.photos || []).some((p) => certs.has(p) && certs.get(p).key === it.key));
   const photoCertified = (id) => certs.has(id);
+  /** Certifiée seulement en page de classeur (carte tirée au sort), pas carte par carte ? */
+  const pageOnly = (it) => { const ph = (it && it.photos || []).filter((p) => certs.has(p) && certs.get(p).key === it.key); return ph.length > 0 && ph.every((p) => certs.get(p).page); };
   const count = () => App.col.all().filter(isCertified).length;
 
   return {
-    available, prepare, tracker, HINTS, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
+    available, prepare, tracker, livePage, pageOnly, HINTS, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     _test: { motion, judgeFlip, corr, frozenPairs, screenScore, dhash },
   };

@@ -581,6 +581,17 @@ a.chip { text-decoration: none; }
 @keyframes certFlip { 0% { transform: perspective(300px) rotateY(0); } 50% { transform: perspective(300px) rotateY(180deg); } 100% { transform: perspective(300px) rotateY(360deg); } }
 .cert-txt { font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: #fff; background: rgba(12,14,25,.8); padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15); }
 .cert-bar { width: 60%; height: 6px; border-radius: 3px; background: rgba(255,255,255,.2); overflow: hidden; }
+/* certification d'une page : la case tirée au sort s'allume sur la vidéo */
+.page-cert { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
+.page-cert svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.page-cert polygon { fill: rgba(0,0,0,.28); stroke: rgba(255,255,255,.35); stroke-width: .3; vector-effect: non-scaling-stroke; }
+.page-cert polygon.tgt { fill: rgba(255,210,63,.18); stroke: #ffd23f; stroke-width: 3; animation: pcPulse 1s ease-in-out infinite; }
+.page-cert.out polygon.tgt { stroke: var(--ok); fill: rgba(62,207,142,.18); }
+@keyframes pcPulse { 50% { fill: rgba(255,210,63,.4); } }
+.pc-num { position: absolute; transform: translate(-50%, -50%); font: 800 2.6rem/1 var(--display, Fredoka, sans-serif); color: #ffd23f; text-shadow: 0 2px 10px rgba(0,0,0,.9); }
+.page-cert.out .pc-num { color: var(--ok); }
+.pc-txt { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); width: max-content; max-width: 92%; text-align: center; font-weight: 700; color: #fff; background: rgba(12,14,25,.85); padding: 7px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.18); }
+.page-cert .cert-bar { position: absolute; left: 20%; bottom: 10px; }
 .cert-bar span { display: block; height: 100%; width: 0; background: var(--holo); transition: width .18s linear; }
 @keyframes certPulse { 50% { transform: scale(1.15); } }
 .cert-ok { color: #3ddc97; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }

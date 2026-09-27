@@ -207,7 +207,7 @@ App.cloud = (() => {
   /** Certifications de ce compte (lecture seule : seul le serveur peut en créer) */
   async function loadCerts() {
     if (!App.certify) return;
-    const { data, error } = await sb.from('certifications').select('photo_id,key,created_at');
+    const { data, error } = await sb.from('certifications').select('photo_id,key,created_at,challenge');
     if (error) { console.info('Certification pas encore activée sur le serveur', error.message); return; }
     App.certify.setFromServer(data || []);
   }

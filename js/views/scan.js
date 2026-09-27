@@ -44,7 +44,7 @@ App.views.scan = {
       <h3 style="margin-top:0">Comment ça marche</h3>
       <ol class="sg-steps">${steps.map(([ic, t, d], i) => `<li><span class="sg-n">${i + 1}</span><span class="sg-ic">${App.icons.icon(ic, 18)}</span><span><b>${t}</b><br><span class="muted small">${d}</span></span></li>`).join('')}</ol>
       <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${mode === 'classeur'
-        ? 'Pas de badge pour une page de classeur. Pour certifier une carte, capture-la seule (ou en rafale) avec la caméra du site : tu pourras le faire plus tard depuis sa fiche.'
+        ? (certOn ? 'Pour certifier la page : « Caméra dans la page », prends la photo, puis fais glisser la carte tirée au sort à moitié hors de sa pochette et remets-la. (Avec l’appareil photo du téléphone : pas de badge.)' : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a> pour certifier tes pages avec « Caméra dans la page ».' : 'Avec un compte, les pages prises avec « Caméra dans la page » peuvent être certifiées.')
         : certOn
         ? 'Utilise le bouton « Caméra » du site : montre d’abord le dos de la carte (il doit être visible : pas d’étui opaque), retourne-la, puis prends la photo. Tes cartes bien reconnues recevront le badge.'
         : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
@@ -524,6 +524,7 @@ App.views.scan = {
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             <button class="btn ghost" id="b-cam">Caméra dans la page</button>
           </div>
+          ${certOn && !burst ? `<label class="r-cert small" id="b-certify-l"><input type="checkbox" id="b-certify" checked> ${App.icons.icon('shield', 14)} <span>Certifier la page <span class="muted">(avec « Caméra dans la page » : une carte tirée au sort à glisser hors de sa pochette puis remettre)</span></span></label>` : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <div id="b-auto" class="b-auto hidden"></div>
             <p class="small muted">La grille se place toute seule. Si besoin, glisse-la pour la déplacer et tire ses coins ronds : chaque case doit entourer une pochette.</p>
@@ -616,9 +617,21 @@ App.views.scan = {
       setStatus('<div class="spinner"></div><div style="text-align:center">Photo en haute définition…</div>');
       const b = await cam.photo();
       if (!b) { setStatus(''); el.querySelector('#b-shot').classList.remove('hidden'); return; }
-      // pas de certification pour une page de classeur (on ne peut pas retourner 9 cartes)
+      // certification de la page : une carte tirée au sort à faire glisser hors de sa pochette, puis à remettre
+      let res = null;
+      if (App.certify.available() && el.querySelector('#b-certify') && el.querySelector('#b-certify').checked) {
+        setStatus('');
+        try {
+          await new Promise((r) => setTimeout(r, 300)); // le flux reprend après la photo
+          const fb = await cam.capture(), fimg = fb ? await createImageBitmap(fb) : null; // pochettes repérées sur l'image vidéo
+          const det = fimg ? R.detectPage(fimg, PAGE_FORMATS, fmt === 'double' ? '3x3' : fmt) : null;
+          const g = det && det.grid;
+          if (g && g.cells && !g.rot && g.fit >= 0.38) res = await App.certify.livePage(cam.video, view, g.cells.map((c) => c.quad));
+          else res = { passed: false, reasons: ['pochettes pas trouvées sur la vidéo (page entière, bien de face)'] };
+        } catch (e) { console.warn(e); res = { passed: false, reasons: ['vérification impossible'] }; }
+      }
       cam.stop();
-      startGrid(b, null);
+      startGrid(b, res);
     });
     const fromFile = (e) => { if (e.target.files[0]) { cam.stop(); startGrid(e.target.files[0], null); } e.target.value = ''; };
     el.querySelector('#b-file').addEventListener('change', fromFile); // appareil photo du téléphone
@@ -1160,7 +1173,9 @@ App.views.scan = {
         for (const { c } of todo) {
           c.saved = true; c.checked = false;
           const pc = burst ? c.live : pageCert; c.pc = pc;
-          c.cert = !App.cloud.enabled || !c.photoId ? '' : !burst ? 'pas de badge pour une page de classeur' : !App.cloud.user ? 'connecte-toi pour certifier' : !pc ? (c.live === null ? 'certification désactivée' : 'photo importée') : !pc.passed ? pc.reasons[0] : 'encours';
+          c.cert = !App.cloud.enabled || !c.photoId ? '' : !App.cloud.user ? 'connecte-toi pour certifier'
+            : !pc ? (burst ? (c.live === null ? 'certification désactivée' : 'photo importée') : 'page non certifiée (« Caméra dans la page » et la carte tirée au sort)')
+            : !pc.passed ? pc.reasons[0] : 'encours';
           if (c.cert && c.cert !== 'encours') App.certify.note(c.key, c.photoId, c.cert === 'photo importée' ? 'photo importée depuis la galerie' : c.cert);
         }
         // certification des cartes bien reconnues (l'une après l'autre, en arrière-plan)
