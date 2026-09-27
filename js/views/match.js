@@ -511,8 +511,9 @@
       rows.forEach((r, i) => drawTile(i));
 
       const drawTypes = () => {
-        const present = [...new Set(rows.map((r) => r.type).filter(Boolean))].sort((a, b) => Object.keys(B().TYPE_INFO).indexOf(a) - Object.keys(B().TYPE_INFO).indexOf(b));
-        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">Tous les types</button>` + present.map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''}" data-t="${t}" style="--tc:${typeColor(t)}"><i></i>${esc(B().TYPE_INFO[t][0])}</button>`).join('');
+        // les 11 types du jeu de cartes, toujours affichés (grisés si tu n'en as aucun)
+        const cnt = {}; rows.forEach((r) => { if (r.type && !r.invalid) cnt[r.type] = (cnt[r.type] || 0) + 1; });
+        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">Tous les types</button>` + Object.keys(B().TYPE_INFO).map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''} ${cnt[t] ? '' : 'none'}" data-t="${t}" style="--tc:${typeColor(t)}" ${cnt[t] ? '' : 'disabled title="Aucun Pokémon de ce type dans ta collection"'}><i></i>${esc(B().TYPE_INFO[t][0])}${cnt[t] ? ` <small>${cnt[t]}</small>` : ''}</button>`).join('');
       };
       drawTypes();
 
@@ -567,9 +568,8 @@
         loaded++;
         if (done) return;
         if (rows[i].invalid) tiles[i].hidden = true; else drawTile(i);
-        if (rows[i].type && !body.querySelector(`.bt-tchip[data-t="${rows[i].type}"]`)) drawTypes();
         later();
-      }).then(() => { if (!done) apply(); });
+      }).then(() => { if (!done) { drawTypes(); apply(); } });
 
       body.addEventListener('click', (e) => {
         const rm = e.target.closest('[data-rm]');
