@@ -68,4 +68,4 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - L'espace de travail de Claude n'a pas accès à internet (TCGdex, polices…) : tester dans le navigateur intégré.
 
 ## Idées pour la suite
-Liste complète et priorités dans le document de projet « CollecDex - etat et feuille de route ». En bref : Échanges entre collectionneurs (doublons + certification + pseudos uniques déjà prêts), vitrine publique, import depuis d'autres applis, One Piece en 2ᵉ licence, analyse de certification côté serveur.
+Liste complète et priorités dans le document de projet « CollecDex - etat et feuille de route ». **À rappeler à Arnaud quand le Match aura avancé** : son idée de cartes Dresseur / Énergie dans les combats (« sac » de 4 à 6 cartes, 1 carte jouable par tour en plus de l'action ; détails dans la feuille de route). En bref : Échanges entre collectionneurs (doublons + certification + pseudos uniques déjà prêts), vitrine publique, import depuis d'autres applis, One Piece en 2ᵉ licence, analyse de certification côté serveur.
