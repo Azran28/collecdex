@@ -571,6 +571,12 @@ App.views.scan = {
     function useDetection(g, k) {
       grid = { x: g.x, y: g.y, w: g.w, h: g.h }; autoGrid = true;
       autoCells = g.cells || null; autoRot = g.rot || 0;
+      // chaque case ajustée sur les VRAIS bords de sa carte (la grille, régulière, tombe parfois à côté)
+      if (autoCells && !autoRot && photo && !window.__noSnap) {
+        let snapped = [];
+        try { snapped = R.snapCells(photo.img, autoCells); } catch (e) { console.warn(e); }
+        autoCells = autoCells.map((c, i) => (snapped[i] ? { ...c, quad: snapped[i], snapped: true, gridQuad: c.quad } : c));
+      }
       dimsOv = k === 'double' && g.rot ? [3, 6] : null;
     }
 
@@ -729,9 +735,26 @@ App.views.scan = {
      * Découpe la pochette n° i : on cherche les bords de la carte dans la case
      * (marges entre pochettes, carte décalée…) ; si on ne les trouve pas, on prend le centre de la case.
      */
-    function cellBlob(i, rot = autoRot) {
+    async function cellBlob(i, rot = autoRot) {
       const [cols, rows] = dims();
       const img = photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
+      if (autoGrid && autoCells && autoCells[i] && autoCells[i].snapped) {
+        // bords de la carte trouvés : on la découpe pile dessus, remise à plat
+        try {
+          const q = autoCells[i].quad.map(([x, y]) => [x * NW, y * NH]);
+          const qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
+          const c = R.warpQuad(img, q, Math.min(900, Math.round(qw)));
+          const xs = q.map((p) => p[0] / NW), ys = q.map((p) => p[1] / NH);
+          const box = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+          // lecture : d'abord la découpe habituelle (éprouvée) ; la carte ajustée n'est retenue que si ELLE est
+          // reconnue avec certitude et pas l'autre (mesuré : parfois bien meilleure, parfois trompée par les reflets)
+          const snap = await new Promise((res) => c.toBlob((b) => res({ blob: b, auto: true, box }), 'image/jpeg', 0.9));
+          try {
+            const o = R.cellCard(img, { ...autoCells[i], quad: autoCells[i].gridQuad }, rot);
+            return await new Promise((res) => o.canvas.toBlob((b) => res({ blob: b, auto: o.auto, box: o.box, alt: snap }), 'image/jpeg', 0.9));
+          } catch (e) { return snap; }
+        } catch (e) { console.warn(e); }
+      }
       if (autoGrid && autoCells && autoCells[i]) {
         let r = null; try { r = R.cellCard(img, autoCells[i], rot); } catch (e) { console.warn(e); }
         // (le détourage « cutCard » a été essayé ici le 27 sept. : meilleur sur 2 pages, bien pire sur une page
@@ -766,9 +789,9 @@ App.views.scan = {
       detected = null;
       cells = [];
       for (let i = 0; i < n; i++) {
-        const { blob, auto, box } = await cellBlob(i);
+        const { blob, auto, box, alt } = await cellBlob(i);
         const url = URL.createObjectURL(blob); urls.push(url);
-        cells.push({ i, blob, url, auto, box, state: 'attente', cands: [], choice: '', info: null, mode: null });
+        cells.push({ i, blob, url, auto, box, alt, state: 'attente', cands: [], choice: '', info: null, mode: null });
       }
       drawResults();
       let rotChecked = !autoRot; // cartes couchées : on vérifie le sens (haut de la carte à droite ou à gauche) sur la 1re carte lue
@@ -779,6 +802,16 @@ App.views.scan = {
         const st = (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n} — ${esc(m)}</div>`); };
         try {
           await recogOne(cell, hint, st);
+          // pas sûre avec la découpe habituelle : on essaie la carte ajustée sur ses vrais bords, gardée seulement si sûre
+          if (cell.alt && cell.state !== 'sure' && !['vide', 'dos', 'autre'].includes(cell.state) && !stopped && alive()) {
+            const test = { ...cell, blob: cell.alt.blob };
+            await recogOne(test, hint, st);
+            if (test.state === 'sure') {
+              Object.assign(cell, { blob: test.blob, box: cell.alt.box, auto: cell.alt.auto, info: test.info, cands: test.cands, choice: test.choice, state: test.state, checked: test.checked });
+              cell.url = URL.createObjectURL(cell.blob); urls.push(cell.url);
+            }
+            cell.alt = null;
+          }
           if (!rotChecked && !['vide', 'dos', 'autre'].includes(cell.state)) {
             rotChecked = true;
             if (cell.state !== 'sure') {

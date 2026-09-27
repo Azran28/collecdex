@@ -390,12 +390,17 @@ App.recognizer = (() => {
    * Chaque bord : sur chaque ligne (ou colonne), le premier contraste net en venant de l'extérieur,
    * puis une droite ajustée en ignorant les points aberrants (reflets, doigts). Les 4 droites se coupent aux coins.
    * rect : zone où se trouve la carte (fractions de l'image). Renvoie { canvas, quad, fit } ou null si pas sûr.
+   * expect : quadrilatère attendu (fractions ; ex. la pochette trouvée par la grille) → on ne garde que des bords
+   *   proches de lui (±12 %), le plus proche l'emporte : pas de bord de pochette voisine ni de reflet lointain.
+   * warp = false : seulement les coins (quad), sans image remise à plat.
    */
-  function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }) {
+  function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }, { expect = null, warp = true } = {}) {
     const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
-    // zone de recherche : la zone donnée + 8 % (la carte peut dépasser un peu du cadre jaune)
-    const ax = Math.max(0, (rect.x - rect.w * 0.08) * NW), ay = Math.max(0, (rect.y - rect.h * 0.08) * NH);
-    const aw = Math.min(NW - ax, rect.w * 1.16 * NW), ah = Math.min(NH - ay, rect.h * 1.16 * NH);
+    // zone de recherche : la zone donnée + 8 % (la carte peut dépasser un peu du cadre jaune) ;
+    // + 14 % autour d'une case de classeur (la grille, régulière, peut être décalée d'une rangée à l'autre)
+    const mg = expect ? 0.14 : 0.08;
+    const ax = Math.max(0, (rect.x - rect.w * mg) * NW), ay = Math.max(0, (rect.y - rect.h * mg) * NH);
+    const aw = Math.min(NW - ax, rect.w * (1 + 2 * mg) * NW), ah = Math.min(NH - ay, rect.h * (1 + 2 * mg) * NH);
     const S = 320 / Math.max(aw, ah), w = Math.max(40, Math.round(aw * S)), h = Math.max(40, Math.round(ah * S));
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d', { willReadFrequently: true });
@@ -404,6 +409,38 @@ App.recognizer = (() => {
     const px = g.getImageData(0, 0, w, h).data, G = new Float32Array(w * h);
     for (let i = 0; i < G.length; i++) G[i] = px[i * 4];
     const at = (x, y) => G[y * w + x];
+    // mêmes pixels en couleurs (pour reconnaître la bordure de la carte)
+    let Cp = null;
+    if (expect) { const cc = document.createElement('canvas'); cc.width = w; cc.height = h; const cg = cc.getContext('2d', { willReadFrequently: true }); cg.drawImage(img, ax, ay, aw, ah, 0, 0, w, h); Cp = cg.getImageData(0, 0, w, h).data; }
+    const col = (x, y) => { const xi = Math.min(w - 1, Math.max(0, Math.round(x))), yi = Math.min(h - 1, Math.max(0, Math.round(y))), i = (yi * w + xi) * 4; return [Cp[i], Cp[i + 1], Cp[i + 2]]; };
+    /**
+     * Bordure d'une carte : juste À L'INTÉRIEUR du vrai bord, une bande d'une seule couleur tout autour (jaune, argent…),
+     * qui tranche avec ce qu'il y a juste à l'extérieur. Le bord d'une pochette (plastique des deux côtés) ou le cadre
+     * intérieur de la carte (dessin ou texte à l'intérieur) n'ont pas cette signature.
+     */
+    function borderScore(q) {
+      const cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+      const qw = (dist(q[0], q[1]) + dist(q[3], q[2])) / 2, d = qw * 0.022;
+      const mean = (L) => [0, 1, 2].map((k) => L.reduce((a, p) => a + p[k], 0) / L.length);
+      const allIn = [], per = [];
+      // côté par côté : un seul côté faux (ex. le haut coupé à la barre du nom) doit faire baisser la note
+      for (let s = 0; s < 4; s++) {
+        const A = q[s], B = q[(s + 1) % 4], ins = [], outs = [];
+        for (let t = 0.1; t < 0.92; t += 0.06) {
+          const x = A[0] + (B[0] - A[0]) * t, y = A[1] + (B[1] - A[1]) * t;
+          const nx = cx - x, ny = cy - y, nl = Math.hypot(nx, ny) || 1;
+          ins.push(col(x + nx / nl * d, y + ny / nl * d)); outs.push(col(x - nx / nl * d, y - ny / nl * d));
+        }
+        const mi = mean(ins), mo = mean(outs);
+        const sd = Math.sqrt(ins.reduce((a, p) => a + (p[0] - mi[0]) ** 2 + (p[1] - mi[1]) ** 2 + (p[2] - mi[2]) ** 2, 0) / ins.length / 3);
+        per.push(Math.hypot(mi[0] - mo[0], mi[1] - mo[1], mi[2] - mo[2]) / (25 + sd));
+        allIn.push(mi);
+      }
+      // la bordure a la même couleur sur les 4 côtés
+      const m4 = mean(allIn), spread = Math.sqrt(allIn.reduce((a, p) => a + (p[0] - m4[0]) ** 2 + (p[1] - m4[1]) ** 2 + (p[2] - m4[2]) ** 2, 0) / 4 / 3);
+      borderScore.last = { per: per.map((v) => Math.round(v * 100) / 100), spread: Math.round(spread) };
+      return (per.reduce((a, b) => a + b, 0) / 4 + Math.min(...per)) / 2 - spread / 60;
+    }
     // contraste horizontal (bords gauche/droite) ou vertical (haut/bas), lissé sur 3 pixels le long du bord
     const gx = (x, y) => Math.abs((at(x + 1, y - 1) + at(x + 1, y) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + at(x - 1, y) + at(x - 1, y + 1))) / 3;
     const gy = (x, y) => Math.abs((at(x - 1, y + 1) + at(x, y + 1) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + at(x, y - 1) + at(x + 1, y - 1))) / 3;
@@ -458,6 +495,10 @@ App.recognizer = (() => {
     // coin = croisement d'un bord vertical (x = a·y + b) et d'un bord horizontal (y = c·x + d)
     const cross = (V, H) => { const x = (V.a * H.b + V.b) / (1 - V.a * H.a); return [x, H.a * x + H.b]; };
     const dist = (p, r) => Math.hypot(p[0] - r[0], p[1] - r[1]);
+    // bords attendus (pochette de la grille), en coordonnées de la petite image : milieu de chaque côté
+    const E = expect ? expect.map(([x, y]) => [(x * NW - ax) * S, (y * NH - ay) * S]) : null;
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const EM = E && { L: mid(E[0], E[3]), R: mid(E[1], E[2]), T: mid(E[0], E[1]), B: mid(E[3], E[2]), w: (dist(E[0], E[1]) + dist(E[3], E[2])) / 2, h: (dist(E[0], E[3]) + dist(E[1], E[2])) / 2 };
     // la combinaison de 4 bords qui forme le mieux une carte (proportions 63 × 88, bords bien marqués, assez grande)
     let pick = null;
     for (const L of Ls) for (const R of Rs) for (const T of Ts) for (const B of Bs) {
@@ -465,17 +506,35 @@ App.recognizer = (() => {
       const qw = (dist(q[0], q[1]) + dist(q[3], q[2])) / 2, qh = (dist(q[0], q[3]) + dist(q[1], q[2])) / 2;
       const ratio = qw / qh / (63 / 88);
       if (ratio < 0.9 || ratio > 1.1 || qh < rect.h * NH * S * 0.6 || Math.min(L.frac, R.frac, T.frac, B.frac) < 0.3) continue;
-      // à forme égale, le plus GRAND rectangle : le bord extérieur de la carte, pas le cadre jaune à l'intérieur
-      const score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 + (qw * qh) / (w * h) * 4;
+      let score;
+      if (EM) {
+        // écart de chaque bord trouvé au bord attendu, en fraction de la taille de la carte
+        const dv = [Math.abs(L.a * EM.L[1] + L.b - EM.L[0]) / EM.w, Math.abs(R.a * EM.R[1] + R.b - EM.R[0]) / EM.w,
+          Math.abs(T.a * EM.T[0] + T.b - EM.T[1]) / EM.h, Math.abs(B.a * EM.B[0] + B.b - EM.B[1]) / EM.h];
+        if (Math.max(...dv) > 0.16) continue;
+        const bs = borderScore(q);
+        score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 - (dv[0] + dv[1] + dv[2] + dv[3]) * 2 + bs * 3;
+        if (!pick || score > pick.score) pick = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac), border: borderScore.last };
+        continue;
+      } else {
+        // à forme égale, le plus GRAND rectangle : le bord extérieur de la carte, pas le cadre jaune à l'intérieur
+        score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 + (qw * qh) / (w * h) * 4;
+      }
       if (!pick || score > pick.score) pick = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac) };
     }
     if (!pick || pick.fit < 0.3) return null;
     const q = pick.q.map(([x, y]) => [ax + x / S, ay + y / S]);
-    const qw = pick.qw / S, qh = pick.qh / S;
+    const qw = pick.qw / S;
     if (q.some(([x, y]) => x < -2 || y < -2 || x > NW + 2 || y > NH + 2)) return null;
-    // remise à plat, avec un liseré de 0,4 % retiré (le bord lui-même)
-    const f = squareToQuad(q), e = 0.004;
-    const fw = Math.min(900, Math.round(qw)), fh = Math.round(fw * 88 / 63);
+    const quad = q.map(([x, y]) => [x / NW, y / NH]);
+    if (!warp) return { quad, fit: pick.fit, border: pick.border };
+    return { canvas: warpQuad(img, q, Math.min(900, Math.round(qw))), quad, fit: pick.fit };
+  }
+
+  /** Remet à plat le quadrilatère q (pixels de l'image, coins HG, HD, BD, BG) en une carte de largeur fw, liseré e retiré */
+  function warpQuad(img, q, fw, e = 0.004) {
+    const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
+    const f = squareToQuad(q), fh = Math.round(fw * 88 / 63);
     const bx0 = Math.max(0, Math.floor(Math.min(...q.map((p) => p[0])))), by0 = Math.max(0, Math.floor(Math.min(...q.map((p) => p[1]))));
     const bx1 = Math.min(NW, Math.ceil(Math.max(...q.map((p) => p[0])))), by1 = Math.min(NH, Math.ceil(Math.max(...q.map((p) => p[1]))));
     const SW = Math.max(1, bx1 - bx0), SH = Math.max(1, by1 - by0);
@@ -498,7 +557,24 @@ App.recognizer = (() => {
       }
     }
     og.putImageData(od, 0, 0);
-    return { canvas: out, quad: q.map(([x, y]) => [x / NW, y / NH]), fit: pick.fit };
+    return out;
+  }
+
+  /**
+   * Cases d'une page de classeur (grille trouvée) → bords réels de chaque carte, cherchés près de sa case.
+   * Renvoie pour chaque case son quadrilatère ajusté (fractions), ou null si ses bords ne sont pas sûrs.
+   */
+  function snapCells(img, cells) {
+    snapCells.last = [];
+    return cells.map((c) => {
+      try {
+        const xs = c.quad.map((p) => p[0]), ys = c.quad.map((p) => p[1]);
+        const rect = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+        const r = cutCard(img, rect, { expect: c.quad, warp: false });
+        snapCells.last = (snapCells.last || []).concat([r && r.border]);
+        return r ? r.quad : null;
+      } catch (e) { return null; }
+    });
   }
 
   /**
@@ -658,6 +734,16 @@ App.recognizer = (() => {
           if (ratio >= 1.7) { pickBase = 'reverse'; sure.base = ratio >= 2.2; } else sure.base = ratio <= 1.3;
         }
       }
+    } else if (base.length > 1 && base.includes('holo') && base.includes('normal') && O) {
+      // holo ou normale ? holo = l'ILLUSTRATION brille (reflets, grain), pas le texte : même mesure que la reverse,
+      // zones inversées, toujours comparée au visuel officiel (qui ne brille pas)
+      const f = (Q, x0, x1, y0, y1) => { const r = foilIn(Q, x0, x1, y0, y1); return r ? r.grain + r.satVar * 40 : null; };
+      const tP = f(P, 0.08, 0.92, 0.6, 0.86), aP = f(P, 0.12, 0.88, 0.14, 0.44), tO = f(O, 0.08, 0.92, 0.6, 0.86), aO = f(O, 0.12, 0.88, 0.14, 0.44);
+      if (tP && aP && tO && aO) {
+        const ratio = (aP / aO) / (tP / tO);
+        info.holoRatio = Math.round(ratio * 100) / 100;
+        pickBase = ratio >= 1.4 ? 'holo' : 'normal'; sure.base = ratio >= 1.9 || ratio <= 1.1;
+      } else pickBase = 'holo';
     } else if (base.length > 1) pickBase = base.includes('holo') ? 'holo' : base[0];
     if (pickBase) list.push(pickBase);
     if (v.firstEdition) {
@@ -1174,5 +1260,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
 })();
