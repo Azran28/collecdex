@@ -227,7 +227,7 @@ App.views.scan = {
       try {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = App.views.scan.guide('carte');
         if (!App.certify.available()) { setStatus(''); return; }
-        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre, puis retourne-la et tiens-la immobile : la photo se prend toute seule. <span class="muted">(« Prendre la photo » = sans certification)</span></span>`);
+        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre, retourne-la (prends ton temps), puis appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         trk = App.certify.tracker(cam.video, () => cam.region());
@@ -238,23 +238,24 @@ App.views.scan = {
           // dos toujours pas reconnu après 7 s : souvent une carte dans un étui opaque
           const show = ph === 'attente' && Date.now() - t0 > 7000 ? 'aide' : ph;
           const h = view.querySelector('.flip-hint'); if (h && h.dataset.phase !== show) { h.innerHTML = show === 'aide' ? 'Dos pas reconnu : il doit être <b>visible</b> (sors la carte d’un étui opaque ; une pochette transparente, ça va)' : App.certify.HINTS[ph]; h.dataset.phase = show; }
-          if (ph === 'pret') shoot(true);
+          // dos vu : le bouton de photo le montre (la photo sera certifiée)
+          const sb = el.querySelector('#sc-shot'); if (sb) sb.classList.toggle('cert-ready', ph === 'retourne');
         }, 90);
       }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra dans le navigateur, ou utilise « Choisir une photo ».</span>`); }
     });
-    el.querySelector('#sc-shot').addEventListener('click', () => shoot(false));
+    // photo certifiable si le dos a été vu (dans les 15 dernières secondes) et la carte retournée depuis
+    el.querySelector('#sc-shot').addEventListener('click', () => shoot(!!(trk && trkTimer && trk.phase !== 'attente')));
     async function shoot(flipped) {
-      stopTrack();
       const shot = el.querySelector('#sc-shot');
       const b = await cam.capture(); if (!b) return;
-      shot.classList.add('hidden');
-      if (flipped) { App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ } }
       cert = null;
       if (App.certify.available()) {
         cert = flipped ? await trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; })
-          : { passed: false, reasons: ['photo prise sans retourner la carte (montre d’abord le dos : la photo se prend toute seule)'] };
+          : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
       }
+      stopTrack();
+      shot.classList.add('hidden'); shot.classList.remove('cert-ready');
       cam.stop();
       startCrop(b, 0.92);
       if (cert) setStatus(cert.passed
@@ -1139,7 +1140,7 @@ App.views.scan = {
       const diff = rPrev ? mad(F, rPrev) : 99; rPrev = F;
       if (wantCert()) {
         // chaque carte : le dos, on la retourne, on la tient immobile → prise et certifiée toute seule
-        if (!rTrk) rTrk = App.certify.tracker(cam.video, () => cam.region());
+        if (!rTrk) rTrk = App.certify.tracker(cam.video, () => cam.region(), { auto: true });
         const ph = rTrk.step();
         if (ph === 'pret') { if (rLast && sameCard(rLast, F)) { rTrk.reset(); rHint(`Carte ${cells.length} prise ✓ — passe à la suivante`, 'ok'); return; } rCapture(F, true); return; }
         if (ph === 'dos') { rHint('Retourne-la !', 'go'); return; }

@@ -170,23 +170,25 @@ App.certify = (() => {
   const BACK_T = 0.55, FRONT_T = 0.5; // dos : 0,71 à 0,95 mesurés ; faces jusqu'à 0,49
 
   /**
-   * Retournement réussi ? Analyse faite juste après la photo, sur les dernières images filmées.
+   * Retournement réussi ? Analyse faite au moment de la photo, sur les images filmées depuis le dos.
    * frames : [{ b (ressemblance avec un dos), g (petite image grise) }] ; la dernière = la face photographiée.
    * On part du dernier dos vu (2 images de suite), puis chaque image suivante est classée :
-   * F (ressemble à la face photographiée), B (dos), X (entre deux : carte de profil, floue).
-   * Il faut au moins une image X avant la face : un vrai geste prend du temps, alors qu'une image
-   * changée d'un coup sur un écran passe directement du dos à la face.
+   * F (ressemble déjà à la face photographiée), B (dos), X (entre deux : carte de profil, floue, main…).
+   * L'image qui suit immédiatement le dos doit être « entre deux » (X) : un vrai geste prend du temps,
+   * alors qu'une image changée d'un coup sur un écran passe directement du dos à la face.
+   * Ce qui se passe ensuite (recadrage, hésitation) ne compte pas : on peut prendre son temps.
    */
   function judgeFlip(frames, w, h) {
     let lb = -1;
     for (let i = frames.length - 1; i > 0; i--) if (frames[i].b >= BACK_T && frames[i - 1].b >= BACK_T) { lb = i; break; }
     if (lb < 0) return { passed: false, why: 'le dos de la carte n’a pas été vu' };
-    const face = frames[frames.length - 1].g;
+    const last = frames[frames.length - 1];
+    if (lb === frames.length - 1 || last.b >= BACK_T) return { passed: false, why: 'la photo montre le dos : retourne la carte avant d’appuyer', lb, states: '' };
+    const face = last.g;
     const states = frames.slice(lb + 1).map((f) => (f.b >= BACK_T ? 'B' : corr(f.g, face, w, h) >= FRONT_T ? 'F' : 'X')).join('');
-    const firstF = states.indexOf('F');
-    const gap = (states.slice(0, firstF < 0 ? states.length : firstF).match(/X/g) || []).length;
-    if (gap < 1) return { passed: false, why: 'retournement trop brusque (image remplacée d’un coup ?)', gap, states, lb };
-    return { passed: true, gap, states, lb };
+    const gap = (states.match(/^X*/) || [''])[0].length; // images « entre deux » juste après le dos
+    if (gap < 1) return { passed: false, why: 'retournement trop brusque (image remplacée d’un coup ?)', gap, states: states.slice(0, 60), lb };
+    return { passed: true, gap, states: states.slice(0, 60), lb };
   }
 
   // ---------- Liaison avec le serveur ----------
@@ -213,60 +215,71 @@ App.certify = (() => {
   /** Consignes affichées sur la vidéo selon l'étape */
   const HINTS = {
     attente: '<b>1.</b> Montre le <b>dos</b> de la carte dans le cadre',
-    dos: '<b>2.</b> Retourne-la !',
-    retourne: '<b>3.</b> Tiens-la immobile…',
+    dos: '<b>2.</b> Retourne-la (prends ton temps)',
+    retourne: '<b>3.</b> Cadre la face, puis appuie sur <b>Prendre la photo</b>',
     pret: '📸',
   };
+  const WINDOW = 15000; // après le dos, on a 15 s pour retourner la carte et prendre la photo
 
   /**
    * Certification « dos d'abord » : on suit la zone du cadre en continu. On montre le dos, on retourne
-   * la carte, on la tient immobile → la photo se prend toute seule (un seul geste, environ 1 seconde).
-   * step() à chaque image (~90 ms) → 'attente' | 'dos' | 'retourne' | 'pret'.
-   * Quand c'est 'pret' : prendre la photo, puis proof() donne le résultat à envoyer au serveur.
+   * la carte, puis on prend la photo (bouton) ; en rafale (auto), la photo se prend toute seule
+   * quand la face reste immobile ~0,6 s.
+   * step() à chaque image (~90 ms) → 'attente' | 'dos' | 'retourne' | 'pret' (seulement en auto).
+   * Au moment de la photo, proof() donne le résultat à envoyer au serveur.
    * regionFn() : zone du cadre dans la vidéo { sx, sy, sw, sh }.
    */
-  function tracker(video, regionFn) {
+  function tracker(video, regionFn, { auto = false } = {}) {
     const GW = 24, GH = 33, SW = 72, SH = 100;
     const cv = Object.assign(document.createElement('canvas'), { width: SW, height: SH });
     const cg = cv.getContext('2d', { willReadFrequently: true });
-    let frames = [], phase = 'attente', lastBack = 0, stable = 0, prev = null;
-    const reset = () => { frames = []; phase = 'attente'; stable = 0; prev = null; };
-    function step() {
+    let frames = [], phase = 'attente', lastBack = 0, stable = 0, prev = null, sinceBack = 99;
+    const reset = () => { frames = []; phase = 'attente'; stable = 0; prev = null; sinceBack = 99; };
+    function grab() {
       const r = regionFn();
-      if (!r || !video || !video.videoWidth) return phase;
+      if (!r || !video || !video.videoWidth) return null;
       cg.drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, SW, SH);
       const b = App.recognizer.backScoreOf(cv, SW, SH);
       const g = grayOf(cv, 0, 0, SW, SH, GW, GH);
+      sinceBack = b >= BACK_T ? 0 : sinceBack + 1;
+      // petites images gardées seulement autour du dos (pour la bande-preuve) : c'est léger
+      const f = { t: Date.now(), b, g, img: sinceBack < 12 ? cg.getImageData(0, 0, SW, SH) : null };
+      frames.push(f);
+      if (frames.length > 200) frames.shift();
+      return f;
+    }
+    function step() {
+      const f = grab(); if (!f) return phase;
+      const { b, g, t: now } = f;
       let m = 0; for (const v of g) m += v; m /= g.length;
       let sd = 0; for (const v of g) sd += (v - m) ** 2; sd = Math.sqrt(sd / g.length);
       let diff = 99; if (prev) { diff = 0; for (let i = 0; i < g.length; i++) diff += Math.abs(g[i] - prev[i]); diff /= g.length; }
       prev = g;
-      const now = Date.now();
-      // petites images gardées pour la bande-preuve (seulement une fois le dos vu : c'est léger)
-      frames.push({ t: now, b, g, img: phase !== 'attente' || b >= BACK_T ? cg.getImageData(0, 0, SW, SH) : null });
-      if (frames.length > 50) frames.shift();
       const n = frames.length;
       if (b >= BACK_T) { if (n > 1 && frames[n - 2].b >= BACK_T) { phase = 'dos'; lastBack = now; } stable = 0; return phase; }
       if (phase === 'attente') return phase;
-      if (now - lastBack > 4000) { reset(); return phase; } // dos vu il y a trop longtemps : on recommence
+      if (now - lastBack > WINDOW) { reset(); return phase; } // dos vu il y a trop longtemps : on recommence
       phase = 'retourne';
-      // la face est posée : carte présente (assez de détails), immobile, et ce n'est pas un dos
-      const still = sd >= 16 && diff < 4 + sd * 0.08;
-      stable = still ? stable + 1 : 0;
-      if (stable >= 3) phase = 'pret';
+      if (auto) {
+        // rafale : la face est posée (assez de détails) et immobile un bon moment → photo
+        const still = sd >= 16 && diff < 4 + sd * 0.08;
+        stable = still ? stable + 1 : 0;
+        if (stable >= 6) phase = 'pret';
+      }
       return phase;
     }
-    /** Résultat, juste après la photo (le défi du serveur est consommé) */
+    /** Résultat, au moment de la photo (le défi du serveur est consommé) */
     async function proof() {
       const ch = challenges.carte; challenges.carte = null; // usage unique
       if (!ch) return { passed: false, reasons: [available() ? 'serveur de certification injoignable' : 'connecte-toi pour certifier'] };
       if (ch.challenge !== 'retourne') return { passed: false, reasons: ['serveur de certification pas à jour (supabase-v7.sql)'] };
+      grab(); // la dernière image = ce que montre la photo
       const j = judgeFlip(frames, GW, GH);
       const r = regionFn() || { sx: 0, sy: 0, sw: video.videoWidth, sh: video.videoHeight };
       const N = 256, side = Math.min(r.sw, r.sh, Math.max(N, Math.min(r.sw, r.sh) * 0.5));
       const screen = screenScore(grayOf(video, r.sx + (r.sw - side) / 2, r.sy + (r.sh - side) / 2, side, side, N, N), N);
       const hash = dhash(grayOf(video, 0, 0, video.videoWidth, video.videoHeight, 9, 8));
-      const recent = frames.slice(-15).map((f) => f.g);
+      const recent = frames.slice(-15).map((x) => x.g);
       const frozen = frozenPairs(recent);
       const reasons = [];
       if (!j.passed) reasons.push(j.why);
@@ -277,8 +290,11 @@ App.certify = (() => {
       let strip = null;
       if (passed) {
         const c = Object.assign(document.createElement('canvas'), { width: SW * 3, height: SH }), sg = c.getContext('2d');
-        const x = frames.slice(j.lb + 1).find((f, i) => j.states[i] === 'X');
-        [frames[j.lb], x, frames[frames.length - 1]].forEach((f, i) => { if (f && f.img) sg.putImageData(f.img, i * SW, 0); });
+        // dos, image « entre deux » (en plein retournement), face photographiée
+        sg.putImageData(frames[j.lb].img || cg.getImageData(0, 0, SW, SH), 0, 0);
+        const mid = frames[j.lb + Math.max(1, Math.ceil(j.gap / 2))];
+        if (mid && mid.img) sg.putImageData(mid.img, SW, 0);
+        cg.drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, SW, SH); sg.drawImage(cv, SW * 2, 0);
         strip = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.8));
       }
       const r2 = (v) => Math.round(v * 100) / 100;
