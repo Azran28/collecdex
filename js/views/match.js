@@ -1,4 +1,4 @@
-/* Page « Match » : combats simplifiés avec tes cartes, contre l'ordinateur (5 niveaux), 3 équipes */
+/* Page « Combat » (#/combat, ancien « Match ») : combats simplifiés avec tes cartes, contre l'ordinateur (5 niveaux), 3 équipes */
 (() => {
   const { esc } = App.util;
   const B = () => App.battle;
@@ -12,6 +12,9 @@
   function normMatch(m) {
     m = Object.assign({ team: [], beaten: {}, beatenAdv: {}, wins: 0, losses: 0, mode: 'classic' }, m || {});
     if (m.mode !== 'adv') m.mode = 'classic';
+    // victoires / défaites par mode (les anciennes comptent pour le mode basique)
+    if (!m.stats) m.stats = { classic: { wins: m.wins || 0, losses: m.losses || 0 }, adv: { wins: 0, losses: 0 } };
+    for (const k of ['classic', 'adv']) m.stats[k] = Object.assign({ wins: 0, losses: 0 }, m.stats[k] || {});
     let teams = Array.isArray(m.teams) ? m.teams : [];
     if (!teams.length && m.team && m.team.length) teams = [{ name: 'Équipe 1', keys: [...m.team] }];
     while (teams.length < TEAMS) teams.push({ name: `Équipe ${teams.length + 1}`, keys: [] });
@@ -317,7 +320,7 @@
         r.dmg = Math.max(0, r.dmg + r.bonus - r.shield);
       }
       side.power = 0;
-      a.energy = 0; // l'attaque utilise toutes les énergies (règle simplifiée)
+      a.energy = Math.max(0, a.energy - att.cost); // l'attaque utilise autant d'énergies que son coût
       log(`<b>${esc(a.name)}</b> utilise <b>${esc(att.name)}</b> !`);
       aura(a); App.sfx.charge();
       await sleep(RM() ? 100 : 380);
@@ -345,7 +348,7 @@
       await sleep(260);
       // barre de PV : mise à jour sur place (animée)
       updateHp(other); drawBench(other);
-      const ac2 = cardEl(a); if (ac2) ac2.querySelector('.bt-pips').outerHTML = pips(0);
+      const ac2 = cardEl(a); if (ac2) ac2.querySelector('.bt-pips').outerHTML = pips(a.energy);
       await sleep(700);
       if (d.hp <= 0) {
         d.ko = true; App.sfx.ko();
@@ -839,7 +842,7 @@
         return `<div class="bt-tm ${on ? 'on' : ''}">
           <div class="bt-tm-h"><b>${esc(t.name)}</b>${on ? `<span class="bt-tm-on">${App.icons.icon('check', 12)} Pour combattre</span>` : `<button class="btn sm ghost bt-tm-pick" data-sel="${i}">Choisir</button>`}</div>
           <div class="bt-tm-cards">${[0, 1, 2].map((j) => items[j] ? `<img src="${esc(imgs[j].src)}" alt="" title="${esc(items[j].snap.name)}" data-alt="${esc(items[j].snap.name)}">` : '<span class="bt-tm-empty">+</span>').join('')}</div>
-          ${adv ? `<div class="bt-tm-bag"><span class="small muted">Sac : ${bag.length ? `${bag.length} carte${bag.length > 1 ? 's' : ''}` : 'sac de prêt'}</span><span class="bt-tm-bagimgs">${view.bagImgs[i].map((b, j) => `<img src="${esc(b.src)}" alt="" title="${esc(bag[j].snap.name)}">`).join('')}</span></div>` : ''}
+          ${adv ? `<div class="bt-tm-bag"><span class="small muted">Sac : ${bag.length ? `${bag.length} carte${bag.length > 1 ? 's' : ''}` : 'prêt'}</span><span class="bt-tm-bagimgs">${view.bagImgs[i].map((b, j) => `<img src="${esc(b.src)}" alt="" title="${esc(bag[j].snap.name)}">`).join('')}</span></div>` : ''}
           <div class="bt-tm-f"><button class="btn sm" data-edit="${i}">${App.icons.icon('layers', 14)} ${items.length ? 'Modifier' : 'Composer'}</button>${adv ? `<button class="btn sm" data-bag="${i}">Sac</button>` : ''}<button class="btn sm ghost" data-rename="${i}">Renommer</button></div>
         </div>`;
       };
@@ -854,43 +857,46 @@
         ]);
         if (!alive()) return;
         view = { teams, bags, imgs, bagImgs };
-        const adv = m.mode === 'adv', beaten = adv ? m.beatenAdv : m.beaten;
+        const adv = m.mode === 'adv', beaten = adv ? m.beatenAdv : m.beaten, st = m.stats[m.mode];
         const unlocked = (n) => n === 1 || beaten[n - 1];
-        const cur = m.teams[m.teamIdx], curItems = teams[m.teamIdx];
-        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Match</div>
-          <div class="row" style="align-items:baseline;gap:12px"><h1 style="margin:0">Match</h1><span class="muted small">${m.wins} victoire${m.wins > 1 ? 's' : ''} · ${m.losses} défaite${m.losses > 1 ? 's' : ''}</span></div>
-          <p class="muted bt-intro" style="margin-top:6px">Tes cartes deviennent jouables : forme jusqu’à 3 équipes de 3 Pokémon de ta collection et affronte l’ordinateur.</p>
+        const ti = m.teamIdx, curItems = teams[ti];
+        // téléphone : onglets d'équipes + l'équipe choisie
+        const mobileTeam = `<section class="bt-mteam">
+            <div class="bt-mtabs" role="tablist">${m.teams.map((t, i) => `<button class="${i === ti ? 'on' : ''}" data-sel="${i}" role="tab">${esc(t.name)}<small>${teams[i].length}/3</small></button>`).join('')}</div>
+            <div class="bt-mbody">
+              <div class="bt-mcards" data-edit="${ti}">${[0, 1, 2].map((j) => curItems[j] ? `<img src="${esc(imgs[ti][j].src)}" alt="" data-alt="${esc(curItems[j].snap.name)}">` : '<span class="bt-tm-empty">+</span>').join('')}</div>
+              <div class="bt-mact">
+                <button class="btn sm" data-edit="${ti}">${App.icons.icon('layers', 14)} ${curItems.length ? 'Modifier' : 'Composer'}</button>
+                ${adv ? `<button class="btn sm" data-bag="${ti}">Sac${bags[ti].length ? ` · ${bags[ti].length}` : ''}</button>` : ''}
+                <button class="btn sm ghost" data-rename="${ti}">Renommer</button>
+              </div>
+            </div>
+            ${adv ? `<div class="bt-mbag small muted">${bags[ti].length ? `<span class="bt-tm-bagimgs">${bagImgs[ti].map((b) => `<img src="${esc(b.src)}" alt="">`).join('')}</span>` : 'Sac vide : sac de prêt'}</div>` : ''}
+          </section>`;
+        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Combat</div>
+          <div class="bt-head"><h1>Combat</h1><span class="muted small">${st.wins} victoire${st.wins > 1 ? 's' : ''} · ${st.losses} défaite${st.losses > 1 ? 's' : ''}</span></div>
           <div class="bt-modes" role="tablist">
-            <button class="${adv ? '' : 'on'}" data-mode="classic" role="tab"><b>Classique</b><small>Attaques, énergie, changements</small></button>
-            <button class="${adv ? 'on' : ''}" data-mode="adv" role="tab"><b>Avec Dresseurs</b><small>+ un sac de cartes Dresseur / Énergie</small></button>
+            <button class="${adv ? '' : 'on'}" data-mode="classic" role="tab">Basique</button>
+            <button class="${adv ? 'on' : ''}" data-mode="adv" role="tab">Avancé</button>
           </div>
-          <div class="bt-teambar">
-            <div class="bt-tb-imgs">${[0, 1, 2].map((j) => curItems[j] ? `<img src="${esc(imgs[m.teamIdx][j].src)}" alt="">` : '<i></i>').join('')}</div>
-            <div class="bt-tb-t"><b>${esc(cur.name)}</b><small>${curItems.length < 3 ? `${3 - curItems.length} Pokémon de prêt` : 'Prête au combat'}${adv ? ` · sac : ${bags[m.teamIdx].length || 'prêt'}` : ''}</small></div>
-            <button class="btn sm" data-teams>${App.icons.icon('layers', 14)} Équipes</button>
-          </div>
+          <p class="bt-hint small muted">${adv ? 'Avec un sac de cartes Dresseur et Énergie : une carte par tour.' : 'Tes Pokémon contre ceux de l’ordinateur.'}</p>
+          ${mobileTeam}
           <section class="panel bt-team-panel">
-            <div class="row" style="align-items:baseline;gap:10px"><h2 style="margin:0">Mes équipes</h2><span class="muted small">« Choisir » pour combattre avec une autre équipe</span></div>
+            <h2 style="margin:0">Mes équipes</h2>
             ${teamsHtml()}
-            <p class="small muted" style="margin:10px 0 0">Une case vide est remplie par un Pokémon de prêt${adv ? ', un sac vide par un sac de prêt' : ''}.</p>
           </section>
           <h2>Adversaire</h2>
           <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
-              <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` Son sac : ${App.battleCards.aiBag(L.n, 'fire').length} cartes.` : '') : `Bats le niveau ${L.n - 1} pour le débloquer`}</span></div>
+              <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` · sac de ${App.battleCards.aiBag(L.n, 'fire').length}` : '') : `Bats le niveau ${L.n - 1}`}</span></div>
               ${beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
-          <details class="bt-rules panel"><summary><b>Règles du combat</b> (version simplifiée)</summary>
+          <details class="bt-rules panel"><summary><b>Règles</b></summary>
             <ul class="small">
-              <li>Chaque équipe a 3 Pokémon : un qui combat, les deux autres attendent sur le banc.</li>
-              <li>Au début de ton tour, ton Pokémon gagne <b>1 énergie</b>. Puis une seule action : <b>attaquer</b>, <b>charger</b> (+1 énergie en plus) ou <b>changer</b> de Pokémon.</li>
-              <li>Une attaque coûte 1 énergie par symbole indiqué sur la carte, et utilise toutes les énergies du Pokémon.</li>
-              <li>Dégâts de la carte, avec la <b>faiblesse</b> (×2) et la <b>résistance</b>. « 30× » : 30 par face sur 2 pièces ; « 20+ » : bonus si face. Une attaque qui n’a qu’un effet fait 10 dégâts.</li>
-              <li>Mets K.O. les 3 Pokémon de l’ordinateur pour gagner et débloquer le niveau suivant.</li>
-            </ul>
-            <p class="small" style="margin:10px 0 4px"><b>Mode « Avec Dresseurs »</b> (niveaux débloqués à part)</p>
-            <ul class="small">
-              <li>Chaque équipe a un <b>sac</b> de 6 cartes Dresseur ou Énergie maximum, choisies dans ta collection (sinon un sac de prêt). L’ordinateur a aussi le sien, plus fourni aux niveaux élevés.</li>
-              <li>À ton tour, tu peux jouer <b>une carte du sac</b> avant ton action. Chaque carte ne sert qu’une fois par combat.</li>
-              <li><b>Énergie</b> : +1 énergie (+2 si elle est du type de ton Pokémon ; Double Énergie Incolore : +2). <b>Dresseurs</b> : effet simplifié de la carte (Potion : soin 20, Super Potion : soin 40, PlusPower : +20 dégâts, Défenseur : −20 dégâts subis, Transfert : échange gratuit, Rafale de vent, Suppression d’Énergie, Réanimation…). Les autres cartes ont un effet selon leur genre : Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts pendant 3 tours.</li>
+              <li>3 Pokémon par équipe : un qui combat, deux sur le banc. Une case vide est remplie par un Pokémon de prêt.</li>
+              <li>À ton tour, ton Pokémon gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> de Pokémon.</li>
+              <li>Une attaque coûte 1 énergie par symbole de la carte ; les énergies en plus restent pour la suite.</li>
+              <li>Dégâts, <b>faiblesse</b> (×2) et <b>résistance</b> de la vraie carte. « 30× » : 30 par face sur 2 pièces ; « 20+ » : bonus si face ; attaque sans dégâts : 10.</li>
+              <li>Mets K.O. les 3 Pokémon adverses pour gagner et débloquer le niveau suivant.</li>
+              <li><b>Avancé</b> (niveaux à part) : un sac de 6 cartes Dresseur / Énergie max (sinon sac de prêt) ; une carte par tour avant l’action, chacune une seule fois. Énergie : +1 (+2 si même type). Dresseurs : effet simplifié (Potion soin 20, PlusPower +20 dégâts, Défenseur −20 dégâts subis, Transfert, Rafale de vent…) ; sinon Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts 3 tours.</li>
             </ul></details>`;
         if (teamsModal && document.body.contains(teamsModal)) teamsModal.innerHTML = `<div class="bt-pick"><h2>Mes équipes</h2>${teamsHtml()}</div>`;
       };
@@ -955,7 +961,7 @@
               const r = await battle(+lv.dataset.level, teamItems(t.keys), t.name, { adv, bag: bagItems(t.bag) });
               if (!r) return;
               m = await getMatch();
-              if (r.win) { m.wins++; (adv ? m.beatenAdv : m.beaten)[+lv.dataset.level] = true; } else m.losses++;
+              const st = m.stats[adv ? 'adv' : 'classic']; if (r.win) { st.wins++; m.wins++; (adv ? m.beatenAdv : m.beaten)[+lv.dataset.level] = true; } else { st.losses++; m.losses++; }
               await saveMatch(m);
               if (alive()) await draw();
               again = r.again;

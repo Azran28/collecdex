@@ -1634,3 +1634,30 @@ body.cap-lock { overflow: hidden; }
   .bt-bag { flex-wrap: wrap; justify-content: center; overflow: visible; }
 }
 @media (max-width: 760px) { .bt-foebag { display: none; } .bt-bc { width: 142px; } }
+
+/* Combat : en-tête, modes Basique / Avancé, équipe sur téléphone (onglets) */
+.bt-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.bt-head h1 { margin: 0; }
+.bt-modes { display: inline-flex; gap: 4px; padding: 4px; margin: 14px 0 0; border-radius: 999px; border: 1px solid var(--line); background: var(--surface, #161a2e); max-width: none; }
+.bt-modes button { display: block; padding: 7px 22px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; }
+.bt-modes button.on { color: #fff; background: linear-gradient(135deg, #ff4fa3, #7c5cff); box-shadow: none; }
+.bt-hint { margin: 8px 0 14px; }
+.bt-mteam { display: none; }
+@media (max-width: 760px) {
+  .bt-modes { display: flex; }
+  .bt-modes button { flex: 1; padding: 8px 10px; }
+  .bt-mteam { display: block; margin-bottom: 6px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface, #161a2e); overflow: hidden; }
+  .bt-mtabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--line); }
+  .bt-mtabs button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 9px 6px 8px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bt-mtabs button small { font-size: .66rem; font-weight: 600; opacity: .8; }
+  .bt-mtabs button.on { color: var(--text); background: rgba(255,79,163,.1); }
+  .bt-mtabs button.on::after { content: ''; position: absolute; left: 14%; right: 14%; bottom: -1px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, #ff4fa3, #7c5cff); }
+  .bt-mbody { display: flex; align-items: center; gap: 12px; padding: 12px; }
+  .bt-mcards { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-width: 210px; }
+  .bt-mcards img, .bt-mcards .bt-tm-empty { width: 100%; aspect-ratio: 63/88; border-radius: 7px; }
+  .bt-mcards img { object-fit: cover; display: block; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+  .bt-mact { flex: none; display: flex; flex-direction: column; gap: 6px; width: 112px; }
+  .bt-mact .btn { justify-content: center; }
+  .bt-mbag { display: flex; align-items: center; gap: 6px; padding: 0 12px 12px; }
+  .bt-mbag img { width: 22px; }
+}

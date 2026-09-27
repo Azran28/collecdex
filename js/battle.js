@@ -3,7 +3,7 @@
  * Règles maison, inspirées du jeu de cartes mais bien plus simples :
  *  - 3 Pokémon par équipe ; un combattant actif, les autres sur le banc.
  *  - Au début de ton tour, ton Pokémon actif gagne 1 énergie (chaque Pokémon garde les siennes).
- *  - Une action par tour : attaquer (s'il a assez d'énergie : 1 par symbole du coût),
+ *  - Une action par tour : attaquer (s'il a assez d'énergie : 1 par symbole du coût, dépensées),
  *    « Charger » (+1 énergie en plus) ou changer de Pokémon.
  *  - Dégâts de la carte ; « 30× » = 30 par face sur 2 pièces, « 20+ » = 20, +10 sur face.
  *    Attaque sans dégâts indiqués (effet) : 10 dégâts.
@@ -120,11 +120,11 @@ App.battle = (() => {
   // Équipes de l'ordinateur (cartes vérifiées chez TCGdex)
   const range = (a, b, p = 'base1-') => Array.from({ length: b - a + 1 }, (_, i) => p + (a + i));
   const LEVELS = [
-    { n: 1, name: 'Débutant', desc: 'Des Pokémon de base du Set de Base, et un adversaire qui joue un peu au hasard.', pool: range(44, 69), bonus: 0, color: '#3ddc97' },
-    { n: 2, name: 'Dresseur', desc: 'Des évolutions du Set de Base. Il attaque toujours le plus fort possible.', pool: range(22, 43), bonus: 0, color: '#34a0ff' },
-    { n: 3, name: 'Champion', desc: 'Les holographiques du Set de Base. Il connaît les faiblesses et change de Pokémon.', pool: range(1, 16), bonus: 0, color: '#a78bfa' },
-    { n: 4, name: 'Maître', desc: 'Les meilleures holographiques du Set de Base, une énergie d’avance, et il joue très bien.', pool: range(1, 16), bonus: 1, strong: true, color: '#ff8a3d' },
-    { n: 5, name: 'Légende', desc: 'Des Pokémon-ex modernes (série 151) : il te faudra tes cartes les plus puissantes !', pool: ['sv03.5-003', 'sv03.5-006', 'sv03.5-009', 'sv03.5-024', 'sv03.5-038', 'sv03.5-065', 'sv03.5-076', 'sv03.5-124', 'sv03.5-145', 'sv03.5-040', 'sv03.5-115'], bonus: 1, color: '#ffc83d' },
+    { n: 1, name: 'Débutant', desc: 'Pokémon de base · il joue un peu au hasard', pool: range(44, 69), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Dresseur', desc: 'Évolutions · il attaque toujours au plus fort', pool: range(22, 43), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Champion', desc: 'Holos du Set de Base · il connaît les faiblesses', pool: range(1, 16), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Maître', desc: 'Meilleures holos · une énergie d’avance', pool: range(1, 16), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Légende', desc: 'Pokémon-ex modernes · sors tes meilleures cartes', pool: ['sv03.5-003', 'sv03.5-006', 'sv03.5-009', 'sv03.5-024', 'sv03.5-038', 'sv03.5-065', 'sv03.5-076', 'sv03.5-124', 'sv03.5-145', 'sv03.5-040', 'sv03.5-115'], bonus: 1, color: '#ffc83d' },
   ];
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
