@@ -30,6 +30,9 @@ create table if not exists public.push_config (
 );
 alter table public.push_config enable row level security;
 revoke all on public.push_config from anon, authenticated;
+-- seule la fonction d'envoi (rôle serveur) lit et crée les clés, et retire les appareils désabonnés
+grant select, insert on public.push_config to service_role;
+grant select, delete on public.push_subs to service_role;
 
 -- Clé publique (celle-là peut être donnée à tout le monde)
 create or replace function public.push_public_key()
