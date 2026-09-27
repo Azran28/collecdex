@@ -908,7 +908,7 @@ App.recognizer = (() => {
     let out = [...uniq.values()].sort((a, b) => b.score - a.score).slice(0, cap);
     if (mine && out.length) {
       status('Comparaison avec les visuels officiels…');
-      await App.util.pool(out, 6, async (c) => {
+      await App.util.pool(out, 10, async (c) => {
         const src = ad().img.card(c, 'low'); if (!src) return;
         const v = await officialThumb(src);
         if (v) { c.visual = artMatch(mine, v); c.score += vis01(c.visual) * visualWeight; }
@@ -934,7 +934,8 @@ App.recognizer = (() => {
     if (weak && words.length) {
       status('Recherche par le nom…');
       const byName = await nameSearch(words);
-      out = await rank([...byNum, ...byName], num, lines, mine, { cap: 100, visualWeight: 3, needName: true, years, wizards, hp });
+      // 60 candidates au plus (les mieux classées par le nom, l'année, les PV) : comparer 100 visuels prenait ~7 s
+      out = await rank([...byNum, ...byName], num, lines, mine, { cap: 60, visualWeight: 3, needName: true, years, wizards, hp });
     }
     // « sûre » : bon numéro ET bon total, ou photo très ressemblante
     // (sans visuel officiel à comparer, le numéro seul ne suffit pas : une lecture de travers donne vite « 10/10 »)

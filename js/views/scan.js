@@ -37,7 +37,7 @@ App.views.scan = {
         ['dex', 'La grille se place toute seule', 'Elle trouve les pochettes (et le format de la page). Si elle se trompe, glisse-la ou tire ses coins ronds.'],
         ['search', 'Vérifie et enregistre', 'Les cartes sûres sont cochées d’office. Corrige les autres si besoin.']]
       : [['camera', 'Prends la carte en photo', 'Bien à plat, bien éclairée, sans reflet sur le numéro en bas.'],
-        ['capture', 'Ajuste le cadre jaune', 'Il doit entourer la carte, bords compris.'],
+        ['capture', 'Place-la dans le cadre jaune', 'Elle est recadrée toute seule au plus près de ses bords.'],
         ['search', 'Confirme la carte', 'Le site lit le numéro et le nom, puis compare l’illustration.']];
     const certOn = App.certify && App.certify.available();
     return `<div class="panel scan-guide-panel">
@@ -46,7 +46,7 @@ App.views.scan = {
       <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${mode === 'classeur'
         ? 'Pas de badge pour une page de classeur. Pour certifier une carte, capture-la seule (ou en rafale) avec la caméra du site : tu pourras le faire plus tard depuis sa fiche.'
         : certOn
-        ? 'Utilise le bouton « Caméra » du site : montre d’abord le dos de la carte, retourne-la et tiens-la immobile, la photo se prend toute seule. Tes cartes bien reconnues recevront le badge.'
+        ? 'Utilise le bouton « Caméra » du site : montre d’abord le dos de la carte (il doit être visible : pas d’étui opaque), retourne-la, puis prends la photo. Tes cartes bien reconnues recevront le badge.'
         : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
       ${mode === 'rafale' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si tes cartes viennent toutes de la même série, choisis-la au-dessus : c’est plus rapide et bien plus fiable.</p>' : mode === 'classeur' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si ta page ne contient qu’une série, choisis-la dans « Série de la page ».</p>' : '<p class="small muted" style="margin:10px 0 0">Astuce : si tu connais la série, choisis-la au-dessus : c’est bien plus fiable.</p>'}
     </div>`;
@@ -226,8 +226,10 @@ App.views.scan = {
     el.querySelector('#sc-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = App.views.scan.guide('carte');
+        // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
+        window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
         if (!App.certify.available()) { setStatus(''); return; }
-        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre, retourne-la (prends ton temps), puis appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
+        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre (il doit être visible : pas d’étui opaque, une pochette transparente convient), retourne-la en prenant ton temps, puis appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         trk = App.certify.tracker(cam.video, () => cam.region());
@@ -246,22 +248,44 @@ App.views.scan = {
     });
     // photo certifiable si le dos a été vu (dans les 15 dernières secondes) et la carte retournée depuis
     el.querySelector('#sc-shot').addEventListener('click', () => shoot(!!(trk && trkTimer && trk.phase !== 'attente')));
+    let shooting = false, lastShot = null;
     async function shoot(flipped) {
+      if (shooting) return; // un seul appui compte (le défi de certification ne sert qu'une fois)
+      shooting = true;
       const shot = el.querySelector('#sc-shot');
-      const b = await cam.capture(); if (!b) return;
-      cert = null;
-      if (App.certify.available()) {
-        cert = flipped ? await trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; })
-          : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
+      shot.disabled = true; shot.textContent = '📸 Photo en cours…';
+      view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
+      App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ }
+      try {
+        // la vérification lit l'image de la caméra : elle passe AVANT la photo haute définition (plus longue)
+        cert = null;
+        if (App.certify.available()) {
+          cert = flipped ? await trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; })
+            : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
+        }
+        stopTrack();
+        const b = await cam.capture(); if (!b) return;
+        cam.stop();
+        lastShot = b;
+        // la carte est recadrée toute seule au plus près de ses bords (meilleure reconnaissance), sans étape de cadrage
+        let card = b;
+        try {
+          const img = await createImageBitmap(b), GM = 0.06 / 1.12;
+          const r = R.cellCard(img, { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM });
+          card = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9)) || b;
+        } catch (e) { console.warn(e); }
+        el.querySelector('#sc-actions').classList.remove('hidden');
+        await analyse(card);
+        const certLine = !cert ? '' : cert.passed
+          ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— la carte sera certifiée à l’ajout.</span>`
+          : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`;
+        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal cadrée ? Recadrer la photo</button></div>`);
+      } finally {
+        shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
+        shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`;
       }
-      stopTrack();
-      shot.classList.add('hidden'); shot.classList.remove('cert-ready');
-      cam.stop();
-      startCrop(b, 0.92);
-      if (cert) setStatus(cert.passed
-        ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— la carte sera certifiée à l’ajout.</span>`
-        : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`);
     }
+    status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
     el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });
 
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
@@ -366,7 +390,7 @@ App.views.scan = {
               ${own ? `<br><span class="pill small">Déjà ×${own.qty} — ce sera un exemplaire de plus</span>` : ''}
               ${c.isTarget && !c.notRead ? '<br><span class="pill small" style="background:var(--ok);color:#063">Carte attendue ✓</span>' : ''}
               ${c.notRead ? '<br><span class="pill small" style="background:#7a4a00">Carte attendue, mais pas reconnue sur la photo</span>' : ''}
-              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.visual != null && (c.visual - 0.3) / 0.55 >= 0.15 ? `<br><span class="small muted">Ressemblance avec ta photo : ${Math.round(Math.min(1, (c.visual - 0.3) / 0.55) * 100)} %</span>` : ''}</div>
+              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.numOk && c.ofOk ? `<br><span class="small muted">Numéro lu sur ta carte ✓</span>` : ''}${c.visual != null ? `<br><span class="small muted">Illustration : ${c.visual >= 0.7 ? 'identique' : c.visual >= 0.55 ? 'très proche' : c.visual >= 0.42 ? 'proche' : 'différente'}</span>` : ''}</div>
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
         }).join('')}
