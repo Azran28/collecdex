@@ -188,6 +188,18 @@ App.certify = (() => {
     const states = frames.slice(lb + 1).map((f) => (f.b >= BACK_T ? 'B' : corr(f.g, face, w, h) >= FRONT_T ? 'F' : 'X')).join('');
     const gap = (states.match(/^X*/) || [''])[0].length; // images « entre deux » juste après le dos
     if (gap < 1) return { passed: false, why: 'retournement trop brusque (image remplacée d’un coup ?)', gap, states: states.slice(0, 60), lb };
+    // la photo doit montrer la face posée JUSTE APRÈS le retournement (pas une autre carte, ni la table si le
+    // téléphone a bougé ensuite) : on prend les premières images stables après le geste, la photo doit leur
+    // ressembler (décalage permis ±15 % : on peut recadrer un peu)
+    const sd = (G) => { let m = 0; for (const v of G) m += v; m /= G.length; let s = 0; for (const v of G) s += (v - m) ** 2; return Math.sqrt(s / G.length); };
+    const mad = (A, B) => { let d = 0; for (let i = 0; i < A.length; i++) d += Math.abs(A[i] - B[i]); return d / A.length; };
+    const firsts = [];
+    for (let i = lb + 2; i < frames.length - 1 && firsts.length < 3; i++) {
+      const f = frames[i], s = sd(f.g);
+      if (f.b < BACK_T && s >= 16 && mad(f.g, frames[i - 1].g) < 4 + s * 0.08) firsts.push(f);
+    }
+    const cont = firsts.some((f) => corr(f.g, face, w, h, 4) >= FRONT_T);
+    if (!cont) return { passed: false, why: 'la photo ne montre pas la carte retournée (tiens-la dans le cadre au moment d’appuyer)', gap, states: states.slice(0, 60), lb };
     return { passed: true, gap, states: states.slice(0, 60), lb };
   }
 

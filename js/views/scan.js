@@ -252,19 +252,18 @@ App.views.scan = {
     async function shoot(flipped) {
       if (shooting) return; // un seul appui compte (le défi de certification ne sert qu'une fois)
       shooting = true;
+      // l'image est figée À L'INSTANT de l'appui (la suite peut prendre 1 à 2 s : on peut bouger)
+      const shotP = cam.capture();
+      const proofP = App.certify.available() && flipped ? trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
       const shot = el.querySelector('#sc-shot');
       shot.disabled = true; shot.textContent = '✓ Photo prise — recherche de la carte…';
       view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
       App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ }
       try {
-        // la vérification lit l'image de la caméra : elle passe AVANT la photo haute définition (plus longue)
         cert = null;
-        if (App.certify.available()) {
-          cert = flipped ? await trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; })
-            : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
-        }
+        if (App.certify.available()) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
         stopTrack();
-        const b = await cam.capture(); if (!b) return;
+        const b = await shotP; if (!b) return;
         cam.stop();
         lastShot = b;
         // la carte est détourée toute seule, au ras de ses bords et remise à plat (sinon recadrée au plus près)
