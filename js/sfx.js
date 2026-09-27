@@ -94,6 +94,9 @@ App.sfx = (() => {
     // combats (Match)
     energy: () => play(() => { tone(N(84), 0, 0.08, 'triangle', 0.18); tone(N(91), 0.06, 0.12, 'triangle', 0.16); }),
     hit: (strong) => play(() => { noise(0, strong ? 0.3 : 0.16, strong ? 0.45 : 0.3, strong ? 500 : 900, 'lowpass'); tone(strong ? 180 : 260, 0, strong ? 0.3 : 0.15, 'square', 0.12, strong ? 60 : 120); }),
+    whoosh: () => play(() => { noise(0, 0.28, 0.28, 1400, 'bandpass'); tone(300, 0, 0.22, 'sine', 0.08, 900); }),
+    charge: () => play(() => { tone(N(60), 0, 0.45, 'sawtooth', 0.05, N(84)); tone(N(72), 0.05, 0.4, 'sine', 0.12, N(96)); }),
+    swap: () => play(() => { tone(700, 0, 0.12, 'triangle', 0.15, 350); tone(450, 0.14, 0.14, 'triangle', 0.15, 900); }),
     ko: () => play(() => { tone(520, 0, 0.7, 'triangle', 0.3, 90); noise(0.05, 0.4, 0.2, 400, 'lowpass'); }),
     lose: () => play(() => { [67, 63, 60].forEach((m, i) => tone(N(m), i * 0.28, 0.5, 'triangle', 0.25)); tone(N(48), 0.84, 1, 'sine', 0.25); }),
     get enabled() { return on(); },
