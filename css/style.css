@@ -1534,3 +1534,32 @@ body.cap-lock { overflow: hidden; }
   .shop-grid { grid-template-columns: 1fr; }
   .cap-actions .btn.big { flex: 1 1 100%; justify-content: center; }
 }
+
+/* Match : filtres du choix des Pokémon */
+.bt-sel { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 10px; }
+.bt-sel-s { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 6px; border-radius: 10px; border: 1px solid #ff4fa3; background: rgba(255,79,163,.12); color: var(--text); font: inherit; font-size: .74rem; cursor: pointer; text-align: left; }
+.bt-sel-s img { width: 24px; aspect-ratio: 63/88; object-fit: cover; border-radius: 3px; flex: none; }
+.bt-sel-s span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.bt-sel-s b { flex: none; color: var(--muted); font-size: 1rem; line-height: 1; }
+.bt-sel-s.empty { border-style: dashed; border-color: var(--line); background: none; color: var(--muted); cursor: default; min-height: 42px; }
+.bt-sel-s.empty i { font-style: normal; font-weight: 800; width: 20px; text-align: center; }
+.bt-sel-s.empty span { font-weight: 400; }
+.bt-filters { display: flex; flex-direction: column; gap: 8px; }
+.bt-ftypes { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.bt-tchip { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface, #161a2e); color: var(--text); font: inherit; font-size: .76rem; cursor: pointer; }
+.bt-tchip i { width: 9px; height: 9px; border-radius: 50%; background: var(--tc); }
+.bt-tchip.on { border-color: var(--tc, #ff4fa3); background: color-mix(in srgb, var(--tc, #ff4fa3) 28%, transparent); font-weight: 700; }
+.bt-frow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.bt-frow label { display: flex; flex-direction: column; gap: 3px; font-size: .7rem; color: var(--muted); min-width: 0; }
+.bt-frow select { width: 100%; min-width: 0; font-size: .82rem; }
+.bt-fstate { min-height: 1em; }
+.bt-pk-n { font-size: .7rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-pk-s { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: .66rem; color: var(--muted); white-space: nowrap; }
+.bt-pk-s b { color: var(--text); font-weight: 700; }
+.bt-pk-s em { font-style: normal; color: #ffc83d; font-weight: 700; }
+.bt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tc); flex: none; }
+@media (max-width: 760px) {
+  .bt-pick-grid { max-height: 44vh; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .bt-frow { grid-template-columns: 1fr 1fr; }
+  .bt-frow label:first-child { grid-column: 1 / -1; }
+}
