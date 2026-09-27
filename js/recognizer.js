@@ -564,9 +564,10 @@ App.recognizer = (() => {
    * Cases d'une page de classeur (grille trouvée) → bords réels de chaque carte, cherchés près de sa case.
    * Renvoie pour chaque case son quadrilatère ajusté (fractions), ou null si ses bords ne sont pas sûrs.
    */
-  function snapCells(img, cells) {
+  function snapCells(img, cells, cols = 3, rows = 3) {
     snapCells.last = [];
-    return cells.map((c) => {
+    const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
+    const out = cells.map((c) => {
       try {
         const xs = c.quad.map((p) => p[0]), ys = c.quad.map((p) => p[1]);
         const rect = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
@@ -575,6 +576,40 @@ App.recognizer = (() => {
         return r ? r.quad : null;
       } catch (e) { return null; }
     });
+    const note = snapCells.last.map((b) => (b ? Math.min(...b.per) : -1)); // qualité de la bordure trouvée
+    const per = cols * rows;
+    // 1) les cartes d'une même RANGÉE ont la même taille à l'écran (même distance de l'objectif) :
+    //    un cadre nettement plus grand (la pochette) ou plus petit (cadre intérieur, nom coupé) que ses voisines est écarté
+    const d = (a, b) => Math.hypot((a[0] - b[0]) * NW, (a[1] - b[1]) * NH);
+    const size = (q) => [(d(q[0], q[1]) + d(q[3], q[2])) / 2, (d(q[0], q[3]) + d(q[1], q[2])) / 2];
+    const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
+    for (let r0 = 0; r0 < out.length; r0 += cols) {
+      const idx = Array.from({ length: cols }, (_, j) => r0 + j).filter((i) => out[i]);
+      if (idx.length < 2) continue;
+      const sz = idx.map((i) => size(out[i]));
+      const mw = med(sz.map((s) => s[0])), mh = med(sz.map((s) => s[1]));
+      if (idx.length === 2) { // deux seulement : s'ils diffèrent trop, on garde celui dont la bordure est la plus nette
+        const [a, b] = idx; if (Math.abs(sz[0][1] - sz[1][1]) / Math.max(sz[0][1], sz[1][1]) > 0.06) out[note[a] < note[b] ? a : b] = null;
+        continue;
+      }
+      idx.forEach((i, j) => { if (Math.abs(sz[j][0] - mw) / mw > 0.07 || Math.abs(sz[j][1] - mh) / mh > 0.06) out[i] = null; });
+    }
+    // 2) deux cartes ne se touchent jamais : si deux cadres voisins se chevauchent (ou collent),
+    //    celui dont la bordure est la moins nette est écarté
+    const gap = 0.003; // écart minimal, en fraction de l'image
+    const right = (q) => Math.max(q[1][0], q[2][0]), left = (q) => Math.min(q[0][0], q[3][0]);
+    const bottom = (q) => Math.max(q[2][1], q[3][1]), top = (q) => Math.min(q[0][1], q[1][1]);
+    for (let i = 0; i < out.length; i++) {
+      if (!out[i]) continue;
+      const k = i % per; // position dans sa page (classeur ouvert : 2 pages à la suite)
+      const nb = [(k % cols) < cols - 1 ? i + 1 : -1, k + cols < per ? i + cols : -1];
+      for (const [n, horiz] of [[nb[0], true], [nb[1], false]]) {
+        if (n < 0 || !out[n] || !out[i]) continue;
+        const touch = horiz ? right(out[i]) > left(out[n]) - gap : bottom(out[i]) > top(out[n]) - gap;
+        if (touch) out[note[i] < note[n] ? i : n] = null;
+      }
+    }
+    return out;
   }
 
   /**

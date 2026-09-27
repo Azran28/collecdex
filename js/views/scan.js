@@ -574,7 +574,9 @@ App.views.scan = {
       // chaque case ajustée sur les VRAIS bords de sa carte (la grille, régulière, tombe parfois à côté)
       if (autoCells && !autoRot && photo && !window.__noSnap) {
         let snapped = [];
-        try { snapped = R.snapCells(photo.img, autoCells); } catch (e) { console.warn(e); }
+        // (classeur ouvert : les cases viennent page par page, 3 × 3 chacune)
+        const [cc, rr] = k === 'double' ? [3, 3] : (FORMATS[k] || [3, 3]);
+        try { snapped = R.snapCells(photo.img, autoCells, cc, rr); } catch (e) { console.warn(e); }
         autoCells = autoCells.map((c, i) => (snapped[i] ? { ...c, quad: snapped[i], snapped: true, gridQuad: c.quad } : c));
       }
       dimsOv = k === 'double' && g.rot ? [3, 6] : null;
