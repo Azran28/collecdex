@@ -734,6 +734,8 @@ App.views.scan = {
       const img = photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
       if (autoGrid && autoCells && autoCells[i]) {
         let r = null; try { r = R.cellCard(img, autoCells[i], rot); } catch (e) { console.warn(e); }
+        // (le détourage « cutCard » a été essayé ici le 27 sept. : meilleur sur 2 pages, bien pire sur une page
+        //  avec reflets de pochettes — série plus devinée. On garde la découpe éprouvée pour le classeur.)
         if (r) return new Promise((res) => r.canvas.toBlob((b) => res({ blob: b, auto: r.auto, box: r.box }), 'image/jpeg', 0.9));
       }
       const gx = grid.x * NW, gy = grid.y * NH, cw = grid.w * NW / cols, ch = grid.h * NH / rows;
