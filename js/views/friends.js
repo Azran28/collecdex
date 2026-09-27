@@ -8,7 +8,7 @@ App.views.friends = {
 
     const av = (a, name, size = 44) => {
       const url = a && a.id ? App.pokedex.img(a.id, !!a.shiny) : '';
-      return `<span class="fr-av" style="width:${size}px;height:${size}px;${url ? `background-image:url('${url}')` : ''}">${url ? '' : esc((name || '?')[0].toUpperCase())}</span>`;
+      return `<span class="fr-av" style="width:${size}px;height:${size}px;${url ? `background-image:url('${esc(url)}')` : ''}">${url ? '' : esc((name || '?')[0].toUpperCase())}</span>`;
     };
 
     // pas connecté : on garde l'invitation pour après
@@ -57,7 +57,7 @@ App.views.friends = {
               <div class="fr-link"><input type="text" readonly value="${esc(link)}" id="fr-link"><button class="btn" id="fr-copy">${navigator.share ? 'Partager' : 'Copier'}</button></div>` : ''}
           </section>
           ${incoming.length ? `<section class="panel fr-incoming"><h2>Demandes reçues <span class="fr-count">${incoming.length}</span></h2>
-            ${incoming.map((r) => `<div class="fr-row">${av(r.avatar, r.pseudo)}<div class="fr-who"><b>${esc(r.pseudo)}</b><span class="small muted">${r.cards} carte${r.cards > 1 ? 's' : ''}</span></div>
+            ${incoming.map((r) => `<div class="fr-row">${av(r.avatar, r.pseudo)}<div class="fr-who"><b>${esc(r.pseudo)}</b><span class="small muted">veut devenir ton ami</span></div>
               <button class="btn sm primary" data-accept="${r.user_id}">Accepter</button><button class="btn sm ghost" data-refuse="${r.user_id}">Refuser</button></div>`).join('')}</section>` : ''}
         </div>
         <section class="section">

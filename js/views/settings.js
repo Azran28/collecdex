@@ -84,8 +84,15 @@ App.views.settings = {
     };
     $('#p-cache').onclick = async () => { await App.db.clear('cache'); App.util.toast('Cache vidé ✓'); };
     $('#p-reset').onclick = async () => {
-      if (!confirm('Effacer TOUTE ta collection, tes photos et ta vitrine ? (fais une sauvegarde avant)')) return;
+      const online = App.cloud.enabled && App.cloud.user;
+      if (!confirm(`Effacer TOUTE ta collection, tes photos et ta vitrine${online ? ', sur cet appareil ET dans ton compte en ligne' : ''} ? (fais une sauvegarde avant)`)) return;
       if (!confirm('Vraiment sûr ? C’est définitif.')) return;
+      if (online) {
+        // connecté : on efface aussi dans le compte (sinon tout reviendrait à la prochaine synchronisation)
+        for (const it of App.col.all()) await App.col.remove(it.key);
+        await App.col.saveProfile({}); // vitrine remise à zéro (envoyée comme la plus récente)
+        await App.cloud.flushNow().catch(() => {});
+      }
       await App.db.clear('items'); await App.db.clear('photos'); await App.db.del('kv', 'profile');
       location.reload();
     };

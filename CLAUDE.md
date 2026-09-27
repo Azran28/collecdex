@@ -14,11 +14,11 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - **En ligne** : https://azran28.github.io/collecdex/ (GitHub Pages, dépôt `Azran28/collecdex`, branche `main`, fichier `.nojekyll`).
 - **Sur le PC d'Arnaud** : `C:\Users\Arnaud\Documents\Collection`, lancé par `Lancer CollecDex.bat` (petit serveur `serveur.ps1` sur le port 8765). Même code que le dépôt.
 - **Comptes et synchro** : Supabase, projet `zjzfwhtqrigfmqzfebzy` (offre gratuite), clé publique dans `js/config.js`.
-  Scripts SQL à exécuter une fois, dans l'ordre, dans *SQL Editor* : `supabase-setup.sql` → `supabase-certif.sql` → `supabase-v2.sql` → `supabase-v3.sql` (capsules) → `supabase-v4.sql` (amis) → `supabase-v5.sql` (boutique des capsules).
+  Scripts SQL à exécuter une fois, dans l'ordre, dans *SQL Editor* : `supabase-setup.sql` → `supabase-certif.sql` → `supabase-v2.sql` → `supabase-v3.sql` (capsules) → `supabase-v4.sql` (amis) → `supabase-v5.sql` (boutique des capsules) → `supabase-v6.sql` (sécurité : pseudos lisibles seulement par leur propriétaire, nombre de cartes caché pour les demandes en attente, taille max des données).
   E-mails : le SMTP gratuit de Supabase n'envoie qu'aux membres de l'équipe (2/h) → pour que d'autres s'inscrivent, « Confirm email » doit être désactivé (Authentication › Providers › Email) ; « mot de passe oublié » ne marchera pour eux qu'avec un SMTP perso.
 
 ## Mettre une version en ligne
-1. Numéro de version : `sh stamp.sh` (Linux / Git Bash) ou `powershell -ExecutionPolicy Bypass -File stamp.ps1` (Windows). Il met `?v=AAAAMMJJ-HHMMSS` sur tous les scripts/styles de `index.html`, dans `window.APP_VERSION` et dans `version.json`.
+1. Numéro de version : `sh stamp.sh` (Linux / Git Bash) ou `powershell -ExecutionPolicy Bypass -File stamp.ps1` (Windows). Il met `?v=AAAAMMJJ-HHMMSS` sur tous les scripts/styles de `index.html`, dans `<meta name="app-version">` (lu par `util.js` → `window.APP_VERSION` ; plus de script en ligne à cause de la CSP) et dans `version.json`.
    GitHub Pages garde les pages en cache ~10 min : le site compare sa version à `version.json` et se recharge tout seul.
 2. `git commit` (auteur `Azran28`) + `git push origin main` ; vérifier `https://azran28.github.io/collecdex/version.json` (1 à 2 min).
 3. Le dossier du PC d'Arnaud doit avoir la même version (voir « Où travaille Claude » ci-dessous).
@@ -51,6 +51,12 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - Sons : `js/sfx.js` (`App.sfx`, Web Audio synthétisé, pas de fichiers), réglage `App.settings.sound`.
 - Vitrine : ne jamais redessiner à chaque `App.col.on` (prix du jour, synchro) : la vitrine compare une signature et redessine une seule fois après 1,2 s en gardant la hauteur et le défilement (sinon le scroll saute).
 - `css/style.css` : styles de base puis blocs successifs (« THÈME POP », certification, holo, badges, passe responsive). Les règles mobiles sont sous `@media (max-width: 760px)`.
+
+## Sécurité (v2.14)
+- **CSP** dans `index.html` (`<meta http-equiv="Content-Security-Policy">`) : scripts seulement du site et de `cdn.jsdelivr.net` (+ `wasm-unsafe-eval` pour Tesseract), workers `blob:`, connexions limitées à TCGdex, Supabase, jsDelivr, tessdata, raw.githubusercontent. **Nouveau service externe ou nouvelle bibliothèque → l'ajouter à la CSP**, sinon il est bloqué en silence (événement `securitypolicyviolation`). Pas de script en ligne ni d'attribut `onclick=` (utiliser un écouteur, ex. `data-reload`).
+- Bibliothèques CDN **à version figée avec empreinte SRI** (`integrity` + `crossOrigin`) : supabase-js 2.117.2 (`cloud.js`, téléchargé dès le chargement de `cloud.js`), tesseract.js 5.1.1 (`recognizer.js`). Pour changer de version : recalculer l'empreinte sha384 du fichier exact.
+- **Données d'un autre dresseur = jamais fiables** (il écrit ce qu'il veut dans ses propres lignes `items`/`profiles`) : `friends.js` filtre tout (`cleanRow`, `cleanItem`, `cleanProfile` : jeu connu, thèmes/cadres de la liste, avatar = entier 1…1025, photos `[A-Za-z0-9_-]`, images seulement `assets.tcgdex.net`). `App.pokedex.img(id)` force un nombre. Toujours `esc()` dans les gabarits, y compris dans `style="…url('…')"` et `data-game`.
+- `serveur.ps1` : ne sert jamais `.git`/`.claude`, option `-NoBrowser`. `.claude/launch.json` : l'aperçu se branche sur le serveur d'Arnaud déjà lancé (le port 8765 est réservé par Windows pour ce serveur).
 
 ## Règles et pièges connus
 - Ajout d'une carte **uniquement par photo** (capture) ; la photo devient le visuel. Une carte compte une fois ; les exemplaires en plus sont des doublons (pour les échanges futurs).

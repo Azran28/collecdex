@@ -71,8 +71,8 @@ App.views.showcase = {
       // éventail : l'angle se resserre quand il y a beaucoup de cartes (tout doit tenir dans la vitrine)
       const d = i - (n - 1) / 2, step = n > 1 ? Math.min(7, 32 / (n - 1)) : 0;
       const fan = profile.layout === 'eventail' ? `style="--rot:${(d * step).toFixed(2)}deg; --dy:${(Math.abs(d) * step * 0.9).toFixed(1)}px; z-index:${n - Math.abs(Math.round(d))}"` : '';
-      return `<div class="vcard" data-card="${esc(it.id)}" data-game="${it.game}" ${fan}>
-        <div class="frame-${frame}"><img src="${esc(img.src)}" alt="${esc(it.snap.name)}" data-alt="${esc(it.snap.name)}"></div>
+      return `<div class="vcard" data-card="${esc(it.id)}" data-game="${esc(it.game)}" ${fan}>
+        <div class="frame-${esc(frame)}"><img src="${esc(img.src)}" alt="${esc(it.snap.name)}" data-alt="${esc(it.snap.name)}"></div>
         ${profile.layout !== 'eventail' ? `<div class="vlabel">${esc(it.snap.name)}${val(it) ? ` · <span style="color:var(--accent2)">${euro(val(it))}</span>` : ''}${it.cond && it.cond.kind === 'graded' ? ` <span class="condchip inline">${esc(App.col.condLabel(it.cond))}</span>` : ''}</div>` : ''}
       </div>`;
     };
@@ -89,7 +89,7 @@ App.views.showcase = {
       const featHTML = (await Promise.all(feat.map((it, i) => vcard(it, i, feat.length)))).join('');
       const topHTML = (await Promise.all(top.map(async (it) => {
         const img = await S.img(it, App.games.get(it.game));
-        return `<div class="vcard" data-card="${esc(it.id)}" data-game="${it.game}"><div class="frame-aucun"><img src="${esc(img.src)}" alt="" data-alt="${esc(it.snap.name)}"></div><div class="vlabel">${esc(it.snap.name)}<br><span style="color:var(--accent2)">${val(it) ? euro(val(it)) : '—'}</span></div></div>`;
+        return `<div class="vcard" data-card="${esc(it.id)}" data-game="${esc(it.game)}"><div class="frame-aucun"><img src="${esc(img.src)}" alt="" data-alt="${esc(it.snap.name)}"></div><div class="vlabel">${esc(it.snap.name)}<br><span style="color:var(--accent2)">${val(it) ? euro(val(it)) : '—'}</span></div></div>`;
       }))).join('');
       if (!alive()) return;
 
@@ -103,7 +103,7 @@ App.views.showcase = {
           <button class="btn ${editing ? 'primary' : ''}" id="v-edit">${editing ? '✓ Terminer' : '✎ Personnaliser'}</button></div>`}
         <section class="vitrine theme-${esc(profile.theme)}" id="v-page">
           <div class="v-head">
-            <div class="v-avatar" style="${avatar ? `background-image:url('${avatar}')` : ''}">${avatar ? '' : esc((profile.pseudo || '?')[0].toUpperCase())}</div>
+            <div class="v-avatar" style="${avatar ? `background-image:url('${esc(avatar)}')` : ''}">${avatar ? '' : esc((profile.pseudo || '?')[0].toUpperCase())}</div>
             <div style="flex:1;min-width:220px">
               <div class="v-name">${esc(profile.pseudo)}</div>
               ${profile.bio ? `<div class="muted" style="white-space:pre-line">${esc(profile.bio)}</div>` : ''}
@@ -126,7 +126,7 @@ App.views.showcase = {
           ${profile.showBadges && completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : App.icons.icon('trophy', 14)}${esc(s.name)}</span>`).join('')}</div>` : ''}
           ${profile.showWish !== false && wl.length ? `<div class="v-wish">
             <div class="row" style="margin:26px 0 10px"><h2 style="margin:0">${App.icons.icon('heart', 18)} ${S.friend ? 'Recherche' : 'Je recherche'}</h2><span class="muted small">${wl.length} carte${wl.length > 1 ? 's' : ''}${S.friend && wl.some((w) => App.col.owned(w.game, w.id)) ? ` · <b style="color:var(--ok)">tu en as ${wl.filter((w) => App.col.owned(w.game, w.id)).length}</b>` : ''}</span><span class="spacer"></span>${S.friend ? '' : '<a class="small" href="#/objectifs?tab=souhaits">Gérer ›</a>'}</div>
-            <div class="v-wish-grid">${wl.slice(0, 12).map((w) => `<div class="vcard" data-card="${esc(w.id)}" data-game="${w.game}"><div class="frame-aucun"><img src="${esc(App.games.get(w.game).img.card({ image: w.image, id: w.id, setId: w.setId, localId: w.localId, serieId: w.serieId }, 'low'))}" alt="" loading="lazy" data-alt="${esc(w.name)}"></div><div class="vlabel">${esc(w.name)}<br><span class="muted" style="font-weight:500">${esc(w.setName || '')}</span>${S.friend && App.col.owned(w.game, w.id) ? '<br><span class="v-ihave">✓ Tu l’as</span>' : ''}</div></div>`).join('')}${wl.length > 12 ? `<a class="v-wish-more" href="#/objectifs?tab=souhaits">+${wl.length - 12}</a>` : ''}</div>
+            <div class="v-wish-grid">${wl.slice(0, 12).map((w) => `<div class="vcard" data-card="${esc(w.id)}" data-game="${esc(w.game)}"><div class="frame-aucun"><img src="${esc(App.games.get(w.game).img.card({ image: w.image, id: w.id, setId: w.setId, localId: w.localId, serieId: w.serieId }, 'low'))}" alt="" loading="lazy" data-alt="${esc(w.name)}"></div><div class="vlabel">${esc(w.name)}<br><span class="muted" style="font-weight:500">${esc(w.setName || '')}</span>${S.friend && App.col.owned(w.game, w.id) ? '<br><span class="v-ihave">✓ Tu l’as</span>' : ''}</div></div>`).join('')}${wl.length > 12 ? `<a class="v-wish-more" href="#/objectifs?tab=souhaits">+${wl.length - 12}</a>` : ''}</div>
           </div>` : ''}
           ${profile.showTop && top.length ? `<h2 style="margin-top:26px">Les ${top.length} plus précieuses</h2><div class="v-featured layout-grille" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${topHTML}</div>` : ''}
         </section>

@@ -16,7 +16,10 @@ App.recognizer = (() => {
   const loadTesseract = () => new Promise((resolve, reject) => {
     if (window.Tesseract) return resolve(window.Tesseract);
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    // version figée + empreinte : le navigateur refuse le fichier s'il a été modifié sur le CDN
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+    s.integrity = 'sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F';
+    s.crossOrigin = 'anonymous';
     s.onload = () => resolve(window.Tesseract);
     s.onerror = () => reject(new Error('Impossible de charger le module de lecture (connexion internet ?)'));
     document.head.appendChild(s);

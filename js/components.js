@@ -144,7 +144,8 @@ App.ui = (() => {
 
   const loading = (msg = 'Chargement…') => `<div class="loading"><div class="spinner"></div>${esc(msg)}</div>`;
 
-  const errorBox = (e) => `<div class="error-box"><b>Oups, impossible de charger les données.</b><br><span class="small">${esc(e && e.message ? e.message : e)}</span><br><br><span class="small muted">Vérifie ta connexion internet. Les données viennent de TCGdex (api.tcgdex.net).</span><br><br><button class="btn sm" onclick="location.reload()">Réessayer</button></div>`;
+  const errorBox = (e) => `<div class="error-box"><b>Oups, impossible de charger les données.</b><br><span class="small">${esc(e && e.message ? e.message : e)}</span><br><br><span class="small muted">Vérifie ta connexion internet. Les données viennent de TCGdex (api.tcgdex.net).</span><br><br><button class="btn sm" data-reload>Réessayer</button></div>`;
+  document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-reload]')) location.reload(); });
 
   const stars = (n, name = 'rating') => `<span class="stars" data-stars="${name}">${[1, 2, 3, 4, 5].map((i) => `<button type="button" data-v="${i}" class="${i <= n ? 'on' : ''}" aria-label="${i} étoile${i > 1 ? 's' : ''}">★</button>`).join('')}</span>`;
 

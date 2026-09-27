@@ -1,6 +1,8 @@
 # Petit serveur web local pour CollecDex (aucune installation necessaire).
 # Il sert les fichiers de ce dossier sur http://localhost:8765/ et ouvre le navigateur.
 # Fermer cette fenetre arrete le site.
+# -NoBrowser : ne pas ouvrir le navigateur (utilise par Claude pour tester).
+param([switch]$NoBrowser)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -13,7 +15,7 @@ try {
     $listener.Start()
 } catch {
     # Deja lance (ou port occupe) : on ouvre simplement le navigateur
-    Start-Process $url
+    if (-not $NoBrowser) { Start-Process $url }
     exit
 }
 
@@ -22,7 +24,7 @@ Write-Host "  CollecDex est lance sur $url" -ForegroundColor Green
 Write-Host "  Laisse cette fenetre ouverte pendant que tu utilises le site."
 Write-Host "  Ferme-la pour arreter."
 Write-Host ""
-Start-Process $url
+if (-not $NoBrowser) { Start-Process $url }
 
 $mime = @{
     '.html' = 'text/html; charset=utf-8'
@@ -38,7 +40,7 @@ $mime = @{
     '.md'   = 'text/plain; charset=utf-8'
     '.webmanifest' = 'application/manifest+json; charset=utf-8'
 }
-$rootFull = [System.IO.Path]::GetFullPath($root)
+$rootFull = [System.IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
 
 while ($listener.IsListening) {
     try {
@@ -52,7 +54,8 @@ while ($listener.IsListening) {
         if ($path -eq '/' -or $path -eq '') { $path = '/index.html' }
         $rel = $path.TrimStart('/').Replace('/', '\')
         $full = [System.IO.Path]::GetFullPath((Join-Path $rootFull $rel))
-        if ($full.StartsWith($rootFull) -and (Test-Path -LiteralPath $full -PathType Leaf)) {
+        # jamais les dossiers caches (.git, .claude) ni en dehors du dossier du site
+        if ($full.StartsWith($rootFull) -and ($rel -notmatch '(^|\\)\.(git|claude)') -and (Test-Path -LiteralPath $full -PathType Leaf)) {
             $bytes = [System.IO.File]::ReadAllBytes($full)
             $ext = [System.IO.Path]::GetExtension($full).ToLower()
             if ($mime.ContainsKey($ext)) { $res.ContentType = $mime[$ext] } else { $res.ContentType = 'application/octet-stream' }

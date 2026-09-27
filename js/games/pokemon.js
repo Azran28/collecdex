@@ -150,6 +150,7 @@
   const CARD_FIELDS = 'id localId name image rarity category types illustrator hp variants { normal reverse holo firstEdition }';
 
   async function getSet(id) {
+    id = String(id).replace(/["\\]/g, ''); // vient de l'adresse de la page : rien qui puisse casser la requête
     const L = langFor(id);
     return cached(`pk4:${L}:set:${id}`, 7 * DAY, async () => {
       let meta = null, cards = null;

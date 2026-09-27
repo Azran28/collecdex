@@ -26,18 +26,25 @@ App.cloud = (() => {
   const loadLib = () => new Promise((resolve, reject) => {
     if (window.supabase && window.supabase.createClient) return resolve(window.supabase);
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+    // version figée + empreinte : le navigateur refuse le fichier s'il a été modifié sur le CDN
+    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
+    s.integrity = 'sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
+    s.crossOrigin = 'anonymous';
     s.onload = () => resolve(window.supabase);
     s.onerror = () => reject(new Error('Impossible de charger le module de connexion (internet ?)'));
     document.head.appendChild(s);
   });
+  // téléchargement lancé tout de suite, pendant que le reste du site se prépare (l'accueil s'affiche plus vite)
+  let libP = null;
+  const getLib = () => libP || (libP = loadLib().catch((e) => { libP = null; throw e; }));
+  if (enabled) getLib().catch(() => {});
 
   async function init() {
     if (!enabled) return;
     const p = await App.db.get('kv', 'cloudPending').catch(() => null);
     if (p) pend = Object.assign(pend, p);
     try {
-      const lib = await loadLib();
+      const lib = await getLib();
       sb = lib.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
       const { data } = await sb.auth.getSession();
       user = data.session ? data.session.user : null;

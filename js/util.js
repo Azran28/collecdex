@@ -1,6 +1,8 @@
 /* Petits outils partagés par tout le site */
 window.App = window.App || {};
 App.views = App.views || {};
+// numéro de version de cette mise en ligne (posé par stamp.ps1 / stamp.sh dans index.html)
+window.APP_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '';
 
 App.util = (() => {
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

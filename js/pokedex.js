@@ -26,7 +26,8 @@ App.pokedex = (() => {
   const gen = (id) => GEN_END.findIndex((e) => id <= e) + 1;
   const region = (id) => REGIONS[gen(id) - 1];
   const ART = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/';
-  const img = (id, shiny = false) => `${ART}${shiny ? 'shiny/' : ''}${id}.png`;
+  // id forcé en nombre : l'avatar d'un ami vient de SES données, il ne doit jamais pouvoir injecter du code dans la page
+  const img = (id, shiny = false) => { const n = parseInt(id, 10); return n >= 1 && n <= TOTAL ? `${ART}${shiny ? 'shiny/' : ''}${n}.png` : ''; };
   const num = (id) => '#' + String(id).padStart(4, '0');
 
   return { TOTAL, TIER, REGIONS, GEN_END, name, tier, gen, region, img, num };

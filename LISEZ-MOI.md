@@ -98,6 +98,12 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Pour vendre : bouton « Vendre » juste après une ouverture, « Vendre mes doublons » (tu gardes un exemplaire de chaque Pokémon et tous tes chromatiques), ou touche un Pokémon de ton Pokédex. Le site demande confirmation pour ton dernier exemplaire, un légendaire, un fabuleux ou un chromatique ; ton Pokémon d'avatar ne peut pas être vendu s'il ne t'en reste qu'un. Tout est compté sur le serveur (personne ne peut se donner des éclats). Une offre de la boutique s'entoure d'une bordure quand tu as assez d'éclats pour l'acheter.
 - **À faire une fois** : lancer `supabase-v5.sql` dans Supabase (SQL Editor), sinon la boutique affiche « Il reste une étape ».
 
+## Sécurité
+- Le site ne fait jamais confiance aux données des autres dresseurs : un texte piégé dans la vitrine ou l'avatar d'un ami s'affiche comme du simple texte, sans jamais s'exécuter.
+- La page n'exécute que son propre code et celui de bibliothèques connues, dont la version est figée et vérifiée (le navigateur refuse un fichier modifié).
+- **À faire une fois** : lancer `supabase-v6.sql` dans Supabase (SQL Editor → coller → *Run*). Rien ne change à l'écran : la liste des pseudos n'est plus lisible en entier, une demande d'ami en attente ne montre plus ton nombre de cartes, et la taille des données envoyées est limitée (contre les abus).
+- Conseillé dans Supabase : *Authentication* → *Providers* → *Email* → longueur minimale du mot de passe à **8**.
+
 ## L'appli sur ton téléphone
 - Ouvre le site sur ton téléphone : un bandeau **« Installe CollecDex »** apparaît sous l'accueil. Touche **Installer**, et l'icône CollecDex arrive sur ton écran d'accueil.
 - Sur iPhone : dans **Safari**, bouton **Partager** puis **« Sur l'écran d'accueil »** (le bouton Installer t'explique).
