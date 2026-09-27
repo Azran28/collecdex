@@ -319,6 +319,9 @@ App.certify = (() => {
     // numéro, total et nom bien lus sur la photo (ou reconnaissance « sûre ») : c'est bien elle,
     // inutile de comparer à toute la série (plus rapide, et une photo avec reflet n'est plus refusée)
     if (c && (c.confident || (c.numOk && c.ofOk && (c.nameScore || 0) >= 0.6))) return { ok: true, how: 'lecture', res: c.visual == null ? null : Math.round(c.visual * 100) / 100 };
+    // la carte proposée est la plus ressemblante de toutes celles comparées par la reconnaissance (et ressemble bien)
+    // → c'est elle (avant, on exigeait 0,10 d'avance sur toute la série : de bonnes photos étaient refusées)
+    if (c && c.visual != null && c.visual >= 0.42 && c.margin != null && c.margin >= 0) return { ok: true, how: 'meilleure', res: Math.round(c.visual * 100) / 100, margin: Math.round(c.margin * 100) / 100 };
     // on compare la photo à TOUTES les cartes de la série choisie : la carte choisie doit être
     // nettement la plus ressemblante (le numéro lu ou tapé à la main ne suffit pas)
     try {
@@ -334,7 +337,7 @@ App.certify = (() => {
       const r2 = (v) => Math.round(v * 100) / 100;
       // règle relative : la carte choisie doit être nettement la plus ressemblante de sa série
       // (mesuré sur de vraies photos : bonne carte 0,44 à 0,83 et loin devant ; mauvaise carte toujours derrière une autre)
-      const ok = self != null && self >= 0.35 && (self - other >= 0.1 || (App.util.norm(otherName) === App.util.norm(c.name) && self >= other));
+      const ok = self != null && self >= 0.35 && (self - other >= 0.05 || (App.util.norm(otherName) === App.util.norm(c.name) && self >= other));
       return { ok, how: 'ressemblance', res: self == null ? null : r2(self), next: r2(other) };
     } catch (e) {
       console.warn(e);

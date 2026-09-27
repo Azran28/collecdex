@@ -253,7 +253,7 @@ App.views.scan = {
       if (shooting) return; // un seul appui compte (le défi de certification ne sert qu'une fois)
       shooting = true;
       const shot = el.querySelector('#sc-shot');
-      shot.disabled = true; shot.textContent = '📸 Photo en cours…';
+      shot.disabled = true; shot.textContent = '✓ Photo prise — recherche de la carte…';
       view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
       App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ }
       try {
