@@ -267,19 +267,19 @@ App.views.scan = {
         const b = await cam.capture(); if (!b) return;
         cam.stop();
         lastShot = b;
-        // la carte est recadrée toute seule au plus près de ses bords (meilleure reconnaissance), sans étape de cadrage
+        // la carte est détourée toute seule, au ras de ses bords et remise à plat (sinon recadrée au plus près)
         let card = b;
         try {
-          const img = await createImageBitmap(b), GM = 0.06 / 1.12;
-          const r = R.cellCard(img, { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM });
-          card = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9)) || b;
+          const img = await createImageBitmap(b), GM = 0.06 / 1.12, zone = { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM };
+          const r = R.cutCard(img, zone) || R.cellCard(img, zone);
+          card = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)) || b;
         } catch (e) { console.warn(e); }
         el.querySelector('#sc-actions').classList.remove('hidden');
         await analyse(card);
         const certLine = !cert ? '' : cert.passed
           ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— la carte sera certifiée à l’ajout.</span>`
           : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`;
-        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal cadrée ? Recadrer la photo</button></div>`);
+        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
       } finally {
         shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
         shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`;
@@ -1195,7 +1195,9 @@ App.views.scan = {
         }
         rLast = F;
         const img = await createImageBitmap(b);
-        const r = R.cellCard(img, { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM });
+        const zone = { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM };
+        const cut = R.cutCard(img, zone); // détourée au ras des bords, sinon recadrée au plus près
+        const r = cut ? { ...cut, auto: true } : R.cellCard(img, zone);
         const blob = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9));
         addBurstCell(blob, r.auto, live);
         if (flipped) rHint(live && live.passed ? `${App.icons.icon('shield', 13)} Carte ${cells.length} vérifiée — suivante !` : `Carte ${cells.length} prise (non certifiable) — suivante !`, live && live.passed ? 'ok' : '');

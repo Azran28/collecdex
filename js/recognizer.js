@@ -385,6 +385,123 @@ App.recognizer = (() => {
   }
 
   /**
+   * Détourage d'une carte seule (caméra, rafale) : on trouve ses 4 bords, même un peu penchés ou en perspective,
+   * puis on la remet à plat AU RAS de ses bords (plus de table ni de marge autour).
+   * Chaque bord : sur chaque ligne (ou colonne), le premier contraste net en venant de l'extérieur,
+   * puis une droite ajustée en ignorant les points aberrants (reflets, doigts). Les 4 droites se coupent aux coins.
+   * rect : zone où se trouve la carte (fractions de l'image). Renvoie { canvas, quad, fit } ou null si pas sûr.
+   */
+  function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }) {
+    const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
+    // zone de recherche : la zone donnée + 8 % (la carte peut dépasser un peu du cadre jaune)
+    const ax = Math.max(0, (rect.x - rect.w * 0.08) * NW), ay = Math.max(0, (rect.y - rect.h * 0.08) * NH);
+    const aw = Math.min(NW - ax, rect.w * 1.16 * NW), ah = Math.min(NH - ay, rect.h * 1.16 * NH);
+    const S = 320 / Math.max(aw, ah), w = Math.max(40, Math.round(aw * S)), h = Math.max(40, Math.round(ah * S));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.filter = 'grayscale(1) blur(0.8px)';
+    g.drawImage(img, ax, ay, aw, ah, 0, 0, w, h);
+    const px = g.getImageData(0, 0, w, h).data, G = new Float32Array(w * h);
+    for (let i = 0; i < G.length; i++) G[i] = px[i * 4];
+    const at = (x, y) => G[y * w + x];
+    // contraste horizontal (bords gauche/droite) ou vertical (haut/bas), lissé sur 3 pixels le long du bord
+    const gx = (x, y) => Math.abs((at(x + 1, y - 1) + at(x + 1, y) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + at(x - 1, y) + at(x - 1, y + 1))) / 3;
+    const gy = (x, y) => Math.abs((at(x - 1, y + 1) + at(x, y + 1) + at(x + 1, y + 1)) - (at(x - 1, y - 1) + at(x, y - 1) + at(x + 1, y - 1))) / 3;
+    // points candidats d'un bord : sur chaque ligne (ou colonne), les contrastes nets (maxima locaux)
+    // dans le tiers extérieur de la zone
+    function edge(side) {
+      const pts = [], vert = side === 'L' || side === 'R';
+      const along = vert ? h : w, across = vert ? w : h, out = side === 'L' || side === 'T';
+      const lim = Math.round(across * 0.36);
+      for (let t = Math.round(along * 0.1); t < along * 0.9; t += 2) {
+        const vals = [0];
+        for (let k = 1; k < lim; k++) { const p = out ? k : across - 1 - k; vals.push(vert ? gx(p, t) : gy(t, p)); }
+        const m = Math.max(...vals); if (m < 14) continue;
+        for (let k = 2; k < vals.length - 1; k++) {
+          if (vals[k] >= Math.max(12, m * 0.35) && vals[k] >= vals[k - 1] && vals[k] > vals[k + 1]) {
+            const p = out ? k : across - 1 - k;
+            pts.push({ s: t, v: p, wgt: vals[k] });
+          }
+        }
+      }
+      return pts;
+    }
+    // quelques droites robustes par côté (le bord de la carte, mais aussi celui de la pochette, d'une carte voisine…)
+    // vert → x = a·y + b ; sinon y = a·x + b
+    function lines(pts, along) {
+      const found = [];
+      let rest = pts, seed = 12345;
+      const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+      const nLines = Math.round((along * 0.8) / 2); // nombre de lignes de mesure
+      for (let pass = 0; pass < 4 && rest.length >= 12; pass++) {
+        let best = null;
+        for (let it = 0; it < 120; it++) {
+          const p = rest[Math.floor(rnd() * rest.length)], q = rest[Math.floor(rnd() * rest.length)];
+          if (Math.abs(q.s - p.s) < along * 0.3) continue;
+          const a = (q.v - p.v) / (q.s - p.s); if (Math.abs(a) > 0.25) continue;
+          const b = p.v - a * p.s;
+          const inl = rest.filter((o) => Math.abs(o.v - (a * o.s + b)) <= 1.8);
+          const span = new Set(inl.map((o) => o.s)).size;
+          if (!best || span > best.span) best = { a, b, inl, span };
+        }
+        if (!best || best.span < nLines * 0.3) break;
+        const n = best.inl.length; let sx = 0, sy = 0, sxx = 0, sxy = 0;
+        for (const o of best.inl) { sx += o.s; sy += o.v; sxx += o.s * o.s; sxy += o.s * o.v; }
+        const den = n * sxx - sx * sx; const a = den ? (n * sxy - sx * sy) / den : best.a, b = (sy - a * sx) / n;
+        found.push({ a, b, frac: best.span / nLines });
+        rest = rest.filter((o) => !best.inl.includes(o));
+      }
+      return found;
+    }
+    const Ls = lines(edge('L'), h), Rs = lines(edge('R'), h), Ts = lines(edge('T'), w), Bs = lines(edge('B'), w);
+    if (!Ls.length || !Rs.length || !Ts.length || !Bs.length) return null;
+    // coin = croisement d'un bord vertical (x = a·y + b) et d'un bord horizontal (y = c·x + d)
+    const cross = (V, H) => { const x = (V.a * H.b + V.b) / (1 - V.a * H.a); return [x, H.a * x + H.b]; };
+    const dist = (p, r) => Math.hypot(p[0] - r[0], p[1] - r[1]);
+    // la combinaison de 4 bords qui forme le mieux une carte (proportions 63 × 88, bords bien marqués, assez grande)
+    let pick = null;
+    for (const L of Ls) for (const R of Rs) for (const T of Ts) for (const B of Bs) {
+      const q = [cross(L, T), cross(R, T), cross(R, B), cross(L, B)];
+      const qw = (dist(q[0], q[1]) + dist(q[3], q[2])) / 2, qh = (dist(q[0], q[3]) + dist(q[1], q[2])) / 2;
+      const ratio = qw / qh / (63 / 88);
+      if (ratio < 0.9 || ratio > 1.1 || qh < rect.h * NH * S * 0.6 || Math.min(L.frac, R.frac, T.frac, B.frac) < 0.3) continue;
+      // à forme égale, le plus GRAND rectangle : le bord extérieur de la carte, pas le cadre jaune à l'intérieur
+      const score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 + (qw * qh) / (w * h) * 4;
+      if (!pick || score > pick.score) pick = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac) };
+    }
+    if (!pick || pick.fit < 0.3) return null;
+    const q = pick.q.map(([x, y]) => [ax + x / S, ay + y / S]);
+    const qw = pick.qw / S, qh = pick.qh / S;
+    if (q.some(([x, y]) => x < -2 || y < -2 || x > NW + 2 || y > NH + 2)) return null;
+    // remise à plat, avec un liseré de 0,4 % retiré (le bord lui-même)
+    const f = squareToQuad(q), e = 0.004;
+    const fw = Math.min(900, Math.round(qw)), fh = Math.round(fw * 88 / 63);
+    const bx0 = Math.max(0, Math.floor(Math.min(...q.map((p) => p[0])))), by0 = Math.max(0, Math.floor(Math.min(...q.map((p) => p[1]))));
+    const bx1 = Math.min(NW, Math.ceil(Math.max(...q.map((p) => p[0])))), by1 = Math.min(NH, Math.ceil(Math.max(...q.map((p) => p[1]))));
+    const SW = Math.max(1, bx1 - bx0), SH = Math.max(1, by1 - by0);
+    const sc = document.createElement('canvas'); sc.width = SW; sc.height = SH;
+    sc.getContext('2d').drawImage(img, bx0, by0, SW, SH, 0, 0, SW, SH);
+    const src = sc.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, SW, SH).data;
+    const out = document.createElement('canvas'); out.width = fw; out.height = fh;
+    const og = out.getContext('2d'), od = og.createImageData(fw, fh), D = od.data;
+    for (let py = 0; py < fh; py++) {
+      const v = e + (py + 0.5) / fh * (1 - 2 * e);
+      for (let pxl = 0; pxl < fw; pxl++) {
+        const u = e + (pxl + 0.5) / fw * (1 - 2 * e);
+        let [x, y] = f(u, v); x -= bx0 + 0.5; y -= by0 + 0.5;
+        x = Math.min(SW - 1, Math.max(0, x)); y = Math.min(SH - 1, Math.max(0, y));
+        const xi = x | 0, yi = y | 0, fx = x - xi, fy = y - yi, x2 = Math.min(SW - 1, xi + 1), y2 = Math.min(SH - 1, yi + 1);
+        const i00 = (yi * SW + xi) * 4, i10 = (yi * SW + x2) * 4, i01 = (y2 * SW + xi) * 4, i11 = (y2 * SW + x2) * 4;
+        const o = (py * fw + pxl) * 4;
+        for (let k = 0; k < 3; k++) D[o + k] = (src[i00 + k] * (1 - fx) + src[i10 + k] * fx) * (1 - fy) + (src[i01 + k] * (1 - fx) + src[i11 + k] * fx) * fy;
+        D[o + 3] = 255;
+      }
+    }
+    og.putImageData(od, 0, 0);
+    return { canvas: out, quad: q.map(([x, y]) => [x / NW, y / NH]), fit: pick.fit };
+  }
+
+  /**
    * Bords exacts d'une carte dans sa pochette (grille déjà posée) : on cherche la paire de bords gauche/droite
    * et haut/bas la plus nette, chaque axe séparément (tolère une photo un peu en biais). Null si pas net.
    */
@@ -1057,5 +1174,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
 })();
