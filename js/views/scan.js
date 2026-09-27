@@ -231,10 +231,13 @@ App.views.scan = {
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         trk = App.certify.tracker(cam.video, () => cam.region());
+        const t0 = Date.now();
         trkTimer = setInterval(() => {
           if (!cam.on || !alive()) return stopTrack();
-          const ph = trk.step();
-          const h = view.querySelector('.flip-hint'); if (h && h.dataset.phase !== ph) { h.innerHTML = App.certify.HINTS[ph]; h.dataset.phase = ph; }
+          let ph = trk.step();
+          // dos toujours pas reconnu après 7 s : souvent une carte dans un étui opaque
+          const show = ph === 'attente' && Date.now() - t0 > 7000 ? 'aide' : ph;
+          const h = view.querySelector('.flip-hint'); if (h && h.dataset.phase !== show) { h.innerHTML = show === 'aide' ? 'Dos pas reconnu : il doit être <b>visible</b> (sors la carte d’un étui opaque ; une pochette transparente, ça va)' : App.certify.HINTS[ph]; h.dataset.phase = show; }
           if (ph === 'pret') shoot(true);
         }, 90);
       }

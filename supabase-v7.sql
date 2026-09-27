@@ -185,6 +185,6 @@ create extension if not exists pg_net with schema extensions;
 select cron.unschedule(jobid) from cron.job where jobname = 'capsule-notify';
 select cron.schedule('capsule-notify', '*/5 * * * *',
   $$ select net.http_post(
-       url := 'https://zjzfwhtqrigfmqzfebzy.supabase.co/functions/v1/capsule-notify',
+       url := 'https://zjzfwhtqrigfmqzfebzy.supabase.co/functions/v1/hyper-processor', -- nom donné par Supabase à la fonction
        headers := '{"Content-Type": "application/json"}'::jsonb,
        body := '{}'::jsonb) $$);

@@ -106,7 +106,8 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **iPhone** : les notifications ne marchent qu'avec l'appli **installée** sur l'écran d'accueil (iOS 16.4 ou plus récent) : installe-la, ouvre-la, puis active les notifications dans ses Paramètres.
 - **À faire une fois dans Supabase** (2 étapes) :
   1. *SQL Editor* → coller `supabase-v7.sql` → *Run* (notifications + nouvelle certification).
-  2. *Edge Functions* → *Deploy a new function* → *Via Editor* → nom **`capsule-notify`** → remplacer tout le code par celui du fichier `supabase/functions/capsule-notify/index.ts` → *Deploy function*. Puis, dans la fonction : *Details* (ou *Settings*) → désactiver **« Verify JWT »** (ou « Enforce JWT verification ») → *Save*. Le serveur l'appelle ensuite tout seul toutes les 5 minutes.
+  2. *Edge Functions* : la fonction d'envoi s'appelle **`hyper-processor`** (nom choisi par Supabase). Son code = le fichier `supabase/functions/capsule-notify/index.ts` (onglet *Code* → tout remplacer → *Deploy*), « Verify JWT » désactivé dans *Settings*. Le serveur l'appelle tout seul toutes les 5 minutes.
+- Pour le moment, une carte dans un **étui opaque** ne peut pas être certifiée : le site doit voir le dos Pokémon (c'est ce qui prouve que ce n'est pas un écran). Une pochette transparente convient.
 
 ## Sécurité
 - Le site ne fait jamais confiance aux données des autres dresseurs : un texte piégé dans la vitrine ou l'avatar d'un ami s'affiche comme du simple texte, sans jamais s'exécuter.
