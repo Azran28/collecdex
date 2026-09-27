@@ -18,6 +18,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; }
+/* place de la barre de défilement toujours réservée : la page ne se décale plus quand une fenêtre s'ouvre */
+html { scrollbar-gutter: stable; }
 a { color: inherit; }
 img { max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -561,6 +563,9 @@ a.chip { text-decoration: none; }
 .cert-arrow { font-size: 4.5rem; line-height: 1; color: #fff; text-shadow: 0 0 18px rgba(124,92,255,.9), 0 2px 6px rgba(0,0,0,.8); animation: certPulse .9s ease-in-out infinite; }
 .cert-arrow.gauche { align-self: flex-start; margin-left: 8%; }
 .cert-arrow.droite { align-self: flex-end; margin-right: 8%; }
+/* certification « dos d'abord » : consigne en bas de la vidéo */
+.flip-hint { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; max-width: 92%; text-align: center; font-weight: 600; color: #fff; background: rgba(12,14,25,.82); border: 1px solid rgba(255,255,255,.18); padding: 7px 14px; border-radius: 999px; pointer-events: none; }
+.flip-hint[data-phase="dos"], .flip-hint[data-phase="retourne"] { border-color: #ffd23f; color: #ffe27a; }
 /* retourner la carte : la flèche tourne sur elle-même, puis revient une fois le dos vu */
 .cert-arrow.retourne { animation: certFlip 1.1s ease-in-out infinite; }
 .cert-arrow.retourne.back { animation-direction: reverse; color: #ffd23f; }
@@ -1187,7 +1192,13 @@ body.cap-lock { overflow: hidden; }
 /* fiche d'un Pokémon : pas encore attrapé, évolutions, version chromatique */
 .sp-art { position: relative; }
 .sp-miss .sp-art img { filter: grayscale(1) brightness(.55); opacity: .45; }
-.sp-q { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 4.5rem; font-weight: 900; color: rgba(255,255,255,.3); }
+.sp-q { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; font-size: 4.5rem; font-weight: 900; color: rgba(255,255,255,.3); }
+.sp-miss .sp-q { display: flex; }
+.sp-art img { height: auto; }
+/* tailles réservées : la fiche ne change pas de taille quand on passe de Normal à Chromatique */
+.sp-count { min-height: 2.9em; }
+.sp-sell { min-height: 64px; }
+.sp-info .btn:disabled { opacity: .45; }
 .sp-evo { margin-top: 18px; }
 .sp-evo h3 { margin: 0 0 8px; font-size: 1rem; }
 .evo-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

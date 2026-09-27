@@ -71,37 +71,51 @@
       <span class="evo-img"><img src="${P().img(i, shiny)}" alt="" loading="lazy">${shiny ? '<span class="evo-sh">✦</span>' : ''}</span>
       <span class="evo-n">${esc(P().name(i))}</span></button>`;
 
+  /** Nombre d'exemplaires normaux / chromatiques d'une espèce */
+  const counts = (d) => ({ normal: d ? d.n - d.shiny : 0, shiny: d ? d.shiny : 0 });
+
   /** Fiche d'un Pokémon (attrapé ou non) : évolutions, version chromatique, avatar et vente ; onChange() après une vente */
   function speciesModal(id, dex, onChange) {
     const d = dex.get(id);
-    const got = !!d;
-    let sh = false;
+    const got = !!d, c0 = counts(d);
+    let sh = c0.normal === 0 && c0.shiny > 0; // seulement le chromatique : on montre celui-là d'abord
     const st = App.capsules.state, shop = !!(got && st && st.shop);
     const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
     const fam = P().family(id);
-    const evoHTML = fam.flat().length > 1 ? `<div class="sp-evo"><h3>Évolutions</h3><div class="evo-line">${fam.map((stage) => `<div class="evo-stage">${stage.map((i) => evoCell(i, dex.has(i), false, id)).join('')}</div>`).join('<span class="evo-arrow" aria-hidden="true">›</span>')}</div></div>` : '';
-    const shinyHTML = `<div class="sp-evo"><h3>Version chromatique</h3><div class="evo-line">${evoCell(id, !!(d && d.shiny), true, id)}
-      <p class="small muted" style="margin:0;align-self:center">${d && d.shiny ? `Tu l’as attrapé en chromatique ${d.shiny > 1 ? d.shiny + ' fois' : ''} ✦` : 'Pas encore attrapé en chromatique (1 % de chance à chaque capsule, 3 % avec une grande capsule).'}</p></div></div>`;
-    const body = App.util.openModal(`<div class="sp-modal ${got ? '' : 'sp-miss'}">
-      <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id)}" alt="${esc(P().name(id))}">${got ? '' : '<span class="sp-q">?</span>'}</div>
+    // évolutions : la version que tu as (normale, sinon chromatique) ; grisée avec « ? » si tu n'as aucune des deux
+    const famCell = (i) => { const c = counts(dex.get(i)); return c.normal || !c.shiny ? evoCell(i, c.normal > 0, false, id) : evoCell(i, true, true, id); };
+    const evoHTML = fam.flat().length > 1 ? `<div class="sp-evo"><h3>Évolutions</h3><div class="evo-line">${fam.map((stage) => `<div class="evo-stage">${stage.map(famCell).join('')}</div>`).join('<span class="evo-arrow" aria-hidden="true">›</span>')}</div></div>` : '';
+    const shinyHTML = `<div class="sp-evo"><h3>Version chromatique</h3><div class="evo-line">${evoCell(id, c0.shiny > 0, true, -1)}
+      <p class="small muted" style="margin:0;align-self:center">${c0.shiny ? `Tu l’as attrapé en chromatique${c0.shiny > 1 ? ` ${c0.shiny} fois` : ''} ✦` : 'Pas encore attrapé en chromatique (1 % de chance à chaque capsule, 3 % avec une grande capsule).'}</p></div></div>`;
+    const body = App.util.openModal(`<div class="sp-modal">
+      <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id, sh)}" alt="${esc(P().name(id))}" width="200" height="200"><span class="sp-q">?</span></div>
       <div class="sp-info">
         <div class="muted small">${P().num(id)} · ${esc(P().region(id))}</div>
         <h2>${esc(P().name(id))}</h2>
-        <div class="row" style="gap:8px">${tierPill(P().tier(id))}${d && d.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
-        <p class="small muted" id="sp-count">${got ? '' : 'Pas encore attrapé : ouvre des capsules pour le trouver !'}</p>
-        ${d && d.shiny ? '<div class="chips" id="sp-sw"><button class="chip on" data-sh="0">Normal</button><button class="chip" data-sh="1">✦ Chromatique</button></div>' : ''}
-        ${got ? `<button class="btn primary" id="sp-av" style="margin-top:12px">${App.icons.icon('user', 16)} En faire mon avatar</button>` : ''}
+        <div class="row" style="gap:8px">${tierPill(P().tier(id))}${c0.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
+        <p class="small muted sp-count">${got ? `Attrapé ${d.n} fois${c0.shiny ? ` (dont ${c0.shiny} chromatique${c0.shiny > 1 ? 's' : ''})` : ''} · la première fois le ${App.util.dateFr(new Date(d.first).toISOString())}.` : 'Pas encore attrapé : ouvre des capsules pour le trouver !'}</p>
+        ${got ? `<div class="chips" id="sp-sw"><button class="chip" data-sh="0">Normal${c0.normal ? ` ×${c0.normal}` : ''}</button><button class="chip" data-sh="1">✦ Chromatique${c0.shiny ? ` ×${c0.shiny}` : ''}</button></div>
+          <button class="btn primary" id="sp-av" style="margin-top:12px">${App.icons.icon('user', 16)} En faire mon avatar</button>` : ''}
         ${shop ? `<div class="sp-sell" id="sp-sell"></div>` : ''}
       </div></div>${evoHTML}${shinyHTML}`);
     body.addEventListener('click', (e) => {
       const ev = e.target.closest('[data-evo]');
       if (ev && +ev.dataset.evo !== id) speciesModal(+ev.dataset.evo, dex, onChange);
     });
+    const own = () => (sh ? counts(d).shiny : counts(d).normal) > 0;
+    // version affichée (normale / chromatique) : grisée si tu ne l'as pas, sans changer la taille de la fiche
+    const drawVersion = () => {
+      body.querySelector('.sp-modal').classList.toggle('sp-miss', !own());
+      body.querySelector('#sp-img').src = P().img(id, sh);
+      body.querySelectorAll('#sp-sw .chip').forEach((c) => c.classList.toggle('on', (c.dataset.sh === '1') === sh));
+      const av = body.querySelector('#sp-av');
+      if (av) { av.disabled = !own(); av.title = own() ? '' : `Tu n’as pas ${P().name(id)} en version ${sh ? 'chromatique' : 'normale'}`; }
+    };
+    drawVersion();
     if (!got) return;
     const drawSell = async () => {
-      body.querySelector('#sp-count').textContent = d.n > 0 ? `Attrapé ${d.n} fois${d.shiny ? ` (dont ${d.shiny} chromatique${d.shiny > 1 ? 's' : ''})` : ''} · la première fois le ${App.util.dateFr(new Date(d.first).toISOString())}.` : 'Tu n’as plus ce Pokémon.';
       const box = body.querySelector('#sp-sell'); if (!box) return;
-      const have = sh ? d.shiny : d.n - d.shiny, p = App.capsules.price(id, sh);
+      const have = sh ? counts(d).shiny : counts(d).normal, p = App.capsules.price(id, sh);
       box.innerHTML = have > 0 ? `<div class="small muted">${sh ? 'Chromatique' : 'Normal'} : ${have} exemplaire${have > 1 ? 's' : ''} · se vend <b>${pts(p)}</b></div>
         <div class="row" style="gap:8px;margin-top:6px"><button class="btn sm" data-sell="1">${App.icons.icon('coin', 14)} Vendre 1 (+${p})</button>
         ${have > 2 ? `<button class="btn sm ghost" data-sell="${have - 1}">Vendre ${have - 1}, en garder 1 (+${p * (have - 1)})</button>` : ''}</div>`
@@ -110,8 +124,8 @@
     drawSell();
     body.addEventListener('click', async (e) => {
       const b = e.target.closest('#sp-sw [data-sh]');
-      if (b) { sh = b.dataset.sh === '1'; body.querySelectorAll('#sp-sw .chip').forEach((c) => c.classList.toggle('on', c === b)); body.querySelector('#sp-img').src = P().img(id, sh); drawSell(); }
-      if (e.target.closest('#sp-av')) { await setAvatar(id, sh); App.util.closeModal(); }
+      if (b) { sh = b.dataset.sh === '1'; drawVersion(); drawSell(); }
+      if (e.target.closest('#sp-av')) { if (!own()) return; await setAvatar(id, sh); App.util.closeModal(); }
       const sb = e.target.closest('[data-sell]');
       if (sb) {
         const n = +sb.dataset.sell, have = sh ? d.shiny : d.n - d.shiny;
@@ -125,7 +139,7 @@
           const r = await App.capsules.sell(id, sh, n);
           App.sfx.click();
           App.util.toast(`+${pts(r.gain)} (tu as ${pts(r.coins)})`);
-          if (d.n <= 0) { dex.delete(id); App.util.closeModal(); } else drawSell();
+          if (d.n <= 0) { dex.delete(id); App.util.closeModal(); } else { drawVersion(); drawSell(); }
           if (onChange) onChange();
         } catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
       }
