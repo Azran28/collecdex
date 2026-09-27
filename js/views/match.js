@@ -4,23 +4,40 @@
   const B = () => App.battle;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const ad = () => App.games.get('pokemon');
-  const TEAMS = 3;
+  const TEAMS = 3, BAG_MAX = 6;
   const RM = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- Données ----------
   /** profile.match = { teams:[{name, keys:[3 clés]}×3], teamIdx, team (= équipe choisie, pour les anciennes versions), beaten, wins, losses } */
   function normMatch(m) {
-    m = Object.assign({ team: [], beaten: {}, wins: 0, losses: 0 }, m || {});
+    m = Object.assign({ team: [], beaten: {}, beatenAdv: {}, wins: 0, losses: 0, mode: 'classic' }, m || {});
+    if (m.mode !== 'adv') m.mode = 'classic';
     let teams = Array.isArray(m.teams) ? m.teams : [];
     if (!teams.length && m.team && m.team.length) teams = [{ name: 'Équipe 1', keys: [...m.team] }];
     while (teams.length < TEAMS) teams.push({ name: `Équipe ${teams.length + 1}`, keys: [] });
-    m.teams = teams.slice(0, TEAMS).map((t, i) => ({ name: String((t && t.name) || `Équipe ${i + 1}`).slice(0, 24), keys: ((t && t.keys) || []).slice(0, 3) }));
+    m.teams = teams.slice(0, TEAMS).map((t, i) => ({ name: String((t && t.name) || `Équipe ${i + 1}`).slice(0, 24), keys: ((t && t.keys) || []).slice(0, 3), bag: ((t && t.bag) || []).slice(0, BAG_MAX) }));
     m.teamIdx = Math.min(TEAMS - 1, Math.max(0, m.teamIdx | 0));
     return m;
   }
   async function getMatch() { const p = await App.col.getProfile(); return normMatch(p.match); }
   async function saveMatch(m) { m.team = [...m.teams[m.teamIdx].keys]; const p = await App.col.getProfile(); p.match = m; await App.col.saveProfile(p); }
   const teamItems = (keys) => keys.map((k) => App.col.byKey(k)).filter((i) => i && i.qty > 0);
+  /** Cartes du sac encore possédées (une même carte peut y être plusieurs fois, dans la limite de ses exemplaires) */
+  const bagItems = (keys) => { const n = {}; return (keys || []).map((k) => App.col.byKey(k)).filter((i) => i && i.qty > 0 && (n[i.key] = (n[i.key] || 0) + 1) <= i.qty); };
+
+  /** Tes cartes Dresseur et Énergie (d'après les listes des séries) */
+  async function myTrainers() {
+    const items = App.col.all().filter((i) => i.qty > 0 && i.game === 'pokemon');
+    const bySet = {};
+    for (const it of items) (bySet[it.setId] = bySet[it.setId] || []).push(it);
+    const out = [];
+    await App.util.pool(Object.keys(bySet), 4, async (sid) => {
+      const set = await ad().getSet(sid).catch(() => null);
+      const cat = new Map((set ? set.cards : []).map((c) => [c.id, c.category]));
+      for (const it of bySet[sid]) { const c = cat.get(it.id); if (c && !/pok/i.test(c)) out.push(it); }
+    });
+    return out.sort((a, b) => (a.snap.name || '').localeCompare(b.snap.name || '', 'fr'));
+  }
 
   /** Tes cartes Pokémon (d'après les listes des séries, gardées en cache) */
   async function myPokemon() {
@@ -60,9 +77,10 @@
   const hpCls = (r) => (r < 0.3 ? 'low' : r < 0.6 ? 'mid' : '');
 
   // ---------- Écran de combat ----------
-  async function battle(level, teamItemsList, teamName) {
+  async function battle(level, teamItemsList, teamName, opts = {}) {
+    const ADV = !!opts.adv, BC = App.battleCards;
     const ov = document.createElement('div');
-    ov.className = 'bt-ov';
+    ov.className = 'bt-ov' + (ADV ? ' adv' : '');
     ov.innerHTML = `<div class="bt-load">${App.ui.loading('Préparation du combat…')}</div>`;
     document.body.appendChild(ov); document.body.classList.add('cap-lock');
     const close = () => { ov.remove(); document.body.classList.remove('cap-lock'); };
@@ -80,11 +98,20 @@
     } catch (e) { close(); App.util.toast('Combat impossible : ' + e.message, 4000); return null; }
     if (L.bonus) foe.forEach((f) => { f.energy += L.bonus; });
 
-    const P = { team: mine, active: 0 }, C = { team: foe, active: 0 };
+    const P = { team: mine, active: 0, bag: [] }, C = { team: foe, active: 0, bag: [] };
     let over = false, turn = 0, quit = false;
+    if (ADV) {
+      // sacs : le tien (ou un sac de prêt) et celui de l'ordinateur
+      const load = (id, extra) => ad().getCard(id).then((c) => BC.bagCard(c, extra)).catch(() => null);
+      P.bag = (await Promise.all((opts.bag || []).map(async (it) => {
+        try { const card = await ad().getCard(it.id); const img = await App.col.displayImage(it, ad(), 'high'); return BC.bagCard(card, { img: img.src }); } catch (e) { return null; }
+      }))).filter(Boolean);
+      if (!P.bag.length) P.bag = (await Promise.all(BC.loanBag(mine[0].type).map((id) => load(id, { loan: true })))).filter(Boolean);
+      C.bag = (await Promise.all(BC.aiBag(L.n, foe[0].type).map((id) => load(id)))).filter(Boolean);
+    }
 
     ov.innerHTML = `
-      <div class="bt-top"><span class="bt-lvl" style="--lc:${L.color}">Niveau ${L.n} · ${esc(L.name)}</span>${teamName ? `<span class="bt-tname muted small">${esc(teamName)}</span>` : ''}<span class="spacer"></span><button class="btn sm ghost" data-quit>Abandonner</button></div>
+      <div class="bt-top"><span class="bt-lvl" style="--lc:${L.color}">Niveau ${L.n} · ${esc(L.name)}</span>${teamName ? `<span class="bt-tname muted small">${esc(teamName)}</span>` : ''}<span class="spacer"></span>${ADV ? '<span class="bt-foebag small muted"></span>' : ''}<button class="btn sm ghost" data-quit>Abandonner</button></div>
       <div class="bt-arena">
         <div class="bt-side foe"><div class="bt-bench" data-side="C"></div><div class="bt-active" data-side="C"></div></div>
         <div class="bt-log" aria-live="polite"></div>
@@ -257,7 +284,7 @@
           <div class="bt-img"><div class="bt-plat"></div><div class="bt-fig"><img src="${esc(f.img)}" alt="${esc(f.name)}" data-alt="${esc(f.name)}"></div></div>
           <div class="bt-info"><div class="bt-name"><b>${esc(f.name)}</b>${typeChip(f.type)}${f.loan ? '<span class="bt-loan">prêt</span>' : ''}</div>
             <div class="bt-hp"><i style="width:${r0 * 100}%"></i><span style="width:${r0 * 100}%" class="${hpCls(r0)}"></span></div>
-            <div class="bt-stats"><span><b class="bt-hpn">${Math.max(0, prev)}</b> / ${f.maxHp} PV</span>${pips(f.energy)}</div></div></div>`;
+            <div class="bt-stats"><span><b class="bt-hpn">${Math.max(0, prev)}</b> / <span class="bt-hpmax">${f.maxHp}</span> PV</span>${pips(f.energy)}</div>${ADV ? `<div class="bt-tags">${tagsHtml(side)}</div>` : ''}</div></div>`;
       if (prev !== f.hp) {
         const span = box.querySelector('.bt-hp span'), ghost = box.querySelector('.bt-hp i'), num = box.querySelector('.bt-hpn');
         requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -284,6 +311,12 @@
     async function doAttack(side, other, i) {
       const a = B().active(side), d = B().active(other), att = a.attacks[i];
       const r = B().damage(att, a, d);
+      if (ADV && r.dmg > 0) {
+        r.bonus = (side.power || 0) + (side.stadium && side.stadium.turns > 0 ? side.stadium.n : 0);
+        r.shield = (d.shield || 0) + (d.armor || 0);
+        r.dmg = Math.max(0, r.dmg + r.bonus - r.shield);
+      }
+      side.power = 0;
       a.energy = 0; // l'attaque utilise toutes les énergies (règle simplifiée)
       log(`<b>${esc(a.name)}</b> utilise <b>${esc(att.name)}</b> !`);
       aura(a); App.sfx.charge();
@@ -306,9 +339,9 @@
         shake(Math.round(r.dmg / 8) + (r.weak ? 6 : 0));
         if (r.weak) banner('Super efficace !', 'eff');
       } else dodge(d);
-      floatTxt(d, r.dmg ? `−${r.dmg}` : 'Raté !', r.weak ? 'weak' : r.dmg ? (strong ? 'big' : '') : 'miss');
+      floatTxt(d, r.dmg ? `−${r.dmg}` : r.shield ? 'Bloqué !' : 'Raté !', r.weak ? 'weak' : r.dmg ? (strong ? 'big' : '') : 'miss');
       const coinTxt = r.coins ? ` <span class="bt-coins">${r.coins.map((c) => (c ? '🟡 face' : '⚪ pile')).join(' · ')}</span>` : '';
-      log(`<b>${esc(a.name)}</b> utilise <b>${esc(att.name)}</b> : ${r.dmg} dégâts${r.weak ? ' <span class="bt-eff">Super efficace !</span>' : ''}${r.resist ? ' <span class="muted">(résistance)</span>' : ''}${coinTxt}`);
+      log(`<b>${esc(a.name)}</b> utilise <b>${esc(att.name)}</b> : ${r.dmg} dégâts${r.weak ? ' <span class="bt-eff">Super efficace !</span>' : ''}${r.resist ? ' <span class="muted">(résistance)</span>' : ''}${r.bonus ? ` <span class="bt-eff">(+${r.bonus} bonus)</span>` : ''}${r.shield ? ` <span class="muted">(−${r.shield} bouclier)</span>` : ''}${coinTxt}`);
       await sleep(260);
       // barre de PV : mise à jour sur place (animée)
       updateHp(other); drawBench(other);
@@ -337,10 +370,15 @@
     }
 
     /** Actions du joueur : on attend son choix */
-    const playerChoice = () => new Promise((resolve) => {
+    const playerChoice = (cardUsed = false) => new Promise((resolve) => {
       const a = B().active(P), foeA = B().active(C);
       const canSwitch = B().bench(P).length > 0;
-      $('.bt-actions').innerHTML = `<div class="bt-atks">${a.attacks.map((x, i) => {
+      const left = P.bag.map((c, i) => ({ c, i })).filter((x) => !x.c.used);
+      const bagHtml = ADV && left.length ? `<div class="bt-bag"><span class="bt-bag-h">${cardUsed ? 'Carte jouée ✓' : 'Sac · 1 carte par tour'}</span>${left.map(({ c, i }) => {
+        const ok = !cardUsed && BC.playable(c, P, C);
+        return `<button class="bt-bc ${ok ? '' : 'off'}" data-card="${i}" ${ok ? '' : 'disabled'} title="${esc(c.name)} : ${esc(c.fx.desc)}"><img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.fx.short)}</small></span></button>`;
+      }).join('')}</div>` : '';
+      $('.bt-actions').innerHTML = bagHtml + `<div class="bt-atks">${a.attacks.map((x, i) => {
         const ok = x.cost <= a.energy, exp = Math.round(B().expected(x, a, foeA));
         return `<button class="bt-atk ${ok ? '' : 'off'}" data-atk="${i}" ${ok ? '' : 'disabled'} title="${esc(x.text)}" style="--tc:${typeColor(a.type)}">
           <span class="bt-cost">${costPips(x.cost)}</span><b>${esc(x.name)}</b><span class="bt-dmg">${x.noDamage ? '10' : x.base + (x.mode === 'x' ? '×' : x.mode === '+' ? '+' : '')}${exp > x.base * 1.4 ? ' <em>×2</em>' : ''}</span></button>`;
@@ -352,6 +390,7 @@
       const h = (e) => {
         if (over) return;
         const at2 = e.target.closest('[data-atk]'); if (at2 && !at2.disabled) { done({ type: 'attack', i: +at2.dataset.atk }); return; }
+        const cd = e.target.closest('[data-card]'); if (cd && !cd.disabled) { done({ type: 'card', i: +cd.dataset.card }); return; }
         if (e.target.closest('[data-charge]')) { done({ type: 'charge' }); return; }
         if (e.target.closest('[data-switch]') && canSwitch) { log('Choisis le Pokémon à envoyer (touche-le sur ton banc).'); ov.classList.add('pick-bench'); return; }
         const bb = e.target.closest('[data-bench="P"]');
@@ -363,12 +402,12 @@
       ov.addEventListener('click', h);
     });
     /** Remplaçant après un K.O. (le joueur choisit) */
-    const playerReplace = () => new Promise((resolve) => {
-      log('Ton Pokémon est K.O. : touche le suivant sur ton banc.');
+    const playerReplace = (msg = 'Ton Pokémon est K.O. : touche le suivant sur ton banc.', notActive = false) => new Promise((resolve) => {
+      log(msg);
       ov.classList.add('pick-bench');
       const h = (e) => {
         const bb = e.target.closest('[data-bench="P"]'); if (!bb) return;
-        const i = +bb.dataset.i; if (P.team[i].ko) return;
+        const i = +bb.dataset.i; if (P.team[i].ko || (notActive && i === P.active)) return;
         ov.removeEventListener('click', h); ov.classList.remove('pick-bench'); resolve(i);
       };
       ov.addEventListener('click', h);
@@ -385,6 +424,101 @@
       await leaveAnim(B().active(side), side);
       side.active = i; drawAll();
     };
+
+    // ---------- cartes du sac (combat avec Dresseurs & Énergies) ----------
+    function tagsHtml(side) {
+      const f = B().active(side), t = [];
+      if (f.shield) t.push(`<span class="bt-tag sh" title="Subit ${f.shield} dégâts de moins jusqu’au prochain tour">🛡 −${f.shield}</span>`);
+      if (side.power) t.push(`<span class="bt-tag pw" title="Prochaine attaque">⚔ +${side.power}</span>`);
+      if (side.stadium && side.stadium.turns > 0) t.push(`<span class="bt-tag st" title="${esc(side.stadium.name)}">🏟 +${side.stadium.n} · ${side.stadium.turns} t.</span>`);
+      if (f.tool) t.push(`<span class="bt-tag tl" title="Outil attaché">🔧 ${esc(f.tool)}</span>`);
+      return t.join('');
+    }
+    const refreshTags = (side) => { if (!ADV) return; const c = cardEl(B().active(side)); const el = c && c.querySelector('.bt-tags'); if (el) el.innerHTML = tagsHtml(side); };
+    const refreshPips = (f) => { const c = cardEl(f); if (c) c.querySelector('.bt-pips').outerHTML = pips(f.energy); };
+    const drawFoeBag = () => { const el = $('.bt-foebag'); if (el) { const n = C.bag.filter((c) => !c.used).length; el.textContent = n ? `Sac adverse : ${n} carte${n > 1 ? 's' : ''}` : ''; } };
+    function heal(side, f, n) {
+      const before = f.hp; f.hp = Math.min(f.maxHp, f.hp + n);
+      const got = f.hp - before;
+      if (f === B().active(side)) { updateHp(side); if (got) { floatTxt(f, `+${got}`, 'heal'); burst(figEl(f), 'grass', { n: 12, col: '#3ddc97', up: 70, spread: 0.7 }); } }
+      return got;
+    }
+    /** grande carte qui apparaît au milieu de l'écran */
+    async function showPlayed(c, isP) {
+      const d = document.createElement('div');
+      d.className = 'bt-played';
+      d.innerHTML = `<img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><div><b>${esc(c.name)}</b><small>${esc(c.fx.desc)}</small></div>`;
+      ov.appendChild(d);
+      App.sfx.whoosh();
+      if (RM()) { await sleep(900); d.remove(); return; }
+      const y = isP ? '45vh' : '-45vh';
+      await d.animate([{ transform: `translate(-50%, -50%) translateY(${y}) scale(.4) rotate(${isP ? -8 : 8}deg)`, opacity: 0 },
+        { transform: 'translate(-50%, -50%) scale(1.06)', opacity: 1, offset: 0.3 }, { transform: 'translate(-50%, -50%) scale(1)', opacity: 1, offset: 0.75 },
+        { transform: 'translate(-50%, -50%) scale(.85)', opacity: 0 }], { duration: 1500, easing: 'ease-out', fill: 'forwards' }).finished.catch(() => {});
+      d.remove();
+    }
+    async function playCard(side, other, i) {
+      const c = side.bag[i]; if (!c || c.used) return;
+      c.used = true; drawFoeBag();
+      const isP = side === P, me = B().active(side), him = B().active(other), fx2 = c.fx;
+      log(`${isP ? 'Tu joues' : 'L’ordinateur joue'} <b>${esc(c.name)}</b>…`);
+      await showPlayed(c, isP);
+      let msg = '';
+      switch (fx2.key) {
+        case 'energy': case 'charge': {
+          const n = fx2.key === 'charge' ? 1 : fx2.n + (fx2.eType && fx2.eType === me.type ? 1 : 0);
+          me.energy += n; refreshPips(me); App.sfx.energy(); gather(figEl(me), '#ffc83d');
+          msg = `+${n} énergie${n > 1 ? 's' : ''} pour ${esc(me.name)}`; break;
+        }
+        case 'heal': { const g = heal(side, me, fx2.n); App.sfx.energy(); msg = `${esc(me.name)} récupère ${g} PV`; break; }
+        case 'fullHeal': { const g = heal(side, me, me.maxHp); me.energy = 0; refreshPips(me); msg = `${esc(me.name)} récupère ${g} PV mais perd ses énergies`; break; }
+        case 'healAll': { let g = 0; side.team.forEach((f) => { if (!f.ko) g += heal(side, f, fx2.n); }); drawBench(side); msg = `ton équipe récupère ${g} PV`; if (!isP) msg = `son équipe récupère ${g} PV`; break; }
+        case 'power': side.power = fx2.n; aura(me); msg = `la prochaine attaque de ${esc(me.name)} fait +${fx2.n} dégâts`; break;
+        case 'shield': me.shield = fx2.n; ring(figEl(me), '#5fb4ff', 1.1); msg = `${esc(me.name)} subira ${fx2.n} dégâts de moins`; break;
+        case 'switch': {
+          const to = isP ? await playerReplace('Choisis le Pokémon à envoyer (touche-le sur ton banc).', true) : B().aiReplace(side, other, L.n);
+          if (to != null && to !== side.active) { await switchTo(side, to); msg = `${esc(B().active(side).name)} entre en jeu`; }
+          break;
+        }
+        case 'gust': {
+          const w = B().bench(other).sort((a, b) => a.f.hp - b.f.hp)[0];
+          if (w) { await switchTo(other, w.i); msg = `${esc(B().active(other).name)} est forcé de combattre`; }
+          break;
+        }
+        case 'strip': {
+          const n = Math.min(fx2.n, him.energy); him.energy -= n; refreshPips(him);
+          burst(figEl(him), 'ko', { n: 10, col: '#ffc83d', spread: 0.7 }); App.sfx.hit(false);
+          msg = `${esc(him.name)} perd ${n} énergie${n > 1 ? 's' : ''}`; break;
+        }
+        case 'revive': {
+          const k = side.team.find((f) => f.ko);
+          if (k) { k.ko = false; k.hp = Math.max(10, Math.ceil(k.maxHp / 20) * 10); k.energy = 0; shown[k.uid] = k.hp; drawBench(side); msg = `${esc(k.name)} revient sur le banc avec ${k.hp} PV`; }
+          break;
+        }
+        case 'toolHp': me.tool = c.name; me.maxHp += fx2.n; me.hp += fx2.n; shown[me.uid] = me.hp; drawActive(side, { noEnter: true }); msg = `${esc(me.name)} gagne ${fx2.n} PV`; break;
+        case 'noWeak': me.tool = c.name; me.weak = []; msg = `${esc(me.name)} n’a plus de faiblesse`; break;
+        case 'armor': me.tool = c.name; me.armor = fx2.n; ring(figEl(me), '#5fb4ff', 1.1); msg = `${esc(me.name)} subira ${fx2.n} dégâts de moins pendant tout le combat`; break;
+        case 'regen': me.tool = c.name; me.regen = fx2.n; msg = `${esc(me.name)} se soignera de ${fx2.n} PV à chaque tour`; break;
+        case 'stadium': side.stadium = { n: fx2.n, turns: 3, name: c.name }; flash(typeColor(me.type), 0.2); msg = `+${fx2.n} dégâts pendant 3 tours`; break;
+        default: break;
+      }
+      refreshTags(side); refreshTags(other); drawBench(side);
+      log(`${isP ? 'Tu joues' : 'L’ordinateur joue'} <b>${esc(c.name)}</b> : ${msg || 'sans effet'}.`);
+      await sleep(650);
+    }
+    function startTurn(side) {
+      if (!ADV) return;
+      side.team.forEach((f) => { f.shield = 0; });
+      refreshTags(side);
+    }
+    async function endTurn(side) {
+      if (!ADV) return;
+      side.power = 0;
+      if (side.stadium && side.stadium.turns > 0) side.stadium.turns--;
+      const f = B().active(side);
+      if (f && !f.ko && f.regen && f.hp < f.maxHp) { heal(side, f, f.regen); await sleep(450); }
+      refreshTags(side);
+    }
 
     let resolveEnd;
     const ended = new Promise((r) => { resolveEnd = r; });
@@ -405,7 +539,7 @@
     }
     ov.querySelector('[data-quit]').addEventListener('click', () => { if (!over && confirm('Abandonner le combat ? (ça compte comme une défaite)')) { quit = true; finish(false); } });
 
-    drawAll();
+    drawAll(); drawFoeBag();
     log(`Le combat commence ! <b>${esc(B().active(P).name)}</b> contre <b>${esc(B().active(C).name)}</b>.`);
     App.sfx.unlock();
     await sleep(900);
@@ -416,13 +550,21 @@
         turn++;
         await banner('À toi !', 'me');
         if (over) break;
+        startTurn(P);
         gain(P);
-        const act = await playerChoice();
+        let act, used = false;
+        for (;;) {
+          act = await playerChoice(used);
+          if (over || act.type !== 'card') break;
+          await playCard(P, C, act.i); used = true;
+          if (over) break;
+        }
         if (over) break;
         if (act.type === 'attack') await doAttack(P, C, act.i);
         else if (act.type === 'charge') { gain(P); aura(B().active(P)); App.sfx.charge(); log(`<b>${esc(B().active(P).name)}</b> se concentre : +1 énergie.`); await sleep(750); }
         else { await switchTo(P, act.to); log(`Tu envoies <b>${esc(B().active(P).name)}</b> !`); await sleep(750); }
         if (over) break;
+        await endTurn(P);
         if (B().active(C).ko) {
           if (!B().alive(C).length) { await sleep(300); finish(true); break; }
           C.active = B().aiReplace(C, P, L.n); drawAll(); log(`L’ordinateur envoie <b>${esc(B().active(C).name)}</b>.`); await sleep(950);
@@ -430,14 +572,18 @@
         if (over) break;
         await banner('Tour de l’ordinateur', 'foe');
         if (over) break;
+        startTurn(C);
         gain(C);
         await sleep(450);
+        if (ADV) { const ci = BC.aiCard(C, P, L.n); if (ci >= 0) { await playCard(C, P, ci); await sleep(250); } }
+        if (over) break;
         const mv = B().aiMove(C, P, L.n);
         if (over) break;
         if (mv.type === 'attack') await doAttack(C, P, mv.i);
         else if (mv.type === 'charge') { gain(C); aura(B().active(C)); App.sfx.charge(); log(`<b>${esc(B().active(C).name)}</b> se concentre : +1 énergie.`); await sleep(800); }
         else { await switchTo(C, mv.to); log(`L’ordinateur rappelle son Pokémon et envoie <b>${esc(B().active(C).name)}</b>.`); await sleep(950); }
         if (over) break;
+        await endTurn(C);
         if (B().active(P).ko) {
           if (!B().alive(P).length) { await sleep(300); finish(false); break; }
           drawAll();
@@ -592,6 +738,65 @@
     });
   }
 
+  /** Choisir le sac de cartes Dresseur / Énergie d'une équipe */
+  async function pickBag(current, name) {
+    let body = App.util.openModal(App.ui.loading('Recherche de tes cartes Dresseur et Énergie…'));
+    const list = await myTrainers();
+    const imgs = await Promise.all(list.map((it) => App.col.displayImage(it, ad())));
+    const sel = bagItems(current).map((i) => i.key).slice(0, BAG_MAX);
+    const fx = {};
+    return new Promise((resolve) => {
+      let done = false;
+      const end = (v) => { if (done) return; done = true; resolve(v); };
+      body = App.util.openModal('', () => end(null));
+      const loanTxt = 'Sans carte, tu joues avec un sac de prêt : Potion, PlusPower, Transfert et une Énergie du type de ton 1er Pokémon.';
+      if (!list.length) {
+        body.innerHTML = `<div class="bt-pick"><h2>Sac · ${esc(name)}</h2><p class="muted">Tu n’as pas encore de carte Dresseur ou Énergie dans ton Dex. ${loanTxt} Capture tes cartes Dresseur et Énergie pour les utiliser !</p>
+          <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="bt-ok">OK</button></div></div>`;
+        body.querySelector('#bt-ok').addEventListener('click', () => { end(null); App.util.closeModal(); });
+        return;
+      }
+      body.innerHTML = `<div class="bt-pick"><h2>Sac · ${esc(name)} <span class="muted small" id="bt-cnt"></span></h2>
+        <p class="small muted" style="margin:4px 0 0">Jusqu’à ${BAG_MAX} cartes Dresseur ou Énergie. En combat « Avec Dresseurs », tu peux en jouer une par tour, chacune une seule fois. Touche une carte plusieurs fois pour en mettre plusieurs exemplaires (si tu les as). ${loanTxt}</p>
+        <div class="bt-sel bag" id="bt-sel"></div>
+        <input type="search" id="bt-q" placeholder="Rechercher une carte…" autocomplete="off">
+        <div class="bt-pick-grid bag" id="bt-grid">${list.map((it, i) => `<button class="bt-pk" data-k="${esc(it.key)}" data-q="${esc(App.util.norm(it.snap.name || ''))}"><span class="n" hidden></span><img src="${esc(imgs[i].src)}" alt="" loading="lazy" data-alt="${esc(it.snap.name)}"><span class="bt-pk-n">${esc(it.snap.name)}</span><span class="bt-pk-s"><em>…</em></span>${it.qty > 1 ? `<span class="bt-qty">×${it.qty}</span>` : ''}</button>`).join('')}</div>
+        <div class="row" style="justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn ghost" id="bt-clear">Vider</button><button class="btn primary" id="bt-ok">Valider</button></div></div>`;
+      const $ = (q) => body.querySelector(q);
+      const byKey = Object.fromEntries(list.map((it, i) => [it.key, { it, img: imgs[i].src }]));
+      const tile = (k) => body.querySelector(`.bt-pk[data-k="${CSS.escape(k)}"]`);
+      const draw = () => {
+        $('#bt-sel').innerHTML = Array.from({ length: BAG_MAX }, (_, j) => { const k = sel[j]; const r = k && byKey[k]; return r
+          ? `<button class="bt-sel-s" data-rm="${j}" title="${esc(fx[k] ? fx[k].desc : '')}"><img src="${esc(r.img)}" alt=""><span>${esc(r.it.snap.name)}</span><b>×</b></button>`
+          : '<span class="bt-sel-s empty"><i>+</i></span>'; }).join('');
+        $('#bt-cnt').textContent = `${sel.length}/${BAG_MAX}`;
+        body.querySelectorAll('.bt-pk').forEach((t) => { const n = sel.filter((k) => k === t.dataset.k).length; t.classList.toggle('on', n > 0); const b = t.querySelector('.n'); b.hidden = !n; b.textContent = n > 1 ? '×' + n : '✓'; });
+      };
+      draw();
+      // effet de chaque carte (fiche TCGdex, gardée en cache)
+      App.util.pool(list, 6, async (it) => {
+        try { const card = await ad().getCard(it.id); fx[it.key] = App.battleCards.effectOf(card); } catch (e) { return; }
+        if (done) return;
+        const t = tile(it.key); if (t) { t.querySelector('.bt-pk-s').innerHTML = `<em>${esc(fx[it.key].short)}</em>`; t.title = fx[it.key].desc; }
+      });
+      body.addEventListener('click', (e) => {
+        const rm = e.target.closest('[data-rm]');
+        if (rm) { sel.splice(+rm.dataset.rm, 1); draw(); return; }
+        const k = e.target.closest('.bt-pk');
+        if (k) {
+          const key = k.dataset.k, it = byKey[key].it, n = sel.filter((x) => x === key).length;
+          if (sel.length >= BAG_MAX) App.util.toast(`${BAG_MAX} cartes maximum : retire-en une d’abord`);
+          else if (n >= it.qty) { App.util.toast(n > 1 ? `Tu n’as que ${it.qty} exemplaires` : 'Tu n’as qu’un exemplaire de cette carte'); }
+          else sel.push(key);
+          draw(); return;
+        }
+        if (e.target.closest('#bt-clear')) { sel.length = 0; draw(); return; }
+        if (e.target.closest('#bt-ok')) { end([...sel]); App.util.closeModal(); }
+      });
+      body.addEventListener('input', (e) => { if (e.target.id === 'bt-q') { const v = App.util.norm(e.target.value); body.querySelectorAll('.bt-pk').forEach((c) => { c.hidden = !!v && !c.dataset.q.includes(v); }); } });
+    });
+  }
+
   /** Renommer une équipe */
   function renameTeam(name) {
     return new Promise((resolve) => {
@@ -625,27 +830,54 @@
   App.views.match = {
     async render(el, params, alive) {
       let m = await getMatch();
+      let teamsModal = null; // corps de la fenêtre « Mes équipes » (téléphone), s'il est ouvert
+      let view = null;       // données de la dernière page dessinée
+
+      const teamCard = (i) => {
+        const t = m.teams[i], items = view.teams[i], imgs = view.imgs[i], on = i === m.teamIdx, adv = m.mode === 'adv';
+        const bag = view.bags[i];
+        return `<div class="bt-tm ${on ? 'on' : ''}">
+          <div class="bt-tm-h"><b>${esc(t.name)}</b>${on ? `<span class="bt-tm-on">${App.icons.icon('check', 12)} Pour combattre</span>` : `<button class="btn sm ghost bt-tm-pick" data-sel="${i}">Choisir</button>`}</div>
+          <div class="bt-tm-cards">${[0, 1, 2].map((j) => items[j] ? `<img src="${esc(imgs[j].src)}" alt="" title="${esc(items[j].snap.name)}" data-alt="${esc(items[j].snap.name)}">` : '<span class="bt-tm-empty">+</span>').join('')}</div>
+          ${adv ? `<div class="bt-tm-bag"><span class="small muted">Sac : ${bag.length ? `${bag.length} carte${bag.length > 1 ? 's' : ''}` : 'sac de prêt'}</span><span class="bt-tm-bagimgs">${view.bagImgs[i].map((b, j) => `<img src="${esc(b.src)}" alt="" title="${esc(bag[j].snap.name)}">`).join('')}</span></div>` : ''}
+          <div class="bt-tm-f"><button class="btn sm" data-edit="${i}">${App.icons.icon('layers', 14)} ${items.length ? 'Modifier' : 'Composer'}</button>${adv ? `<button class="btn sm" data-bag="${i}">Sac</button>` : ''}<button class="btn sm ghost" data-rename="${i}">Renommer</button></div>
+        </div>`;
+      };
+      const teamsHtml = () => `<div class="bt-teams">${m.teams.map((t, i) => teamCard(i)).join('')}</div>`;
+
       const draw = async () => {
         const teams = m.teams.map((t) => teamItems(t.keys));
-        const imgs = await Promise.all(teams.map((l) => Promise.all(l.map((it) => App.col.displayImage(it, ad())))));
+        const bags = m.teams.map((t) => bagItems(t.bag));
+        const [imgs, bagImgs] = await Promise.all([
+          Promise.all(teams.map((l) => Promise.all(l.map((it) => App.col.displayImage(it, ad()))))),
+          Promise.all(bags.map((l) => Promise.all(l.map((it) => App.col.displayImage(it, ad()))))),
+        ]);
         if (!alive()) return;
-        const unlocked = (n) => n === 1 || m.beaten[n - 1];
+        view = { teams, bags, imgs, bagImgs };
+        const adv = m.mode === 'adv', beaten = adv ? m.beatenAdv : m.beaten;
+        const unlocked = (n) => n === 1 || beaten[n - 1];
+        const cur = m.teams[m.teamIdx], curItems = teams[m.teamIdx];
         el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Match</div>
           <div class="row" style="align-items:baseline;gap:12px"><h1 style="margin:0">Match</h1><span class="muted small">${m.wins} victoire${m.wins > 1 ? 's' : ''} · ${m.losses} défaite${m.losses > 1 ? 's' : ''}</span></div>
-          <p class="muted" style="margin-top:6px">Tes cartes deviennent jouables : forme jusqu’à 3 équipes de 3 Pokémon de ta collection et affronte l’ordinateur. Les combats contre tes amis viendront plus tard.</p>
+          <p class="muted bt-intro" style="margin-top:6px">Tes cartes deviennent jouables : forme jusqu’à 3 équipes de 3 Pokémon de ta collection et affronte l’ordinateur.</p>
+          <div class="bt-modes" role="tablist">
+            <button class="${adv ? '' : 'on'}" data-mode="classic" role="tab"><b>Classique</b><small>Attaques, énergie, changements</small></button>
+            <button class="${adv ? 'on' : ''}" data-mode="adv" role="tab"><b>Avec Dresseurs</b><small>+ un sac de cartes Dresseur / Énergie</small></button>
+          </div>
+          <div class="bt-teambar">
+            <div class="bt-tb-imgs">${[0, 1, 2].map((j) => curItems[j] ? `<img src="${esc(imgs[m.teamIdx][j].src)}" alt="">` : '<i></i>').join('')}</div>
+            <div class="bt-tb-t"><b>${esc(cur.name)}</b><small>${curItems.length < 3 ? `${3 - curItems.length} Pokémon de prêt` : 'Prête au combat'}${adv ? ` · sac : ${bags[m.teamIdx].length || 'prêt'}` : ''}</small></div>
+            <button class="btn sm" data-teams>${App.icons.icon('layers', 14)} Équipes</button>
+          </div>
           <section class="panel bt-team-panel">
-            <div class="row" style="align-items:baseline;gap:10px"><h2 style="margin:0">Mes équipes</h2><span class="muted small">Touche une équipe pour la choisir</span></div>
-            <div class="bt-teams">${m.teams.map((t, i) => `<div class="bt-tm ${i === m.teamIdx ? 'on' : ''}" data-sel="${i}" role="button" tabindex="0">
-                <div class="bt-tm-h"><b>${esc(t.name)}</b>${i === m.teamIdx ? `<span class="bt-tm-on">${App.icons.icon('check', 12)} Pour combattre</span>` : ''}</div>
-                <div class="bt-tm-cards">${[0, 1, 2].map((j) => teams[i][j] ? `<img src="${esc(imgs[i][j].src)}" alt="" title="${esc(teams[i][j].snap.name)}" data-alt="${esc(teams[i][j].snap.name)}">` : '<span class="bt-tm-empty">+</span>').join('')}</div>
-                <div class="bt-tm-f"><button class="btn sm" data-edit="${i}">${App.icons.icon('layers', 14)} ${teams[i].length ? 'Modifier' : 'Composer'}</button><button class="btn sm ghost" data-rename="${i}">Renommer</button></div>
-              </div>`).join('')}</div>
-            <p class="small muted" style="margin:10px 0 0">Une case vide est remplie par un Pokémon de prêt.</p>
+            <div class="row" style="align-items:baseline;gap:10px"><h2 style="margin:0">Mes équipes</h2><span class="muted small">« Choisir » pour combattre avec une autre équipe</span></div>
+            ${teamsHtml()}
+            <p class="small muted" style="margin:10px 0 0">Une case vide est remplie par un Pokémon de prêt${adv ? ', un sac vide par un sac de prêt' : ''}.</p>
           </section>
           <h2>Adversaire</h2>
-          <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${m.beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
-              <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) : `Bats le niveau ${L.n - 1} pour le débloquer`}</span></div>
-              ${m.beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
+          <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
+              <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` Son sac : ${App.battleCards.aiBag(L.n, 'fire').length} cartes.` : '') : `Bats le niveau ${L.n - 1} pour le débloquer`}</span></div>
+              ${beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
           <details class="bt-rules panel"><summary><b>Règles du combat</b> (version simplifiée)</summary>
             <ul class="small">
               <li>Chaque équipe a 3 Pokémon : un qui combat, les deux autres attendent sur le banc.</li>
@@ -653,38 +885,58 @@
               <li>Une attaque coûte 1 énergie par symbole indiqué sur la carte, et utilise toutes les énergies du Pokémon.</li>
               <li>Dégâts de la carte, avec la <b>faiblesse</b> (×2) et la <b>résistance</b>. « 30× » : 30 par face sur 2 pièces ; « 20+ » : bonus si face. Une attaque qui n’a qu’un effet fait 10 dégâts.</li>
               <li>Mets K.O. les 3 Pokémon de l’ordinateur pour gagner et débloquer le niveau suivant.</li>
+            </ul>
+            <p class="small" style="margin:10px 0 4px"><b>Mode « Avec Dresseurs »</b> (niveaux débloqués à part)</p>
+            <ul class="small">
+              <li>Chaque équipe a un <b>sac</b> de 6 cartes Dresseur ou Énergie maximum, choisies dans ta collection (sinon un sac de prêt). L’ordinateur a aussi le sien, plus fourni aux niveaux élevés.</li>
+              <li>À ton tour, tu peux jouer <b>une carte du sac</b> avant ton action. Chaque carte ne sert qu’une fois par combat.</li>
+              <li><b>Énergie</b> : +1 énergie (+2 si elle est du type de ton Pokémon ; Double Énergie Incolore : +2). <b>Dresseurs</b> : effet simplifié de la carte (Potion : soin 20, Super Potion : soin 40, PlusPower : +20 dégâts, Défenseur : −20 dégâts subis, Transfert : échange gratuit, Rafale de vent, Suppression d’Énergie, Réanimation…). Les autres cartes ont un effet selon leur genre : Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts pendant 3 tours.</li>
             </ul></details>`;
+        if (teamsModal && document.body.contains(teamsModal)) teamsModal.innerHTML = `<div class="bt-pick"><h2>Mes équipes</h2>${teamsHtml()}</div>`;
       };
       await draw();
 
       let busy = false;
+      /** actions sur les équipes (page ou fenêtre « Mes équipes ») */
+      const onTeam = async (e) => {
+        const ed = e.target.closest('[data-edit]'), rn = e.target.closest('[data-rename]'), bg = e.target.closest('[data-bag]'), sl = e.target.closest('[data-sel]');
+        if (!ed && !rn && !bg && !sl) return false;
+        busy = true;
+        try {
+          if (sl) {
+            App.sfx.click();
+            m = await getMatch(); m.teamIdx = +sl.dataset.sel; await saveMatch(m); await draw();
+            return true;
+          }
+          teamsModal = null; // la fenêtre va être remplacée
+          if (ed) {
+            const i = +ed.dataset.edit;
+            const t = await pickTeam(m.teams[i].keys, m.teams[i].name);
+            if (t) { m = await getMatch(); m.teams[i].keys = t; m.teamIdx = i; await saveMatch(m); }
+          } else if (rn) {
+            const i = +rn.dataset.rename;
+            const v = await renameTeam(m.teams[i].name);
+            if (v) { m = await getMatch(); m.teams[i].name = v.slice(0, 24); await saveMatch(m); }
+          } else if (bg) {
+            const i = +bg.dataset.bag;
+            const b = await pickBag(m.teams[i].bag, m.teams[i].name);
+            if (b) { m = await getMatch(); m.teams[i].bag = b; await saveMatch(m); }
+          }
+          await draw();
+        } finally { busy = false; }
+        return true;
+      };
+
       el.addEventListener('click', async (e) => {
         if (busy) return;
-        const ed = e.target.closest('[data-edit]');
-        if (ed) {
-          const i = +ed.dataset.edit;
-          busy = true;
-          try {
-            const t = await pickTeam(m.teams[i].keys, m.teams[i].name);
-            if (t) { m = await getMatch(); m.teams[i].keys = t; m.teamIdx = i; await saveMatch(m); await draw(); }
-          } finally { busy = false; }
+        if (await onTeam(e)) return;
+        const md = e.target.closest('[data-mode]');
+        if (md) { if (md.dataset.mode !== m.mode) { App.sfx.click(); m = await getMatch(); m.mode = md.dataset.mode; await saveMatch(m); await draw(); } return; }
+        if (e.target.closest('[data-teams]')) {
+          teamsModal = App.util.openModal(`<div class="bt-pick"><h2>Mes équipes</h2>${teamsHtml()}</div>`, () => { teamsModal = null; });
+          const body = teamsModal;
+          body.addEventListener('click', async (ev) => { if (!busy) await onTeam(ev); });
           return;
-        }
-        const rn = e.target.closest('[data-rename]');
-        if (rn) {
-          const i = +rn.dataset.rename;
-          busy = true;
-          try {
-            const v = await renameTeam(m.teams[i].name);
-            if (v) { m = await getMatch(); m.teams[i].name = v.slice(0, 24); await saveMatch(m); await draw(); }
-          } finally { busy = false; }
-          return;
-        }
-        const sl = e.target.closest('[data-sel]');
-        if (sl) {
-          const i = +sl.dataset.sel; if (i === m.teamIdx) return;
-          App.sfx.click();
-          m = await getMatch(); m.teamIdx = i; await saveMatch(m); await draw(); return;
         }
         const lv = e.target.closest('[data-level]');
         if (lv && !lv.disabled) {
@@ -699,11 +951,11 @@
             }
             let again = true;
             while (again) {
-              const t = m.teams[m.teamIdx];
-              const r = await battle(+lv.dataset.level, teamItems(t.keys), t.name);
+              const t = m.teams[m.teamIdx], adv = m.mode === 'adv';
+              const r = await battle(+lv.dataset.level, teamItems(t.keys), t.name, { adv, bag: bagItems(t.bag) });
               if (!r) return;
               m = await getMatch();
-              if (r.win) { m.wins++; m.beaten[+lv.dataset.level] = true; } else m.losses++;
+              if (r.win) { m.wins++; (adv ? m.beatenAdv : m.beaten)[+lv.dataset.level] = true; } else m.losses++;
               await saveMatch(m);
               if (alive()) await draw();
               again = r.again;
@@ -711,7 +963,6 @@
           } finally { busy = false; }
         }
       });
-      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('[data-sel]')) e.target.click(); });
     },
   };
 })();
