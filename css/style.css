@@ -881,10 +881,15 @@ input[type=date] { color-scheme: dark; background: var(--bg2); color: var(--text
 /* halo à la couleur de la rareté pour les cartes possédées */
 .ctile.owned:not(.rt-0):hover .cimg { box-shadow: 0 14px 28px rgba(0,0,0,.5), 0 0 0 1.5px var(--rc), 0 0 22px -4px var(--rc); }
 .ctile.owned.rt-5 .cimg { box-shadow: 0 0 0 1px rgba(255,210,63,.35), 0 0 14px -6px #ffd23f; }
-/* cartes manquantes : un peu de couleur au survol */
-.ctile.missing:hover .cimg img { filter: grayscale(.35) brightness(.85); opacity: .85; }
-.ctile.missing:hover .cimg::after { opacity: 0; }
+/* cartes manquantes : un peu de couleur au survol — à la souris seulement
+   (sur téléphone, un appui prolongé « survole » la carte et la dévoilait) */
+@media (hover: hover) and (pointer: fine) {
+  .ctile.missing:hover .cimg img { filter: grayscale(.35) brightness(.85); opacity: .85; }
+  .ctile.missing:hover .cimg::after { opacity: 0; }
+}
 .ctile.missing .cimg::after { transition: opacity .2s; }
+/* appui long sur téléphone : pas d'aperçu de l'image (il montrait la carte manquante en couleurs) */
+.ctile.missing .cimg img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
 
 /* reflets (au survol sur ordinateur) */
 .t-shine { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .25s; border-radius: inherit; }

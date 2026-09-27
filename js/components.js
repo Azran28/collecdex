@@ -23,6 +23,8 @@ App.ui = (() => {
     }
   }, true);
 
+  // Appui long sur une carte manquante (Android) : pas de menu « enregistrer l'image » qui la montrerait en couleurs
+  document.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.ctile.missing')) e.preventDefault(); });
   // Bouton « capturer » d'une carte manquante : il ouvre la capture sans ouvrir la fiche de la carte
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.cap-btn')) e.stopPropagation(); }, true);
   // Étoile « série favorite » posée sur un lien : on ne suit pas le lien
