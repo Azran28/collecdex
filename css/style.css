@@ -581,6 +581,9 @@ a.chip { text-decoration: none; }
 @keyframes certFlip { 0% { transform: perspective(300px) rotateY(0); } 50% { transform: perspective(300px) rotateY(180deg); } 100% { transform: perspective(300px) rotateY(360deg); } }
 .cert-txt { font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: #fff; background: rgba(12,14,25,.8); padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15); }
 .cert-bar { width: 60%; height: 6px; border-radius: 3px; background: rgba(255,255,255,.2); overflow: hidden; }
+/* explication du bouton « Photo certifiée » (cachée une fois la photo prise) */
+.b-cert-help { margin: 10px 2px 0; }
+#b-actions.hidden + .b-cert-help { display: none; }
 /* certification d'une page : la case tirée au sort s'allume sur la vidéo */
 .page-cert { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
 .page-cert svg { position: absolute; inset: 0; width: 100%; height: 100%; }

@@ -224,10 +224,11 @@ App.certify = (() => {
   }
 
   /**
-   * Certification d'une PAGE de classeur : le serveur tire au sort une case ; on fait glisser cette carte
-   * à moitié hors de sa pochette, puis on la remet. On filme : seule cette case doit changer nettement
-   * (les autres restent pareilles : ce n'est pas le téléphone qui bouge), puis revenir comme avant.
-   * Une photo ou un écran ne permet pas de bouger une seule carte ; une vidéo préparée ne connaît pas le numéro.
+   * Certification d'une PAGE de classeur : le serveur tire au sort une case ; on TOUCHE cette carte du bout
+   * du doigt, puis on retire la main (une main tient le téléphone : geste simple et court).
+   * On filme : seule cette case doit changer nettement (les autres restent pareilles : ce n'est pas le
+   * téléphone qui bouge), puis revenir comme avant. Une vidéo préparée ne connaît pas le numéro.
+   * (Essayé d'abord : faire glisser la carte hors de sa pochette — trop instable d'une seule main.)
    * cells : quadrilatères des pochettes (fractions de l'image vidéo). host : l'élément de la vidéo.
    */
   async function livePage(video, host, cells) {
@@ -237,6 +238,7 @@ App.certify = (() => {
     const m = /^case-(\d+)$/.exec(ch.challenge || '');
     if (!m) return { passed: false, reasons: ['serveur de certification pas à jour (supabase-v8.sql)'] };
     const target = Math.min(cells.length, +m[1]) - 1;
+    livePage.trace = [];
     const W = video.videoWidth, H = video.videoHeight;
     // cases (un peu rétrécies : on regarde la carte, pas les bords de la pochette)
     const boxes = cells.map((q) => {
@@ -254,7 +256,7 @@ App.certify = (() => {
     const tq = cells[target], tx = (tq[0][0] + tq[1][0] + tq[2][0] + tq[3][0]) / 4 * 100, ty = (tq[0][1] + tq[1][1] + tq[2][1] + tq[3][1]) / 4 * 100;
     ov.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">${cells.map((q, i) => `<polygon points="${poly(q)}" class="${i === target ? 'tgt' : ''}"/>`).join('')}</svg>
       <div class="pc-num" style="left:${tx}%;top:${ty}%">${target + 1}</div>
-      <div class="pc-txt">Fais glisser la carte <b>${target + 1}</b> à moitié hors de sa pochette, puis remets-la</div><div class="cert-bar"><span></span></div>`;
+      <div class="pc-txt">☝ Touche la carte <b>${target + 1}</b> du bout du doigt</div><div class="cert-bar"><span></span></div>`;
     host.appendChild(ov);
     const txt = ov.querySelector('.pc-txt'), bar = ov.querySelector('.cert-bar span');
     // image de référence (moyenne de 2 images) et bande-preuve (la case avant, sortie, remise)
@@ -270,26 +272,29 @@ App.certify = (() => {
       const cur = grab();
       const diffs = cur.map((g, i) => mad(g, base[i]));
       const tgt = diffs[target], others = med(diffs.filter((_, i) => i !== target));
+      (livePage.trace = livePage.trace || []).push([Math.round(tgt), Math.round(others), phase[0]]); // mesures (réglages)
       if (prevT && mad(cur[target], prevT) === 0) frozen++; // images strictement identiques = image injectée (une vraie caméra a toujours un peu de bruit)
       prevT = cur[target];
       if (others > 16) { // tout bouge : c'est le téléphone, pas la carte (avant le geste : on repart de l'image actuelle)
         moved++; txt.innerHTML = 'Tiens le téléphone immobile…'; if (phase === 'sortir') base = cur; streak = 0; continue;
       }
       if (phase === 'sortir') {
-        txt.innerHTML = `Fais glisser la carte <b>${target + 1}</b> à moitié hors de sa pochette, puis remets-la`;
-        if (tgt >= 18 && tgt >= others * 3 + 6) { if (++streak >= 2) { phase = 'remettre'; streak = 0; peak = tgt; othersAtPeak = others; keep(1); txt.innerHTML = `Remets la carte <b>${target + 1}</b> dans sa pochette`; ov.classList.add('out'); } }
+        txt.innerHTML = `☝ Touche la carte <b>${target + 1}</b> du bout du doigt`;
+        // le doigt (et sa main) couvre la case tirée au sort, pas les autres
+        if (tgt >= 10 && tgt >= others * 3 + 4) { if (++streak >= 2) { phase = 'remettre'; streak = 0; peak = tgt; othersAtPeak = others; keep(1); txt.innerHTML = '✓ Retire ta main'; ov.classList.add('out'); } }
         else streak = 0;
       } else {
         if (tgt > peak) { peak = tgt; othersAtPeak = others; }
-        if (tgt <= Math.max(9, peak * 0.4)) { if (++streak >= 3) { keep(2); break; } } else streak = 0;
+        // main retirée : la case revient au niveau de « bruit » des autres cases
+        if (tgt <= Math.max(6, others * 2 + 4, peak * 0.4)) { if (++streak >= 2) { keep(2); break; } } else streak = 0;
       }
       bar.style.width = Math.min(100, Math.round(((Date.now() - t0) / LIMIT) * 100)) + '%';
     }
     ov.remove();
-    const done = phase === 'remettre' && streak >= 3;
+    const done = phase === 'remettre' && streak >= 2;
     const reasons = [];
-    if (phase === 'sortir') reasons.push(`la carte ${target + 1} n’a pas bougé (ou tout a bougé en même temps)`);
-    else if (!done) reasons.push(`la carte ${target + 1} n’a pas été remise dans sa pochette`);
+    if (phase === 'sortir') reasons.push(`la carte ${target + 1} n’a pas été touchée (ou le téléphone a trop bougé)`);
+    else if (!done) reasons.push('la main n’a pas été retirée de la page');
     if (frozen >= 25) reasons.push('image figée (ce n’est pas une caméra en direct)');
     const passed = reasons.length === 0;
     const r2 = (v) => Math.round(v * 10) / 10;
