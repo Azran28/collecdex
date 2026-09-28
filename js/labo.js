@@ -30,6 +30,9 @@
     { id: 'mobilenet', name: 'Réseau de neurones', desc: 'MobileNet v2 : 1 280 caractéristiques apprises (carte entière + illustration), comparées par cosinus.' },
     { id: 'hybride', name: 'Hybride : réseau + points clés', desc: 'Le réseau de neurones présélectionne 40 cartes, les points clés ORB tranchent (vérification géométrique).', combo: true },
     { id: 'texte', name: 'Points clés + numéro lu', desc: 'Points clés ORB, et le numéro lu en bas de la carte (ex. 37/102) départage les cartes au même dessin.', combo: true },
+    { id: 'repli', name: 'Hybride + repli', desc: 'Hybride ; s’il trouve peu de points en commun (score < 25), points clés dans toute la base.', combo: true },
+    { id: 'ameliore', name: 'Hybride amélioré', desc: 'Présélection élargie à la série devinée sur la page et aux cartes trouvées par le texte (scanner actuel), puis repli si pas sûr. Temps de lecture du texte compris.', combo: true },
+    { id: 'ameliore2', name: 'Amélioré + bonus série', desc: 'Comme l’hybride amélioré, et en classeur les cartes de la série devinée sur la page gagnent 20 % (réimpressions au même dessin).', combo: true },
   ];
 
   const S = { refs: [], byId: new Map(), feats: [], queries: [], results: {}, log: [] };
@@ -334,13 +337,42 @@
     return out;
   }
 
+  // ---------- Hybride (réseau de neurones → points clés) ----------
+  const FALLBACK = 25; // moins de points en commun que ça : l'hybride n'est pas sûr (mesuré : erreurs de présélection ≤ 21)
+  /** Le réseau présélectionne 40 cartes (+ `extra`), les points clés vérifient ; best = meilleur score */
+  function hybridScores(bmp, extra = []) {
+    const n = S.refs.length, scores = new Float32Array(n).fill(-1e9);
+    const e = mnFeat(bmp);
+    for (let i = 0; i < n; i++) if (S.feats[i]) { const f = S.feats[i].mn; scores[i] = (dot(e.full, f.full) + dot(e.art, f.art)) / 2; }
+    const short = new Set([...[...scores.keys()].sort((a, b) => scores[b] - scores[a]).slice(0, 40), ...extra.filter((i) => S.feats[i])]);
+    const of = orbFeat(bmp), qm = matOf(of);
+    let best = -1e9;
+    try { for (const i of short) { scores[i] += orbVerify(of, qm, S.feats[i].orb); if (scores[i] > best) best = scores[i]; } } finally { qm.delete(); }
+    return { scores, best };
+  }
+  /** Série de la page de classeur : celle des autres cartes de la page reconnues avec assurance (≥ 2 votes) */
+  async function pageSeries(q) {
+    const votes = {};
+    for (const x of S.queries) {
+      if (x.n !== q.n || x === q) continue;
+      if (!x.hy) {
+        const h = hybridScores(x.bmp || (x.bmp = await createImageBitmap(x.blob)));
+        let bi = 0; for (let i = 1; i < h.scores.length; i++) if (h.scores[i] > h.scores[bi]) bi = i;
+        x.hy = { set: S.refs[bi].setId, s: h.best };
+      }
+      if (x.hy.s >= FALLBACK) votes[x.hy.set] = (votes[x.hy.set] || 0) + 1;
+    }
+    const [set, v] = Object.entries(votes).sort((a, b) => b[1] - a[1])[0] || [];
+    return v >= 2 ? set : null;
+  }
+
   // ---------- Essai d'une méthode sur une carte ----------
   const topOf = (scores, k = 5) => [...scores.keys()].filter((i) => S.feats[i]).sort((a, b) => scores[b] - scores[a]).slice(0, k).map((i) => ({ id: S.refs[i].id, s: +scores[i].toFixed(3) }));
   async function runOne(method, q) {
     const t0 = performance.now();
-    let top = [];
+    let top = [], fb = false;
     if (method === 'actuel') {
-      const { cands } = await R.recognize(q.blob, null, { atkBand: q.kind !== 'page' });
+      const { cands } = await R.recognize(q.blob, null, { atkBand: q.kind !== 'page' }); q.cands = cands;
       top = cands.slice(0, 5).map((c) => ({ id: c.id, s: +(c.score || 0).toFixed(2), sure: !!c.confident, name: c.name, label: `${c.name} ${c.localId}` }));
     } else {
       const bmp = q.bmp || (q.bmp = await createImageBitmap(q.blob));
@@ -367,6 +399,22 @@
             }
           }
         }
+      } else if (method === 'repli' || method === 'ameliore' || method === 'ameliore2') {
+        const extra = [];
+        if (method !== 'repli') {
+          // présélection élargie : toute la série devinée sur la page (classeur) + les cartes trouvées par le texte
+          const set = q.kind === 'page' ? await pageSeries(q) : null;
+          if (set) S.refs.forEach((c, i) => { if (c.setId === set) extra.push(i); });
+          const cands = q.cands || (q.cands = (await R.recognize(q.blob, null, { atkBand: q.kind !== 'page' })).cands);
+          for (const c of cands) { const i = S.byId.get(c.id); if (i != null) extra.push(i); }
+          q.extra = { set, n: extra.length };
+        }
+        const h = hybridScores(bmp, extra);
+        scores.set(h.scores);
+        // pas sûr (peu de points en commun) : on cherche avec les points clés dans toute la base
+        if (h.best < FALLBACK) { const sc = orbRank(bmp); for (let i = 0; i < n; i++) if (S.feats[i]) scores[i] = sc[i]; fb = true; }
+        // série de la page connue : ses cartes passent devant une réimpression au même dessin (Set de Base ↔ Base Set 2)
+        if (method === 'ameliore2' && q.extra.set) S.refs.forEach((c, i) => { if (c.setId === q.extra.set && scores[i] > 0) scores[i] *= 1.2; });
       } else {
         const e = mnFeat(bmp);
         for (let i = 0; i < n; i++) if (S.feats[i]) { const f = S.feats[i].mn; scores[i] = (dot(e.full, f.full) + dot(e.art, f.art)) / 2; }
@@ -382,7 +430,7 @@
     }
     const ms = Math.round(performance.now() - t0);
     const want = q.want, name = (id) => { const i = S.byId.get(id); return i != null ? S.refs[i].name : null; };
-    return { top, ms, ok: top[0] && top[0].id === want, top3: top.slice(0, 3).some((x) => x.id === want), sameName: !!(top[0] && (top[0].name || name(top[0].id)) && App.util.norm(top[0].name || name(top[0].id)) === App.util.norm(name(want) || '')) };
+    return { top, ms, fb, ok: top[0] && top[0].id === want, top3: top.slice(0, 3).some((x) => x.id === want), sameName: !!(top[0] && (top[0].name || name(top[0].id)) && App.util.norm(top[0].name || name(top[0].id)) === App.util.norm(name(want) || '')) };
   }
 
   // ---------- Affichage ----------
@@ -392,7 +440,7 @@
       const rs = Object.values(results[m.id]);
       const by = (f) => rs.filter(f);
       const group = (k) => { const g = rs.filter((r) => r.kind === k); return { n: g.length, ok: g.filter((r) => r.ok).length }; };
-      return { m, n: rs.length, ok: by((r) => r.ok).length, top3: by((r) => r.top3).length, sameName: by((r) => r.ok || r.sameName).length, ms: Math.round(rs.reduce((t, r) => t + r.ms, 0) / (rs.length || 1)), page: group('page'), seule: { n: group('photo').n + group('decoupe').n, ok: group('photo').ok + group('decoupe').ok } };
+      return { m, n: rs.length, fb: by((r) => r.fb).length, ok: by((r) => r.ok).length, top3: by((r) => r.top3).length, sameName: by((r) => r.ok || r.sameName).length, ms: Math.round(rs.reduce((t, r) => t + r.ms, 0) / (rs.length || 1)), page: group('page'), seule: { n: group('photo').n + group('decoupe').n, ok: group('photo').ok + group('decoupe').ok } };
     });
   }
   function render() {
@@ -412,7 +460,7 @@
         <thead><tr><th>Méthode</th><th>Bonne carte (1ʳᵉ)</th><th>Dans les 3 premières</th><th>Bon Pokémon</th><th>Classeur</th><th>Carte seule</th><th>Temps / carte</th></tr></thead>
         <tbody>${sum.map((s) => `<tr class="${s === best ? 'best' : ''}"><td><b>${esc(s.m.name)}</b><div class="muted small">${esc(s.m.desc)}</div></td>
           <td class="big">${pct(s.ok, s.n)} %<div class="muted small">${s.ok} / ${s.n}</div></td><td>${pct(s.top3, s.n)} %</td><td>${pct(s.sameName, s.n)} %</td>
-          <td>${pct(s.page.ok, s.page.n)} %<div class="muted small">${s.page.ok} / ${s.page.n}</div></td><td>${pct(s.seule.ok, s.seule.n)} %<div class="muted small">${s.seule.ok} / ${s.seule.n}</div></td><td>${s.ms >= 1000 ? (s.ms / 1000).toFixed(1) + ' s' : s.ms + ' ms'}</td></tr>`).join('')}</tbody>
+          <td>${pct(s.page.ok, s.page.n)} %<div class="muted small">${s.page.ok} / ${s.page.n}</div></td><td>${pct(s.seule.ok, s.seule.n)} %<div class="muted small">${s.seule.ok} / ${s.seule.n}</div></td><td>${s.ms >= 1000 ? (s.ms / 1000).toFixed(1) + ' s' : s.ms + ' ms'}${s.fb ? `<div class="muted small">repli : ${s.fb} cartes</div>` : ''}</td></tr>`).join('')}</tbody>
       </table></div>` : ''}
       ${S.queries.length ? `<h2>Carte par carte</h2><div class="lab-grid">${S.queries.map((q, k) => `<div class="lab-card">
         <img src="${q.url}" alt="">
