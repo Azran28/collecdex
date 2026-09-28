@@ -394,7 +394,7 @@ App.recognizer = (() => {
    *   proches de lui (±12 %), le plus proche l'emporte : pas de bord de pochette voisine ni de reflet lointain.
    * warp = false : seulement les coins (quad), sans image remise à plat.
    */
-  function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }, { expect = null, warp = true } = {}) {
+  function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }, { expect = null, warp = true, sizeCheck = null } = {}) {
     const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
     // zone de recherche : la zone donnée + 8 % (la carte peut dépasser un peu du cadre jaune) ;
     // + 14 % autour d'une case de classeur (la grille, régulière, peut être décalée d'une rangée à l'autre)
@@ -512,8 +512,11 @@ App.recognizer = (() => {
         const dv = [Math.abs(L.a * EM.L[1] + L.b - EM.L[0]) / EM.w, Math.abs(R.a * EM.R[1] + R.b - EM.R[0]) / EM.w,
           Math.abs(T.a * EM.T[0] + T.b - EM.T[1]) / EM.h, Math.abs(B.a * EM.B[0] + B.b - EM.B[1]) / EM.h];
         if (Math.max(...dv) > 0.16) continue;
+        // taille imposée (une carte fait toujours la même taille sur la page redressée)
+        let sdev = 0;
+        if (sizeCheck) { sdev = sizeCheck(q.map(([x, y]) => [(ax + x / S) / NW, (ay + y / S) / NH])); if (sdev > 0.05) continue; }
         const bs = borderScore(q);
-        score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 - (dv[0] + dv[1] + dv[2] + dv[3]) * 2 + bs * 3;
+        score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 - (dv[0] + dv[1] + dv[2] + dv[3]) * 2 + bs * 3 - sdev * 20;
         if (!pick || score > pick.score) pick = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac), border: borderScore.last };
         continue;
       } else {
@@ -564,37 +567,80 @@ App.recognizer = (() => {
    * Cases d'une page de classeur (grille trouvée) → bords réels de chaque carte, cherchés près de sa case.
    * Renvoie pour chaque case son quadrilatère ajusté (fractions), ou null si ses bords ne sont pas sûrs.
    */
+  /** Homographie (3 × 3) qui envoie les 4 points src sur les 4 points dst ; renvoie une fonction (x, y) → [x, y] */
+  function homography(src, dst) {
+    const A = [], b = [];
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = src[i], [u, v] = dst[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+    }
+    // élimination de Gauss (8 × 8)
+    for (let c = 0; c < 8; c++) {
+      let p = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      [A[c], A[p]] = [A[p], A[c]]; [b[c], b[p]] = [b[p], b[c]];
+      for (let r = 0; r < 8; r++) {
+        if (r === c) continue;
+        const f = A[r][c] / (A[c][c] || 1e-12);
+        for (let k = c; k < 8; k++) A[r][k] -= f * A[c][k];
+        b[r] -= f * b[c];
+      }
+    }
+    const h = b.map((v, i) => v / (A[i][i] || 1e-12));
+    return (x, y) => { const w = h[6] * x + h[7] * y + 1; return [(h[0] * x + h[1] * y + h[2]) / w, (h[3] * x + h[4] * y + h[5]) / w]; };
+  }
+
+  /**
+   * Cases d'une page de classeur (grille trouvée) → bords réels de chaque carte, cherchés près de sa case.
+   * Une carte a toujours la même taille : la page est « redressée » (vue de face, grâce aux coins de la grille),
+   * et sur la page redressée toutes les cartes doivent avoir la même taille. Les cadres qui s'en écartent sont
+   * rejetés, puis les cases restantes sont recherchées avec cette taille imposée.
+   */
   function snapCells(img, cells, cols = 3, rows = 3) {
     snapCells.last = [];
     const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
-    const out = cells.map((c) => {
+    const per = cols * rows;
+    // redressement de chaque page (classeur ouvert : 2 pages à la suite) : image → plan de la page (1 unité = 1 case)
+    const flat = [];
+    for (let g0 = 0; g0 + per <= cells.length; g0 += per) {
+      const c = (i) => cells[g0 + i].quad;
+      const f = homography([c(0)[0], c(cols - 1)[1], c(per - 1)[2], c((rows - 1) * cols)[3]], [[0, 0], [cols, 0], [cols, rows], [0, rows]]);
+      for (let i = 0; i < per; i++) flat[g0 + i] = f;
+    }
+    // taille d'un cadre sur la page redressée (largeur, hauteur en « cases »)
+    const flatSize = (q, i) => {
+      const f = flat[i]; if (!f) return null;
+      const p = q.map(([x, y]) => f(x, y)), d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+      return [(d(p[0], p[1]) + d(p[3], p[2])) / 2, (d(p[0], p[3]) + d(p[1], p[2])) / 2];
+    };
+    const find = (c, sizeCheck = null) => {
       try {
         const xs = c.quad.map((p) => p[0]), ys = c.quad.map((p) => p[1]);
         const rect = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
-        const r = cutCard(img, rect, { expect: c.quad, warp: false });
-        snapCells.last = (snapCells.last || []).concat([r && r.border]);
-        return r ? r.quad : null;
+        return cutCard(img, rect, { expect: c.quad, warp: false, sizeCheck });
       } catch (e) { return null; }
-    });
-    const note = snapCells.last.map((b) => (b ? Math.min(...b.per) : -1)); // qualité de la bordure trouvée
-    const per = cols * rows;
-    // 1) les cartes d'une même RANGÉE ont la même taille à l'écran (même distance de l'objectif) :
-    //    un cadre nettement plus grand (la pochette) ou plus petit (cadre intérieur, nom coupé) que ses voisines est écarté
-    const d = (a, b) => Math.hypot((a[0] - b[0]) * NW, (a[1] - b[1]) * NH);
-    const size = (q) => [(d(q[0], q[1]) + d(q[3], q[2])) / 2, (d(q[0], q[3]) + d(q[1], q[2])) / 2];
+    };
+    const first = cells.map((c) => find(c));
+    const out = first.map((r) => (r ? r.quad : null));
+    snapCells.last = first.map((r) => r && r.border);
+    // taille de référence d'une carte sur la page redressée : médiane des cadres trouvés
     const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
-    for (let r0 = 0; r0 < out.length; r0 += cols) {
-      const idx = Array.from({ length: cols }, (_, j) => r0 + j).filter((i) => out[i]);
-      if (idx.length < 2) continue;
-      const sz = idx.map((i) => size(out[i]));
-      const mw = med(sz.map((s) => s[0])), mh = med(sz.map((s) => s[1]));
-      if (idx.length === 2) { // deux seulement : s'ils diffèrent trop, on garde celui dont la bordure est la plus nette
-        const [a, b] = idx; if (Math.abs(sz[0][1] - sz[1][1]) / Math.max(sz[0][1], sz[1][1]) > 0.06) out[note[a] < note[b] ? a : b] = null;
-        continue;
-      }
-      idx.forEach((i, j) => { if (Math.abs(sz[j][0] - mw) / mw > 0.07 || Math.abs(sz[j][1] - mh) / mh > 0.06) out[i] = null; });
+    const sizes = out.map((q, i) => (q ? flatSize(q, i) : null)).filter(Boolean);
+    if (sizes.length >= 3) {
+      const W0 = med(sizes.map((s) => s[0])), H0 = med(sizes.map((s) => s[1]));
+      const dev = (q, i) => { const s = flatSize(q, i); return s ? Math.max(Math.abs(s[0] - W0) / W0, Math.abs(s[1] - H0) / H0) : 1; };
+      // cadres d'une autre taille : rejetés
+      out.forEach((q, i) => { if (q && dev(q, i) > 0.04) out[i] = null; });
+      // cases sans cadre : on cherche à nouveau, en imposant la taille d'une carte
+      cells.forEach((c, i) => {
+        if (out[i]) return;
+        const r = find(c, (qFrac) => dev(qFrac, i));
+        if (r) { out[i] = r.quad; snapCells.last[i] = r.border; }
+      });
+      snapCells.size = { w: W0, h: H0 };
     }
-    // 2) deux cartes ne se touchent jamais : si deux cadres voisins se chevauchent (ou collent),
+    const note = snapCells.last.map((b) => (b ? Math.min(...b.per) : -1)); // qualité de la bordure trouvée
+    // deux cartes ne se touchent jamais : si deux cadres voisins se chevauchent (ou collent),
     //    celui dont la bordure est la moins nette est écarté
     const gap = 0.003; // écart minimal, en fraction de l'image
     const right = (q) => Math.max(q[1][0], q[2][0]), left = (q) => Math.min(q[0][0], q[3][0]);
@@ -1263,8 +1309,9 @@ App.recognizer = (() => {
     // nouvelle carte : la photo devient son visuel ; doublon : la photo s'ajoute à ses photos
     await App.col.addPhoto(key, blob, { makeDisplay: !before || !before.displayPhoto });
     // versions reconnues sur la photo (holo / reverse / 1re édition), parmi celles qui existent pour cette carte
+    // (déjà mesurées et vérifiées dans la liste du classeur : c.pickedVariants)
     try {
-      const det = c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
+      const det = c.pickedVariants ? { list: c.pickedVariants } : c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
       if (det && det.list.length) {
         const it = App.col.byKey(key);
         const vars = [...new Set([...((it && it.variants) || []), ...det.list])];

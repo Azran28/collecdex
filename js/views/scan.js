@@ -998,6 +998,40 @@ App.views.scan = {
     }
     const modeLabels = { nouvelle: 'Nouvelle carte', rien: 'Déjà possédée : ne rien changer', photo: 'Même carte : utiliser cette photo', doublon: 'Autre exemplaire (doublon)' };
 
+    // ---------- Version de chaque carte (normale / holo / reverse / 1re édition), mesurée AVANT l'ajout ----------
+    const VN = { normal: 'Normale', holo: 'Holo', reverse: 'Reverse', firstEdition: '1ʳᵉ édition' };
+    const baseOpts = (cur) => ['normal', 'holo', 'reverse'].filter((k) => cur && cur.variants && cur.variants[k]);
+    /** Version retenue pour une case : celle mesurée sur la photo, ou celle corrigée à la main */
+    const versOf = (c) => {
+      if (!c.det) return null;
+      const base = c.det.base || (c.det.list || []).find((v) => v !== 'firstEdition') || null;
+      const fe = c.det.fe != null ? c.det.fe : (c.det.list || []).includes('firstEdition');
+      return [base, fe ? 'firstEdition' : null].filter(Boolean);
+    };
+    /** Mesure la brillance de la photo (reflets de l'illustration, du fond, logo 1re édition) pour la carte choisie */
+    async function measureVers(c) {
+      const cur = c.cands.find((x) => x.id === c.choice);
+      if (!cur || !cur.variants) { c.det = null; return; }
+      const id = cur.id;
+      c.det = { id, measuring: true, list: [] };
+      try {
+        const d = await R.detectVariants(c.blob, cur.variants, ad.img.card(cur, 'high'));
+        if (c.choice === id) c.det = { id, list: d.list, sure: !!(d.sure && (d.sure.base !== false)), info: d.info };
+      } catch (e) { if (c.choice === id) c.det = { id, list: [], sure: false }; }
+    }
+    const versHtml = (c, cur) => {
+      if (!cur || !cur.variants) return '';
+      const opts = baseOpts(cur), fe = !!cur.variants.firstEdition;
+      if (!c.det || c.det.id !== cur.id) return '';
+      if (c.det.measuring) return `<div class="small muted bvers">${App.icons.icon('sparkles', 12)} Brillance : mesure…</div>`;
+      const v = versOf(c) || [], base = v.find((x) => x !== 'firstEdition') || opts[0];
+      if (opts.length <= 1 && !fe) return opts.length ? `<div class="small bvers">${App.icons.icon('sparkles', 12)} ${VN[opts[0]]} <span class="muted">(seule version de cette carte)</span></div>` : '';
+      return `<div class="small bvers">${App.icons.icon('sparkles', 12)} Version :
+        ${opts.length > 1 ? `<select data-vbase="${c.i}">${opts.map((k) => `<option value="${k}" ${k === base ? 'selected' : ''}>${VN[k]}</option>`).join('')}</select>` : `<b>${VN[opts[0]] || ''}</b>`}
+        ${fe ? `<label class="check"><input type="checkbox" data-vfe="${c.i}" ${v.includes('firstEdition') ? 'checked' : ''}> 1ʳᵉ éd.</label>` : ''}
+        <span class="muted">(${c.det.user ? 'choisie' : c.det.sure ? 'mesurée sur la photo' : 'mesurée, à vérifier'})</span></div>`;
+    };
+
     function drawResults() {
       const [cols] = dims();
       const chosen = cells.filter((c) => c.choice && modeOf(c) !== 'rien');
@@ -1046,6 +1080,7 @@ App.views.scan = {
                   <option value="">— Ne pas ajouter —</option>
                   ${c.cands.map((x) => `<option value="${esc(x.id)}" ${x.id === c.choice ? 'selected' : ''}>${esc(x.name)} · ${esc(App.views.scan.setLabel(x))} · ${esc(x.localId)}</option>`).join('')}
                 </select>
+                ${versHtml(c, cur)}
                 ${cur ? `<button class="btn sm ghost" data-versions="${c.i}">Toutes les versions de « ${esc(cur.name)} »</button>` : ''}
                 ${own || repeat ? `<select data-mode="${c.i}" title="Carte déjà possédée ou en double">
                     ${(own ? ['rien', 'photo', 'doublon'] : ['doublon', 'rien']).map((k) => `<option value="${k}" ${k === m ? 'selected' : ''}>${k === 'doublon' && repeat && !own ? '2e exemplaire sur la page (doublon)' : k === 'rien' && !own ? 'Ne pas la compter' : modeLabels[k]}</option>`).join('')}
@@ -1067,6 +1102,11 @@ App.views.scan = {
           <span class="muted small">${chosen.length ? 'Vérifie les cartes cochées, puis enregistre.' : 'Coche les cartes à ajouter.'}</span>
         </div>` : ''}`;
       const sa = resultsEl.querySelector('#b-set-after'); if (sa && allSets) App.views.scan.fillSetSelect(sa, allSets);
+      // brillance des cartes reconnues (ou changées) : mesurée en arrière-plan, affichée dès qu'elle est prête
+      for (const c of cells) {
+        if (c.saved || !c.choice || c.state === 'lecture' || (c.det && c.det.id === c.choice)) continue;
+        measureVers(c).then(() => { if (alive()) drawResults(); });
+      }
     }
 
     resultsEl.addEventListener('change', async (e) => {
@@ -1081,6 +1121,11 @@ App.views.scan = {
       if (ck) { cells[+ck.dataset.check].checked = ck.checked; drawResults(); return; }
       const md = e.target.closest('[data-mode]');
       if (md) { cells[+md.dataset.mode].mode = md.value; drawResults(); return; }
+      // version corrigée à la main (normale / holo / reverse, 1re édition)
+      const vb = e.target.closest('[data-vbase]');
+      if (vb) { const c = cells[+vb.dataset.vbase]; if (c.det) { c.det.base = vb.value; c.det.user = true; } drawResults(); return; }
+      const vf = e.target.closest('[data-vfe]');
+      if (vf) { const c = cells[+vf.dataset.vfe]; if (c.det) { c.det.fe = vf.checked; c.det.user = true; } drawResults(); return; }
       const s = e.target.closest('[data-choice]'); if (!s) return;
       const cell = cells[+s.dataset.choice];
       cell.choice = s.value; cell.mode = null; cell.checked = !!s.value; // choisir une carte à la main = la cocher
@@ -1160,7 +1205,8 @@ App.views.scan = {
         for (const { c, mode } of todo) {
           const cand = c.cands.find((x) => x.id === c.choice);
           if (!cand) continue;
-          const key = await R.addScanned(cand, c.blob, mode === 'nouvelle' ? null : mode);
+          const picked = c.det && c.det.id === cand.id ? versOf(c) : null; // version vue (et corrigée) dans la liste
+          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode);
           c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
           keys.push(key);
           const it = App.col.byKey(key);
