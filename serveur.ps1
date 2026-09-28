@@ -2,11 +2,12 @@
 # Il sert les fichiers de ce dossier sur http://localhost:8765/ et ouvre le navigateur.
 # Fermer cette fenetre arrete le site.
 # -NoBrowser : ne pas ouvrir le navigateur (utilise par Claude pour tester).
-param([switch]$NoBrowser)
+# -Port 8766 : autre port (copie de travail de Claude, pour ne pas gener le site d'Arnaud).
+param([switch]$NoBrowser, [int]$Port = 8765)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$port = 8765
+$port = $Port
 $url = "http://localhost:$port/"
 
 $listener = New-Object System.Net.HttpListener

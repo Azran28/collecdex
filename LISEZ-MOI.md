@@ -57,6 +57,11 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Paramètres** (engrenage en haut à droite) : **ton compte** (connexion, synchronisation, déconnexion), langue, sons, façon de compter la complétion, **sauvegarde / restauration**.
 - **Match** (dans le menu, à la place de Vitrine) : la future page des échanges entre collectionneurs, pour l'instant un simple écran d'attente.
 
+## Labo (tester les méthodes de reconnaissance)
+- Page à part, seulement sur ton PC : lance `Lancer CollecDex.bat` puis ouvre **http://localhost:8765/labo.html**.
+- Elle prend toutes les cartes Pokémon de tes photos de test (dossier `_tests-scanner`, bonnes réponses dans `verite.json`) et compare plusieurs façons de reconnaître une carte. Touche « Lancer le test » : la 1ʳᵉ fois, il faut ~2 min pour préparer les visuels officiels, puis ~15 min pour tout tester (tu peux décocher des méthodes). Le tableau montre le pourcentage de cartes bien reconnues ; en dessous, chaque carte avec la réponse de chaque méthode (vert = bonne, jaune = dans les 3 premières, rouge = ratée).
+- Pour ajouter une photo de test : mets-la dans `_tests-scanner` et demande à Claude de compléter `verite.json`.
+
 ## Versions reconnues sur la photo
 - À l'ajout d'une carte (seule ou en classeur), le site choisit sa **version** d'après la photo, parmi celles qui existent pour cette carte : **holo** ou **normale** (automatique quand la carte n'existe qu'en une seule), **reverse** (le fond de la carte brille), **1ʳᵉ édition** (le petit logo noir « Édition 1 » sous l'illustration des anciennes cartes).
 - La version trouvée s'affiche après l'ajout (« Version reconnue : Holo · 1ʳᵉ édition », bouton « modifier ») et dans la fiche de la carte (« reconnue sur ta photo »). Touche une version dans la fiche pour corriger.
