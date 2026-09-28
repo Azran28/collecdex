@@ -121,5 +121,5 @@ App.util = (() => {
     return String(a).localeCompare(String(b), 'fr', { numeric: true });
   };
 
-  return { esc, $, $$, euro, pct, dateFr, debounce, toast, openModal, closeModal, resizeImage, blobToDataURL, dataURLToBlob, norm, similarity, pool, numSort };
+  return { esc, $, $$, euro, pct, dateFr, debounce, toast, openModal, closeModal, resizeImage, blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
 })();

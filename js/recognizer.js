@@ -40,18 +40,28 @@ App.recognizer = (() => {
         const n = (navigator.hardwareConcurrency || 2) >= 4 ? 2 : 1;
         const ws = await Promise.all(Array.from({ length: n }, (_, i) => T.createWorker('fra', 1, i ? {} : opts)));
         const busy = ws.map(() => false), queue = [];
+        let jobs = 0, retired = false;
         const pump = () => {
           for (let i = 0; i < ws.length; i++) {
             if (busy[i] || !queue.length) continue;
-            const job = queue.shift(); busy[i] = true;
-            ws[i].recognize(job.img).then(job.res, job.rej).finally(() => { busy[i] = false; pump(); });
+            const job = queue.shift(); busy[i] = true; jobs++;
+            ws[i].recognize(job.img).then(job.res, job.rej).finally(() => { busy[i] = false; pump(); recycle(); });
           }
         };
-        worker = {
+        // les lecteurs Tesseract s'encrassent à la longue (mesuré : 0,55 s → 4,6 s par carte après quelques centaines
+        // de lectures) : après 300 lectures, dès qu'ils sont au repos, on les remplace par des neufs
+        const recycle = () => {
+          if (retired || jobs < 300 || queue.length || busy.some(Boolean)) return;
+          retired = true;
+          if (worker === pool) { worker = null; workerP = null; }
+          ws.forEach((w) => w.terminate());
+        };
+        const pool = {
           size: n,
-          recognize: (img) => new Promise((res, rej) => { queue.push({ img, res, rej }); pump(); }),
+          recognize: (img) => new Promise((res, rej) => { if (retired) { getWorker().then((w) => w.recognize(img)).then(res, rej); return; } queue.push({ img, res, rej }); pump(); }),
           terminate: () => ws.forEach((w) => w.terminate()),
         };
+        worker = pool;
         ad().listSets().then((sets) => { validTotals = new Set(sets.map((x) => x.official)); }).catch(() => {});
         return worker;
       })().catch((e) => { workerP = null; throw e; });
@@ -906,12 +916,18 @@ App.recognizer = (() => {
    * Visuel officiel en Blob. Le serveur d'images de TCGdex refuse parfois une requête au hasard
    * (en-tête CORS en double) : on réessaie, puis on tente un autre format (png) ou la taille « high ».
    */
+  // disjoncteur : quand le serveur d'images refuse tout (panne passagère chez TCGdex), on arrête d'insister
+  // 30 s et la reconnaissance se fait sur le texte seul (sinon chaque carte attendait 5 à 15 s de nouveaux essais)
+  let imgFails = 0, imgPauseUntil = 0;
   async function fetchImage(url) {
+    if (Date.now() < imgPauseUntil) return null;
     const alts = [url, url, url.replace(/\.webp$/, '.png'), url.replace('/low.', '/high.')];
     for (let i = 0; i < alts.length; i++) {
-      try { const r = await fetch(alts[i]); if (r.ok) return await r.blob(); if (r.status === 404 && i >= 2) return null; } catch (e) { /* on réessaie */ }
+      try { const r = await fetch(alts[i]); if (r.ok) { imgFails = 0; return await r.blob(); } if (r.status === 404 && i >= 2) return null; } catch (e) { /* on réessaie */ }
+      if (Date.now() < imgPauseUntil) return null;
       await new Promise((res) => setTimeout(res, 120 * (i + 1)));
     }
+    if (++imgFails >= 6) { imgPauseUntil = Date.now() + 30000; imgFails = 0; console.warn('Serveur d\'images TCGdex indisponible : pause de 30 s'); }
     return null;
   }
 
@@ -1122,6 +1138,7 @@ App.recognizer = (() => {
         if (!b && /assets\.tcgdex\.net\/(?!en\/)[a-z-]+\//.test(src)) b = await tryUrl(src.replace(/assets\.tcgdex\.net\/[a-z-]+\//, 'assets.tcgdex.net/en/'));
         const v = b ? await createImageBitmap(b).then((bmp) => artVec(trimBackground(bmp))).catch(() => null) : null;
         if (v) App.db.set('cache', key, { t: Date.now(), v }).catch(() => {});
+        else setTimeout(() => officialThumbs.delete(src), 30000); // image pas reçue (panne ?) : on réessaiera plus tard
         return v;
       })());
     }
@@ -1227,11 +1244,53 @@ App.recognizer = (() => {
     // sinon (Dresseurs, Énergies, nom illisible) : morceaux des premiers mots, recherches en parallèle
     const qs = [...new Set(words.slice(0, 3).flatMap((w) => [w, w.slice(1), w.slice(0, 5), w.slice(1, 6), w.slice(2, 7), w.slice(0, 4)])
       .map((q) => q.replace(/[^a-zA-ZÀ-ÿ\-]/g, '')).filter((q) => q.length >= 4))].slice(0, 10);
-    return (await Promise.all(qs.map((q) => ad().search({ name: q }).catch(() => [])))).flat();
+    return (await Promise.all(qs.map((q) => ad().search({ name: q, en: false }).catch(() => [])))).flat();
   }
 
   /** Classe des candidates : ressemblance du nom, numéro, puis comparaison visuelle avec la photo */
-  async function rank(list, num, lines, mine, { cap = 30, visualWeight = 1.5, needName = false, years = [], wizards = false, hp = null } = {}) {
+  /**
+   * Attaques et talents de la carte retrouvés dans le texte lu (« Super Psy » … « 50 ») : part des noms retrouvés (0 à 1).
+   * Chaque nom est cherché mot à mot, même un peu mal lu (« Supor Psy »), et ses dégâts à côté comptent un peu plus.
+   */
+  function attackMatch(atk, words, memo) {
+    if (!atk || !atk.length || words.length < 3) return null;
+    let got = 0;
+    for (const [name, dmg] of atk) {
+      // le même nom d'attaque revient sur beaucoup de cartes : mesuré une seule fois par lecture
+      const mk = name + '|' + dmg;
+      if (!memo.has(mk)) memo.set(mk, attackOne(name, dmg, words));
+      got += memo.get(mk);
+    }
+    return Math.min(1, got / atk.length);
+  }
+  function attackOne(name, dmg, words) {
+    const nw = norm(name).split(' ').filter(Boolean); if (!nw.length) return 0;
+    const target = nw.join(' '), n = nw.length, L = target.length;
+    let best = 0, at = -1;
+    for (let i = 0; i + n <= words.length; i++) {
+      // tri rapide avant le calcul (coûteux) : longueur proche et une lettre en commun au début
+      const w0 = words[i];
+      if (w0[0] !== nw[0][0] && w0[1] !== nw[0][1]) continue;
+      const win = n === 1 ? w0 : words.slice(i, i + n).join(' ');
+      if (Math.abs(win.length - L) > L * 0.35) continue;
+      const s = 1 - App.util.lev(win, target) / Math.max(win.length, L); // textes déjà normalisés : calcul direct
+      if (s > best) { best = s; at = i; }
+    }
+    const need = L <= 5 ? 0.85 : 0.72; // les noms courts (« Soin ») doivent être presque exacts
+    if (best < need) return 0;
+    const d = String(dmg || '').replace(/\D/g, '');
+    return d && words.slice(at + n, at + n + 6).includes(d) ? 1.25 : 1; // dégâts lus juste après
+  }
+
+  /**
+   * Sûre grâce au texte : bon nom, TOUTES ses attaques / talents retrouvés, et c'est la seule candidate dans ce cas
+   * (une réimpression aux mêmes attaques laisse le doute), illustration pas contraire.
+   */
+  const atkSure = (c, out) => c.atkM != null && c.atkM >= 0.99 && (c.nameScore || 0) >= 0.75 && (c.visual == null || c.visual >= 0.35)
+    && out.filter((o) => o.atkM != null && o.atkM >= 0.99 && (o.nameScore || 0) >= 0.75).length === 1;
+
+  async function rank(list, num, lines, mine, { cap = 30, visualWeight = 1.5, needName = false, years = [], wizards = false, hp = null, full = '' } = {}) {
+    const allWords = norm(full || lines.join(' ')).split(' ').filter((w) => w.length >= 2).slice(0, 400), memo = new Map();
     const text = norm(lines.slice(0, 8).join(' '));
     const ocrWords = [...new Set(text.split(' ').filter((w) => w.length >= 4))];
     // ressemblance mot à mot : « Nictini » ↔ « Victini », « Dracaufeu » ↔ « Dracaufeu-ex »
@@ -1256,7 +1315,9 @@ App.recognizer = (() => {
       const hpOk = hp && c.hp ? (c.hp === hp ? 0.3 : -0.15) : 0;
       // série seulement en anglais (réimpression jamais sortie en français, ex. Base Set 2) : à égalité, la série française l'emporte
       const enPen = c.set && c.set.enOnly && (App.settings.lang || 'fr') !== 'en' ? 0.35 : 0;
-      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, yearOk, hpOk: hpOk > 0, hpBonus: hpOk, visual: null, score: nameScore + (numOk && ofOk ? 1.2 : numOk ? 0.4 : ofOk ? 0.2 : 0) + (yearOk ? 0.6 : 0) + (eraOk ? 0.4 : 0) + hpOk - enPen });
+      // attaques / talents retrouvés dans le texte lu (seulement si le nom colle : sinon le texte est illisible, inutile)
+      const atkM = nameScore >= 0.6 || numOk ? attackMatch(c.atk, allWords, memo) : null;
+      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, yearOk, hpOk: hpOk > 0, hpBonus: hpOk, atkM, visual: null, score: nameScore + (numOk && ofOk ? 1.2 : numOk ? 0.4 : ofOk ? 0.2 : 0) + (yearOk ? 0.6 : 0) + (eraOk ? 0.4 : 0) + hpOk - enPen + (atkM || 0) * 1.4 });
     }
     let out = [...uniq.values()].sort((a, b) => b.score - a.score).slice(0, cap);
     if (mine && out.length) {
@@ -1274,7 +1335,8 @@ App.recognizer = (() => {
     return out;
   }
 
-  async function findCandidates({ num, alt = [], words, lines, years = [], wizards = false, hp = null, pokes = [] }, blob) {
+  async function findCandidates({ num, alt = [], words, lines, years = [], wizards = false, hp = null, pokes = [], raw = null }, blob) {
+    const full = raw ? `${raw.full || ''} ${raw.bottom || ''}` : ''; // tout le texte lu (attaques, talents…)
     const A = ad();
     // tout ce qui ne dépend pas du reste part en même temps : empreinte de la photo, recherche par numéro,
     // et (par avance) la recherche par le nom de Pokémon reconnu dans le texte
@@ -1289,7 +1351,7 @@ App.recognizer = (() => {
     }
     for (const a of alt) { if (byNum.length) break; byNum = await A.findByNumber(a.n, a.of).catch(() => []); if (byNum.length) num = a; }
     const mine = await mineP;
-    let out = await rank(byNum, num, lines, mine, { years, wizards, hp });
+    let out = await rank(byNum, num, lines, mine, { years, wizards, hp, full });
     // numéro absent, ou carte trouvée qui ne ressemble pas à la photo → on cherche aussi par le nom
     const weak = !out.length || (mine && (out[0].visual == null || out[0].visual < 0.55));
     if (weak && (words.length || known.length)) {
@@ -1298,14 +1360,16 @@ App.recognizer = (() => {
       // le nom de Pokémon reconnu compte comme une ligne lue (« Kadabra » lu dans une attaque, titre illisible)
       const lines2 = [...known.slice(0, 2).map((k) => k.name), ...lines];
       // 60 candidates au plus (les mieux classées par le nom, l'année, les PV) : comparer 100 visuels prenait ~7 s
-      out = await rank([...byNum, ...byName], num, lines2, mine, { cap: 60, visualWeight: 3, needName: true, years, wizards, hp });
+      out = await rank([...byNum, ...byName], num, lines2, mine, { cap: 60, visualWeight: 3, needName: true, years, wizards, hp, full });
     }
     // « sûre » : bon numéro ET bon total, ou photo très ressemblante
     // (sans visuel officiel à comparer, le numéro seul ne suffit pas : une lecture de travers donne vite « 10/10 »)
-    for (const c of out) c.confident = (c.numOk && c.ofOk && c.visual != null && c.visual > 0.4) || (c.visual != null && c.visual >= 0.75 && (c.margin ?? 1) >= 0.06);
+    for (const c of out) c.confident = (c.numOk && c.ofOk && c.visual != null && c.visual > 0.4) || (c.visual != null && c.visual >= 0.75 && (c.margin ?? 1) >= 0.06) || atkSure(c, out);
     // réimpression (même nom, autre série) presque aussi ressemblante → on ne peut pas trancher : « À vérifier »
     if (out[0] && out[0].confident && !(out[0].numOk && out[0].ofOk)) {
-      const twin = out.slice(1).find((c) => norm(c.name) === norm(out[0].name) && c.visual != null && out[0].visual != null && out[0].visual - c.visual < 0.12);
+      // (une réimpression aux attaques nettement moins bien retrouvées, ou seulement anglaise, ne crée pas de doute)
+      const t0 = out[0], atkAhead = (c) => t0.atkM != null && t0.atkM >= 0.99 && (c.atkM == null || c.atkM <= t0.atkM - 0.3);
+      const twin = out.slice(1).find((c) => norm(c.name) === norm(t0.name) && c.visual != null && t0.visual != null && t0.visual - c.visual < 0.12 && !atkAhead(c) && !(c.set && c.set.enOnly && !(t0.set && t0.set.enOnly)));
       if (twin) { out[0].confident = false; out[0].twin = true; }
     }
     return out.slice(0, 8);
@@ -1325,11 +1389,11 @@ App.recognizer = (() => {
       const num = info.num && (!info.num.of || info.num.of === set.official) ? info.num : null;
       const mine = await artVariants(blob).catch(() => null);
       status(`Comparaison avec les ${list.length} cartes de ${set.name}…`);
-      const out = await rank(list, num, info.lines, mine, { cap: 500, visualWeight: 3, hp: info.hp });
+      const out = await rank(list, num, info.lines, mine, { cap: 500, visualWeight: 3, hp: info.hp, full: info.raw ? `${info.raw.full || ''} ${info.raw.bottom || ''}` : '' });
       // (les PV lus départagent le classement, mais ne rendent jamais une carte « sûre »)
       const second = out[1] ? out[1].score - (out[1].hpBonus || 0) : 0;
       for (const c of out) {
-        c.confident = (c.numOk && c.visual != null && c.visual > 0.4)
+        c.confident = (c.numOk && c.visual != null && c.visual > 0.4) || atkSure(c, out)
           || (c.visual != null && c.visual >= 0.72 && (c.margin ?? 1) >= 0.05)
           || (c === out[0] && c.visual != null && c.visual >= 0.62 && (c.margin ?? 0) >= 0.12 && c.score - (c.hpBonus || 0) - second > 0.3); // nettement devant les autres
       // (mesuré sur une page de 18 cartes : une mauvaise carte peut atteindre 0,59 de ressemblance avec 0,17 d'avance)

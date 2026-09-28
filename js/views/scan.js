@@ -1011,7 +1011,8 @@ App.views.scan = {
     /** Mesure la brillance de la photo (reflets de l'illustration, du fond, logo 1re édition) pour la carte choisie */
     async function measureVers(c) {
       const cur = c.cands.find((x) => x.id === c.choice);
-      if (!cur || !cur.variants) { c.det = null; return; }
+      // pas d'info de version pour cette carte : on le note (sinon elle serait remesurée sans fin et la page se figerait)
+      if (!cur || !cur.variants) { c.det = { id: c.choice, list: [], none: true }; return; }
       const id = cur.id;
       c.det = { id, measuring: true, list: [] };
       try {
@@ -1105,7 +1106,7 @@ App.views.scan = {
       // brillance des cartes reconnues (ou changées) : mesurée en arrière-plan, affichée dès qu'elle est prête
       for (const c of cells) {
         if (c.saved || !c.choice || c.state === 'lecture' || (c.det && c.det.id === c.choice)) continue;
-        measureVers(c).then(() => { if (alive()) drawResults(); });
+        measureVers(c).then(() => { if (alive()) setTimeout(drawResults, 0); }); // (setTimeout : la page garde la main entre deux mesures)
       }
     }
 
