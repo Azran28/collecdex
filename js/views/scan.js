@@ -799,6 +799,7 @@ App.views.scan = {
       el.querySelector('#b-auto').classList.add('hidden');
       running = true;
       el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
+      if (App.visual) App.visual.warm(); // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
       const [cols, rows] = dims(), n = cols * rows;
       const hint = el.querySelector('#b-set').value;
       detected = null;
@@ -850,6 +851,8 @@ App.views.scan = {
       }
       // Deuxième passe : la page semble rangée par série → on recompare les cartes incertaines à cette série
       if (!hint && alive() && !stopped) await guessSeries();
+      // Troisième passe : vérification par l'image (réseau de neurones + points clés)
+      if (alive() && !stopped) await visualPass(hint);
       running = false;
       el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
       el.querySelector('#b-set').disabled = false;
@@ -938,6 +941,74 @@ App.views.scan = {
         } catch (e) { console.error(e); Object.assign(cell, { cands: cell.before.cands, choice: cell.before.choice, state: cell.before.state }); }
         cell.checked = cell.state === 'sure';
         drawResults();
+      }
+      setStatus('');
+    }
+    /**
+     * Vérification par l'image (v2.31, méthode choisie avec le Labo : 96 % des 90 cartes de test contre 53 % en classeur) :
+     * 1) chaque carte est comparée aux visuels de ses candidates (trouvées par le texte) ;
+     * 2) série de la page = celle choisie, devinée, ou celle d'au moins 2 cartes nettement reconnues à l'image ;
+     * 3) série connue : chaque carte est comparée à toute la série (le réseau de neurones présélectionne,
+     *    les points clés tranchent), les cartes de la série passent devant une réimpression au même dessin.
+     * Une carte reconnue à l'image (score ≥ 25) devient le choix ; « à vérifier » si une autre la talonne (même dessin)
+     * ou si le texte avait trouvé une autre carte avec certitude.
+     */
+    async function visualPass(hint) {
+      const V = App.visual;
+      if (!V || !V.supported()) return;
+      // (une carte sans aucune piste trouvée par le texte n'est comparée qu'une fois la série connue)
+      const all = cells.filter((c) => !c.saved && ['sure', 'verifier', 'inconnue'].includes(c.state));
+      const todo = all.filter((c) => c.cands.length);
+      if (!all.length || (!todo.length && !hint)) return;
+      const byId = new Map();
+      const refOf = (x) => { byId.set(x.id, x); return { id: x.id, url: ad.img.card(x, 'low'), set: (x.set && x.set.id) || x.setId }; };
+      const st = (t) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${t}</div>`); };
+      const pageKey = Date.now(), qid = (c) => `${pageKey}:${c.i}`;
+      try {
+        for (const c of todo) {
+          if (stopped || !alive()) return;
+          st(`Vérification par l'image — carte ${c.i + 1}…`);
+          c.vis = await V.rank(qid(c), c.blob, c.cands.map(refOf), { must: c.cands.map((x) => x.id) });
+        }
+        let set = hint || (detected && detected.id) || null;
+        if (!set) {
+          const votes = {};
+          for (const c of todo) { const t = c.vis.res[0]; const x = t && byId.get(t.id); if (t && t.s >= V.SURE && x && x.set) votes[x.set.id] = (votes[x.set.id] || 0) + 1; }
+          const [best, nb] = Object.entries(votes).sort((a, b) => b[1] - a[1])[0] || [];
+          if (nb >= 2) set = best;
+        }
+        if (set) {
+          const s = await ad.getSet(set);
+          const shape = { id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, releaseDate: s.releaseDate, cardCount: { total: s.total, official: s.official }, serie: s.group };
+          const series = s.cards.map((x) => refOf({ ...x, set: shape }));
+          for (const c of all) {
+            if (stopped || !alive()) return;
+            const own = c.cands.map(refOf), ids = new Set(series.map((r) => r.id));
+            st(`Comparaison avec les ${series.length} cartes de ${esc(s.name)} — carte ${c.i + 1}…`);
+            c.vis = await V.rank(qid(c), c.blob, [...series, ...own.filter((r) => !ids.has(r.id))], {
+              must: c.cands.map((x) => x.id), bonusSet: set,
+              onProgress: (d, n) => st(`Préparation des visuels de ${esc(s.name)} (une seule fois) : ${d} / ${n}…`),
+            });
+          }
+        }
+      } catch (e) { console.warn('vérification par l’image', e); setStatus(''); return; }
+      for (const c of all) {
+        const [a, b] = c.vis ? c.vis.res : [];
+        const card = a && byId.get(a.id);
+        if (!card || a.s < V.SURE) continue; // pas assez sûr à l'image : on garde la lecture du texte
+        const twin = b && b.s >= a.s * 0.8; // une autre carte presque aussi proche (même dessin : holo / non holo, réimpression)
+        const clash = c.state === 'sure' && c.choice && c.choice !== a.id; // le texte avait trouvé autre chose avec certitude
+        if (clash) console.info('[image] désaccord case', c.i + 1, c.choice, '→', a.id, a.s);
+        if (clash) { // on garde le choix du texte, la carte trouvée à l'image est proposée juste après
+          const t = c.cands.find((x) => x.id === c.choice);
+          c.cands = [t, card, ...c.cands.filter((x) => x !== t && x.id !== a.id)].slice(0, 12);
+          c.state = 'verifier';
+        } else {
+          c.cands = [card, ...c.cands.filter((x) => x.id !== a.id)].slice(0, 12);
+          c.choice = a.id; c.state = twin ? 'verifier' : 'sure';
+        }
+        c.visId = a.id;
+        c.checked = c.state === 'sure';
       }
       setStatus('');
     }
@@ -1074,7 +1145,7 @@ App.views.scan = {
                 <img src="${c.url}" alt="Ta carte ${c.i + 1}">
                 ${cur ? `<img src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
               </div>
-              <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
+              <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.visId && c.choice === c.visId ? ' <span class="muted">· image ✓</span>' : ''}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
               ${['attente', 'lecture', 'dos', 'autre'].includes(c.state) && !c.choice ? (['dos', 'autre'].includes(c.state) ? `<button class="btn sm" data-notback="${c.i}">${c.state === 'dos' ? 'Ce n’est pas un dos' : 'C’est une carte Pokémon'} : la reconnaître</button><button class="btn sm ghost" data-find="${c.i}">🔎 Chercher à la main</button>
                 <div class="bsearch hidden" data-box="${c.i}"><input type="text" placeholder="Nom" data-name="${c.i}"><input type="text" placeholder="N° ex. 025/165" data-num="${c.i}"><button class="btn sm" data-dosearch="${c.i}">OK</button></div>` : '') : `
                 <select data-choice="${c.i}">
@@ -1115,6 +1186,7 @@ App.views.scan = {
         const opt = e.target.selectedOptions[0];
         running = true;
         await applySeries(e.target.value, opt.textContent.replace(/\s*\(\d{4}\)$/, ''), 0, false);
+        if (!burst && alive()) await visualPass(e.target.value);
         running = false; setStatus(''); drawResults();
         return;
       }
