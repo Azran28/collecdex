@@ -8,7 +8,9 @@
   const lang = () => (App.settings && App.settings.lang) || 'fr';
   // Langue choisie pour une série en particulier (sinon la langue générale des Paramètres)
   const setOfCard = (cardId) => String(cardId).slice(0, String(cardId).lastIndexOf('-'));
-  const langFor = (setId) => ((App.settings && App.settings.setLangs) || {})[setId] || lang();
+  // séries qui n'existent qu'en anglais chez TCGdex (remplie par listSets)
+  const enOnly = new Set();
+  const langFor = (setId) => (enOnly.has(setId) ? 'en' : ((App.settings && App.settings.setLangs) || {})[setId] || lang());
   const LANGS = { fr: 'Français', en: 'Anglais', de: 'Allemand', it: 'Italien', es: 'Espagnol' };
   /** Langues proposées sur la page d'une série : français, anglais (+ la langue générale si autre) */
   const setLanguages = () => [...new Set(['fr', 'en', lang()])].map((id) => ({ id, name: LANGS[id] || id }));
@@ -68,7 +70,7 @@
     card: (c, q = 'low') => {
       const sid = c && (c.setId || (c.id ? setOfCard(c.id) : ''));
       // langue voulue : celle de TA carte si on la connaît (c.lang), sinon celle choisie pour la série
-      const want = (c && c.lang) || (sid && ((App.settings && App.settings.setLangs) || {})[sid]);
+      const want = sid && enOnly.has(sid) ? null : (c && c.lang) || (sid && ((App.settings && App.settings.setLangs) || {})[sid]); // série seulement en anglais : image anglaise telle quelle
       if (c && c.image) return `${want ? c.image.replace(/(assets\.tcgdex\.net\/)[a-z-]+\//, `$1${want}/`) : c.image}/${q}.webp`;
       // pas d'image dans cette langue : on tente l'image anglaise
       if (c && c.id && c.setId) {
@@ -86,7 +88,7 @@
 
   async function listSets() {
     const L = lang();
-    return cached(`pk2:${L}:sets`, 3 * DAY, async () => {
+    return cached(`pk3:${L}:sets`, 3 * DAY, async () => {
       let sets;
       try {
         const d = await gql(`{ sets @locale(lang: "${L}") { id name logo symbol releaseDate cardCount { total official } serie { id name logo } } }`);
@@ -106,8 +108,16 @@
       const logos = {}, symbols = {};
       try {
         if (L !== 'en') {
-          const d = await gql('{ sets @locale(lang: "en") { id logo symbol } }');
-          for (const x of d.sets || []) { if (x && x.logo) logos[x.id] = x.logo; if (x && x.symbol) symbols[x.id] = x.symbol; }
+          const d = await gql('{ sets @locale(lang: "en") { id name logo symbol releaseDate cardCount { total official } serie { id name logo } } }');
+          const have = new Set(sets.map((x) => x && x.id)), groups = {};
+          for (const x of sets) if (x && x.serie) groups[x.serie.id] = x.serie;
+          for (const x of d.sets || []) {
+            if (!x) continue;
+            if (x.logo) logos[x.id] = x.logo; if (x.symbol) symbols[x.id] = x.symbol;
+            // séries absentes de la base française (ex. Arceus, Base Set 2, Gym, Legendary Collection…) :
+            // ajoutées avec leurs données anglaises, sinon leurs cartes seraient introuvables
+            if (!have.has(x.id)) sets.push({ ...x, enOnly: true, serie: x.serie && (groups[x.serie.id] || x.serie) });
+          }
         }
       } catch (e) { /* pas grave */ }
       for (const x of sets) if (x && x.logo) logos[x.id] = logos[x.id] || x.logo;
@@ -126,8 +136,12 @@
         total: s.cardCount ? s.cardCount.total : 0,
         official: s.cardCount ? s.cardCount.official : 0,
         group: s.serie ? { id: s.serie.id, name: s.serie.name, logo: s.serie.logo || '' } : { id: 'autre', name: 'Autres' },
+        ...(s.enOnly ? { enOnly: true } : {}),
       }));
-    }).then((sets) => sets.filter((s) => App.settings.showPocket || !HIDDEN_GROUPS.includes(s.group.id)));
+    }).then((sets) => {
+      for (const s of sets) if (s.enOnly) enOnly.add(s.id);
+      return sets.filter((s) => App.settings.showPocket || !HIDDEN_GROUPS.includes(s.group.id));
+    });
   }
 
   function normCard(c, set) {
@@ -151,6 +165,7 @@
 
   async function getSet(id) {
     id = String(id).replace(/["\\]/g, ''); // vient de l'adresse de la page : rien qui puisse casser la requête
+    if (!enOnly.size) await listSets().catch(() => {}); // pour savoir si la série n'existe qu'en anglais
     const L = langFor(id);
     return cached(`pk4:${L}:set:${id}`, 7 * DAY, async () => {
       let meta = null, cards = null;
@@ -178,7 +193,8 @@
       const set = {
         id: meta.id, name: meta.name, logo: meta.logo || '', symbol: meta.symbol || '', releaseDate: meta.releaseDate || '',
         total: Math.max(cc.total || 0, cards.length), official: cc.official, cardCount: cc,
-        group: meta.serie ? { id: meta.serie.id, name: meta.serie.name, logo: meta.serie.logo || '' } : { id: 'autre', name: 'Autres' },
+        // groupe tel que dans la liste des séries (nom français même pour une série seulement en anglais)
+        group: (enOnly.has(id) && ((await listSets().catch(() => [])).find((x) => x.id === id) || {}).group) || (meta.serie ? { id: meta.serie.id, name: meta.serie.name, logo: meta.serie.logo || '' } : { id: 'autre', name: 'Autres' }),
       };
       set.cards = cards.map((c) => normCard(c, set)).sort((a, b) => App.util.numSort(a.localId, b.localId));
       set.rarityInfoMissing = set.cards.some((c) => !c.rarity);
@@ -188,6 +204,7 @@
 
   /** Détail complet d'une carte (avec prix du jour) */
   async function getCard(id, { fresh = false } = {}) {
+    if (!enOnly.size) await listSets().catch(() => {});
     const L = langFor(setOfCard(id));
     return cached(`pk:${L}:card:${id}`, fresh ? 0 : DAY, async () => {
       const c = await getJSON(`/${L}/cards/${encodeURIComponent(id)}`);
@@ -196,7 +213,7 @@
   }
 
   /** Infos de série au format attendu par le scanner */
-  const setShape = (s) => ({ id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, releaseDate: s.releaseDate, cardCount: { total: s.total, official: s.official }, serie: s.group });
+  const setShape = (s) => ({ id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, releaseDate: s.releaseDate, cardCount: { total: s.total, official: s.official }, serie: s.group, ...(s.enOnly ? { enOnly: true } : {}) });
 
   /**
    * Scanner : retrouve les cartes portant le numéro n dans les séries de `of` cartes numérotées
@@ -224,9 +241,12 @@
     const toSet = (setId) => (byId[setId] ? setShape(byId[setId]) : null);
     const setIdOf = (cardId) => cardId.slice(0, cardId.lastIndexOf('-'));
     try {
-      const d = await gql(`{ cards(filters: { name: "${String(name).replace(/["\\]/g, '')}" }, pagination: { page: 1, itemsPerPage: 200 }) @locale(lang: "${L}") { ${CARD_FIELDS} } }`);
+      const q = (l) => gql(`{ cards(filters: { name: "${String(name).replace(/["\\]/g, '')}" }, pagination: { page: 1, itemsPerPage: 200 }) @locale(lang: "${l}") { ${CARD_FIELDS} } }`);
+      // + séries qui n'existent qu'en anglais (même nom en anglais : Arceus, Pikachu, Mew…)
+      const [d, e] = await Promise.all([q(L), L !== 'en' && enOnly.size ? q('en').catch(() => ({ cards: [] })) : { cards: [] }]);
+      const cards = [...(d.cards || []), ...(e.cards || []).filter((c) => c && enOnly.has(setIdOf(c.id)))];
       // on ne garde que les séries affichées sur le site (TCG Pocket exclu par défaut)
-      return (d.cards || []).filter((c) => c && byId[setIdOf(c.id)]).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st.serie }), set: st }; });
+      return cards.filter((c) => c && byId[setIdOf(c.id)]).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st.serie }), set: st }; });
     } catch (e) {
       const res = await getJSON(`/${L}/cards?name=${encodeURIComponent(name)}`);
       return res.filter((c) => byId[setIdOf(c.id)]).slice(0, 80).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st.serie }), set: st }; });

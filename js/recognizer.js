@@ -27,14 +27,31 @@ App.recognizer = (() => {
   const traduire = (s) => ({ 'loading tesseract core': 'Chargement du lecteur', 'initializing tesseract': 'Initialisation', 'loading language traineddata': 'Chargement du français', 'initializing api': 'Préparation' }[s] || s);
   const status = (msg) => { if (onStatus) onStatus(msg); };
 
+  /**
+   * Lecteurs de texte : 2 en même temps quand l'appareil a assez de cœurs (téléphones récents, PC) ;
+   * worker.recognize(image) prend le premier lecteur libre.
+   */
   async function getWorker() {
     if (worker) return worker;
     if (!workerP) {
       workerP = (async () => {
         const T = await loadTesseract();
-        worker = await T.createWorker('fra', 1, {
-          logger: (m) => { if (m.status && m.status !== 'recognizing text') status(`${traduire(m.status)} ${m.progress ? Math.round(m.progress * 100) + ' %' : ''}`); },
-        });
+        const opts = { logger: (m) => { if (m.status && m.status !== 'recognizing text') status(`${traduire(m.status)} ${m.progress ? Math.round(m.progress * 100) + ' %' : ''}`); } };
+        const n = (navigator.hardwareConcurrency || 2) >= 4 ? 2 : 1;
+        const ws = await Promise.all(Array.from({ length: n }, (_, i) => T.createWorker('fra', 1, i ? {} : opts)));
+        const busy = ws.map(() => false), queue = [];
+        const pump = () => {
+          for (let i = 0; i < ws.length; i++) {
+            if (busy[i] || !queue.length) continue;
+            const job = queue.shift(); busy[i] = true;
+            ws[i].recognize(job.img).then(job.res, job.rej).finally(() => { busy[i] = false; pump(); });
+          }
+        };
+        worker = {
+          size: n,
+          recognize: (img) => new Promise((res, rej) => { queue.push({ img, res, rej }); pump(); }),
+          terminate: () => ws.forEach((w) => w.terminate()),
+        };
         ad().listSets().then((sets) => { validTotals = new Set(sets.map((x) => x.official)); }).catch(() => {});
         return worker;
       })().catch((e) => { workerP = null; throw e; });
@@ -910,20 +927,33 @@ App.recognizer = (() => {
   async function ocr(blob) {
     const w = await getWorker();
     const img = await loadImg(blob);
-    status('Lecture du nom…');
-    let top = (await w.recognize(band(img, 0.02, 0.14, 2.5))).data.text || '';
-    // 2e lecture du nom avec les contours renforcés (photos un peu floues, pages de classeur)
-    top += '\n' + ((await w.recognize(band(img, 0.02, 0.13, 2.5, 'unsharp', 0, 0.8))).data.text || '');
-    status('Lecture du numéro…');
+    status('Lecture de la carte…');
+    const txt = (p) => p.then((r) => r.data.text || '', () => '');
+    // tout est demandé d'un coup : les lecteurs libres se partagent le travail
+    // (nom, nom avec contours renforcés pour les photos un peu floues, carte entière)
+    const topP = Promise.all([txt(w.recognize(band(img, 0.02, 0.14, 2.5))), txt(w.recognize(band(img, 0.02, 0.13, 2.5, 'unsharp', 0, 0.8)))]);
+    const fullP = txt(w.recognize(blob));
     // le numéro est en bas à gauche (ou à droite sur les anciennes cartes)
     // + lectures en couleurs inversées pour les numéros blancs des cartes « full art »
     const reads = [band(img, 0.85, 1, 3), band(img, 0.88, 1, 4, 'sharp', 0, 0.5), band(img, 0.85, 1, 3, 'otsu'), band(img, 0.88, 1, 4, 'sharp', 0.5, 1),
       band(img, 0.86, 1, 3, 'invert'), band(img, 0.88, 1, 4, 'invert', 0, 0.5)];
     let bottom = '';
-    for (const r of reads) bottom += ((await w.recognize(r)).data.text || '') + '\n';
-    status('Lecture de la carte…');
-    const full = (await w.recognize(blob)).data.text || '';
-    return { top, bottom, full };
+    // on s'arrête dès que le même numéro « n/total » (total d'une vraie série) a été lu deux fois : plus rapide
+    const seen = {};
+    let twice = false;
+    for (let i = 0; i < reads.length && !twice; i += w.size) {
+      const ts = await Promise.all(reads.slice(i, i + w.size).map((r) => txt(w.recognize(r))));
+      for (const t of ts) {
+        bottom += t + '\n';
+        for (const m of t.replace(/[Oo](?=\d)|(?<=\d)[Oo]/g, '0').matchAll(/(\d{1,3})\s*[\/⁄]\s*(\d{2,3})/g)) {
+          const of = parseInt(m[2], 10), k = parseInt(m[1], 10) + '/' + of;
+          if (!validTotals.has(of)) continue;
+          seen[k] = (seen[k] || 0) + 1; if (seen[k] >= 2) twice = true;
+        }
+      }
+    }
+    const [tops, full] = await Promise.all([topP, fullP]);
+    return { top: tops.join('\n'), bottom, full };
   }
 
   function parse({ top, bottom, full }) {
@@ -956,7 +986,10 @@ App.recognizer = (() => {
     // points de vie lus en haut (« 60 PV », « PV 120 », « HP 90 ») : départagent une carte et sa réimpression (ex. Évolutions)
     const hpM = fix(top).match(/(\d{2,3})\s*P\s*V\b|\bP\s*V\s*(\d{2,3})|\bHP\s*(\d{2,3})|(\d{2,3})\s*HP\b/);
     const hp = hpM ? parseInt(hpM[1] || hpM[2] || hpM[3] || hpM[4], 10) : null;
-    return { num: ranked[0] || null, alt: ranked.slice(1, 3), lines, words, years: [...years], wizards, otherGame, hp: hp && hp >= 30 && hp <= 340 && hp % 10 === 0 ? hp : null, raw: { bottom, full } };
+    // noms de Pokémon reconnus dans tout le texte (le titre compte double ; « Évolution de … » est ignoré)
+    const clean = (t) => t.split('\n').map(noEvo).join('\n');
+    const pokes = knownPokemon(`${clean(top)}\n${clean(top)}\n${clean(full)}`).slice(0, 4);
+    return { num: ranked[0] || null, alt: ranked.slice(1, 3), lines, words, pokes, years: [...years], wizards, otherGame, hp: hp && hp >= 30 && hp <= 340 && hp % 10 === 0 ? hp : null, raw: { bottom, full } };
   }
 
   /** Petite empreinte en niveaux de gris (24×33) pour comparer deux images de carte */
@@ -1081,9 +1114,15 @@ App.recognizer = (() => {
     if (!officialThumbs.has(src)) {
       const tryUrl = (u) => fetchImage(u);
       officialThumbs.set(src, (async () => {
+        // empreinte gardée sur l'appareil (1,5 Ko) : plus besoin de retélécharger le visuel aux scans suivants
+        const key = 'art1:' + src;
+        const hit = await App.db.get('cache', key).catch(() => null);
+        if (hit && hit.v && hit.v.length === AW * AH) return hit.v;
         let b = await tryUrl(src);
         if (!b && /assets\.tcgdex\.net\/(?!en\/)[a-z-]+\//.test(src)) b = await tryUrl(src.replace(/assets\.tcgdex\.net\/[a-z-]+\//, 'assets.tcgdex.net/en/'));
-        return b ? createImageBitmap(b).then((bmp) => artVec(trimBackground(bmp))).catch(() => null) : null;
+        const v = b ? await createImageBitmap(b).then((bmp) => artVec(trimBackground(bmp))).catch(() => null) : null;
+        if (v) App.db.set('cache', key, { t: Date.now(), v }).catch(() => {});
+        return v;
       })());
     }
     return officialThumbs.get(src);
@@ -1155,12 +1194,40 @@ App.recognizer = (() => {
   }
 
   /** Recherche par nom tolérante aux erreurs de lecture (« AictiniV » → « ictin », « Drace » → « Drac »…) */
-  async function nameSearch(words) {
+  /**
+   * Noms de Pokémon présents dans le texte lu : chaque mot est comparé aux 1025 noms connus (App.pokedex),
+   * même mal lu (« Kadahra » → Kadabra). Le nom figure souvent plusieurs fois sur la carte (titre, attaques,
+   * « Évolution de… » exclu) : on garde les mieux notés. Renvoie [{ name, score }].
+   */
+  let pokeNames = null;
+  function knownPokemon(text) {
+    if (!App.pokedex) return [];
+    if (!pokeNames) pokeNames = Array.from({ length: App.pokedex.TOTAL }, (_, i) => App.pokedex.name(i + 1)).map((n) => ({ n, k: norm(n) })).filter((x) => x.k.length >= 3);
+    const words = norm(text).split(' ').filter((w) => w.length >= 4);
+    const hits = new Map();
+    for (const w of words) {
+      let best = null;
+      for (const p of pokeNames) {
+        if (Math.abs(p.k.length - w.length) > 2 || p.k[0] !== w[0] && p.k.slice(1, 3) !== w.slice(1, 3)) continue;
+        const s = similarity(w, p.k);
+        if (s >= 0.75 && (!best || s > best.s)) best = { n: p.n, s };
+      }
+      if (best) { const h = hits.get(best.n) || { name: best.n, score: 0 }; h.score += best.s; hits.set(best.n, h); }
+    }
+    return [...hits.values()].sort((a, b) => b.score - a.score);
+  }
+
+  async function nameSearch(words, known = []) {
+    // noms de Pokémon reconnus dans le texte : 1 à 2 recherches précises, en même temps
+    if (known.length) {
+      const res = await Promise.all(known.slice(0, 2).map((k) => ad().search({ name: k.name }).catch(() => [])));
+      const out = res.flat();
+      if (out.length) return out;
+    }
+    // sinon (Dresseurs, Énergies, nom illisible) : morceaux des premiers mots, recherches en parallèle
     const qs = [...new Set(words.slice(0, 3).flatMap((w) => [w, w.slice(1), w.slice(0, 5), w.slice(1, 6), w.slice(2, 7), w.slice(0, 4)])
       .map((q) => q.replace(/[^a-zA-ZÀ-ÿ\-]/g, '')).filter((q) => q.length >= 4))].slice(0, 10);
-    const out = [];
-    for (const q of qs) out.push(...(await ad().search({ name: q }).catch(() => [])));
-    return out;
+    return (await Promise.all(qs.map((q) => ad().search({ name: q }).catch(() => [])))).flat();
   }
 
   /** Classe des candidates : ressemblance du nom, numéro, puis comparaison visuelle avec la photo */
@@ -1187,7 +1254,9 @@ App.recognizer = (() => {
       const yearOk = !!yr && (years.includes(yr) || years.includes(yr - 1));
       const eraOk = wizards && !!yr && yr <= 2003;
       const hpOk = hp && c.hp ? (c.hp === hp ? 0.3 : -0.15) : 0;
-      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, yearOk, hpOk: hpOk > 0, hpBonus: hpOk, visual: null, score: nameScore + (numOk && ofOk ? 1.2 : numOk ? 0.4 : ofOk ? 0.2 : 0) + (yearOk ? 0.6 : 0) + (eraOk ? 0.4 : 0) + hpOk });
+      // série seulement en anglais (réimpression jamais sortie en français, ex. Base Set 2) : à égalité, la série française l'emporte
+      const enPen = c.set && c.set.enOnly && (App.settings.lang || 'fr') !== 'en' ? 0.35 : 0;
+      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, yearOk, hpOk: hpOk > 0, hpBonus: hpOk, visual: null, score: nameScore + (numOk && ofOk ? 1.2 : numOk ? 0.4 : ofOk ? 0.2 : 0) + (yearOk ? 0.6 : 0) + (eraOk ? 0.4 : 0) + hpOk - enPen });
     }
     let out = [...uniq.values()].sort((a, b) => b.score - a.score).slice(0, cap);
     if (mine && out.length) {
@@ -1205,21 +1274,31 @@ App.recognizer = (() => {
     return out;
   }
 
-  async function findCandidates({ num, alt = [], words, lines, years = [], wizards = false, hp = null }, blob) {
+  async function findCandidates({ num, alt = [], words, lines, years = [], wizards = false, hp = null, pokes = [] }, blob) {
     const A = ad();
+    // tout ce qui ne dépend pas du reste part en même temps : empreinte de la photo, recherche par numéro,
+    // et (par avance) la recherche par le nom de Pokémon reconnu dans le texte
+    const mineP = blob ? artVariants(blob).catch(() => null) : Promise.resolve(null);
+    const known = pokes.filter((p) => p.score >= 0.9);
+    let nameP = known.length ? nameSearch(words, known) : null;
     let byNum = [];
-    if (num) byNum = await A.findByNumber(num.n, num.of).catch(() => []);
-    if (num && num.n >= 10 && num.of) byNum = [...byNum, ...(await A.findByNumber(num.n % (num.n >= 100 ? 100 : 10), num.of).catch(() => []))];
+    if (num) {
+      const [a, b] = await Promise.all([A.findByNumber(num.n, num.of).catch(() => []),
+        num.n >= 10 && num.of ? A.findByNumber(num.n % (num.n >= 100 ? 100 : 10), num.of).catch(() => []) : []]);
+      byNum = [...a, ...b];
+    }
     for (const a of alt) { if (byNum.length) break; byNum = await A.findByNumber(a.n, a.of).catch(() => []); if (byNum.length) num = a; }
-    const mine = blob ? await artVariants(blob).catch(() => null) : null;
+    const mine = await mineP;
     let out = await rank(byNum, num, lines, mine, { years, wizards, hp });
     // numéro absent, ou carte trouvée qui ne ressemble pas à la photo → on cherche aussi par le nom
     const weak = !out.length || (mine && (out[0].visual == null || out[0].visual < 0.55));
-    if (weak && words.length) {
+    if (weak && (words.length || known.length)) {
       status('Recherche par le nom…');
-      const byName = await nameSearch(words);
+      const byName = await (nameP || nameSearch(words, known));
+      // le nom de Pokémon reconnu compte comme une ligne lue (« Kadabra » lu dans une attaque, titre illisible)
+      const lines2 = [...known.slice(0, 2).map((k) => k.name), ...lines];
       // 60 candidates au plus (les mieux classées par le nom, l'année, les PV) : comparer 100 visuels prenait ~7 s
-      out = await rank([...byNum, ...byName], num, lines, mine, { cap: 60, visualWeight: 3, needName: true, years, wizards, hp });
+      out = await rank([...byNum, ...byName], num, lines2, mine, { cap: 60, visualWeight: 3, needName: true, years, wizards, hp });
     }
     // « sûre » : bon numéro ET bon total, ou photo très ressemblante
     // (sans visuel officiel à comparer, le numéro seul ne suffit pas : une lecture de travers donne vite « 10/10 »)
