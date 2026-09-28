@@ -39,13 +39,16 @@ App.recognizer = (() => {
         const opts = { logger: (m) => { if (m.status && m.status !== 'recognizing text') status(`${traduire(m.status)} ${m.progress ? Math.round(m.progress * 100) + ' %' : ''}`); } };
         const n = (navigator.hardwareConcurrency || 2) >= 4 ? 2 : 1;
         const ws = await Promise.all(Array.from({ length: n }, (_, i) => T.createWorker('fra', 1, i ? {} : opts)));
-        const busy = ws.map(() => false), queue = [];
+        const busy = ws.map(() => false), psm = ws.map(() => '3'), queue = [];
         let jobs = 0, retired = false;
         const pump = () => {
           for (let i = 0; i < ws.length; i++) {
             if (busy[i] || !queue.length) continue;
             const job = queue.shift(); busy[i] = true; jobs++;
-            ws[i].recognize(job.img).then(job.res, job.rej).finally(() => { busy[i] = false; pump(); recycle(); });
+            // mode de découpe du texte : '3' automatique (par défaut), '6' un seul bloc (zone des attaques)
+            const want = job.psm || '3';
+            const ready = psm[i] === want ? Promise.resolve() : ws[i].setParameters({ tessedit_pageseg_mode: want }).then(() => { psm[i] = want; });
+            ready.then(() => ws[i].recognize(job.img)).then(job.res, job.rej).finally(() => { busy[i] = false; pump(); recycle(); });
           }
         };
         // les lecteurs Tesseract s'encrassent à la longue (mesuré : 0,55 s → 4,6 s par carte après quelques centaines
@@ -58,7 +61,7 @@ App.recognizer = (() => {
         };
         const pool = {
           size: n,
-          recognize: (img) => new Promise((res, rej) => { if (retired) { getWorker().then((w) => w.recognize(img)).then(res, rej); return; } queue.push({ img, res, rej }); pump(); }),
+          recognize: (img, psm) => new Promise((res, rej) => { if (retired) { getWorker().then((w) => w.recognize(img, psm)).then(res, rej); return; } queue.push({ img, psm, res, rej }); pump(); }),
           terminate: () => ws.forEach((w) => w.terminate()),
         };
         worker = pool;
@@ -919,12 +922,15 @@ App.recognizer = (() => {
   // disjoncteur : quand le serveur d'images refuse tout (panne passagère chez TCGdex), on arrête d'insister
   // 30 s et la reconnaissance se fait sur le texte seul (sinon chaque carte attendait 5 à 15 s de nouveaux essais)
   let imgFails = 0, imgPauseUntil = 0;
-  async function fetchImage(url) {
-    if (Date.now() < imgPauseUntil) return null;
+  async function fetchImage(url, force = false, once = false) {
+    if (!force && Date.now() < imgPauseUntil) return null;
+    // adresse devinée (carte sans visuel connu chez TCGdex) : une seule tentative, et un échec ne compte pas comme une panne
+    // (avant : 4 tentatives de ~3 s chacune = 12 s perdues à chaque scan, et le disjoncteur sautait pour de faux)
+    if (once) { try { const r = await fetch(url); return r.ok ? await r.blob() : null; } catch (e) { return null; } }
     const alts = [url, url, url.replace(/\.webp$/, '.png'), url.replace('/low.', '/high.')];
     for (let i = 0; i < alts.length; i++) {
       try { const r = await fetch(alts[i]); if (r.ok) { imgFails = 0; return await r.blob(); } if (r.status === 404 && i >= 2) return null; } catch (e) { /* on réessaie */ }
-      if (Date.now() < imgPauseUntil) return null;
+      if (!force && Date.now() < imgPauseUntil) return null;
       await new Promise((res) => setTimeout(res, 120 * (i + 1)));
     }
     if (++imgFails >= 6) { imgPauseUntil = Date.now() + 30000; imgFails = 0; console.warn('Serveur d\'images TCGdex indisponible : pause de 30 s'); }
@@ -940,7 +946,7 @@ App.recognizer = (() => {
   });
 
   /** Lit la carte : bande du nom (haut), plusieurs lectures du numéro (bas), texte complet */
-  async function ocr(blob) {
+  async function ocr(blob, { atkBand = false } = {}) {
     const w = await getWorker();
     const img = await loadImg(blob);
     status('Lecture de la carte…');
@@ -949,6 +955,11 @@ App.recognizer = (() => {
     // (nom, nom avec contours renforcés pour les photos un peu floues, carte entière)
     const topP = Promise.all([txt(w.recognize(band(img, 0.02, 0.14, 2.5))), txt(w.recognize(band(img, 0.02, 0.13, 2.5, 'unsharp', 0, 0.8)))]);
     const fullP = txt(w.recognize(blob));
+    // zone des attaques, contrastée et lue d'un bloc : sur un fond texturé (Akwakwak obscur, Métalosse δ) la lecture de la
+    // carte entière n'en tirait presque rien ; ici « Troisième œil », « Super Psy 50 », « Écra-brûle 30+ » (~0,15 s)
+    // Carte seule et rafale seulement : en classeur (cartes petites sur la photo) ce texte bruité faisait perdre des cartes sûres (09 : 4 → 2)
+    const W0 = img.naturalWidth || img.width;
+    const atkP = !atkBand ? Promise.resolve('') : txt(w.recognize(band(img, 0.46, 0.93, Math.min(3, Math.max(1, 1450 / W0))), '6'));
     // le numéro est en bas à gauche (ou à droite sur les anciennes cartes)
     // + lectures en couleurs inversées pour les numéros blancs des cartes « full art »
     const reads = [band(img, 0.85, 1, 3), band(img, 0.88, 1, 4, 'sharp', 0, 0.5), band(img, 0.85, 1, 3, 'otsu'), band(img, 0.88, 1, 4, 'sharp', 0.5, 1),
@@ -968,11 +979,12 @@ App.recognizer = (() => {
         }
       }
     }
-    const [tops, full] = await Promise.all([topP, fullP]);
-    return { top: tops.join('\n'), bottom, full };
+    const [tops, full, atk] = await Promise.all([topP, fullP, atkP]);
+    // (texte des attaques à part : dans les lignes du nom, « Soins », « Dégâts »… faisaient chercher des cartes Dresseur)
+    return { top: tops.join('\n'), bottom, full, atk };
   }
 
-  function parse({ top, bottom, full }) {
+  function parse({ top, bottom, full, atk = '' }) {
     const fix = (t) => t.replace(/[Oo](?=\d)|(?<=\d)[Oo]/g, '0').replace(/[Il|](?=\d{2})/g, '1');
     // tous les « 025/165 » lus ; on garde le plus fréquent, en préférant un total qui existe vraiment
     const nums = {};
@@ -980,6 +992,13 @@ App.recognizer = (() => {
       const n = parseInt(m[1], 10), of = parseInt(m[2], 10), k = `${n}/${of}`;
       nums[k] = nums[k] || { n, of, raw: m[1], votes: 0 };
       nums[k].votes += 1 + (validTotals.has(of) ? 2 : 0) + (n <= of + 120 ? 0.5 : 0);
+    }
+    // barre oblique lue comme un chiffre (« 2074191 » pour 207/191 sur les cartes récentes) : seulement si le total existe, et en dernier recours
+    if (!Object.keys(nums).length) for (const t of [bottom, full]) for (const m of fix(t).matchAll(/(?<!\d)(\d{1,3})[41l|I7](\d{3})(?!\d)/g)) {
+      const n = parseInt(m[1], 10), of = parseInt(m[2], 10), k = `${n}/${of}`;
+      if (!validTotals.has(of) || n < 1 || n > of + 120) continue;
+      nums[k] = nums[k] || { n, of, raw: m[1], votes: 0, guess: true };
+      nums[k].votes += 1;
     }
     const ranked = Object.values(nums).sort((a, b) => b.votes - a.votes);
     // « Évolution de Machopeur », « Placez Mackogneur sur… », « Evolves from … » : ce n'est pas le nom de la carte
@@ -993,7 +1012,7 @@ App.recognizer = (() => {
     for (const m of (bottom + '\n' + full).matchAll(/(?:^|[^\d])((?:19|20)\d\d)(?!\d)/g)) { const y = +m[1]; if (y >= 1995 && y <= new Date().getFullYear() + 1) years.add(y); }
     const wizards = /wizard/i.test(bottom + ' ' + full);
     // carte d'un autre jeu (Dragon Ball, Star Wars, One Piece, Wankul…) : mots typiques, et aucun mot typique d'une carte Pokémon
-    const T = `${top}\n${bottom}\n${full}`;
+    const T = `${top}\n${bottom}\n${full}\n${atk}`;
     const OTHER = [/bandai/i, /\bBT\d{1,2}\s*[-‐–]\s*\d{2,3}/i, /dragon\s*ball/i, /\bLFL\b/, /\bFFG\b/, /\bSOR\s*[•·.*]?\s*(FR|EN)\b/i, /star\s*wars/i, /unlimited/i, /wankul/i, /konami/i, /yu-?gi-?oh/i, /lorcana/i, /disney/i, /one\s*piece/i, /\bOP\d{2}\s*-\s*\d{3}/i, /\bmagic\b/i, /wizards\s+of\s+the\s+coast/i, /digimon/i, /\bsaiyan/i,
       /\b(son\s*)?(goku|gok[uû]|gohan|goten|vegeta|trunks|broly|piccolo|krilin|freezer|kamesennin|janemba|zenkai)\b/i, /\b(unit[ée]s?|terrestre|spatiale|am[ée]lioration|rebelle|imp[ée]rial|wookie|jedi|[ée]v[ée]nement|prot[ée]g[ée]e)\b/i];
     const POKE = [/\b(PV|HP)\s*\d{2,3}\b/, /\b\d{2,3}\s*(PV|HP)\b/, /pok[eé]mon/i, /nintendo/i, /game\s*freak/i, /faiblesse/i, /weakness/i, /r[ée]sistance/i, /retraite/i, /retreat/i];
@@ -1004,8 +1023,8 @@ App.recognizer = (() => {
     const hp = hpM ? parseInt(hpM[1] || hpM[2] || hpM[3] || hpM[4], 10) : null;
     // noms de Pokémon reconnus dans tout le texte (le titre compte double ; « Évolution de … » est ignoré)
     const clean = (t) => t.split('\n').map(noEvo).join('\n');
-    const pokes = knownPokemon(`${clean(top)}\n${clean(top)}\n${clean(full)}`).slice(0, 4);
-    return { num: ranked[0] || null, alt: ranked.slice(1, 3), lines, words, pokes, years: [...years], wizards, otherGame, hp: hp && hp >= 30 && hp <= 340 && hp % 10 === 0 ? hp : null, raw: { bottom, full } };
+    const pokes = knownPokemon(`${clean(top)}\n${clean(top)}\n${clean(full)}\n${clean(atk)}`).slice(0, 4);
+    return { num: ranked[0] || null, alt: ranked.slice(1, 3), lines, words, pokes, years: [...years], wizards, otherGame, hp: hp && hp >= 30 && hp <= 340 && hp % 10 === 0 ? hp : null, raw: { bottom, full: full + '\n' + atk } };
   }
 
   /** Petite empreinte en niveaux de gris (24×33) pour comparer deux images de carte */
@@ -1126,18 +1145,21 @@ App.recognizer = (() => {
 
   const officialThumbs = new Map();
   /** Empreinte du visuel officiel ; si l'image française manque, on prend l'anglaise */
-  async function officialThumb(src) {
+  async function officialThumb(src, retry = false, guess = false) {
+    if (retry) officialThumbs.delete(src);
     if (!officialThumbs.has(src)) {
-      const tryUrl = (u) => fetchImage(u);
+      const tryUrl = (u) => fetchImage(u, retry, guess);
       officialThumbs.set(src, (async () => {
         // empreinte gardée sur l'appareil (1,5 Ko) : plus besoin de retélécharger le visuel aux scans suivants
         const key = 'art1:' + src;
         const hit = await App.db.get('cache', key).catch(() => null);
         if (hit && hit.v && hit.v.length === AW * AH) return hit.v;
+        if (hit && hit.miss && Date.now() - hit.t < 2 * 864e5) return null; // adresse devinée déjà essayée : pas de visuel
         let b = await tryUrl(src);
-        if (!b && /assets\.tcgdex\.net\/(?!en\/)[a-z-]+\//.test(src)) b = await tryUrl(src.replace(/assets\.tcgdex\.net\/[a-z-]+\//, 'assets.tcgdex.net/en/'));
+        if (!b && !guess && /assets\.tcgdex\.net\/(?!en\/)[a-z-]+\//.test(src)) b = await tryUrl(src.replace(/assets\.tcgdex\.net\/[a-z-]+\//, 'assets.tcgdex.net/en/'));
         const v = b ? await createImageBitmap(b).then((bmp) => artVec(trimBackground(bmp))).catch(() => null) : null;
         if (v) App.db.set('cache', key, { t: Date.now(), v }).catch(() => {});
+        else if (guess) App.db.set('cache', key, { t: Date.now(), miss: true }).catch(() => {});
         else setTimeout(() => officialThumbs.delete(src), 30000); // image pas reçue (panne ?) : on réessaiera plus tard
         return v;
       })());
@@ -1237,8 +1259,11 @@ App.recognizer = (() => {
   async function nameSearch(words, known = []) {
     // noms de Pokémon reconnus dans le texte : 1 à 2 recherches précises, en même temps
     if (known.length) {
-      const res = await Promise.all(known.slice(0, 2).map((k) => ad().search({ name: k.name }).catch(() => [])));
-      const out = res.flat();
+      // + le nom sans accents : TCGdex écrit parfois « Metalosse δ » (EX Espèces Delta), introuvable en cherchant « Métalosse »
+      const plain = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const qs = known.slice(0, 2).flatMap((k) => [{ name: k.name }, ...(plain(k.name) !== k.name ? [{ name: plain(k.name), en: false }] : [])]);
+      const res = await Promise.all(qs.map((q) => ad().search(q).catch(() => [])));
+      const seen = new Set(), out = res.flat().filter((c) => !seen.has(c.id) && seen.add(c.id));
       if (out.length) return out;
     }
     // sinon (Dresseurs, Énergies, nom illisible) : morceaux des premiers mots, recherches en parallèle
@@ -1286,8 +1311,14 @@ App.recognizer = (() => {
    * Sûre grâce au texte : bon nom, TOUTES ses attaques / talents retrouvés, et c'est la seule candidate dans ce cas
    * (une réimpression aux mêmes attaques laisse le doute), illustration pas contraire.
    */
+  // même carte en deux exemplaires dans une série (holo / non holo, même dessin, mêmes attaques) : seul le numéro tranche
+  const sameAtk = (a, b) => (a.atk || []).length > 0 && (a.atk || []).map((x) => norm(x[0])).join('|') === (b.atk || []).map((x) => norm(x[0])).join('|');
+  const inSetTwin = (c, out) => out.some((o) => o !== c && o.setId === c.setId && norm(o.name) === norm(c.name) && sameAtk(o, c));
   const atkSure = (c, out) => c.atkM != null && c.atkM >= 0.99 && (c.nameScore || 0) >= 0.75 && (c.visual == null || c.visual >= 0.35)
-    && out.filter((o) => o.atkM != null && o.atkM >= 0.99 && (o.nameScore || 0) >= 0.75).length === 1;
+    && out.filter((o) => o.atkM != null && o.atkM >= 0.99 && (o.nameScore || 0) >= 0.75
+      // une réimpression aux mêmes attaques ne crée pas de doute si elle ressemble nettement moins à la photo,
+      // ou si elle n'a pas de visuel et pas la bonne année (Métalosse δ 2006 ↔ collection 30ᵉ anniversaire sans image)
+      && !(o !== c && ((o.visual != null && c.visual != null && c.visual - o.visual >= 0.15) || (o.visual == null && c.visual != null && c.visual >= 0.6 && c.yearOk && !o.yearOk)))).length === 1;
 
   async function rank(list, num, lines, mine, { cap = 30, visualWeight = 1.5, needName = false, years = [], wizards = false, hp = null, full = '' } = {}) {
     const allWords = norm(full || lines.join(' ')).split(' ').filter((w) => w.length >= 2).slice(0, 400), memo = new Map();
@@ -1306,7 +1337,9 @@ App.recognizer = (() => {
       const nameScore = Math.max(0, ...lines.slice(0, 8).map((l) => similarity(l, c.name)), text.includes(norm(c.name)) ? 1 : 0, wordScore(c.name));
       // numéro lu avec un chiffre de trop devant (« 38/102 » pour « 8/102 » : étoile ou symbole lu comme un chiffre)
       const ln = parseInt(c.localId, 10);
-      const numOk = !!num && (ln === num.n || (num.n >= 10 && ln === num.n % (num.n >= 100 ? 100 : 10) && num.of && c.set && c.set.cardCount && c.set.cardCount.official === num.of));
+      // … ou avec un chiffre perdu devant (« 01/100 » pour la carte secrète « 101/100 », collée au bord de la carte)
+      const offOk = !!num && num.of && c.set && c.set.cardCount && c.set.cardCount.official === num.of;
+      const numOk = !!num && (ln === num.n || (num.n >= 10 && ln === num.n % (num.n >= 100 ? 100 : 10) && offOk) || (offOk && ln > num.of && ln < 1000 && ln % (num.n >= 10 ? 100 : 10) === num.n && String(ln).endsWith(String(num.raw || num.n))));
       const ofOk = !!num && !!(c.set && c.set.cardCount) && c.set.cardCount.official === num.of;
       if (needName && !numOk && nameScore < 0.35) continue;
       const yr = c.set && c.set.releaseDate ? parseInt(c.set.releaseDate, 10) : 0;
@@ -1324,10 +1357,21 @@ App.recognizer = (() => {
       status('Comparaison avec les visuels officiels…');
       await App.util.pool(out, 10, async (c) => {
         const src = ad().img.card(c, 'low'); if (!src) return;
-        const v = await officialThumb(src);
+        const v = await officialThumb(src, false, !c.image);
         if (v) { c.visual = artMatch(mine, v); c.score += vis01(c.visual) * visualWeight; }
       });
       out.sort((a, b) => b.score - a.score);
+      // visuel des premières candidates pas reçu (le serveur d'images rate parfois une requête) : une 2e chance,
+      // sinon la bonne carte (Salamèche 101/100, Poulpaf 207/191) passait derrière une autre qui, elle, avait son visuel
+      const miss = out.slice(0, 4).filter((c) => c.visual == null && c.image && ad().img.card(c, 'low'));
+      if (miss.length) {
+        await new Promise((res) => setTimeout(res, 300));
+        await Promise.all(miss.map(async (c) => {
+          const v = await officialThumb(ad().img.card(c, 'low'), true);
+          if (v) { c.visual = artMatch(mine, v); c.score += vis01(c.visual) * visualWeight; }
+        }));
+        out.sort((a, b) => b.score - a.score);
+      }
       // écart de ressemblance avec la meilleure autre candidate (une carte nettement devant = plus sûre)
       const vs = out.map((c) => c.visual).filter((x) => x != null).sort((a, b) => b - a);
       for (const c of out) if (c.visual != null) c.margin = c.visual - (c.visual === vs[0] ? (vs[1] ?? 0) : vs[0]);
@@ -1364,12 +1408,18 @@ App.recognizer = (() => {
     }
     // « sûre » : bon numéro ET bon total, ou photo très ressemblante
     // (sans visuel officiel à comparer, le numéro seul ne suffit pas : une lecture de travers donne vite « 10/10 »)
-    for (const c of out) c.confident = (c.numOk && c.ofOk && c.visual != null && c.visual > 0.4) || (c.visual != null && c.visual >= 0.75 && (c.margin ?? 1) >= 0.06) || atkSure(c, out);
+    // (nom + numéro + total lus tous les trois : sûre même si un reflet holo gâche la ressemblance, ex. Mélofée 5/102 à 0,39)
+    for (const c of out) c.confident = (c.numOk && c.ofOk && c.visual != null && c.visual > 0.4) || (c.visual != null && c.visual >= 0.75 && (c.margin ?? 1) >= 0.06) || atkSure(c, out)
+      || (c.numOk && c.ofOk && (c.nameScore || 0) >= 0.9 && (c.atkM == null || c.atkM >= 0.5) && c.visual != null && c.visual >= 0.25);
     // réimpression (même nom, autre série) presque aussi ressemblante → on ne peut pas trancher : « À vérifier »
     if (out[0] && out[0].confident && !(out[0].numOk && out[0].ofOk)) {
       // (une réimpression aux attaques nettement moins bien retrouvées, ou seulement anglaise, ne crée pas de doute)
       const t0 = out[0], atkAhead = (c) => t0.atkM != null && t0.atkM >= 0.99 && (c.atkM == null || c.atkM <= t0.atkM - 0.3);
-      const twin = out.slice(1).find((c) => norm(c.name) === norm(t0.name) && c.visual != null && t0.visual != null && t0.visual - c.visual < 0.12 && !atkAhead(c) && !(c.set && c.set.enOnly && !(t0.set && t0.set.enOnly)));
+      // même carte en deux exemplaires dans la même série (holo / non holo : Sulfura 12 et 27 de Fossile, même dessin,
+      // mêmes attaques) : seul le numéro peut trancher, la ressemblance ne veut rien dire (0,78 pour la mauvaise)
+      const twin = out.slice(1).find((c) => norm(c.name) === norm(t0.name) && (
+        (c.visual != null && t0.visual != null && t0.visual - c.visual < 0.12 && !atkAhead(c) && !(c.set && c.set.enOnly && !(t0.set && t0.set.enOnly)))
+        || (c.setId === t0.setId && sameAtk(c, t0))));
       if (twin) { out[0].confident = false; out[0].twin = true; }
     }
     return out.slice(0, 8);
@@ -1397,21 +1447,22 @@ App.recognizer = (() => {
           || (c.visual != null && c.visual >= 0.72 && (c.margin ?? 1) >= 0.05)
           || (c === out[0] && c.visual != null && c.visual >= 0.62 && (c.margin ?? 0) >= 0.12 && c.score - (c.hpBonus || 0) - second > 0.3); // nettement devant les autres
       // (mesuré sur une page de 18 cartes : une mauvaise carte peut atteindre 0,59 de ressemblance avec 0,17 d'avance)
+        if (c.confident && !c.numOk && inSetTwin(c, out)) { c.confident = false; c.twin = true; }
       }
       return out.slice(0, 8);
     } finally { onStatus = null; }
   }
 
   /** Lecture seule (sans recherche) */
-  async function read(blob, statusFn) {
+  async function read(blob, statusFn, opts) {
     onStatus = statusFn || null;
-    try { return parse(await ocr(blob)); } finally { onStatus = null; }
+    try { return parse(await ocr(blob, opts)); } finally { onStatus = null; }
   }
 
-  async function recognize(blob, statusFn) {
+  async function recognize(blob, statusFn, opts) {
     onStatus = statusFn || null;
     try {
-      const info = parse(await ocr(blob));
+      const info = parse(await ocr(blob, opts));
       status('Recherche dans la base…');
       const cands = await findCandidates(info, blob);
       return { info, cands };

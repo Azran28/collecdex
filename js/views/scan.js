@@ -462,8 +462,8 @@ App.views.scan = {
       try {
         const setId = el.querySelector('#sc-set').value;
         let info, cands;
-        if (setId) { info = await R.read(blob, spin); cands = await R.inSet(blob, info, setId, spin); }
-        else ({ info, cands } = await R.recognize(blob, spin));
+        if (setId) { info = await R.read(blob, spin, { atkBand: true }); cands = await R.inSet(blob, info, setId, spin); }
+        else ({ info, cands } = await R.recognize(blob, spin, { atkBand: true }));
         if (!alive()) return;
         setStatus(info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte Pokémon</b> (autre jeu ?). CollecDex ne reconnaît que les cartes Pokémon pour l’instant : les autres jeux arriveront plus tard.</span>` : '');
         showCandidates(cands, R.readSummary(info));
@@ -951,8 +951,8 @@ App.views.scan = {
       if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; return; }
       if (await R.looksLikeBack(cell.blob).catch(() => false)) { cell.state = 'dos'; return; }
       let info, cands;
-      if (hint) { info = await R.read(cell.blob, st); cands = await R.inSet(cell.blob, info, hint, st); }
-      else ({ info, cands } = await R.recognize(cell.blob, st));
+      if (hint) { info = await R.read(cell.blob, st, { atkBand: burst }); cands = await R.inSet(cell.blob, info, hint, st); }
+      else ({ info, cands } = await R.recognize(cell.blob, st, { atkBand: burst }));
       cell.info = info; cell.cands = cands;
       if (info && info.otherGame && !(cands[0] && cands[0].confident)) { cell.state = 'autre'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.choice = cands[0] ? cands[0].id : '';
@@ -971,8 +971,8 @@ App.views.scan = {
         if (!force && await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
         else {
           let info, cands;
-          if (hint) { info = await R.read(cell.blob, st); cands = await R.inSet(cell.blob, info, hint, st); }
-          else ({ info, cands } = await R.recognize(cell.blob, st));
+          if (hint) { info = await R.read(cell.blob, st, { atkBand: burst }); cands = await R.inSet(cell.blob, info, hint, st); }
+          else ({ info, cands } = await R.recognize(cell.blob, st, { atkBand: burst }));
           cell.info = info; cell.cands = cands;
           cell.choice = cands[0] ? cands[0].id : '';
           cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';

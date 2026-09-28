@@ -157,7 +157,8 @@
       hp: c.hp ? parseInt(c.hp, 10) || null : null,
       variants: c.variants || null,
       // noms des attaques et talents (+ dégâts) : lus sur la photo, ils identifient la carte exacte parmi toutes celles du même Pokémon
-      atk: [...(c.attacks || []).map((a) => [a.name, a.damage != null ? String(a.damage) : '']), ...(c.abilities || []).map((a) => [a.name, ''])].filter((a) => a[0]),
+      // (TCGdex renvoie parfois une attaque vide = null : elle faisait échouer toute la liste → recherche de secours, sans attaques)
+      atk: [...(c.attacks || []).filter(Boolean).map((a) => [a.name, a.damage != null ? String(a.damage) : '']), ...(c.abilities || []).filter(Boolean).map((a) => [a.name, ''])].filter((a) => a[0]),
       setId: set.id,
       serieId: set.group ? set.group.id : '',
     };
@@ -169,7 +170,7 @@
     id = String(id).replace(/["\\]/g, ''); // vient de l'adresse de la page : rien qui puisse casser la requête
     if (!enOnly.size) await listSets().catch(() => {}); // pour savoir si la série n'existe qu'en anglais
     const L = langFor(id);
-    return cached(`pk5:${L}:set:${id}`, 7 * DAY, async () => {
+    return cached(`pk6:${L}:set:${id}`, 7 * DAY, async () => {
       let meta = null, cards = null;
       // 1) infos de la série
       try {
@@ -246,7 +247,7 @@
       const q = (l) => gql(`{ cards(filters: { name: "${String(name).replace(/["\\]/g, '')}" }, pagination: { page: 1, itemsPerPage: 200 }) @locale(lang: "${l}") { ${CARD_FIELDS} } }`);
       // + séries qui n'existent qu'en anglais (même nom en anglais : Arceus, Pikachu, Mew…)
       const [d, e] = await Promise.all([q(L), en && L !== 'en' && enOnly.size ? q('en').catch(() => ({ cards: [] })) : { cards: [] }]);
-      const cards = [...(d.cards || []), ...(e.cards || []).filter((c) => c && enOnly.has(setIdOf(c.id)))];
+      const cards = [...(d.cards || []).filter(Boolean), ...(e.cards || []).filter((c) => c && enOnly.has(setIdOf(c.id)))];
       // on ne garde que les séries affichées sur le site (TCG Pocket exclu par défaut)
       return cards.filter((c) => c && byId[setIdOf(c.id)]).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st.serie }), set: st }; });
     } catch (e) {
