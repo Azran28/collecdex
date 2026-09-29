@@ -458,19 +458,27 @@ App.views.scan = {
       cardBlob = blob;
       if (cardURL) URL.revokeObjectURL(cardURL);
       cardURL = URL.createObjectURL(blob);
-      view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
-      results.innerHTML = '';
-      spin('Lecture de la carte…');
+      // pendant la recherche : rayon de scan sur la carte, et l'étape écrite dessus (visible sans faire défiler)
+      view.innerHTML = `<div class="sc-scanwrap"><span class="bphoto scan-txt"><img src="${cardURL}" alt="Ta carte"><i class="bscan"></i></span>
+        <div class="sc-scanlbl"><div class="spinner"></div><span>Lecture de la carte…</span></div></div>`;
+      results.innerHTML = ''; setStatus('');
+      const vr = view.getBoundingClientRect(); // toute la carte visible pendant la recherche
+      if (vr.top < 60 || vr.bottom > window.innerHeight) window.scrollTo({ top: Math.max(0, window.scrollY + vr.top - 70), behavior: 'smooth' });
+      const st = (m) => { const s = view.querySelector('.sc-scanlbl span'); if (s && alive()) s.textContent = m; };
       try {
         const setId = el.querySelector('#sc-set').value;
         let info, cands;
-        if (setId) { info = await R.read(blob, spin, { atkBand: true }); cands = await R.inSet(blob, info, setId, spin); }
-        else ({ info, cands } = await R.recognize(blob, spin, { atkBand: true }));
+        if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
+        else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
         if (!alive()) return;
+        view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         setStatus(info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte Pokémon</b> (autre jeu ?). CollecDex ne reconnaît que les cartes Pokémon pour l’instant : les autres jeux arriveront plus tard.</span>` : '');
         showCandidates(cands, R.readSummary(info));
+        // les propositions sont sous la photo sur téléphone : on y descend
+        requestAnimationFrame(() => { const r = results.getBoundingClientRect(); if (r.top > window.innerHeight * 0.55) window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 70), behavior: 'smooth' }); });
       } catch (e) {
         console.error(e);
+        view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         setStatus(`<b>La lecture a échoué.</b><br><span class="small muted">${esc(e.message)}</span>`);
         showCandidates([], '');
       }
@@ -552,6 +560,7 @@ App.views.scan = {
         <div>
           <div id="b-status"></div>
           <div id="b-results">${App.views.scan.guide('rafale')}</div>
+          <div id="b-sv" class="sv hidden" role="dialog" aria-modal="true" aria-label="Analyse des cartes"></div>
         </div>
       </div>` : `
       <div class="batch-wrap">
@@ -1122,7 +1131,7 @@ App.views.scan = {
       const cur = cells.find((c) => c.vscan) || cells.find((c) => c.state === 'lecture');
       const p = prog, off = cur && cardOf(cur);
       const step = !p ? 0 : /^Lecture des/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
-      const steps = ['Lecture', 'Série', 'Image'].map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
+      const steps = (burst ? ['Lecture'] : ['Lecture', 'Série', 'Image']).map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
       return `
         <div class="sv-head">
           <div class="sv-steps">${steps}</div>
@@ -1194,6 +1203,12 @@ App.views.scan = {
     /** Fin de l'analyse : cartes à vérifier d'abord, sinon directement le récapitulatif */
     function svAfterScan() {
       if (!sv.open) return;
+      const l = toCheck();
+      if (l.length) svOpen('review', { list: l, idx: 0 }); else svOpen('recap');
+    }
+    /** Rafale (au moins 2 cartes) : écran d'analyse ; lectures en cours → défilement, sinon cartes douteuses puis récapitulatif */
+    function burstReview() {
+      if (rPending > 0) return svOpen('scan');
       const l = toCheck();
       if (l.length) svOpen('review', { list: l, idx: 0 }); else svOpen('recap');
     }
@@ -1340,7 +1355,7 @@ App.views.scan = {
           ${leftN ? ` Il reste ${leftN} carte${leftN > 1 ? 's' : ''} ${burst ? 'dans la rafale' : 'sur cette page'} : coche celles que tu veux ajouter, corrige-les si besoin, puis enregistre à nouveau.` : ''}
           <div class="row" style="margin-top:8px"><button class="btn sm primary" id="b-next">${burst ? 'Nouvelle rafale' : 'Page suivante'}</button><a class="btn sm" href="#/collection">Voir mon Dex</a></div></div>` : ''}
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">${burst ? `Cartes capturées <span class="muted small">(${cells.length})</span>` : 'Résultat de la page'}</h3><span class="spacer"></span>
-          ${!running && cells.length && !burst ? `<button class="btn sm" id="b-sv-open">${toCheck().length === 1 ? 'Vérifier la carte douteuse' : toCheck().length ? `Vérifier les ${toCheck().length} cartes douteuses` : 'Récapitulatif'}</button>` : ''}
+          ${!running && cells.length && (!burst || cells.length >= 2) ? `<button class="btn sm" id="b-sv-open">${toCheck().length === 1 ? 'Vérifier la carte douteuse' : toCheck().length ? `Vérifier les ${toCheck().length} cartes douteuses` : 'Récapitulatif'}</button>` : ''}
           ${!running && cells.length ? `<button class="btn sm ghost" id="b-all">Tout cocher</button><button class="btn sm ghost" id="b-none">Tout décocher</button>
             <span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
         ${detected ? `<div class="detect-bar small">${App.icons.icon('layers', 15)}<span>${detected.auto ? `Série devinée : <b>${esc(detected.name)}</b> (d’après ${detected.nb} cartes de la page). Les cartes incertaines ont été recomparées à cette série.` : `Cartes incertaines recomparées à <b>${esc(detected.name)}</b>.`}</span>
@@ -1619,14 +1634,16 @@ App.views.scan = {
     function addBurstCell(blob, auto, live) {
       if (!cells.length) resultsEl.innerHTML = '';
       const cell = { i: cells.length, blob, url: URL.createObjectURL(blob), auto, box: null, state: 'attente', cands: [], choice: '', info: null, mode: null, live };
-      urls.push(cell.url); cells.push(cell);
+      urls.push(cell.url); cells.push(cell); if (prog) prog.total = cells.length;
       rPending++; running = true; drawResults();
       rQueue = rQueue.then(async () => {
         if (stopped || !alive()) return;
-        cell.state = 'lecture'; drawResults();
+        cell.state = 'lecture'; prog = { step: 'Lecture des cartes', done: cell.i, total: cells.length }; drawResults();
         try { await recogOne(cell, el.querySelector('#b-set').value, () => {}); } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
-        if (--rPending <= 0) { rPending = 0; running = false; }
+        if (['sure', 'verifier'].includes(cell.state)) cell.found = Date.now();
+        if (--rPending <= 0) { rPending = 0; running = false; prog = null; }
         if (alive()) drawResults();
+        if (!running && sv.open && sv.mode === 'scan') svAfterScan(); // écran d'analyse ouvert : cartes douteuses, puis récapitulatif
       });
     }
     function rStop() {
@@ -1646,6 +1663,7 @@ App.views.scan = {
     }
     if (burst) {
       el.querySelector('#r-start').addEventListener('click', async () => {
+        if (sv.open) svClose(); // on reprend la rafale : l'écran d'analyse se ferme
         try { await cam.start(); }
         catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra, ou utilise « Choisir des photos ».</span>`); return; }
         App.sfx.unlock();
@@ -1658,7 +1676,7 @@ App.views.scan = {
         el.querySelector('#r-pause').classList.remove('hidden');
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
       });
-      el.querySelector('#r-pause').addEventListener('click', () => { rStop(); if (cells.length) resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      el.querySelector('#r-pause').addEventListener('click', () => { rStop(); if (cells.length >= 2) burstReview(); else if (cells.length) resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
       // photos de la galerie (plusieurs d'un coup) : ajoutées à la liste, sans certification
       el.querySelector('#r-files').addEventListener('change', async (e) => {
         const files = [...e.target.files]; e.target.value = '';
@@ -1669,13 +1687,15 @@ App.views.scan = {
             let lp = { page: false }; try { lp = R.looksLikePage(img); } catch (err) { /* */ }
             if (lp.page) { pages++; continue; }
             const W = img.width, H = img.height;
-            const found = R.locateCard(img, { x: 0, y: 0, w: W, h: H }, 0.45);
+            // (comme pour une carte seule : le cadre trouvé n'est gardé que si la carte fait plus de 55 % de la hauteur)
+            const f0 = R.locateCard(img, { x: 0, y: 0, w: W, h: H }, 0.45), found = f0 && f0.h > H * 0.55 ? f0 : null;
             const cell = found ? { x: found.x / W, y: found.y / H, w: found.w / W, h: found.h / H } : (() => { const h = Math.min(0.94, 0.94 * W / H / (63 / 88)); const w = h * H / W * (63 / 88); return { x: (1 - w) / 2, y: (1 - h) / 2, w, h }; })();
             const r = R.cellCard(img, cell);
             const blob = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9));
             addBurstCell(blob, r.auto || !!found, undefined);
           } catch (err) { console.warn(err); }
         }
+        if (files.length - pages >= 2) burstReview(); // plusieurs cartes : l'écran d'analyse
         if (pages) App.util.toast(`${pages} photo${pages > 1 ? 's' : ''} de page${pages > 1 ? 's' : ''} ignorée${pages > 1 ? 's' : ''} : utilise « Page de classeur » pour celles-là`);
       });
     }
