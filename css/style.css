@@ -1880,7 +1880,7 @@ html.sv-lock, html.sv-lock body { overflow: hidden; }
 /* carte seule (v2.36) : rayon de scan sur la carte pendant la recherche, étape écrite dessus */
 .sc-scanwrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .sc-scanwrap .bphoto { position: relative; display: block; height: 100%; max-width: 100%; aspect-ratio: 63/88; overflow: hidden; border-radius: 10px; }
-.sc-scanwrap .bphoto img { width: 100%; height: 100%; object-fit: cover; }
+.sc-scanwrap .bphoto img, .sc-scanwrap .bphoto canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sc-scanlbl { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: 90%;
   padding: 7px 14px; border-radius: 999px; background: rgba(12,14,25,.88); border: 1px solid rgba(52,213,255,.5); font-weight: 700; font-size: .88rem; white-space: nowrap; }
 .sc-scanlbl span { overflow: hidden; text-overflow: ellipsis; }

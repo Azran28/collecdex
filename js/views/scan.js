@@ -122,6 +122,7 @@ App.views.scan = {
         const { sx, sy, sw, sh } = r;
         const c = document.createElement('canvas'); c.width = sw; c.height = sh;
         c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
+        this.lastCanvas = c; // (affichable tout de suite, avant l'encodage JPEG qui prend jusqu'à 1 s)
         return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
       },
       /**
@@ -261,13 +262,17 @@ App.views.scan = {
       shot.disabled = true; shot.textContent = '✓ Photo prise — recherche de la carte…';
       view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
       App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ }
+      // l'animation de scan démarre À L'APPUI, sur l'image figée (avant : après l'encodage de la photo, la vérification
+      // de la certification et le détourage, soit 1 à 2 s) ; elle continue ensuite sur la carte détourée.
+      // (la vérification a déjà lu la vidéo ci-dessus : on peut la retirer de l'écran)
+      if (shotP && cam.lastCanvas) showScan(cam.lastCanvas, 'Photo prise — détourage de la carte…');
       try {
         cert = null;
+        const b = await shotP; if (!b) return;
+        lastShot = b; cam.stop();
+        await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 80); }); // qu'elle s'affiche avant les calculs (80 ms au plus : onglet caché)
         if (App.certify.available()) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
         stopTrack();
-        const b = await shotP; if (!b) return;
-        cam.stop();
-        lastShot = b;
         // la carte est détourée toute seule, au ras de ses bords et remise à plat (sinon recadrée au plus près)
         let card = b;
         try {
@@ -454,13 +459,18 @@ App.views.scan = {
       };
     }
 
+    /** Pendant la recherche : rayon de scan sur la carte, et l'étape écrite dessus (visible sans faire défiler) */
+    function showScan(src, msg) { // src : adresse d'image, ou le canevas de la photo qui vient d'être prise
+      const isUrl = typeof src === 'string';
+      view.innerHTML = `<div class="sc-scanwrap"><span class="bphoto scan-txt">${isUrl ? `<img src="${src}" alt="Ta carte">` : ''}<i class="bscan"></i></span>
+        <div class="sc-scanlbl"><div class="spinner"></div><span>${esc(msg)}</span></div></div>`;
+      if (!isUrl) view.querySelector('.bphoto').prepend(src);
+    }
     async function analyse(blob) {
       cardBlob = blob;
       if (cardURL) URL.revokeObjectURL(cardURL);
       cardURL = URL.createObjectURL(blob);
-      // pendant la recherche : rayon de scan sur la carte, et l'étape écrite dessus (visible sans faire défiler)
-      view.innerHTML = `<div class="sc-scanwrap"><span class="bphoto scan-txt"><img src="${cardURL}" alt="Ta carte"><i class="bscan"></i></span>
-        <div class="sc-scanlbl"><div class="spinner"></div><span>Lecture de la carte…</span></div></div>`;
+      showScan(cardURL, 'Lecture de la carte…');
       results.innerHTML = ''; setStatus('');
       const vr = view.getBoundingClientRect(); // toute la carte visible pendant la recherche
       if (vr.top < 60 || vr.bottom > window.innerHeight) window.scrollTo({ top: Math.max(0, window.scrollY + vr.top - 70), behavior: 'smooth' });
