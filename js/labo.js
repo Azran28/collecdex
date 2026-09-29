@@ -12,7 +12,7 @@
   const R = App.recognizer;
   const ad = () => App.games.get('pokemon');
   const TEST = '_tests-scanner/';
-  const FORMATS = { '3x3': [3, 3, ''], '4x3': [4, 3, ''], '2x2': [2, 2, ''] };
+  const FORMATS = { '3x3': [3, 3, ''], '2x2': [2, 2, ''] };
   const EXTRA_SETS = ['xy12', 'base4']; // réimpressions qui ressemblent (Évolutions ↔ Set de Base, Base Set 2 ↔ Base/Jungle)
   const KEY = 'labo1:'; // empreintes des visuels officiels gardées dans IndexedDB
   const LIBS = {
