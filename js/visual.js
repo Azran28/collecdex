@@ -29,8 +29,15 @@ App.visual = (() => {
       worker().postMessage({ op: 'rank', rid, qid, blob, refs, must, bonusSet });
     });
   }
-  /** Prépare les bibliothèques pendant que le texte est lu (le 1er chargement prend quelques secondes) */
-  const warm = () => { if (supported()) worker().postMessage({ op: 'warm' }); };
+  /** Prépare les bibliothèques pendant que le texte est lu (le 1er chargement prend quelques secondes) → { ms, backend } */
+  function warm() {
+    if (!supported()) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const rid = ++seq;
+      pend.set(rid, { resolve, reject: () => resolve(null) });
+      worker().postMessage({ op: 'warm', rid });
+    });
+  }
   const forget = (qid) => { if (w) w.postMessage({ op: 'forget', qid }); };
   function stop() {
     if (w) { w.terminate(); w = null; }

@@ -499,7 +499,7 @@ App.views.scan = {
     let photo = null;          // { img, url }
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
-    let running = false, stopped = false, detected = null;
+    let running = false, stopped = false, detected = null, timing = null; // timing : temps de chaque étape (vérification par l’image, en essai)
     let autoGrid = false, autoTimer = null;   // grille trouvée toute seule / lancement automatique
     let autoCells = null, autoRot = 0, dimsOv = null; // cases trouvées (photo en biais) ; cartes couchées ; 2 pages en hauteur
     let pageCert = null;       // vérification en direct de la photo de page (null = photo importée)
@@ -797,9 +797,10 @@ App.views.scan = {
       if (!photo || running) return;
       if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
       el.querySelector('#b-auto').classList.add('hidden');
-      running = true;
+      running = true; timing = null;
+      const tStart = performance.now();
       el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
-      if (App.visual) App.visual.warm(); // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
+      const warmP = App.visual && App.settings.visualCheck ? App.visual.warm() : null; // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
       const [cols, rows] = dims(), n = cols * rows;
       const hint = el.querySelector('#b-set').value;
       detected = null;
@@ -852,7 +853,7 @@ App.views.scan = {
       // Deuxième passe : la page semble rangée par série → on recompare les cartes incertaines à cette série
       if (!hint && alive() && !stopped) await guessSeries();
       // Troisième passe : vérification par l'image (réseau de neurones + points clés)
-      if (alive() && !stopped) await visualPass(hint);
+      if (alive() && !stopped && App.settings.visualCheck) { timing = { text: performance.now() - tStart, warm: await warmP }; await visualPass(hint); }
       running = false;
       el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
       el.querySelector('#b-set').disabled = false;
@@ -955,11 +956,15 @@ App.views.scan = {
      */
     async function visualPass(hint) {
       const V = App.visual;
-      if (!V || !V.supported()) return;
+      if (!V || !App.settings.visualCheck) return; // (en essai : réglage dans Paramètres)
+      if (!V.supported()) { timing = { ...(timing || {}), error: 'pas possible sur ce navigateur' }; return; }
       // (une carte sans aucune piste trouvée par le texte n'est comparée qu'une fois la série connue)
       const all = cells.filter((c) => !c.saved && ['sure', 'verifier', 'inconnue'].includes(c.state));
       const todo = all.filter((c) => c.cands.length);
       if (!all.length || (!todo.length && !hint)) return;
+      // chronomètre (essai sur téléphone) : visuels officiels à préparer, comparaison, total
+      const T = timing = { ...(timing || {}), refs: 0, match: 0, n: 0, dl: 0, fail: 0, total: null }, tv = performance.now();
+      const rank = async (...a) => { const r = await V.rank(...a); T.refs += r.t.refs + r.t.tools; T.match += r.t.match; T.dl += r.t.dl || 0; T.fail += r.t.fail || 0; T.n++; T.backend = r.backend; return r; };
       const byId = new Map();
       const refOf = (x) => { byId.set(x.id, x); return { id: x.id, url: ad.img.card(x, 'low'), set: (x.set && x.set.id) || x.setId }; };
       const st = (t) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${t}</div>`); };
@@ -968,7 +973,7 @@ App.views.scan = {
         for (const c of todo) {
           if (stopped || !alive()) return;
           st(`Vérification par l'image — carte ${c.i + 1}…`);
-          c.vis = await V.rank(qid(c), c.blob, c.cands.map(refOf), { must: c.cands.map((x) => x.id) });
+          c.vis = await rank(qid(c), c.blob, c.cands.map(refOf), { must: c.cands.map((x) => x.id) });
         }
         let set = hint || (detected && detected.id) || null;
         if (!set) {
@@ -985,13 +990,13 @@ App.views.scan = {
             if (stopped || !alive()) return;
             const own = c.cands.map(refOf), ids = new Set(series.map((r) => r.id));
             st(`Comparaison avec les ${series.length} cartes de ${esc(s.name)} — carte ${c.i + 1}…`);
-            c.vis = await V.rank(qid(c), c.blob, [...series, ...own.filter((r) => !ids.has(r.id))], {
+            c.vis = await rank(qid(c), c.blob, [...series, ...own.filter((r) => !ids.has(r.id))], {
               must: c.cands.map((x) => x.id), bonusSet: set,
               onProgress: (d, n) => st(`Préparation des visuels de ${esc(s.name)} (une seule fois) : ${d} / ${n}…`),
             });
           }
         }
-      } catch (e) { console.warn('vérification par l’image', e); setStatus(''); return; }
+      } catch (e) { console.warn('vérification par l’image', e); T.error = e.message; T.total = performance.now() - tv; setStatus(''); return; }
       for (const c of all) {
         const [a, b] = c.vis ? c.vis.res : [];
         const card = a && byId.get(a.id);
@@ -1010,7 +1015,19 @@ App.views.scan = {
         c.visId = a.id;
         c.checked = c.state === 'sure';
       }
+      T.total = performance.now() - tv; T.cards = all.length;
       setStatus('');
+    }
+    /** Chronomètre de la vérification par l'image (réglage en essai), affiché sous la liste */
+    function timingHtml() {
+      if (!timing || !App.settings.visualCheck) return '';
+      const s = (ms) => (ms == null ? '—' : ms >= 10000 ? `${Math.round(ms / 1000)} s` : `${(ms / 1000).toFixed(1)} s`);
+      const w = timing.warm;
+      return `<div class="panel small" style="margin-top:12px"><b>⏱ Temps (essai de la vérification par l’image)</b><br>
+        ${timing.text != null ? `Lecture du texte : ${s(timing.text)} · ` : ''}Chargement des outils : ${w ? s(w.ms) + ' (pendant la lecture)' : '—'}
+        ${timing.total != null ? ` · Visuels officiels à préparer : ${s(timing.refs)}${timing.dl ? ` (${timing.dl} téléchargés${timing.fail ? `, dont ${timing.fail} en échec` : ''})` : ''} · Comparaison : ${s(timing.match)}${timing.cards ? ` (${s(timing.match / timing.cards)} par carte)` : ''} · <b>Total image : ${s(timing.total)}</b>` : ''}
+        ${timing.error ? `<br><span class="bad">Problème : ${esc(timing.error)}</span>` : ''}
+        <br><span class="muted">${esc(navigator.hardwareConcurrency || '?')} cœurs · calcul ${esc((w && w.backend) || timing.backend || '?')}</span></div>`;
     }
     function undoSeries() {
       for (const c of cells) if (c.before && !c.saved) { Object.assign(c, c.before); delete c.before; }
@@ -1169,6 +1186,7 @@ App.views.scan = {
             </div>`;
           }).join('')}
         </div>
+        ${burst ? '' : timingHtml()}
         ${!running && cells.length ? `<div class="row action-dock" style="margin-top:16px">
           <button class="btn primary" id="b-add" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
           <span class="muted small">${chosen.length ? 'Vérifie les cartes cochées, puis enregistre.' : 'Coche les cartes à ajouter.'}</span>

@@ -59,16 +59,17 @@ const dbSet = async (k, v) => { const d = await db(); return new Promise((res) =
 
 // ---------- Images ----------
 const canvas = (w, h) => new OffscreenCanvas(w, h);
-/** Visuel officiel (le serveur de TCGdex refuse parfois une requête au hasard : on réessaie, puis .png) ; GONE = n'existe pas */
-const GONE = 'gone';
+/**
+ * Visuel officiel, ou null s'il n'a pas pu être obtenu. 2 essais seulement (.webp puis .png) : le service worker du site
+ * réessaie déjà 3 fois chaque visuel. Un visuel qui n'existe pas (adresse devinée) répond sans en-tête CORS, donc comme
+ * une panne : avant, 4 essais × 3 = ~15 s perdues par visuel à chaque page.
+ */
 async function fetchBitmap(url) {
-  for (let i = 0; i < 4; i++) {
+  for (const u of [url, url.replace(/\.webp$/, '.png')]) {
     try {
-      const r = await fetch(i === 3 ? url.replace(/\.webp$/, '.png') : url, { mode: 'cors' });
-      if (r.status === 404) return GONE;
+      const r = await fetch(u, { mode: 'cors' });
       if (r.ok) return await createImageBitmap(await r.blob());
-    } catch (e) { /* on réessaie */ }
-    await new Promise((res) => setTimeout(res, 300 * (i + 1)));
+    } catch (e) { /* essai suivant */ }
   }
   return null;
 }
@@ -147,17 +148,17 @@ const feats = (src) => ({ orb: orbFeat(src), full: embed(src), art: embed(src, A
 const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
 
 /** Empreinte d'un visuel officiel : gardée sur l'appareil, sinon téléchargée et calculée */
-const refMem = new Map();
+const refMem = new Map(), stats = { dl: 0, fail: 0, streak: 0 }; // visuels téléchargés / en échec (chronomètre)
 async function refFeat(url) {
   if (refMem.has(url)) return refMem.get(url);
   const key = 'v1:' + url, hit = await dbGet(key);
   let f = null;
   if (hit && !hit.miss) f = hit;
-  else if (!hit || Date.now() - hit.t > 2 * 864e5) { // visuel absent chez TCGdex : on ne réessaie que 2 jours plus tard
-    const bmp = await fetchBitmap(url);
-    if (bmp && bmp !== GONE) { f = feats(trimBackground(bmp)); dbSet(key, f); }
-    else if (bmp === GONE) dbSet(key, { miss: true, t: Date.now() });
-    // (panne passagère : rien de gardé sur l'appareil, seulement pour cette session)
+  else if (!hit || Date.now() - hit.t > 864e5) { // visuel introuvable : on ne réessaie que le lendemain
+    const bmp = await fetchBitmap(url); stats.dl++;
+    if (bmp) { f = feats(trimBackground(bmp)); dbSet(key, f); stats.streak = 0; }
+    // (5 échecs d'affilée = serveur d'images en panne : rien n'est gardé, on réessaiera à la page suivante)
+    else { stats.fail++; if (++stats.streak < 5) dbSet(key, { miss: true, t: Date.now() }); }
   }
   if (refMem.size > 600) refMem.delete(refMem.keys().next().value);
   refMem.set(url, f);
@@ -167,9 +168,14 @@ async function refFeat(url) {
 // ---------- Comparaison ----------
 const queries = new Map(); // empreinte de chaque photo (qid), calculée une fois
 async function rank({ rid, qid, blob, refs, must = [], bonusSet = null, bonus = 1.2 }) {
+  // temps de chaque étape (ms) : chargement des outils, visuels officiels à préparer, comparaison
+  const t = { tools: 0, refs: 0, match: 0, dl: -stats.dl, fail: -stats.fail };
+  let t0 = performance.now();
   await ready();
+  t.tools = performance.now() - t0; t0 = performance.now();
   let q = queries.get(qid);
   if (!q) { q = feats(await createImageBitmap(blob)); queries.set(qid, q); if (queries.size > 60) queries.delete(queries.keys().next().value); }
+  t.match = performance.now() - t0; t0 = performance.now(); // (empreinte de la photo : compte dans la comparaison)
   // empreintes des visuels (6 téléchargements à la fois)
   const F = new Array(refs.length).fill(null);
   let done = 0, next = 0;
@@ -183,6 +189,7 @@ async function rank({ rid, qid, blob, refs, must = [], bonusSet = null, bonus = 
     }
   };
   await Promise.all(Array.from({ length: 6 }, work));
+  t.refs = performance.now() - t0; t0 = performance.now(); t.dl += stats.dl; t.fail += stats.fail;
   // 1) le réseau de neurones présélectionne ; 2) les points clés vérifient
   const mn = refs.map((r, i) => (F[i] ? (dot(q.full, F[i].full) + dot(q.art, F[i].art)) / 2 : -1));
   const order = [...mn.keys()].filter((i) => F[i]).sort((a, b) => mn[b] - mn[a]);
@@ -197,14 +204,22 @@ async function rank({ rid, qid, blob, refs, must = [], bonusSet = null, bonus = 
     }
   } finally { qm.delete(); }
   res.sort((a, b) => b.s - a.s);
-  return { res: res.slice(0, 12), best: res[0] ? res[0].s : 0, missing: F.filter((f) => !f).length };
+  t.match += performance.now() - t0;
+  return { res: res.slice(0, 12), best: res[0] ? res[0].s : 0, missing: F.filter((f) => !f).length, t, backend: tf.getBackend() };
 }
 
 let chain = Promise.resolve();
 self.onmessage = (e) => {
   const m = e.data;
   if (m.op === 'forget') { queries.delete(m.qid); return; }
-  if (m.op === 'warm') { chain = chain.then(() => ready()).catch(() => {}); return; }
+  if (m.op === 'warm') {
+    chain = chain.then(async () => {
+      const t0 = performance.now();
+      try { await ready(); postMessage({ rid: m.rid, ok: true, ms: performance.now() - t0, backend: tf.getBackend() }); }
+      catch (err) { postMessage({ rid: m.rid, ok: false, error: String((err && err.message) || err) }); }
+    });
+    return;
+  }
   if (m.op !== 'rank') return;
   chain = chain.then(async () => {
     try { postMessage({ rid: m.rid, ok: true, ...(await rank(m)) }); }
