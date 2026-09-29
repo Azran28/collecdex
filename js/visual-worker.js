@@ -112,7 +112,9 @@ function orbFeat(src, W = 300) {
 }
 const matOf = (f) => { const m = new cv.Mat(f.n, 32, cv.CV_8U); m.data.set(f.des); return m; };
 /** Nombre de points qui tombent au même endroit une fois la carte remise à plat (RANSAC) */
+let lastH = null; // transformation photo → visuel officiel trouvée par la dernière vérification
 function orbVerify(q, qm, ref) {
+  lastH = null;
   if (!ref || ref.n < 8) return 0;
   const rm = matOf(ref), mm = new cv.DMatchVectorVector();
   try {
@@ -129,10 +131,38 @@ function orbVerify(q, qm, ref) {
     try {
       const h = cv.findHomography(sM, dM, cv.RANSAC, 6, mask);
       let inl = 0; if (!h.empty()) for (let i = 0; i < mask.rows; i++) inl += mask.data[i] ? 1 : 0;
+      lastH = !h.empty() && h.data64F.length === 9 ? Array.from(h.data64F) : null; // photo → visuel officiel (pour recadrer)
       h.delete();
       return inl;
     } finally { sM.delete(); dM.delete(); mask.delete(); }
   } finally { rm.delete(); mm.delete(); }
+}
+/**
+ * Les 4 coins du visuel officiel reportés sur la photo (en fraction de la photo : 0…1), grâce à la transformation
+ * trouvée par les points clés (photo → visuel, inversée). Null si la forme obtenue n'est pas crédible.
+ */
+function cardQuad(H) {
+  if (!H) return null;
+  const [a, b, c, d, e, f, g, h, i] = H;
+  const A = e * i - f * h, B = f * g - d * i, C = d * h - e * g, det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-12) return null;
+  const inv = [A, c * h - b * i, b * f - c * e, B, a * i - c * g, c * d - a * f, C, b * g - a * h, a * e - b * d].map((v) => v / det);
+  const W = 300, Hh = Math.round(300 * 88 / 63); // taille de travail des empreintes (orbFeat)
+  const q = [[0, 0], [W, 0], [W, Hh], [0, Hh]].map(([x, y]) => {
+    const z = inv[6] * x + inv[7] * y + inv[8];
+    return [(inv[0] * x + inv[1] * y + inv[2]) / z / W, (inv[3] * x + inv[4] * y + inv[5]) / z / Hh];
+  });
+  if (q.some(([x, y]) => !isFinite(x) || !isFinite(y) || x < -0.2 || x > 1.2 || y < -0.2 || y > 1.2)) return null;
+  // convexe, sans croisement, et d'une taille plausible (la carte occupe l'essentiel de la découpe)
+  let area = 0, sign = 0;
+  for (let k = 0; k < 4; k++) {
+    const [x0, y0] = q[k], [x1, y1] = q[(k + 1) % 4], [x2, y2] = q[(k + 2) % 4];
+    const cr = (x1 - x0) * (y2 - y1) - (y1 - y0) * (x2 - x1);
+    if (sign && Math.sign(cr) !== sign) return null; sign = Math.sign(cr);
+    area += x0 * y1 - x1 * y0;
+  }
+  area = Math.abs(area) / 2;
+  return area > 0.35 && area < 1.3 ? q.map(([x, y]) => [Math.round(x * 1e4) / 1e4, Math.round(y * 1e4) / 1e4]) : null;
 }
 function embed(src, z = null) {
   const c = canvas(224, 224), g = c.getContext('2d', { willReadFrequently: true });
@@ -200,10 +230,12 @@ async function rank({ rid, qid, blob, refs, must = [], bonusSet = null, bonus = 
     for (const i of short) {
       let s = mn[i] + orbVerify(q.orb, qm, F[i].orb);
       if (bonusSet && refs[i].set === bonusSet) s *= bonus; // carte de la série de la page (réimpressions au même dessin)
-      res.push({ id: refs[i].id, s: Math.round(s * 100) / 100 });
+      res.push({ id: refs[i].id, s: Math.round(s * 100) / 100, H: lastH });
     }
   } finally { qm.delete(); }
   res.sort((a, b) => b.s - a.s);
+  // coins de la carte sur la photo, pour les meilleures (la carte recadrée pile sur ses bords)
+  for (const [k, r] of res.entries()) { if (k < 3 && r.s >= 20) r.quad = cardQuad(r.H); delete r.H; }
   t.match += performance.now() - t0;
   return { res: res.slice(0, 12), best: res[0] ? res[0].s : 0, missing: F.filter((f) => !f).length, t, backend: tf.getBackend() };
 }

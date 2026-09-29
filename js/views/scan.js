@@ -495,7 +495,7 @@ App.views.scan = {
     const ad = App.games.get(game);
     const FORMATS = { '3x3': [3, 3, '9 cartes (3 × 3)'], '2x2': [2, 2, '4 cartes (2 × 2)'], '4x3': [4, 3, '12 cartes (4 × 3)'], '3x4': [3, 4, '12 cartes (3 × 4)'], double: [6, 3, '18 cartes (classeur ouvert, 2 pages)'] };
     const PAGE_FORMATS = Object.fromEntries(Object.entries(FORMATS).filter(([k]) => k !== 'double'));
-    let fmt = '3x3';
+    let fmt = '3x3', fmtChosen = false; // fmtChosen : format choisi à la main (la détection ne le change plus)
     let photo = null;          // { img, url }
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
@@ -572,6 +572,15 @@ App.views.scan = {
     const setStatus = (html) => { statusEl.innerHTML = html ? `<div class="panel" style="margin-bottom:14px">${html}</div>` : ''; };
     const cam = App.views.scan.camera(view, { guide: burst });
     const dims = () => (burst ? [3, 1] : dimsOv || FORMATS[fmt]);
+    /** Grille réglable de départ : la forme du format choisi (cartes 63 × 88, couchées pour un classeur ouvert en hauteur), centrée */
+    function defaultGrid() {
+      const [cols, rows] = dims();
+      const img = photo && photo.img, P = img && img.naturalWidth ? img.naturalWidth / img.naturalHeight : 0.75;
+      const A = dimsOv ? (cols * 88) / (rows * 63) : (cols * 63) / (rows * 88); // largeur / hauteur de la zone des cartes
+      let h = 0.92, w = (A * h) / P;
+      if (w > 0.92) { w = 0.92; h = (w * P) / A; }
+      return { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
+    }
     /** Applique une détection (grille régulière ou cases une par une) */
     function useDetection(g, k) {
       grid = { x: g.x, y: g.y, w: g.w, h: g.h }; autoGrid = true;
@@ -594,12 +603,12 @@ App.views.scan = {
       const sel = el.querySelector('#b-set'); if (sel) { App.views.scan.fillSetSelect(sel, sets, saved); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }
     }).catch(() => {});
     el.querySelector('#b-fmt').addEventListener('change', (e) => {
-      fmt = e.target.value; cancelAuto(); autoCells = null; autoRot = 0; dimsOv = null; autoGrid = false;
+      fmt = e.target.value; fmtChosen = true; cancelAuto(); autoCells = null; autoRot = 0; dimsOv = null; autoGrid = false; grid = defaultGrid();
       if (photo && !running) {
         let gd = null;
         try { gd = fmt === 'double' ? R.detectDouble(photo.img) : R.detectGrid(photo.img, ...FORMATS[fmt].slice(0, 2)); } catch (err) { console.warn(err); }
         if (gd && gd.fit >= 0.45) useDetection(gd, fmt);
-        else if (fmt === 'double') { const t = photo.img.naturalHeight > photo.img.naturalWidth; dimsOv = t ? [3, 6] : null; }
+        else { if (fmt === 'double') { const t = photo.img.naturalHeight > photo.img.naturalWidth; dimsOv = t ? [3, 6] : null; } grid = defaultGrid(); }
         drawGrid();
       }
     });
@@ -666,14 +675,18 @@ App.views.scan = {
       const img = view.querySelector('img');
       img.onload = () => {
         photo = { img, url, blob };
-        grid = { x: 0.04, y: 0.04, w: 0.92, h: 0.92 }; autoGrid = false; autoCells = null; autoRot = 0; dimsOv = null;
+        autoGrid = false; autoCells = null; autoRot = 0; dimsOv = null; grid = defaultGrid();
         drawGrid();
         el.querySelector('#b-actions').classList.add('hidden');
         el.querySelector('#b-gridbar').classList.remove('hidden');
         // on cherche la grille tout seul (format compris) ; si c'est sûr, la reconnaissance démarre d'elle-même
         setTimeout(() => {
           let r = null;
-          try { r = R.detectPage(img, PAGE_FORMATS, fmt === 'double' ? '3x3' : fmt); } catch (e) { console.warn('grille', e); }
+          try {
+            // format choisi à la main : on cherche CETTE grille-là, sans passer à un autre format
+            if (fmtChosen) { const g = fmt === 'double' ? R.detectDouble(img) : R.detectGrid(img, ...FORMATS[fmt].slice(0, 2)); r = g ? { fmt, grid: g } : null; }
+            else r = R.detectPage(img, PAGE_FORMATS, fmt === 'double' ? '3x3' : fmt);
+          } catch (e) { console.warn('grille', e); }
           if (!photo || photo.img !== img) return;
           const found = r && r.grid && r.grid.fit >= 0.38 && r.grid.w > 0.2 && r.grid.h > 0.2;
           const ok = found && r.grid.fit >= 0.45; // assez sûr pour lancer la reconnaissance tout seul
@@ -962,6 +975,15 @@ App.views.scan = {
      * Une carte reconnue à l'image (score ≥ 25) devient le choix ; « à vérifier » si une autre la talonne (même dessin)
      * ou si le texte avait trouvé une autre carte avec certitude.
      */
+    const uniq = (list) => { const seen = new Set(); return list.filter((x) => x && !seen.has(x.id) && seen.add(x.id)); };
+    /** Découpe la carte selon ses 4 coins (fractions de la photo), remise à plat */
+    async function cropToQuad(blob, quad) {
+      const bmp = await createImageBitmap(blob), W = bmp.width, H = bmp.height;
+      const q = quad.map(([x, y]) => [x * W, y * H]);
+      const w = Math.round(Math.min(900, Math.max(240, Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]))));
+      const cvs = R.warpQuad(bmp, q, w, 0);
+      return new Promise((res) => cvs.toBlob(res, 'image/jpeg', 0.92));
+    }
     async function visualPass(hint) {
       const V = App.visual;
       if (!V || App.settings.visualCheck === false) return; // (réglage dans Paramètres)
@@ -1018,16 +1040,46 @@ App.views.scan = {
         const twin = b && b.s >= a.s * 0.8; // une autre carte presque aussi proche (même dessin : holo / non holo, réimpression)
         const clash = c.state === 'sure' && c.choice && c.choice !== a.id; // le texte avait trouvé autre chose avec certitude
         if (clash) console.info('[image] désaccord case', c.i + 1, c.choice, '→', a.id, a.s);
+        // les cartes presque aussi proches à l'image (même dessin) sont proposées juste après
+        const near = c.vis.res.slice(1).filter((r) => r.s >= a.s * 0.6).map((r) => byId.get(r.id)).filter(Boolean);
         if (clash) { // on garde le choix du texte, la carte trouvée à l'image est proposée juste après
           const t = c.cands.find((x) => x.id === c.choice);
-          c.cands = [t, card, ...c.cands.filter((x) => x !== t && x.id !== a.id)].slice(0, 12);
+          c.cands = uniq([t, card, ...near, ...c.cands]).slice(0, 12);
           c.state = 'verifier';
         } else {
-          c.cands = [card, ...c.cands.filter((x) => x.id !== a.id)].slice(0, 12);
+          c.cands = uniq([card, ...near, ...c.cands]).slice(0, 12);
           c.choice = a.id; c.state = twin ? 'verifier' : 'sure';
         }
         c.visId = a.id; c.found = Date.now(); // petit éclat : carte confirmée à l’image
         c.checked = c.state === 'sure';
+        // la carte recadrée pile sur ses bords : les 4 coins du visuel officiel reportés sur la photo par les points clés
+        // (photo enregistrée bien cadrée, et relecture du numéro plus facile)
+        if (a.quad && !c.cropped) {
+          try {
+            const blob = await cropToQuad(c.blob, a.quad);
+            if (blob) { c.gridBlob = c.blob; c.blob = blob; c.url = URL.createObjectURL(blob); urls.push(c.url); c.cropped = true; c.det = null; }
+          } catch (e) { console.warn('recadrage', e); }
+        }
+      }
+      // doute qui reste (même dessin, désaccord) : on relit le numéro sur la carte recadrée ; s'il désigne une seule
+      // des cartes proches à l'image, c'est elle (ex. holo 12 / non holo 27, Set de Base 37 / Base Set 2 54)
+      const doubt = all.filter((c) => c.cropped && c.state === 'verifier');
+      for (const [k, c] of doubt.entries()) {
+        if (stopped || !alive()) return;
+        prog = { step: 'Relecture du numéro (carte recadrée)', done: k, total: doubt.length, kind: 'img' };
+        c.vscan = true; drawResults();
+        try {
+          const info = await R.read(c.blob, null, { atkBand: false });
+          const num = info && info.num, a = c.vis.res[0];
+          const off = (x) => (x.set && x.set.cardCount && x.set.cardCount.official) || 0;
+          const pool = c.vis.res.filter((r) => r.s >= a.s * 0.6).map((r) => byId.get(r.id)).filter(Boolean);
+          const hit = num ? pool.filter((x) => parseInt(x.localId, 10) === num.n && (!num.of || !off(x) || off(x) === num.of)) : [];
+          if (hit.length === 1) {
+            c.cands = uniq([hit[0], ...c.cands]).slice(0, 12);
+            c.choice = hit[0].id; c.state = 'sure'; c.checked = true; c.numFix = `${num.n}${num.of ? '/' + num.of : ''}`; c.found = Date.now();
+          }
+          if (info) c.info = { ...c.info, num: info.num || (c.info && c.info.num) };
+        } catch (e) { console.warn('relecture', e); } finally { c.vscan = false; }
       }
       T.total = performance.now() - tv; T.cards = all.length;
       setStatus('');
@@ -1045,30 +1097,50 @@ App.views.scan = {
     const cardOf = (c) => c.cands.find((x) => x.id === c.choice) || null;
     const visOf = (x) => esc(ad.img.card(x, 'low'));
     const durTxt = (ms) => { const s = Math.round(ms / 1000); return s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s` : `${s} s`; };
-    /** Mini-page : une case par pochette (classeur ouvert : les 2 pages côte à côte) */
+    /**
+     * La page en vignettes : chaque pochette montre ta photo (grisée en attente), puis le visuel officiel une fois la carte
+     * trouvée ; bordure selon l'état ; la carte en cours clignote. Classeur ouvert : les 2 pages côte à côte.
+     */
     function miniPage(cur) {
       const per = cells.length > 9 && dims()[0] === 6 ? 9 : cells.length, cols = per === 9 ? 3 : dims()[0], parts = [];
       for (let s = 0; s < cells.length; s += per) parts.push(cells.slice(s, s + per));
-      return `<div class="sv-mini">${parts.map((p) => `<div style="grid-template-columns:repeat(${cols},1fr)">${p.map((c) => `<i class="st-${c.saved ? 'saved' : c.state}${c === cur ? ' cur' : ''}" title="Carte ${c.i + 1}"></i>`).join('')}</div>`).join('')}</div>`;
+      const rows = Math.ceil(per / cols);
+      const th = (c) => {
+        const x = cardOf(c), st = c.saved ? 'saved' : c.state, done = ['sure', 'verifier'].includes(st) || c.saved;
+        const src = done && x ? visOf(x) : c.url;
+        return `<span class="sv-th st-${st}${c === cur ? ' cur' : ''}${c.found && Date.now() - c.found < 1500 ? ' pop' : ''}" title="Carte ${c.i + 1}">${['vide', 'dos', 'autre'].includes(st) ? '' : `<img src="${src}" alt="">`}${st === 'sure' || c.saved ? '<b>✓</b>' : st === 'verifier' ? '<b>?</b>' : ''}</span>`;
+      };
+      return `<div class="sv-board" style="--cols:${cols * parts.length};--rows:${rows}">${parts.map((p) => `<div style="grid-template-columns:repeat(${cols},1fr)">${p.map(th).join('')}</div>`).join('')}</div>`;
     }
     function svTop(label, right, bar) {
       return `<div class="sv-top"><div class="bprog-lbl"><span>${label}</span><b>${right || ''}</b></div>${bar || ''}</div>`;
     }
+    /** Écran d'analyse : fond coloré selon l'étape, la carte en cours en grand, la carte trouvée qui se retourne à côté */
     function svScan() {
       const cur = cells.find((c) => c.vscan) || cells.find((c) => c.state === 'lecture');
-      const last = cells.filter((c) => c.found && c !== cur).sort((a, b) => b.found - a.found)[0];
+      const last = cells.filter((c) => c.found && c !== cur && Date.now() - c.found < 2500).sort((a, b) => b.found - a.found)[0];
       const p = prog, off = cur && cardOf(cur), lc = last && cardOf(last);
-      const bar = p ? `<div class="bprog-bar ${p.kind === 'img' ? 'img' : ''}"><i style="width:${Math.round((100 * p.done) / Math.max(1, p.total))}%"></i></div>` : '';
-      return `${svTop(p ? esc(p.step) : 'Préparation de la page…', p ? `${Math.min(p.done + 1, p.total)} / ${p.total}` : '', bar)}
-        ${cur ? `<div class="sv-pair">
-            <span class="bphoto ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
-            ${off ? `<img class="sv-off sv-dim" src="${visOf(off)}" alt="Carte proposée">` : `<span class="sv-off sv-wait">${App.icons.icon('search', 22)}<span>recherche…</span></span>`}
-          </div>
-          <div class="sv-read">Carte ${cur.i + 1}${cur.info ? ` · lu : ${esc(R.readSummary(cur.info))}` : ''}${off ? ` · piste : <b>${esc(off.name)}</b>` : ''}</div>`
-        : `<div class="sv-pair sv-idle"><div class="spinner"></div></div><div class="sv-read">Un instant…</div>`}
-        ${last ? `<div class="sv-last">${lc ? `<img src="${visOf(lc)}" alt="">` : ''}<span>Carte ${last.i + 1} : <b>${lc ? esc(lc.name) : '?'}</b> — <span class="${last.state === 'sure' ? 'ok' : 'warn'}">${last.state === 'sure' ? 'reconnue ✓' : 'à vérifier'}</span></span></div>` : ''}
+      const step = !p ? 0 : /^Lecture des/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
+      const steps = ['Lecture', 'Série', 'Image'].map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
+      return `
+        <div class="sv-head">
+          <div class="sv-steps">${steps}</div>
+          <div class="sv-count">${p ? `<b>${Math.min(p.done + 1, p.total)}</b><span>/ ${p.total}</span>` : ''}</div>
+        </div>
+        ${p ? `<div class="bprog-bar ${p.kind === 'img' ? 'img' : ''}"><i style="width:${Math.round((100 * p.done) / Math.max(1, p.total))}%"></i></div>` : ''}
+        <div class="sv-stage">
+          ${cur ? `<span class="bphoto sv-card ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
+            ${off ? `<span class="sv-card sv-match ${cur.state === 'sure' ? 'hit' : 'maybe'}"><img src="${visOf(off)}" alt="Carte envisagée"></span>`
+              : '<span class="sv-card sv-match ghost"><b>?</b></span>'}`
+            : '<div class="spinner"></div>'}
+          ${last ? `<div class="sv-toast ${last.state === 'sure' ? 'ok' : 'warn'}">${lc ? `<img src="${visOf(lc)}" alt="">` : ''}<span>${last.state === 'sure' ? '✓' : '?'} ${lc ? esc(lc.name) : 'Carte ' + (last.i + 1)}</span></div>` : ''}
+        </div>
+        <div class="sv-caption">
+          <div class="sv-title">${off ? esc(off.name) : cur ? 'Recherche…' : 'Préparation de la page…'}</div>
+          <div class="sv-sub">${p ? esc(p.step) : ''}${cur ? ` · carte ${cur.i + 1}` : ''}${cur && cur.info ? ` · lu : ${esc(R.readSummary(cur.info))}` : ''}</div>
+        </div>
         ${miniPage(cur)}
-        <button class="btn" data-sv="close">Voir la liste pendant ce temps</button>`;
+        <button class="linkbtn sv-list" data-sv="close">Voir la liste pendant ce temps →</button>`;
     }
     function svReview() {
       const c = cells[sv.list[sv.idx]];
@@ -1117,7 +1189,8 @@ App.views.scan = {
       const box = svBox(); if (!box) return;
       box.classList.toggle('hidden', !sv.open);
       if (!sv.open) { box.innerHTML = ''; return; }
-      box.innerHTML = `<div class="sv-in sv-m-${sv.mode}">${sv.mode === 'scan' ? svScan() : sv.mode === 'review' ? svReview() : svRecap()}</div>`;
+      const ph = sv.mode !== 'scan' ? 'done' : cells.some((c) => c.vscan) ? 'img' : 'txt'; // couleurs de l'étape
+      box.innerHTML = `<div class="sv-in sv-m-${sv.mode} ph-${ph}"><div class="sv-glow" aria-hidden="true"></div>${sv.mode === 'scan' ? svScan() : sv.mode === 'review' ? svReview() : svRecap()}</div>`;
     }
     /** Fin de l'analyse : cartes à vérifier d'abord, sinon directement le récapitulatif */
     function svAfterScan() {
