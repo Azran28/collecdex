@@ -1979,3 +1979,11 @@ a.stat { text-decoration: none; color: inherit; }
 }
 /* appli installée : pas d'effet « élastique » en haut de page */
 @media (display-mode: standalone) { html, body { overscroll-behavior-y: none; } }
+
+/* Toucher sans « carré » (v2.41) : pas de surlignage du navigateur ni de sélection de l'image
+   quand on touche la capsule, un Pokémon ou une case du Pokédex (quelle que soit la largeur d'écran). */
+html { -webkit-tap-highlight-color: transparent; }
+.cap-ov, .cap-ov *, .cap-stage, .dex-cell, .dex-cell *, .evo-cell, .sp-art, .sp-art * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.cap-ov img, .dex-cell img, .evo-cell img { -webkit-user-drag: none; pointer-events: none; }
+.cap-ov :focus:not(:focus-visible), .dex-cell:focus:not(:focus-visible), .evo-cell:focus:not(:focus-visible) { outline: none; }
+.dex-cell.got:active { transform: scale(.96); transition: transform .08s; }

@@ -10,11 +10,27 @@ App.util = (() => {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const euro = (v, unit = 'EUR') => {
-    if (v == null || isNaN(v)) return '—';
-    const cur = unit === 'USD' ? 'USD' : 'EUR';
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: cur, maximumFractionDigits: v < 10 ? 2 : 0 }).format(v);
-  };
+  // Prix en dollars (TCGplayer, quand Cardmarket n'a pas de prix) : toujours convertis en euros.
+  // Taux du jour (gardé 24 h), sinon le dernier connu, sinon un taux de secours.
+  const FX_KEY = 'fx-usd-eur';
+  let usdEur = 0.86;
+  try { const s = JSON.parse(localStorage.getItem(FX_KEY) || 'null'); if (s && s.r > 0.5 && s.r < 1.5) usdEur = s.r; } catch (e) { /* stockage indisponible */ }
+  (async () => {
+    try {
+      const s = JSON.parse(localStorage.getItem(FX_KEY) || 'null');
+      if (s && Date.now() - s.t < 24 * 3600 * 1000) return;
+      const r = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json');
+      const x = +((await r.json()).usd || {}).eur;
+      if (x > 0.5 && x < 1.5) { usdEur = x; localStorage.setItem(FX_KEY, JSON.stringify({ r: x, t: Date.now() })); }
+    } catch (e) { /* hors ligne : on garde le dernier taux */ }
+  })();
+  /** Montant en euros (un prix en dollars est converti) */
+  const toEur = (v, unit) => (v == null || isNaN(v) ? v : unit === 'USD' ? Math.round(v * usdEur * 100) / 100 : v);
+  const money = (v, cur) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: cur, maximumFractionDigits: v < 10 ? 2 : 0 }).format(v);
+  /** Montant affiché, toujours en euros */
+  const euro = (v, unit = 'EUR') => (v == null || isNaN(v) ? '—' : money(toEur(v, unit), 'EUR'));
+  /** Montant en dollars tel quel (pour montrer le prix d'origine) */
+  const usd = (v) => (v == null || isNaN(v) ? '—' : money(v, 'USD'));
 
   const pct = (a, b) => (b ? Math.floor((a / b) * 1000) / 10 : 0);
 
@@ -121,5 +137,5 @@ App.util = (() => {
     return String(a).localeCompare(String(b), 'fr', { numeric: true });
   };
 
-  return { esc, $, $$, euro, pct, dateFr, debounce, toast, openModal, closeModal, resizeImage, blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
+  return { esc, $, $$, euro, usd, toEur, pct, dateFr, debounce, toast, openModal, closeModal, resizeImage, blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
 })();

@@ -188,8 +188,8 @@ App.col = (() => {
   function valueOf(it) {
     if (!it) return 0;
     if (it.valueOverride > 0) return it.valueOverride;
-    if (!it.price || !it.price.value || it.price.unit !== 'EUR') return 0;
-    return Math.round(it.price.value * condMult(it.cond) * 100) / 100;
+    if (!it.price || !it.price.value) return 0;
+    return Math.round(App.util.toEur(it.price.value, it.price.unit) * condMult(it.cond) * 100) / 100;
   }
   /** Valeur totale (tous les exemplaires) */
   const totalValue = (list) => list.reduce((s, i) => s + valueOf(i) * (i.qty || 0), 0);
