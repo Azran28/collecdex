@@ -28,30 +28,14 @@ App.views.scan = {
     </div>`;
   },
 
-  /** Mode d'emploi affiché à côté de la photo tant qu'il n'y a pas de résultat */
+  /**
+   * Aide à côté de la photo tant qu'il n'y a pas de résultat : allégée en v2.39 (demande d'Arnaud) — seulement le geste
+   * de la certification en carte seule (connecté) ; le reste s'explique tout seul (la grille et la recherche sont automatiques).
+   */
   guide(mode) {
-    const steps = mode === 'rafale'
-      ? [['rafale', 'Lance la rafale', 'Présente tes cartes une par une dans le cadre jaune : dès qu’une carte est immobile, elle est prise toute seule.'],
-        ['shield', 'Dos, puis face', 'Pour la certification : montre le dos de chaque carte, retourne-la et tiens-la immobile : elle est prise toute seule.'],
-        ['search', 'Vérifie et enregistre', 'Les cartes sont lues pendant que tu continues. Les sûres sont cochées d’office.']]
-      : mode === 'classeur'
-      ? [['camera', 'Photographie la page entière', '« Prendre la page en photo » ouvre l’appareil photo du téléphone (meilleure qualité). Bien à plat, de face, sans reflet : la page doit remplir la photo.'],
-        ['dex', 'La grille se place toute seule', 'Elle trouve les pochettes (et le format de la page). Si elle se trompe, glisse-la ou tire ses coins ronds.'],
-        ['search', 'Vérifie et enregistre', 'Les cartes sûres sont cochées d’office. Corrige les autres si besoin.']]
-      : [['camera', 'Prends la carte en photo', 'Bien à plat, bien éclairée, sans reflet sur le numéro en bas.'],
-        ['capture', 'Place-la dans le cadre jaune', 'Elle est recadrée toute seule au plus près de ses bords.'],
-        ['search', 'Confirme la carte', 'Le site lit le numéro et le nom, puis compare l’illustration.']];
     const certOn = App.certify && App.certify.available();
-    return `<div class="panel scan-guide-panel">
-      <h3 style="margin-top:0">Comment ça marche</h3>
-      <ol class="sg-steps">${steps.map(([ic, t, d], i) => `<li><span class="sg-n">${i + 1}</span><span class="sg-ic">${App.icons.icon(ic, 18)}</span><span><b>${t}</b><br><span class="muted small">${d}</span></span></li>`).join('')}</ol>
-      <div class="sg-cert">${App.icons.icon('shield', 18)}<div><b>Carte certifiée</b><br><span class="small muted">${mode === 'classeur'
-        ? (certOn ? 'Bouton « Photo certifiée » : après la photo, une carte s’allume ; touche-la du doigt puis retire ta main. (« Prendre la page en photo » et « Choisir une photo » : pas de badge.)' : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a> pour certifier tes pages (bouton « Photo certifiée »).' : 'Avec un compte, les pages peuvent être certifiées.')
-        : certOn
-        ? 'Utilise le bouton « Caméra » du site : montre d’abord le dos de la carte (il doit être visible : pas d’étui opaque), retourne-la, puis prends la photo. Tes cartes bien reconnues recevront le badge.'
-        : App.cloud && App.cloud.enabled ? '<a href="#/connexion">Connecte-toi</a>, puis utilise le bouton « Caméra » du site : tes cartes recevront le badge « Certifiée ».' : 'Avec un compte, les cartes capturées en direct reçoivent le badge « Certifiée ».'}</span></div></div>
-      ${mode === 'rafale' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si tes cartes viennent toutes de la même série, choisis-la au-dessus : c’est plus rapide et bien plus fiable.</p>' : mode === 'classeur' ? '<p class="small muted" style="margin:10px 0 0">Astuce : si ta page ne contient qu’une série, choisis-la dans « Série de la page ».</p>' : '<p class="small muted" style="margin:10px 0 0">Astuce : si tu connais la série, choisis-la au-dessus : c’est bien plus fiable.</p>'}
-    </div>`;
+    if (mode !== 'carte' || !certOn) return '';
+    return `<p class="small muted sg-mini">${App.icons.icon('shield', 13)} Pour le badge « Certifiée » : montre d’abord le dos de la carte à la caméra, retourne-la, puis prends la photo.</p>`;
   },
 
   /** « Set de Base (1999) » */
@@ -62,7 +46,6 @@ App.views.scan = {
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
       <h1 style="margin:0 0 4px">Capturer</h1>
-      <p class="muted small" style="margin:0 0 12px">Prends tes cartes en photo : elles rejoignent ton Dex, avec ta photo comme visuel. Que veux-tu capturer ?</p>
       <div class="mode-pick" role="tablist">
         <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="#/scan" role="tab" aria-selected="${mode === 'carte'}">
           <span class="mc-ico">${App.icons.icon('capture', 22)}</span>
@@ -161,7 +144,7 @@ App.views.scan = {
     el.innerHTML = `
       <div id="sc-target"></div>
       <div class="set-first" style="max-width:640px">
-        <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Tu connais la série de ta carte ?</b><br><span class="small muted">Facultatif, mais la reconnaissance devient bien plus fiable (surtout pour les cartes réimprimées).</span></div></div>
+        <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
         <select id="sc-set"><option value="">Je ne sais pas : chercher partout</option></select>
       </div>
       <div class="scan-wrap">
@@ -295,7 +278,7 @@ App.views.scan = {
     el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });
 
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
-    let crop = null;
+    let crop = null, autoCrop = false; // autoCrop : cadre placé tout seul sur une photo importée (validé d'office)
     function startCrop(blob, initial = null) {
       results.innerHTML = App.views.scan.guide('carte'); setStatus('');
       if (initial === null) cert = null;
@@ -313,7 +296,7 @@ App.views.scan = {
         pageBlob = blob;
         const ar = img.naturalWidth / img.naturalHeight;
         let size = initial || (Math.abs(ar - RATIO) < 0.06 ? 1 : 0.9); // photo déjà au format carte → toute l'image
-        let cx = 0.5, cy = 0.5;
+        let cx = 0.5, cy = 0.5, found = false;
         // photo importée : le cadre se place tout seul sur la carte (bords trouvés), on peut toujours le déplacer
         if (!initial && !lp.page) {
           try {
@@ -322,13 +305,16 @@ App.views.scan = {
             if (f && f.h / NH > 0.55) {
               const m = 1.03; // un poil plus grand que la carte : bords compris
               size = Math.min(1, f.h * m / NH); if (f.w * m > NW) size = Math.min(1, f.w * m / NW);
-              cx = (f.x + f.w / 2) / NW; cy = (f.y + f.h / 2) / NH;
+              cx = (f.x + f.w / 2) / NW; cy = (f.y + f.h / 2) / NH; found = true;
             }
           } catch (e) { console.warn(e); }
         }
         crop = { img, url, box: view.querySelector('.crop-box'), cx, cy, size };
         el.querySelector('#sc-size').value = Math.round(size * 100);
         placeBox();
+        // carte trouvée toute seule : pas d'étape « Valider le cadrage », la recherche part directement
+        // (« Recadrer à la main » reste proposé ensuite)
+        if (found) { lastShot = blob; autoCrop = true; setTimeout(() => el.querySelector('#sc-crop-ok').click(), 0); }
       };
     }
     function boxRect() {
@@ -369,7 +355,11 @@ App.views.scan = {
       URL.revokeObjectURL(crop.url); crop = null;
       el.querySelector('#sc-cropbar').classList.add('hidden');
       el.querySelector('#sc-actions').classList.remove('hidden');
-      c.toBlob((b) => analyse(b), 'image/jpeg', 0.9);
+      const auto = autoCrop; autoCrop = false;
+      c.toBlob(async (b) => {
+        await analyse(b);
+        if (auto && alive()) status.insertAdjacentHTML('afterbegin', '<div class="panel" style="margin-bottom:14px"><button class="linkbtn small" id="sc-recrop">✂ Mal cadrée ? Recadrer à la main</button></div>');
+      }, 'image/jpeg', 0.9);
     });
 
     function showCandidates(cands, info) {
@@ -531,8 +521,8 @@ App.views.scan = {
     const urls = [];
 
     const certOn = App.certify.available();
-    const setBox = (title, sub) => `<div class="set-first">
-            <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b><br><span class="small muted">${sub}</span></div></div>
+    const setBox = (title) => `<div class="set-first">
+            <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
             <select id="b-set"><option value="">Plusieurs séries / je ne sais pas</option></select>
           </div>`;
     // commandes du mode page (gardées cachées en rafale : le code commun s'en sert)
@@ -545,18 +535,18 @@ App.views.scan = {
             <label class="btn primary" id="b-native">${App.icons.icon('camera', 16)} Prendre la page en photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
-            <button class="btn ${certOn ? '' : 'ghost'}" id="b-cam">${certOn ? `${App.icons.icon('shield', 16)} Photo certifiée` : 'Caméra dans la page'}</button>
+            <button class="btn ${certOn ? '' : 'hidden'}" id="b-cam">${App.icons.icon('shield', 16)} Photo certifiée</button>
           </div>
-          ${certOn && !burst ? `<p class="small muted b-cert-help" id="b-cert-help">${App.icons.icon('shield', 13)} <b>Photo certifiée</b> : prends la page avec la caméra du site ; une carte s’allume ensuite : <b>touche-la du doigt</b>, puis retire ta main (1 seconde). Les cartes reconnues reçoivent le badge « Certifiée (classeur) ». Les autres boutons : sans badge.</p>` : ''}
+          ${certOn && !burst ? `<p class="small muted b-cert-help" id="b-cert-help">${App.icons.icon('shield', 13)} <b>Photo certifiée</b> : une carte s’allume, touche-la du doigt puis retire ta main.</p>` : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <div id="b-auto" class="b-auto hidden"></div>
-            <p class="small muted">La grille se place toute seule. Si besoin, glisse-la pour la déplacer et tire ses coins ronds : chaque case doit entourer une pochette.</p>
-            <div class="row action-dock"><button class="btn primary" id="b-go">▶ Reconnaître les cartes</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
+            <!-- la reconnaissance part toute seule ; le bouton n'apparaît que si la grille est à placer à la main -->
+            <div class="row action-dock"><button class="btn primary hidden" id="b-go">▶ Lancer la reconnaissance</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
           </div>`;
     el.innerHTML = burst ? `
       <div class="batch-wrap">
         <div>
-          ${setBox('Tes cartes sont de quelle série ?', 'Facultatif : si elles viennent toutes de la même série, la reconnaissance est bien plus fiable.')}
+          ${setBox('Série des cartes')}
           <div class="scan-view" id="b-view">${App.views.scan.empty('rafale')}</div>
           <div id="r-hint" class="r-hint hidden"></div>
           <div class="row action-dock scan-dock" style="margin-top:14px" id="r-actions">
@@ -575,7 +565,7 @@ App.views.scan = {
       </div>` : `
       <div class="batch-wrap">
         <div>
-          ${setBox('De quelle série est cette page ?', 'Si toute la page vient de la même série, choisis-la : la reconnaissance devient bien plus fiable.')}
+          ${setBox('Série de la page')}
           ${pageCtl}
           <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur', FORMATS[fmt])}</div>
           ${pageBtns}
@@ -686,6 +676,7 @@ App.views.scan = {
 
     // ---------- Grille ajustable ----------
     function startGrid(blob, cert = null) {
+      el.querySelector('#b-go').classList.add('hidden'); // la reconnaissance partira toute seule si la grille est sûre
       cells = []; resultsEl.innerHTML = App.views.scan.guide('classeur'); setStatus('');
       pageCert = cert; pageId = null;
       if (cert) setStatus(cert.passed
@@ -716,7 +707,7 @@ App.views.scan = {
             if (r.fmt !== fmt) { fmt = r.fmt; el.querySelector('#b-fmt').value = fmt; }
             useDetection(r.grid, r.fmt); drawGrid();
           }
-          if (!ok) { auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} ${found ? 'Vérifie les cases (glisse la grille si besoin)' : 'Je n’ai pas trouvé la grille tout seul : place-la sur les pochettes'}, puis lance la reconnaissance.`; return; }
+          if (!ok) { el.querySelector('#b-go').classList.remove('hidden'); auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} ${found ? 'Vérifie les cases (glisse la grille si besoin)' : 'Je n’ai pas trouvé la grille tout seul : place-la sur les pochettes'}, puis lance la reconnaissance.`; return; }
           let n = 3;
           auto.classList.remove('hidden');
           window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
@@ -730,6 +721,8 @@ App.views.scan = {
       };
     }
     function cancelAuto() {
+      // grille ajustée à la main (ou pas trouvée) : le bouton pour lancer la reconnaissance apparaît
+      if (photo && !running) el.querySelector('#b-go').classList.remove('hidden');
       if (!autoTimer) return;
       clearTimeout(autoTimer); autoTimer = null;
       const a = el.querySelector('#b-auto'); if (a) a.innerHTML = `${App.icons.icon('layers', 14)} Ajuste la grille si besoin, puis lance la reconnaissance.`;
@@ -1199,13 +1192,18 @@ App.views.scan = {
         <div class="chips">${opts.map((k) => `<button class="chip ${v.includes(k) ? 'on' : ''}" data-sv="vbase" data-v="${k}">${VN[k]}</button>`).join('')}
         ${fe ? `<button class="chip ${v.includes('firstEdition') ? 'on' : ''}" data-sv="vfe">1ʳᵉ éd.</button>` : ''}</div></div>`;
     }
-    /** Texte court de la version pour le récapitulatif (« Holo ? » si pas sûre) */
-    function versTxt(c, cur) {
-      if (!cur || !cur.variants || !c.det || c.det.id !== cur.id || c.det.measuring) return '';
-      const opts = baseOpts(cur), v = versOf(c) || [];
-      if (opts.length <= 1 && !cur.variants.firstEdition) return '';
-      const doubt = !c.det.user && !c.det.sure && opts.length > 1;
-      return `${v.map((k) => VN[k] || k).join(' · ')}${doubt ? ' <b class="warn">?</b>' : ''}`;
+    /**
+     * Étiquette de version posée sur la carte dans le récapitulatif (demande d'Arnaud) : ce qui a été trouvé,
+     * orange avec « ? » si pas sûr ; un appui passe à la version suivante (normale → holo → reverse).
+     */
+    function versPill(c, cur) {
+      if (!cur.variants) return '';
+      const opts = baseOpts(cur); if (opts.length <= 1) return ''; // une seule version possible : rien à choisir
+      const measured = c.det && c.det.id === cur.id && !c.det.measuring;
+      const v = (measured && versOf(c)) || [], base = v.find((x) => x !== 'firstEdition');
+      const doubt = !measured || (!c.det.user && !c.det.sure);
+      const label = measured ? `${VN[base] || '—'}${v.includes('firstEdition') ? ' · 1ʳᵉ éd.' : ''}` : 'Version…';
+      return `<button class="sv-vpill ${doubt ? 'doubt' : ''}" data-sv="vcycle" data-i="${c.i}" title="Touche pour passer à la version suivante">${label}${doubt && measured ? ' ?' : ''} <span aria-hidden="true">↻</span></button>`;
     }
     function svRecap() {
       const shown = cells.filter((c) => c.choice || !['vide', 'dos', 'autre', 'erreur'].includes(c.state));
@@ -1218,9 +1216,10 @@ App.views.scan = {
         return m === 'nouvelle' ? ['new', 'Nouvelle'] : m === 'doublon' ? ['dup', 'Doublon'] : m === 'photo' ? ['dup', 'Nouvelle photo'] : ['own', 'Déjà dans ton Dex'];
       };
       return `${svTop('<b>Récapitulatif de la page</b>', pageDur ? `<span class="muted small">analyse : ${durTxt(pageDur)}</span>` : '')}
-        <div class="sv-recap">${shown.map((c) => { const cur = cardOf(c), [k, t] = tag(c); return `<button class="sv-rc ${k}" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}>
-          <img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span><span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span>${cur && versTxt(c, cur) ? `<span class="sv-rv">${versTxt(c, cur)}</span>` : ''}</button>`; }).join('')}</div>
-        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer (carte ou version : un <b class="warn">?</b> = version à vérifier).</div>
+        <div class="sv-recap">${shown.map((c) => { const cur = cardOf(c), [k, t] = tag(c), vp = !c.saved && cur ? versPill(c, cur) : ''; return `<div class="sv-rc ${k}">
+          <button class="sv-rc-open" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}><img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span></button>
+          ${vp}<span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span></div>`; }).join('')}</div>
+        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer, ou son étiquette de version (<b class="warn">?</b> = pas sûre) pour passer à la suivante.</div>
         <div class="sv-acts sv-final">
           <button class="btn primary" data-sv="save" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
           <button class="btn" data-sv="close">Voir la liste détaillée</button>
@@ -1269,6 +1268,13 @@ App.views.scan = {
         return;
       }
       if (a === 'open') return svOpen('review', { list: [+b.dataset.i], idx: 0, single: true });
+      if (a === 'vcycle') { // version suivante, directement depuis le récapitulatif
+        const cc = cells[+b.dataset.i], cur = cc && cardOf(cc); if (!cur) return;
+        const opts = baseOpts(cur), now = ((cc.det && cc.det.id === cur.id && versOf(cc)) || []).find((x) => x !== 'firstEdition');
+        if (!cc.det || cc.det.id !== cur.id) cc.det = { id: cur.id, list: [] };
+        cc.det.base = opts[(opts.indexOf(now) + 1) % opts.length]; cc.det.user = true; cc.det.measuring = false;
+        drawResults(); return drawSV();
+      }
       if ((a === 'vbase' || a === 'vfe') && c) { // version corrigée à la main
         const cur = cardOf(c); if (!cur) return;
         if (!c.det || c.det.id !== cur.id) c.det = { id: cur.id, list: [] };
@@ -1447,7 +1453,6 @@ App.views.scan = {
                     ${(own ? ['rien', 'photo', 'doublon'] : ['doublon', 'rien']).map((k) => `<option value="${k}" ${k === m ? 'selected' : ''}>${k === 'doublon' && repeat && !own ? '2e exemplaire sur la page (doublon)' : k === 'rien' && !own ? 'Ne pas la compter' : modeLabels[k]}</option>`).join('')}
                   </select>
                   ${own ? `<div class="small muted">Tu l’as déjà (×${own.qty})</div>` : ''}` : ''}
-                ${c.auto === false ? '<div class="small muted">Bords non détectés : centre de la case utilisé</div>' : ''}
                 ${photo && c.box ? `<button class="btn sm ghost" data-recrop="${c.i}">✂ Recadrer depuis la page</button>` : ''}
                 <button class="btn sm ghost" data-find="${c.i}">🔎 Chercher une autre carte</button>
                 <div class="bsearch hidden" data-box="${c.i}">
