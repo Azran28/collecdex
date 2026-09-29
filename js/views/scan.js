@@ -45,7 +45,7 @@ App.views.scan = {
     const mode = ['classeur', 'rafale'].includes(params.query.mode) ? params.query.mode : 'carte';
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
-      <h1 style="margin:0 0 4px">Capturer</h1>
+      <h1 class="m-hide" style="margin:0 0 4px">Capturer</h1>
       <div class="mode-pick" role="tablist">
         <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="#/scan" role="tab" aria-selected="${mode === 'carte'}">
           <span class="mc-ico">${App.icons.icon('capture', 22)}</span>
@@ -54,7 +54,7 @@ App.views.scan = {
         </a>
         <a class="mode-card ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur" role="tab" aria-selected="${mode === 'classeur'}">
           <span class="mc-ico">${App.icons.icon('dex', 22)}</span>
-          <span class="mc-txt"><b>Page de classeur</b><span>Jusqu’à 18 cartes d’un coup</span></span>
+          <span class="mc-txt"><b class="m-hide">Page de classeur</b><b class="d-hide">Classeur</b><span>Jusqu’à 18 cartes d’un coup</span></span>
           ${mode === 'classeur' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
         </a>
         <a class="mode-card ${mode === 'rafale' ? 'on' : ''}" href="#/scan?mode=rafale" role="tab" aria-selected="${mode === 'rafale'}">
@@ -145,7 +145,7 @@ App.views.scan = {
       <div id="sc-target"></div>
       <div class="set-first" style="max-width:640px">
         <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
-        <select id="sc-set"><option value="">Je ne sais pas : chercher partout</option></select>
+        <select id="sc-set"><option value="">Série : je ne sais pas (chercher partout)</option></select>
       </div>
       <div class="scan-wrap">
         <div>
@@ -523,11 +523,11 @@ App.views.scan = {
     const certOn = App.certify.available();
     const setBox = (title) => `<div class="set-first">
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
-            <select id="b-set"><option value="">Plusieurs séries / je ne sais pas</option></select>
+            <select id="b-set"><option value="">Série : je ne sais pas</option></select>
           </div>`;
     // commandes du mode page (gardées cachées en rafale : le code commun s'en sert)
     const pageCtl = `<div class="row" style="margin-bottom:10px">
-            <label class="small">Format de la page
+            <label class="small"><span class="m-hide">Format de la page</span>
               <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
           </div>`;
     // page de classeur (pas de certification) : l'appareil photo du téléphone d'abord — plein écran, pleine qualité
@@ -565,8 +565,7 @@ App.views.scan = {
       </div>` : `
       <div class="batch-wrap">
         <div>
-          ${setBox('Série de la page')}
-          ${pageCtl}
+          <div class="sc-opts">${setBox('Série de la page')}${pageCtl}</div>
           <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur', FORMATS[fmt])}</div>
           ${pageBtns}
         </div>

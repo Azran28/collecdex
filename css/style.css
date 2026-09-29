@@ -1898,3 +1898,84 @@ html.sv-lock, html.sv-lock body { overflow: hidden; }
 .sv-vpill.doubt { border-color: #ffb84d; color: #ffb84d; }
 .sv-vpill span { opacity: .7; }
 .sg-mini { margin: 0 0 12px; }
+
+/* =====================================================================
+   APPLI MOBILE (v2.40) — sur téléphone, le site se comporte comme une appli :
+   pas de surlignage au toucher, retour en haut à gauche, rangées qui défilent
+   de côté, page Capturer compacte. Le PC ne change pas.
+   ===================================================================== */
+a.stat { text-decoration: none; color: inherit; }
+.nav-back { display: none; }
+@media (min-width: 761px) { .d-hide { display: none !important; } }
+@media (max-width: 760px) {
+  html { -webkit-tap-highlight-color: transparent; }
+  a, button, label, select, input, summary { touch-action: manipulation; }
+  .btn, .chip, .mainnav, .topbar, .ctile, .set-card, .game-tile, .mode-card, .stat, .cap-home, .home-goal { -webkit-user-select: none; user-select: none; }
+  .btn:active, .ctile:active .cimg, .set-card:active, .game-tile:active, .mode-card:active, .cap-home:active, .home-goal:active, a.stat:active { transform: scale(.97); transition: transform .08s; }
+  /* en-tête : encoche du téléphone, flèche retour à la place du nom sur les pages « internes » */
+  .topbar { padding-top: calc(8px + env(safe-area-inset-top)); min-height: 52px; gap: 8px; }
+  .nav-back:not([hidden]) { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; margin: -4px 0 -4px -8px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--text); cursor: pointer; }
+  .nav-back:active { background: rgba(255,255,255,.08); }
+  .nav-back svg { width: 24px; height: 24px; stroke-width: 2.4; }
+  .nav-back:not([hidden]) ~ .brand .brand-name { display: none; }
+  .breadcrumb { display: none; }
+  /* barre du bas : pastille derrière l'onglet actif */
+  .mainnav a:not(.nav-scan) .ico { width: 52px; height: 28px; align-items: center; justify-content: center; border-radius: 999px; transition: background .15s; }
+  .mainnav a.active:not(.nav-scan) .ico { background: rgba(124,92,255,.24); }
+  .mainnav a { padding-top: 4px; }
+
+  /* rangées qui défilent de côté (accueil) : elles vont jusqu'au bord de l'écran */
+  .hscroll { display: grid !important; grid-auto-flow: column; grid-template-columns: none !important; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory; scroll-padding-inline: 12px; margin-inline: -12px; padding: 2px 12px 8px; scrollbar-width: none; }
+  .hscroll::-webkit-scrollbar { display: none; }
+  .hscroll > * { scroll-snap-align: start; }
+  .cards.hscroll { grid-auto-columns: 108px; gap: 10px; }
+  .grid-auto.hscroll { grid-auto-columns: 158px; gap: 10px; }
+  .licences.hscroll { grid-auto-columns: min(250px, 72%); }
+  .licences .game-tile.soon { padding: 10px 12px; }
+
+  /* Accueil */
+  .hero { padding: 14px 14px 12px; margin-bottom: 4px; }
+  .hero h1 { font-size: 1.25rem; }
+  .hero .stats { margin-top: 10px; }
+  .hero-cta { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px !important; }
+  .hero-cta .btn { justify-content: center; }
+  .hero-cta .btn.primary { grid-column: 1 / -1; padding: 13px 14px; font-size: 1rem; }
+  .home-flow { display: flex; flex-direction: column; }
+  .home-flow > #h-friends, .home-flow > #h-caps, .home-flow > #h-install { order: 0; }
+  .home-flow > #h-inprogress { order: 1; }
+  .home-flow > .h-recent { order: 2; }
+  .home-flow > #h-goals { order: 3; }
+  .home-flow > .h-lic { order: 4; }
+  .home-flow > div:empty { display: none; }
+  .home-flow .section-title { margin: 20px 0 10px; }
+  .home-flow .cap-home { margin-top: 12px; }
+  .install-banner { margin: 12px 0 0; }
+
+  /* Capturer : mode en onglets compacts, série sur une ligne, place à la photo */
+  body[data-view="scan"] .app { padding-top: 12px; }
+  .mode-pick { display: flex; gap: 4px; padding: 4px; margin-bottom: 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+  .mode-card { flex: 1 1 0; flex-direction: row; align-items: center; justify-content: center; gap: 6px; padding: 8px 4px; border: 0; border-radius: 10px; background: none; box-shadow: none; }
+  .mode-card .mc-ico { width: auto; height: auto; background: none !important; color: inherit; }
+  .mode-card .mc-ico svg { width: 18px; height: 18px; }
+  .mode-card .mc-txt > span { display: none; }
+  .mode-card .mc-txt b { font-size: .86rem; white-space: nowrap; }
+  .mode-card:not(.on) { color: #aab0d3; }
+  .mode-card.on { background: var(--holo) !important; color: #16172a; box-shadow: 0 4px 14px rgba(124,92,255,.35); }
+  .mode-card.on .mc-ico { color: #16172a; }
+  .set-first, .set-first.chosen { padding: 0; margin-bottom: 10px; border: 0; background: none; }
+  .set-first .sf-head { display: none; }
+  .set-first select { padding: 10px 12px; border: 1.5px dashed rgba(255,210,63,.55); }
+  .set-first.chosen select { border: 1.5px solid rgba(61,220,151,.6); }
+  .sc-opts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; margin-bottom: 10px; }
+  .sc-opts > * { margin: 0 !important; }
+  .sc-opts label.small { display: block; }
+  .sc-opts select { width: 100%; max-width: 140px; padding: 10px 8px; }
+  .sc-opts .set-first select { max-width: none; }
+  /* avant la photo : le cadre prend la place disponible, les boutons restent juste en dessous */
+  .scan-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { aspect-ratio: auto; height: clamp(230px, calc(100svh - 330px), 560px); }
+  .batch-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { height: clamp(230px, calc(100svh - 385px), 560px); }
+  .scan-dock { margin-top: 10px !important; }
+}
+/* appli installée : pas d'effet « élastique » en haut de page */
+@media (display-mode: standalone) { html, body { overscroll-behavior-y: none; } }

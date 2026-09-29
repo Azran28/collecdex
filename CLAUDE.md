@@ -6,6 +6,7 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 ## Façon de travailler avec Arnaud
 - Toujours répondre **en français**, simplement, sans jargon ; pas de commandes à taper de son côté sauf nécessité (ex. coller un script SQL dans Supabase, en expliquant où cliquer).
 - Tester soi-même avant de dire « c'est fait » (navigateur intégré sur `http://localhost:8765` et le site en ligne), en ordinateur **et** en taille téléphone (375 × 812).
+- **Le but est l'appli sur téléphone** (Arnaud, 29 sept.) : penser chaque changement d'abord pour le téléphone (appli installée), en « appli » plutôt qu'en « site ». Le PC reste tel quel : n'y toucher que s'il le demande (ou le lui suggérer).
 - Ne jamais demander ni manipuler la clé secrète Supabase (`sb_secret_…` / `service_role`) ni le mot de passe de la base. Arnaud crée ses comptes et tape ses mots de passe lui-même.
 - Données de test dans le navigateur intégré : les effacer après (`App.col.wipeLocal()`, seulement si personne n'est connecté).
 - Les fichiers contenant son e-mail (ex. `supabase-mes-certificats.sql`) restent sur son PC, jamais sur GitHub.
@@ -63,6 +64,7 @@ Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude 
 - Sons : `js/sfx.js` (`App.sfx`, Web Audio synthétisé, pas de fichiers), réglage `App.settings.sound`.
 - Vitrine : ne jamais redessiner à chaque `App.col.on` (prix du jour, synchro) : la vitrine compare une signature et redessine une seule fois après 1,2 s en gardant la hauteur et le défilement (sinon le scroll saute).
 - `css/style.css` : styles de base puis blocs successifs (« THÈME POP », certification, holo, badges, passe responsive). Les règles mobiles sont sous `@media (max-width: 760px)`.
+- **Appli mobile (v2.40)** : bloc « APPLI MOBILE » à la fin de `style.css` (tout sous `max-width: 760px`, le PC ne change pas). Classes `.m-hide` (caché sur téléphone) / `.d-hide` (caché sur PC), `.hscroll` (rangée qui défile de côté jusqu'au bord de l'écran, utilisée sur l'accueil pour `.cards`, `.grid-auto`, `.licences`). `body[data-view]` = nom de la vue en cours. Flèche retour `#nav-back` (index.html) montrée hors des onglets `TABS` de `app.js` ; `history.state.d` = profondeur dans l'appli → `history.back()` si > 0, sinon dernier lien de `.breadcrumb` (caché sur téléphone mais gardé dans chaque page pour ça). Accueil : `.home-flow` réordonné sur téléphone par `order`. Capturer : `.mode-pick` en onglets, `.sc-opts` (série + format côte à côte en classeur), `.sf-head` caché (le texte « Série : … » est dans l'option vide).
 
 ## Sécurité (v2.14)
 - **CSP** dans `index.html` (`<meta http-equiv="Content-Security-Policy">`) : scripts seulement du site et de `cdn.jsdelivr.net` (+ `wasm-unsafe-eval` pour Tesseract), workers `blob:`, connexions limitées à TCGdex, Supabase, jsDelivr, tessdata, raw.githubusercontent. **Nouveau service externe ou nouvelle bibliothèque → l'ajouter à la CSP**, sinon il est bloqué en silence (événement `securitypolicyviolation`). Pas de script en ligne ni d'attribut `onclick=` (utiliser un écouteur, ex. `data-reload`).

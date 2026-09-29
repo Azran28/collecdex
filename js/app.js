@@ -22,6 +22,14 @@ App.views = App.views || {};
 
   let cleanup = null;
   let renderId = 0;
+  const TABS = ['home', 'sets', 'scan', 'collection', 'match'];
+  let lastDepth = 0; // profondeur dans l'historique de l'appli (0 = première page ouverte)
+  // retour : page précédente de l'appli s'il y en a une, sinon la page « parente » (dernier lien du fil d'Ariane)
+  document.getElementById('nav-back').addEventListener('click', () => {
+    if (history.state && history.state.d > 0) { history.back(); return; }
+    const up = document.querySelector('#app .breadcrumb a:last-of-type');
+    location.hash = up ? up.getAttribute('href') : '#/';
+  });
 
   async function route() {
     const path = (location.hash || '#/').slice(1).split('?')[0];
@@ -36,6 +44,12 @@ App.views = App.views || {};
     App.util.closeModal();
 
     document.querySelectorAll('.topbar a[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === navOf[view]));
+    // téléphone : flèche « retour » en haut sur les pages qui ne sont pas des onglets de la barre du bas
+    const st = history.state || {};
+    if (typeof st.d !== 'number') history.replaceState({ ...st, d: lastDepth + (renderId ? 1 : 0) }, '');
+    lastDepth = history.state.d;
+    document.getElementById('nav-back').hidden = TABS.includes(view);
+    document.body.dataset.view = view;
     // conteneur neuf à chaque page, pour repartir sans les écouteurs de la page précédente
     const oldEl = document.getElementById('app');
     const el = oldEl.cloneNode(false);

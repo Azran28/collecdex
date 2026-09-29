@@ -128,6 +128,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le bouton est aussi dans **Paramètres › Application** (marche aussi sur ordinateur, avec Chrome ou Edge).
 - L'appli s'ouvre en plein écran et reste consultable **sans réseau** : ta collection, tes photos, les séries et visuels déjà vus. Les prix, la synchro et la capture ont besoin du réseau.
 - Les mises à jour arrivent toutes seules, comme sur le site.
+- **Sur téléphone, le site se comporte comme une appli** : une flèche **‹** en haut à gauche ramène à la page précédente (séries, paramètres, amis, capsules…) ; l'accueil tient en un écran et demi (bouton « Capturer une carte » + raccourcis « Page de classeur » et « Rafale », tes séries en cours et tes derniers ajouts dans des rangées qui défilent de côté) ; la page Capturer est compacte (Une carte / Classeur / Rafale en onglets, série sur une ligne, grande zone photo avec les boutons juste en dessous).
 
 ## Le site en ligne
 
