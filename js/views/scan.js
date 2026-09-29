@@ -989,6 +989,9 @@ App.views.scan = {
     const uniq = (list) => { const seen = new Set(); return list.filter((x) => x && !seen.has(x.id) && seen.add(x.id)); };
     /** Découpe la carte selon ses 4 coins (fractions de la photo), remise à plat */
     async function cropToQuad(blob, quad) {
+      // un coin hors de la découpe (la case ne contenait pas toute la carte) : on ne recadre pas, sinon les pixels
+      // du bord sont étirés pour combler (bandes sur les côtés, vu par Arnaud en v2.33)
+      if (quad.some(([x, y]) => x < -0.005 || x > 1.005 || y < -0.005 || y > 1.005)) return null;
       const bmp = await createImageBitmap(blob), W = bmp.width, H = bmp.height;
       const q = quad.map(([x, y]) => [x * W, y * H]);
       const w = Math.round(Math.min(900, Math.max(240, Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]))));
@@ -1165,6 +1168,7 @@ App.views.scan = {
           ${cur ? `<img class="sv-off" src="${visOf(cur)}" alt="Visuel officiel">` : '<span class="sv-off sv-wait"><b>?</b></span>'}</div>
         <div class="sv-name">${cur ? `${esc(cur.name)} <span class="muted">· ${esc(App.views.scan.setLabel(cur))} · ${esc(cur.localId)}</span>` : 'Carte non reconnue'}</div>
         <div class="sv-why">${why}</div>
+        ${svVersions(c, cur)}
         ${others.length ? `<div class="sv-alts"><span class="small muted">${cur ? 'Ou bien l’une de celles-ci :' : 'Propositions :'}</span>
           <div>${others.map((x) => `<button class="sv-alt" data-sv="pick" data-id="${esc(x.id)}"><img src="${visOf(x)}" alt=""><span><b>${esc(x.name)}</b></span><span class="muted">${esc(x.localId)} · ${esc((x.set && x.set.name) || '')}</span></button>`).join('')}</div></div>` : ''}
         <div class="sv-acts">
@@ -1173,6 +1177,25 @@ App.views.scan = {
           <button class="btn" data-sv="no">Ne pas l’ajouter</button>
         </div>
         <div class="sv-nav">${!sv.single && sv.idx > 0 ? '<button class="linkbtn" data-sv="prev">← Carte précédente</button>' : '<span></span>'}<button class="linkbtn" data-sv="close">Voir la liste détaillée</button></div>`;
+    }
+    /** Version de la carte (normale / holo / reverse, 1re édition) : mesurée sur la photo, corrigeable ici avant l'enregistrement */
+    function svVersions(c, cur) {
+      if (!cur || !cur.variants) return '';
+      const opts = baseOpts(cur), fe = !!cur.variants.firstEdition;
+      if (opts.length <= 1 && !fe) return '';
+      const v = (c.det && c.det.id === cur.id && versOf(c)) || [];
+      const how = !c.det || c.det.id !== cur.id || c.det.measuring ? 'mesure…' : c.det.user ? 'choisie' : c.det.sure ? 'mesurée sur la photo' : 'à vérifier';
+      return `<div class="sv-vers"><span class="small muted">Version <span class="${how === 'à vérifier' ? 'warn' : ''}">(${how})</span></span>
+        <div class="chips">${opts.map((k) => `<button class="chip ${v.includes(k) ? 'on' : ''}" data-sv="vbase" data-v="${k}">${VN[k]}</button>`).join('')}
+        ${fe ? `<button class="chip ${v.includes('firstEdition') ? 'on' : ''}" data-sv="vfe">1ʳᵉ éd.</button>` : ''}</div></div>`;
+    }
+    /** Texte court de la version pour le récapitulatif (« Holo ? » si pas sûre) */
+    function versTxt(c, cur) {
+      if (!cur || !cur.variants || !c.det || c.det.id !== cur.id || c.det.measuring) return '';
+      const opts = baseOpts(cur), v = versOf(c) || [];
+      if (opts.length <= 1 && !cur.variants.firstEdition) return '';
+      const doubt = !c.det.user && !c.det.sure && opts.length > 1;
+      return `${v.map((k) => VN[k] || k).join(' · ')}${doubt ? ' <b class="warn">?</b>' : ''}`;
     }
     function svRecap() {
       const shown = cells.filter((c) => c.choice || !['vide', 'dos', 'autre', 'erreur'].includes(c.state));
@@ -1186,8 +1209,8 @@ App.views.scan = {
       };
       return `${svTop('<b>Récapitulatif de la page</b>', pageDur ? `<span class="muted small">analyse : ${durTxt(pageDur)}</span>` : '')}
         <div class="sv-recap">${shown.map((c) => { const cur = cardOf(c), [k, t] = tag(c); return `<button class="sv-rc ${k}" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}>
-          <img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span><span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span></button>`; }).join('')}</div>
-        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer.</div>
+          <img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span><span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span>${cur && versTxt(c, cur) ? `<span class="sv-rv">${versTxt(c, cur)}</span>` : ''}</button>`; }).join('')}</div>
+        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer (carte ou version : un <b class="warn">?</b> = version à vérifier).</div>
         <div class="sv-acts sv-final">
           <button class="btn primary" data-sv="save" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
           <button class="btn" data-sv="close">Voir la liste détaillée</button>
@@ -1236,6 +1259,14 @@ App.views.scan = {
         return;
       }
       if (a === 'open') return svOpen('review', { list: [+b.dataset.i], idx: 0, single: true });
+      if ((a === 'vbase' || a === 'vfe') && c) { // version corrigée à la main
+        const cur = cardOf(c); if (!cur) return;
+        if (!c.det || c.det.id !== cur.id) c.det = { id: cur.id, list: [] };
+        const had = (versOf(c) || []).includes('firstEdition');
+        if (a === 'vbase') c.det.base = b.dataset.v; else c.det.fe = !had;
+        c.det.user = true; c.det.measuring = false;
+        drawResults(); return drawSV();
+      }
       if (a === 'save') { svClose(); const add = resultsEl.querySelector('#b-add'); if (add) add.click(); }
     }
     if (svBox()) svBox().addEventListener('click', (e) => { const b = e.target.closest('[data-sv]'); if (b && !b.disabled) svAction(b); });
@@ -1327,7 +1358,8 @@ App.views.scan = {
       c.det = { id, measuring: true, list: [] };
       try {
         const d = await R.detectVariants(c.blob, cur.variants, ad.img.card(cur, 'high'));
-        if (c.choice === id) c.det = { id, list: d.list, sure: !!(d.sure && (d.sure.base !== false)), info: d.info };
+        // (« sûre » seulement si la mesure l'est vraiment ; une version choisie à la main pendant la mesure n'est pas écrasée)
+        if (c.choice === id && !(c.det && c.det.user)) c.det = { id, list: d.list, sure: !!(d.sure && d.sure.base), info: d.info };
       } catch (e) { if (c.choice === id) c.det = { id, list: [], sure: false }; }
     }
     const versHtml = (c, cur) => {
@@ -1344,7 +1376,7 @@ App.views.scan = {
     };
 
     function drawResults() {
-      if (sv.open && sv.mode === 'scan') drawSV(); // l'écran plein écran suit l'analyse
+      if (sv.open) drawSV(); // l'écran plein écran suit l'analyse (et les versions mesurées en arrière-plan)
       const [cols] = dims();
       const chosen = cells.filter((c) => c.choice && modeOf(c) !== 'rien');
       const savedN = cells.filter((c) => c.saved).length, leftN = cells.filter((c) => !c.saved && c.choice).length;

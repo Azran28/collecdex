@@ -65,6 +65,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 ## Versions reconnues sur la photo
 - À l'ajout d'une carte (seule ou en classeur), le site choisit sa **version** d'après la photo, parmi celles qui existent pour cette carte : **holo** ou **normale** (automatique quand la carte n'existe qu'en une seule), **reverse** (le fond de la carte brille), **1ʳᵉ édition** (le petit logo noir « Édition 1 » sous l'illustration des anciennes cartes).
 - La version trouvée s'affiche après l'ajout (« Version reconnue : Holo · 1ʳᵉ édition », bouton « modifier ») et dans la fiche de la carte (« reconnue sur ta photo »). Touche une version dans la fiche pour corriger.
+- **Avant d'enregistrer** (page de classeur, rafale) : le récapitulatif affiche la version de chaque carte ; un **?** veut dire « à vérifier ». Touche la carte : des boutons **Normale / Holo / Reverse / 1ʳᵉ éd.** permettent de la corriger. **Après l'ajout**, ouvre la carte depuis Mon Dex : section « Mon Dex » de sa fiche, ligne **Versions** (touche une version pour l'allumer ou l'éteindre).
 - Le logo 1ʳᵉ édition est cherché en le comparant à un vrai logo photographié : il est trouvé sur une carte seule nette et sur une page de classeur nette (9 cartes). Sur une photo floue, le site ne met pas « 1ʳᵉ édition » (il vaut mieux l'ajouter à la main que se tromper).
 - La **reverse** n'a pas encore pu être testée sur une vraie carte reverse : vérifie-la après l'ajout.
 
