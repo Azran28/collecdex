@@ -500,6 +500,9 @@ App.views.scan = {
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
     let running = false, stopped = false, detected = null, timing = null, prog = null; // prog : barre de progression de la page ; timing : temps de chaque étape (vérification par l’image, en essai)
+    // écran plein écran de la page (v2.32) : 'scan' pendant l'analyse, 'review' = cartes à vérifier une par une, 'recap' = récapitulatif
+    const sv = { open: false, mode: 'scan', list: [], idx: 0, single: false };
+    let pageDur = 0; // durée de l'analyse de la page (affichée dans le récapitulatif)
     let autoGrid = false, autoTimer = null;   // grille trouvée toute seule / lancement automatique
     let autoCells = null, autoRot = 0, dimsOv = null; // cases trouvées (photo en biais) ; cartes couchées ; 2 pages en hauteur
     let pageCert = null;       // vérification en direct de la photo de page (null = photo importée)
@@ -559,6 +562,7 @@ App.views.scan = {
         <div>
           <div id="b-status"></div>
           <div id="b-results">${App.views.scan.guide('classeur')}</div>
+          <div id="b-sv" class="sv hidden" role="dialog" aria-modal="true" aria-label="Analyse de la page"></div>
         </div>
       </div>`;
 
@@ -797,10 +801,11 @@ App.views.scan = {
       if (!photo || running) return;
       if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
       el.querySelector('#b-auto').classList.add('hidden');
-      running = true; timing = null;
+      running = true; timing = null; pageDur = 0;
+      if (!burst) svOpen('scan'); // analyse en plein écran, carte par carte
       const tStart = performance.now();
       el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
-      const warmP = App.visual && App.settings.visualCheck ? App.visual.warm() : null; // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
+      const warmP = App.visual && App.settings.visualCheck !== false ? App.visual.warm() : null; // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
       const [cols, rows] = dims(), n = cols * rows;
       const hint = el.querySelector('#b-set').value;
       detected = null;
@@ -855,12 +860,13 @@ App.views.scan = {
       prog = { step: 'Série de la page…', done: n, total: n };
       if (!hint && alive() && !stopped) await guessSeries();
       // Troisième passe : vérification par l'image (réseau de neurones + points clés)
-      if (alive() && !stopped && App.settings.visualCheck) { timing = { text: performance.now() - tStart, warm: await warmP }; await visualPass(hint); }
-      running = false; prog = null;
+      if (alive() && !stopped && App.settings.visualCheck !== false) { timing = { text: performance.now() - tStart, warm: await warmP }; await visualPass(hint); }
+      running = false; prog = null; pageDur = performance.now() - tStart;
       el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
       el.querySelector('#b-set').disabled = false;
       setStatus('');
       drawResults();
+      if (!burst) svAfterScan(); // écran plein écran : cartes à vérifier une par une, puis récapitulatif
     });
 
     /**
@@ -958,7 +964,7 @@ App.views.scan = {
      */
     async function visualPass(hint) {
       const V = App.visual;
-      if (!V || !App.settings.visualCheck) return; // (en essai : réglage dans Paramètres)
+      if (!V || App.settings.visualCheck === false) return; // (réglage dans Paramètres)
       if (!V.supported()) { timing = { ...(timing || {}), error: 'pas possible sur ce navigateur' }; return; }
       // (une carte sans aucune piste trouvée par le texte n'est comparée qu'une fois la série connue)
       const all = cells.filter((c) => !c.saved && ['sure', 'verifier', 'inconnue'].includes(c.state));
@@ -1026,9 +1032,130 @@ App.views.scan = {
       T.total = performance.now() - tv; T.cards = all.length;
       setStatus('');
     }
-    /** Chronomètre de la vérification par l'image (réglage en essai), affiché sous la liste */
+    // ---------- Écran plein écran de la page (v2.32, idée d'Arnaud : « plus visuel, moins bordélique ») ----------
+    // 1) analyse : la carte en cours en grand avec l'animation, ce qui a été lu, la mini-page ;
+    // 2) seulement les cartes « à vérifier », une par une, avec de gros boutons ; 3) récapitulatif + « Enregistrer ».
+    // La liste détaillée reste disponible (« Voir la liste »), et l'analyse continue pendant ce temps.
+    const svBox = () => el.querySelector('#b-sv');
+    const lockScroll = (on) => document.documentElement.classList.toggle('sv-lock', on);
+    function svOpen(mode, extra = {}) { Object.assign(sv, { open: true, mode, single: false }, extra); lockScroll(true); drawSV(); }
+    function svClose() { sv.open = false; lockScroll(false); drawSV(); drawResults(); }
+    /** Cartes qui méritent un coup d'œil : pas sûres, ou pas reconnues */
+    const toCheck = () => cells.filter((c) => !c.saved && ['verifier', 'inconnue'].includes(c.state)).map((c) => c.i);
+    const cardOf = (c) => c.cands.find((x) => x.id === c.choice) || null;
+    const visOf = (x) => esc(ad.img.card(x, 'low'));
+    const durTxt = (ms) => { const s = Math.round(ms / 1000); return s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s` : `${s} s`; };
+    /** Mini-page : une case par pochette (classeur ouvert : les 2 pages côte à côte) */
+    function miniPage(cur) {
+      const per = cells.length > 9 && dims()[0] === 6 ? 9 : cells.length, cols = per === 9 ? 3 : dims()[0], parts = [];
+      for (let s = 0; s < cells.length; s += per) parts.push(cells.slice(s, s + per));
+      return `<div class="sv-mini">${parts.map((p) => `<div style="grid-template-columns:repeat(${cols},1fr)">${p.map((c) => `<i class="st-${c.saved ? 'saved' : c.state}${c === cur ? ' cur' : ''}" title="Carte ${c.i + 1}"></i>`).join('')}</div>`).join('')}</div>`;
+    }
+    function svTop(label, right, bar) {
+      return `<div class="sv-top"><div class="bprog-lbl"><span>${label}</span><b>${right || ''}</b></div>${bar || ''}</div>`;
+    }
+    function svScan() {
+      const cur = cells.find((c) => c.vscan) || cells.find((c) => c.state === 'lecture');
+      const last = cells.filter((c) => c.found && c !== cur).sort((a, b) => b.found - a.found)[0];
+      const p = prog, off = cur && cardOf(cur), lc = last && cardOf(last);
+      const bar = p ? `<div class="bprog-bar ${p.kind === 'img' ? 'img' : ''}"><i style="width:${Math.round((100 * p.done) / Math.max(1, p.total))}%"></i></div>` : '';
+      return `${svTop(p ? esc(p.step) : 'Préparation de la page…', p ? `${Math.min(p.done + 1, p.total)} / ${p.total}` : '', bar)}
+        ${cur ? `<div class="sv-pair">
+            <span class="bphoto ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
+            ${off ? `<img class="sv-off sv-dim" src="${visOf(off)}" alt="Carte proposée">` : `<span class="sv-off sv-wait">${App.icons.icon('search', 22)}<span>recherche…</span></span>`}
+          </div>
+          <div class="sv-read">Carte ${cur.i + 1}${cur.info ? ` · lu : ${esc(R.readSummary(cur.info))}` : ''}${off ? ` · piste : <b>${esc(off.name)}</b>` : ''}</div>`
+        : `<div class="sv-pair sv-idle"><div class="spinner"></div></div><div class="sv-read">Un instant…</div>`}
+        ${last ? `<div class="sv-last">${lc ? `<img src="${visOf(lc)}" alt="">` : ''}<span>Carte ${last.i + 1} : <b>${lc ? esc(lc.name) : '?'}</b> — <span class="${last.state === 'sure' ? 'ok' : 'warn'}">${last.state === 'sure' ? 'reconnue ✓' : 'à vérifier'}</span></span></div>` : ''}
+        ${miniPage(cur)}
+        <button class="btn" data-sv="close">Voir la liste pendant ce temps</button>`;
+    }
+    function svReview() {
+      const c = cells[sv.list[sv.idx]];
+      if (!c) return svRecap();
+      const cur = cardOf(c);
+      const sureN = cells.filter((x) => !x.saved && x.state === 'sure').length;
+      const others = c.cands.filter((x) => x !== cur).slice(0, 4);
+      const twin = cur && others.find((x) => App.util.norm(x.name) === App.util.norm(cur.name));
+      const why = !cur ? 'Carte pas reconnue avec certitude : choisis parmi les propositions, ou cherche-la.'
+        : twin ? `Même dessin que ${esc(App.views.scan.setLabel(twin))} · ${esc(twin.localId)} : laquelle est-ce ?`
+        : 'Pas tout à fait sûr : c’est bien elle ?';
+      return `${svTop(sv.single ? `Carte ${c.i + 1}` : `${sureN ? `${sureN} reconnue${sureN > 1 ? 's' : ''} · ` : ''}<span class="warn">${sv.list.length} à vérifier</span>`, sv.single ? '' : `${sv.idx + 1} / ${sv.list.length}`)}
+        <div class="sv-pair"><span class="bphoto"><img src="${c.url}" alt="Ta carte ${c.i + 1}"></span>
+          ${cur ? `<img class="sv-off" src="${visOf(cur)}" alt="Visuel officiel">` : '<span class="sv-off sv-wait"><b>?</b></span>'}</div>
+        <div class="sv-name">${cur ? `${esc(cur.name)} <span class="muted">· ${esc(App.views.scan.setLabel(cur))} · ${esc(cur.localId)}</span>` : 'Carte non reconnue'}</div>
+        <div class="sv-why">${why}</div>
+        ${others.length ? `<div class="sv-alts"><span class="small muted">${cur ? 'Ou bien l’une de celles-ci :' : 'Propositions :'}</span>
+          <div>${others.map((x) => `<button class="sv-alt" data-sv="pick" data-id="${esc(x.id)}"><img src="${visOf(x)}" alt=""><span><b>${esc(x.name)}</b></span><span class="muted">${esc(x.localId)} · ${esc((x.set && x.set.name) || '')}</span></button>`).join('')}</div></div>` : ''}
+        <div class="sv-acts">
+          ${cur ? `<button class="btn primary" data-sv="yes">✓ C’est elle</button>` : ''}
+          <button class="btn" data-sv="search">🔎 Chercher</button>
+          <button class="btn" data-sv="no">Ne pas l’ajouter</button>
+        </div>
+        <div class="sv-nav">${!sv.single && sv.idx > 0 ? '<button class="linkbtn" data-sv="prev">← Carte précédente</button>' : '<span></span>'}<button class="linkbtn" data-sv="close">Voir la liste détaillée</button></div>`;
+    }
+    function svRecap() {
+      const shown = cells.filter((c) => c.choice || !['vide', 'dos', 'autre', 'erreur'].includes(c.state));
+      const ign = cells.length - shown.length;
+      const chosen = cells.filter((c) => c.choice && !c.saved && modeOf(c) !== 'rien');
+      const tag = (c) => {
+        if (c.saved) return ['ok', 'Enregistrée ✓'];
+        if (!c.choice || !c.checked) return ['off', 'Pas ajoutée'];
+        const m = modeOf(c);
+        return m === 'nouvelle' ? ['new', 'Nouvelle'] : m === 'doublon' ? ['dup', 'Doublon'] : m === 'photo' ? ['dup', 'Nouvelle photo'] : ['own', 'Déjà dans ton Dex'];
+      };
+      return `${svTop('<b>Récapitulatif de la page</b>', pageDur ? `<span class="muted small">analyse : ${durTxt(pageDur)}</span>` : '')}
+        <div class="sv-recap">${shown.map((c) => { const cur = cardOf(c), [k, t] = tag(c); return `<button class="sv-rc ${k}" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}>
+          <img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span><span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span></button>`; }).join('')}</div>
+        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer.</div>
+        <div class="sv-acts sv-final">
+          <button class="btn primary" data-sv="save" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
+          <button class="btn" data-sv="close">Voir la liste détaillée</button>
+        </div>`;
+    }
+    function drawSV() {
+      const box = svBox(); if (!box) return;
+      box.classList.toggle('hidden', !sv.open);
+      if (!sv.open) { box.innerHTML = ''; return; }
+      box.innerHTML = `<div class="sv-in sv-m-${sv.mode}">${sv.mode === 'scan' ? svScan() : sv.mode === 'review' ? svReview() : svRecap()}</div>`;
+    }
+    /** Fin de l'analyse : cartes à vérifier d'abord, sinon directement le récapitulatif */
+    function svAfterScan() {
+      if (!sv.open) return;
+      const l = toCheck();
+      if (l.length) svOpen('review', { list: l, idx: 0 }); else svOpen('recap');
+    }
+    function svAction(b) {
+      const a = b.dataset.sv, c = sv.mode === 'review' ? cells[sv.list[sv.idx]] : null;
+      const next = () => {
+        if (sv.single || sv.idx >= sv.list.length - 1) Object.assign(sv, { mode: 'recap', single: false }); else sv.idx++;
+        drawResults(); drawSV();
+        const box = svBox(); if (box) box.scrollTop = 0;
+      };
+      if (a === 'close') return svClose();
+      if (a === 'prev') { sv.idx = Math.max(0, sv.idx - 1); return drawSV(); }
+      if (a === 'yes' && c) { c.checked = true; c.mode = null; return next(); }
+      if (a === 'no' && c) { c.checked = false; return next(); }
+      if (a === 'pick' && c) { // une autre proposition : on la montre en grand, il reste à confirmer
+        c.choice = b.dataset.id; c.mode = null; c.checked = true; if (c.state === 'inconnue') c.state = 'verifier';
+        drawResults(); return drawSV();
+      }
+      if (a === 'search' && c) {
+        svClose();
+        const box = resultsEl.querySelector(`[data-box="${c.i}"]`), tile = resultsEl.querySelector(`.btile[data-i="${c.i}"]`);
+        if (box) box.classList.remove('hidden');
+        if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const inp = resultsEl.querySelector(`[data-name="${c.i}"]`); if (inp) setTimeout(() => inp.focus(), 400);
+        return;
+      }
+      if (a === 'open') return svOpen('review', { list: [+b.dataset.i], idx: 0, single: true });
+      if (a === 'save') { svClose(); const add = resultsEl.querySelector('#b-add'); if (add) add.click(); }
+    }
+    if (svBox()) svBox().addEventListener('click', (e) => { const b = e.target.closest('[data-sv]'); if (b && !b.disabled) svAction(b); });
+
+    /** Chronomètre de la vérification par l'image (réglage « Afficher le temps de chaque étape »), affiché sous la liste */
     function timingHtml() {
-      if (!timing || !App.settings.visualCheck) return '';
+      if (!timing || App.settings.visualCheck === false || !App.settings.showTiming) return '';
       const s = (ms) => (ms == null ? '—' : ms >= 10000 ? `${Math.round(ms / 1000)} s` : `${(ms / 1000).toFixed(1)} s`);
       const w = timing.warm;
       return `<div class="panel small" style="margin-top:12px"><b>⏱ Temps (essai de la vérification par l’image)</b><br>
@@ -1130,6 +1257,7 @@ App.views.scan = {
     };
 
     function drawResults() {
+      if (sv.open && sv.mode === 'scan') drawSV(); // l'écran plein écran suit l'analyse
       const [cols] = dims();
       const chosen = cells.filter((c) => c.choice && modeOf(c) !== 'rien');
       const savedN = cells.filter((c) => c.saved).length, leftN = cells.filter((c) => !c.saved && c.choice).length;
@@ -1140,6 +1268,7 @@ App.views.scan = {
           ${leftN ? ` Il reste ${leftN} carte${leftN > 1 ? 's' : ''} ${burst ? 'dans la rafale' : 'sur cette page'} : coche celles que tu veux ajouter, corrige-les si besoin, puis enregistre à nouveau.` : ''}
           <div class="row" style="margin-top:8px"><button class="btn sm primary" id="b-next">${burst ? 'Nouvelle rafale' : 'Page suivante'}</button><a class="btn sm" href="#/collection">Voir mon Dex</a></div></div>` : ''}
         <div class="row" style="margin-bottom:10px"><h3 style="margin:0">${burst ? `Cartes capturées <span class="muted small">(${cells.length})</span>` : 'Résultat de la page'}</h3><span class="spacer"></span>
+          ${!running && cells.length && !burst ? `<button class="btn sm" id="b-sv-open">${toCheck().length === 1 ? 'Vérifier la carte douteuse' : toCheck().length ? `Vérifier les ${toCheck().length} cartes douteuses` : 'Récapitulatif'}</button>` : ''}
           ${!running && cells.length ? `<button class="btn sm ghost" id="b-all">Tout cocher</button><button class="btn sm ghost" id="b-none">Tout décocher</button>
             <span class="muted small">${chosen.length} carte${chosen.length > 1 ? 's' : ''} à enregistrer</span>` : ''}</div>
         ${detected ? `<div class="detect-bar small">${App.icons.icon('layers', 15)}<span>${detected.auto ? `Série devinée : <b>${esc(detected.name)}</b> (d’après ${detected.nb} cartes de la page). Les cartes incertaines ont été recomparées à cette série.` : `Cartes incertaines recomparées à <b>${esc(detected.name)}</b>.`}</span>
@@ -1240,6 +1369,7 @@ App.views.scan = {
       if (e.key === 'Enter' && e.target.closest('[data-name],[data-num]')) resultsEl.querySelector(`[data-dosearch="${e.target.dataset.name || e.target.dataset.num}"]`).click();
     });
     resultsEl.addEventListener('click', async (e) => {
+      if (e.target.closest('#b-sv-open')) { const l = toCheck(); if (l.length) svOpen('review', { list: l, idx: 0 }); else svOpen('recap'); return; }
       if (e.target.closest('#b-next')) { if (burst) resetBurst(); else el.querySelector('#b-reset').click(); return; }
       if (e.target.closest('#b-all')) { cells.forEach((c) => { if (c.choice && !c.saved) c.checked = true; }); drawResults(); return; }
       if (e.target.closest('#b-none')) { cells.forEach((c) => { c.checked = false; }); drawResults(); return; }
@@ -1478,6 +1608,6 @@ App.views.scan = {
       });
     }
 
-    return () => { stopped = true; if (rTimer) clearInterval(rTimer); cam.stop(); urls.forEach((u) => URL.revokeObjectURL(u)); };
+    return () => { stopped = true; lockScroll(false); if (rTimer) clearInterval(rTimer); cam.stop(); urls.forEach((u) => URL.revokeObjectURL(u)); };
   },
 };

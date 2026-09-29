@@ -1775,3 +1775,54 @@ body.cap-lock { overflow: hidden; }
   .bphoto .bscan { display: none; }
   .bphoto .bdot { opacity: .8; }
 }
+
+/* ===== Écran plein écran de la page de classeur (v2.32) : analyse, cartes à vérifier, récapitulatif ===== */
+html.sv-lock, html.sv-lock body { overflow: hidden; }
+.sv { position: fixed; inset: 0; z-index: 300; background: #080a12; overflow-y: auto; overscroll-behavior: contain; }
+.sv.hidden { display: none; }
+.sv-in { max-width: 520px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; min-height: 100%; box-sizing: border-box; }
+.sv-top { padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.sv-top .bprog-lbl { margin: 0; }
+.sv-top .bprog-bar { margin-top: 7px; }
+.sv .warn { color: #ffb84d; } .sv .ok { color: var(--ok); }
+.sv-pair { display: grid; grid-template-columns: repeat(2, minmax(0, min(44vw, 34vh))); justify-content: center; gap: 10px; }
+.sv-pair.sv-idle { grid-template-columns: 1fr; min-height: 30vh; place-items: center; }
+.sv .bphoto { position: relative; display: block; overflow: hidden; border-radius: 10px; }
+.sv-pair img, .sv-pair .sv-off { width: 100%; aspect-ratio: 63/88; object-fit: cover; border-radius: 10px; display: block; background: var(--bg2); }
+.sv-off.sv-dim { opacity: .45; filter: grayscale(.4); }
+.sv-off.sv-wait { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1px dashed var(--line); background: transparent; color: var(--muted); font-size: .85rem; box-sizing: border-box; }
+.sv-off.sv-wait b { font-size: 2.4rem; }
+.sv-read, .sv-why { text-align: center; color: var(--muted); font-size: .88rem; line-height: 1.35; overflow-wrap: anywhere; }
+.sv-read b { color: var(--text); }
+.sv-name { text-align: center; font-size: 1.15rem; font-weight: 800; line-height: 1.3; }
+.sv-last { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface); font-size: .88rem; }
+.sv-last img { width: 34px; aspect-ratio: 63/88; object-fit: cover; border-radius: 4px; flex: none; }
+.sv-mini { display: flex; justify-content: center; gap: 12px; }
+.sv-mini > div { display: grid; gap: 3px; width: 96px; }
+.sv-mini i { aspect-ratio: 63/88; border-radius: 3px; background: var(--surface2); }
+.sv-mini i.st-sure, .sv-mini i.st-saved { background: var(--ok); }
+.sv-mini i.st-verifier { background: #ffb84d; }
+.sv-mini i.st-inconnue, .sv-mini i.st-erreur { background: #ff6b6b; }
+.sv-mini i.st-vide, .sv-mini i.st-dos, .sv-mini i.st-autre { background: transparent; border: 1px dashed var(--line); }
+.sv-mini i.cur { background: #34d5ff; box-shadow: 0 0 0 2px #34d5ff; animation: svcur 1s ease-in-out infinite alternate; }
+@keyframes svcur { from { opacity: .45; } to { opacity: 1; } }
+.sv-alts { display: grid; gap: 6px; }
+.sv-alts > div { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.sv-alt { flex: none; width: 76px; display: grid; gap: 4px; background: none; border: 1px solid var(--line); border-radius: 8px; padding: 4px; color: var(--text); font: inherit; font-size: .7rem; cursor: pointer; text-align: center; }
+.sv-alt img { width: 100%; aspect-ratio: 63/88; object-fit: cover; border-radius: 5px; }
+.sv-alt span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-acts { display: grid; gap: 8px; }
+.sv-acts .btn { width: 100%; justify-content: center; padding: 12px; font-size: 1rem; }
+.sv-nav { display: flex; justify-content: space-between; }
+.sv-recap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sv-rc { position: relative; display: grid; gap: 4px; background: none; border: 0; padding: 0; color: var(--text); font: inherit; cursor: pointer; text-align: left; min-width: 0; }
+.sv-rc img { width: 100%; aspect-ratio: 63/88; object-fit: cover; border-radius: 8px; background: var(--bg2); }
+.sv-rc.off img { opacity: .3; filter: grayscale(1); }
+.sv-rn { font-size: .75rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-badge { position: absolute; top: 5px; left: 5px; right: 5px; font-size: .66rem; font-weight: 800; padding: 3px 6px; border-radius: 6px; background: rgba(12,14,25,.85); color: var(--muted); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-rc.new .sv-badge, .sv-rc.ok .sv-badge { background: var(--ok); color: #063; }
+.sv-rc.dup .sv-badge { background: #7c5cff; color: #fff; }
+.sv-rc.own .sv-badge { background: var(--surface2); color: var(--text); }
+.sv-hint { text-align: center; }
+.sv-final { position: sticky; bottom: 0; margin-top: auto; padding: 10px 0 2px; background: linear-gradient(rgba(8,10,18,0), #080a12 25%); }
+@media (prefers-reduced-motion: reduce) { .sv-mini i.cur { animation: none; } }

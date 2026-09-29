@@ -18,7 +18,8 @@ App.views.settings = {
           <p><label class="check"><input type="checkbox" id="p-photos"> Afficher mes photos (scans) à la place des visuels officiels</label></p>
           <p><label class="check"><input type="checkbox" id="p-sound"> Sons à l’ouverture des capsules</label></p>
           <p><label class="check"><input type="checkbox" id="p-pocket"> Afficher aussi les séries de Pokémon TCG Pocket (jeu mobile)</label></p>
-          <p><label class="check"><input type="checkbox" id="p-visual"> Vérification par l’image des pages de classeur (essai)</label><br><span class="muted small">Plus juste, un peu plus lente ; la 1ʳᵉ fois, ~25 Mo d’outils sont téléchargés (plutôt en Wi‑Fi). Le temps de chaque étape s’affiche sous la liste.</span></p>
+          <p><label class="check"><input type="checkbox" id="p-visual"> Vérification par l’image des pages de classeur</label><br><span class="muted small">Bien plus juste, un peu plus lente ; la 1ʳᵉ fois, ~25 Mo d’outils sont téléchargés (plutôt en Wi‑Fi).</span></p>
+          <p><label class="check"><input type="checkbox" id="p-timing"> Afficher le temps de chaque étape sous la liste (pour les tests)</label></p>
         </section>
         <section class="panel">
           <h2>Application</h2>
@@ -51,7 +52,7 @@ App.views.settings = {
     const offInstall = App.install.panel($('#p-install'));
     const offNotify = App.notify.panel($('#p-notify'));
     const accOff = App.views.account.render($('#p-account'), { query: {}, embedded: true });
-    $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket; $('#p-sound').checked = S.sound !== false; $('#p-visual').checked = !!S.visualCheck;
+    $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket; $('#p-sound').checked = S.sound !== false; $('#p-visual').checked = S.visualCheck !== false; $('#p-timing').checked = !!S.showTiming;
     const save = async (msg = 'Enregistré ✓') => { await App.col.saveSettings(); App.util.toast(msg); };
     $('#p-lang').onchange = (e) => { S.lang = e.target.value; save('Langue changée ✓ (les séries vont se recharger)'); };
     $('#p-comp').onchange = (e) => { S.completion = e.target.value; save(); };
@@ -59,6 +60,7 @@ App.views.settings = {
     $('#p-photos').onchange = (e) => { S.preferPhotos = e.target.checked; save(); };
     $('#p-sound').onchange = (e) => { S.sound = e.target.checked; save(); if (S.sound) App.sfx.click(); };
     $('#p-visual').onchange = (e) => { S.visualCheck = e.target.checked; save(); };
+    $('#p-timing').onchange = (e) => { S.showTiming = e.target.checked; save(); };
     $('#p-pocket').onchange = (e) => { S.showPocket = e.target.checked; save(); };
 
     $('#p-export').onclick = async () => {
