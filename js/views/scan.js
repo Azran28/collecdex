@@ -499,7 +499,7 @@ App.views.scan = {
     let photo = null;          // { img, url }
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
-    let running = false, stopped = false, detected = null, timing = null; // timing : temps de chaque étape (vérification par l’image, en essai)
+    let running = false, stopped = false, detected = null, timing = null, prog = null; // prog : barre de progression de la page ; timing : temps de chaque étape (vérification par l’image, en essai)
     let autoGrid = false, autoTimer = null;   // grille trouvée toute seule / lancement automatique
     let autoCells = null, autoRot = 0, dimsOv = null; // cases trouvées (photo en biais) ; cartes couchées ; 2 pages en hauteur
     let pageCert = null;       // vérification en direct de la photo de page (null = photo importée)
@@ -814,7 +814,7 @@ App.views.scan = {
       let rotChecked = !autoRot; // cartes couchées : on vérifie le sens (haut de la carte à droite ou à gauche) sur la 1re carte lue
       for (const cell of cells) {
         if (stopped || !alive()) return;
-        cell.state = 'lecture'; drawResults();
+        cell.state = 'lecture'; prog = { step: 'Lecture des cartes', done: cell.i, total: n }; drawResults();
         setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n}…</div>`);
         const st = (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} / ${n} — ${esc(m)}</div>`); };
         try {
@@ -848,13 +848,15 @@ App.views.scan = {
             }
           }
         } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
+        if (['sure', 'verifier'].includes(cell.state)) cell.found = Date.now(); // petit éclat sur la carte trouvée
         drawResults();
       }
       // Deuxième passe : la page semble rangée par série → on recompare les cartes incertaines à cette série
+      prog = { step: 'Série de la page…', done: n, total: n };
       if (!hint && alive() && !stopped) await guessSeries();
       // Troisième passe : vérification par l'image (réseau de neurones + points clés)
       if (alive() && !stopped && App.settings.visualCheck) { timing = { text: performance.now() - tStart, warm: await warmP }; await visualPass(hint); }
-      running = false;
+      running = false; prog = null;
       el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
       el.querySelector('#b-set').disabled = false;
       setStatus('');
@@ -970,10 +972,12 @@ App.views.scan = {
       const st = (t) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${t}</div>`); };
       const pageKey = Date.now(), qid = (c) => `${pageKey}:${c.i}`;
       try {
-        for (const c of todo) {
+        for (const [k, c] of todo.entries()) {
           if (stopped || !alive()) return;
           st(`Vérification par l'image — carte ${c.i + 1}…`);
-          c.vis = await rank(qid(c), c.blob, c.cands.map(refOf), { must: c.cands.map((x) => x.id) });
+          prog = { step: 'Vérification par l’image', done: k, total: todo.length, kind: 'img' };
+          c.vscan = true; drawResults();
+          try { c.vis = await rank(qid(c), c.blob, c.cands.map(refOf), { must: c.cands.map((x) => x.id) }); } finally { c.vscan = false; }
         }
         let set = hint || (detected && detected.id) || null;
         if (!set) {
@@ -986,14 +990,18 @@ App.views.scan = {
           const s = await ad.getSet(set);
           const shape = { id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, releaseDate: s.releaseDate, cardCount: { total: s.total, official: s.official }, serie: s.group };
           const series = s.cards.map((x) => refOf({ ...x, set: shape }));
-          for (const c of all) {
+          for (const [k, c] of all.entries()) {
             if (stopped || !alive()) return;
             const own = c.cands.map(refOf), ids = new Set(series.map((r) => r.id));
             st(`Comparaison avec les ${series.length} cartes de ${esc(s.name)} — carte ${c.i + 1}…`);
-            c.vis = await rank(qid(c), c.blob, [...series, ...own.filter((r) => !ids.has(r.id))], {
-              must: c.cands.map((x) => x.id), bonusSet: set,
-              onProgress: (d, n) => st(`Préparation des visuels de ${esc(s.name)} (une seule fois) : ${d} / ${n}…`),
-            });
+            prog = { step: `Comparaison avec ${s.name}`, done: k, total: all.length, kind: 'img' };
+            c.vscan = true; drawResults();
+            try {
+              c.vis = await rank(qid(c), c.blob, [...series, ...own.filter((r) => !ids.has(r.id))], {
+                must: c.cands.map((x) => x.id), bonusSet: set,
+                onProgress: (d, n) => st(`Préparation des visuels de ${esc(s.name)} (une seule fois) : ${d} / ${n}…`),
+              });
+            } finally { c.vscan = false; }
           }
         }
       } catch (e) { console.warn('vérification par l’image', e); T.error = e.message; T.total = performance.now() - tv; setStatus(''); return; }
@@ -1012,7 +1020,7 @@ App.views.scan = {
           c.cands = [card, ...c.cands.filter((x) => x.id !== a.id)].slice(0, 12);
           c.choice = a.id; c.state = twin ? 'verifier' : 'sure';
         }
-        c.visId = a.id;
+        c.visId = a.id; c.found = Date.now(); // petit éclat : carte confirmée à l’image
         c.checked = c.state === 'sure';
       }
       T.total = performance.now() - tv; T.cards = all.length;
@@ -1126,6 +1134,8 @@ App.views.scan = {
       const chosen = cells.filter((c) => c.choice && modeOf(c) !== 'rien');
       const savedN = cells.filter((c) => c.saved).length, leftN = cells.filter((c) => !c.saved && c.choice).length;
       resultsEl.innerHTML = `
+        ${running && prog ? `<div class="bprog" role="status"><div class="bprog-lbl"><span>${esc(prog.step)}</span><b>${Math.min(prog.done + 1, prog.total)} / ${prog.total}</b></div>
+          <div class="bprog-bar ${prog.kind === 'img' ? 'img' : ''}"><i style="width:${Math.round((100 * prog.done) / Math.max(1, prog.total))}%"></i></div></div>` : ''}
         ${savedN ? `<div class="panel" style="margin-bottom:12px"><b>✓ ${savedN} carte${savedN > 1 ? 's' : ''} enregistrée${savedN > 1 ? 's' : ''}</b> dans ta collection.
           ${leftN ? ` Il reste ${leftN} carte${leftN > 1 ? 's' : ''} ${burst ? 'dans la rafale' : 'sur cette page'} : coche celles que tu veux ajouter, corrige-les si besoin, puis enregistre à nouveau.` : ''}
           <div class="row" style="margin-top:8px"><button class="btn sm primary" id="b-next">${burst ? 'Nouvelle rafale' : 'Page suivante'}</button><a class="btn sm" href="#/collection">Voir mon Dex</a></div></div>` : ''}
@@ -1156,11 +1166,15 @@ App.views.scan = {
               </div>`;
             }
             const canCheck = !!c.choice && !['attente', 'lecture'].includes(c.state);
-            return `<div class="btile ${(['vide', 'dos', 'autre'].includes(c.state) && !c.choice) || (canCheck && !c.checked) ? 'dim' : ''} ${c.checked && c.choice ? 'on' : ''}" data-i="${c.i}">
+            // animation d'attente : rayon de scan pendant la lecture, points clés pendant la vérification par l'image,
+            // petit éclat quand la carte vient d'être trouvée (seulement la carte en cours : batterie)
+            const scan = c.vscan ? 'scan-img' : c.state === 'lecture' ? 'scan-txt' : '';
+            const found = c.found && Date.now() - c.found < 1200;
+            return `<div class="btile ${(['vide', 'dos', 'autre'].includes(c.state) && !c.choice) || (canCheck && !c.checked) ? 'dim' : ''} ${c.checked && c.choice ? 'on' : ''} ${c.state === 'attente' ? 'bwait' : ''} ${found ? 'bfound' : ''}" data-i="${c.i}">
               ${canCheck ? `<label class="bcheck"><input type="checkbox" data-check="${c.i}" ${c.checked ? 'checked' : ''}> Ajouter</label>` : ''}
               <div class="bimgs">
-                <img src="${c.url}" alt="Ta carte ${c.i + 1}">
-                ${cur ? `<img src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
+                <span class="bphoto ${scan}"><img src="${c.url}" alt="Ta carte ${c.i + 1}">${scan ? `<i class="bscan"></i>${scan === 'scan-img' ? '<i class="bdot"></i>'.repeat(7) : ''}` : ''}</span>
+                ${cur ? `<img class="bofficial" src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
               </div>
               <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.visId && c.choice === c.visId ? ' <span class="muted">· image ✓</span>' : ''}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
               ${['attente', 'lecture', 'dos', 'autre'].includes(c.state) && !c.choice ? (['dos', 'autre'].includes(c.state) ? `<button class="btn sm" data-notback="${c.i}">${c.state === 'dos' ? 'Ce n’est pas un dos' : 'C’est une carte Pokémon'} : la reconnaître</button><button class="btn sm ghost" data-find="${c.i}">🔎 Chercher à la main</button>
