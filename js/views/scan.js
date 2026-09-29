@@ -17,11 +17,13 @@ App.views.scan = {
     }
     sel.insertAdjacentHTML('beforeend', [...groups.values()].map((g) => `<optgroup label="${esc(g.name)}">${g.sets.map((st) => `<option value="${esc(st.id)}" ${st.id === selected ? 'selected' : ''}>${esc(st.name)}${st.releaseDate ? ' (' + st.releaseDate.slice(0, 4) + ')' : ''}</option>`).join('')}</optgroup>`).join(''));
   },
-  /** Zone photo vide : invitation à prendre la photo */
-  empty(mode) {
+  /** Dessin affiché avant la photo ; en classeur, les pochettes au format choisi ([colonnes, rangées]) */
+  empty(mode, dims = [3, 3]) {
+    const [c, r] = dims, cw = Math.min(38, Math.floor(210 / c)), ch = Math.round((cw * 88) / 63);
+    const grid = mode === 'classeur' ? `style="grid-template-columns:repeat(${c},${cw}px);grid-template-rows:repeat(${r},${ch}px)"` : '';
     return `<div class="scan-empty">
-      <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}">${mode === 'classeur' ? '<i></i>'.repeat(9) : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
-      <b>${mode === 'classeur' ? 'Photo d’une page de classeur' : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
+      <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}" ${grid}>${mode === 'classeur' ? `${'<i></i>'.repeat(c * r)}` : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
+      <b>${mode === 'classeur' ? `Photo d’une page de classeur <span class="muted">(${c * r} cartes)</span>` : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
       <span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : mode === 'classeur' ? 'Appuie sur « Prendre la page en photo »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>
     </div>`;
   },
@@ -556,7 +558,7 @@ App.views.scan = {
         <div>
           ${setBox('De quelle série est cette page ?', 'Si toute la page vient de la même série, choisis-la : la reconnaissance devient bien plus fiable.')}
           ${pageCtl}
-          <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur')}</div>
+          <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur', FORMATS[fmt])}</div>
           ${pageBtns}
         </div>
         <div>
@@ -610,7 +612,7 @@ App.views.scan = {
         if (gd && gd.fit >= 0.45) useDetection(gd, fmt);
         else { if (fmt === 'double') { const t = photo.img.naturalHeight > photo.img.naturalWidth; dimsOv = t ? [3, 6] : null; } grid = defaultGrid(); }
         drawGrid();
-      }
+      } else if (view.querySelector('.scan-empty')) view.innerHTML = App.views.scan.empty('classeur', dims()); // pas encore de photo : le dessin prend le format choisi
     });
     el.querySelector('#b-set').addEventListener('change', (e) => {
       try { sessionStorage.setItem('pageSet', e.target.value); } catch (err) { /* */ }
@@ -656,7 +658,7 @@ App.views.scan = {
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
       el.querySelector('#b-gridbar').classList.add('hidden');
       el.querySelector('#b-actions').classList.remove('hidden');
-      view.innerHTML = App.views.scan.empty('classeur');
+      view.innerHTML = App.views.scan.empty('classeur', dims());
       resultsEl.innerHTML = App.views.scan.guide('classeur');
     });
 
@@ -1115,11 +1117,10 @@ App.views.scan = {
     function svTop(label, right, bar) {
       return `<div class="sv-top"><div class="bprog-lbl"><span>${label}</span><b>${right || ''}</b></div>${bar || ''}</div>`;
     }
-    /** Écran d'analyse : fond coloré selon l'étape, la carte en cours en grand, la carte trouvée qui se retourne à côté */
+    /** Écran d'analyse : la carte en cours en grand (rayon de scan), la vignette du visuel trouvé dans son coin, la page en dessous */
     function svScan() {
       const cur = cells.find((c) => c.vscan) || cells.find((c) => c.state === 'lecture');
-      const last = cells.filter((c) => c.found && c !== cur && Date.now() - c.found < 2500).sort((a, b) => b.found - a.found)[0];
-      const p = prog, off = cur && cardOf(cur), lc = last && cardOf(last);
+      const p = prog, off = cur && cardOf(cur);
       const step = !p ? 0 : /^Lecture des/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
       const steps = ['Lecture', 'Série', 'Image'].map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
       return `
@@ -1129,11 +1130,9 @@ App.views.scan = {
         </div>
         ${p ? `<div class="bprog-bar ${p.kind === 'img' ? 'img' : ''}"><i style="width:${Math.round((100 * p.done) / Math.max(1, p.total))}%"></i></div>` : ''}
         <div class="sv-stage">
-          ${cur ? `<span class="bphoto sv-card ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
-            ${off ? `<span class="sv-card sv-match ${cur.state === 'sure' ? 'hit' : 'maybe'}"><img src="${visOf(off)}" alt="Carte envisagée"></span>`
-              : '<span class="sv-card sv-match ghost"><b>?</b></span>'}`
+          ${cur ? `<span class="sv-shot"><span class="bphoto sv-card ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
+            ${off ? `<span class="sv-pip ${cur.state === 'sure' ? 'hit' : ''}"><img src="${visOf(off)}" alt="Carte envisagée">${cur.state === 'sure' ? '<b>✓</b>' : ''}</span>` : ''}</span>`
             : '<div class="spinner"></div>'}
-          ${last ? `<div class="sv-toast ${last.state === 'sure' ? 'ok' : 'warn'}">${lc ? `<img src="${visOf(lc)}" alt="">` : ''}<span>${last.state === 'sure' ? '✓' : '?'} ${lc ? esc(lc.name) : 'Carte ' + (last.i + 1)}</span></div>` : ''}
         </div>
         <div class="sv-caption">
           <div class="sv-title">${off ? esc(off.name) : cur ? 'Recherche…' : 'Préparation de la page…'}</div>
@@ -1190,7 +1189,7 @@ App.views.scan = {
       box.classList.toggle('hidden', !sv.open);
       if (!sv.open) { box.innerHTML = ''; return; }
       const ph = sv.mode !== 'scan' ? 'done' : cells.some((c) => c.vscan) ? 'img' : 'txt'; // couleurs de l'étape
-      box.innerHTML = `<div class="sv-in sv-m-${sv.mode} ph-${ph}"><div class="sv-glow" aria-hidden="true"></div>${sv.mode === 'scan' ? svScan() : sv.mode === 'review' ? svReview() : svRecap()}</div>`;
+      box.innerHTML = `<div class="sv-in sv-m-${sv.mode} ph-${ph}">${sv.mode === 'scan' ? svScan() : sv.mode === 'review' ? svReview() : svRecap()}</div>`;
     }
     /** Fin de l'analyse : cartes à vérifier d'abord, sinon directement le récapitulatif */
     function svAfterScan() {
