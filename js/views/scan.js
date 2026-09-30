@@ -588,7 +588,7 @@ App.views.scan = {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn ? App.views.scan.certBlock('rafale', `<label class="pc-toggle"><input type="checkbox" id="r-cert" checked> <span>Certifier chaque carte</span></label>`) : ''}
+          ${certOn ? App.views.scan.certBlock('rafale', `<label class="btn primary pc-switch"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 16)} Certifier chaque carte <b class="pc-sw"></b></label>`) : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>

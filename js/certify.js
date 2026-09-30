@@ -419,7 +419,7 @@ App.certify = (() => {
   const flashTxt = (f) => `mesures : accord ${Math.max(0, f.corr).toFixed(2).replace('.', ',')}, ${f.amp >= 0 ? '+' : ''}${Math.round(f.amp * 100)} %, changements ${f.edgesOk}/${f.edges} (${Math.round(f.jump * 100)} %), retard ${(f.lag / 1000).toFixed(2).replace('.', ',')} s, ${f.n} images`;
   // Mode essai (v2.47) : la lampe n'est pas encore réglée sur de vrais téléphones (1ers essais d'Arnaud refusés) :
   // si elle n'est pas reconnue, la certification n'est pas refusée ; on affiche ses mesures et un petit graphique.
-  const LAMP_BLOCKS = false;
+  const LAMP_BLOCKS = true; // v2.56 : bloquante (lampe reconnue à chaque essai réel d'Arnaud depuis la v2.48 ; labo : aucun vrai geste en moins, triches refusées 70 → 84 %)
   const LAMP_NOTE = '💡 Lampe pas reconnue sur ce téléphone (réglage en cours : ça ne bloque pas la certification)';
   /** Mesures de luminosité pendant le code (pour le graphique), en ms depuis le début du code */
   function lampTrace(samples, code) {

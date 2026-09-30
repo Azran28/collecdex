@@ -622,10 +622,21 @@ a.chip { text-decoration: none; }
   .pc-block-h { margin-bottom: 8px; }
   .pc-steps { gap: 6px; font-size: .88rem; }
   .pc-steps i { width: 22px; height: 22px; font-size: .78rem; }
-  /* caméra du classeur : toute la largeur de l'écran ; hauteur selon l'image de la caméra, limitée à l'écran (la vidéo
-     garde ses proportions dedans). Avant, la hauteur limitée rétrécissait la boîte : vide à droite */
-  .batch-view.live-fit { aspect-ratio: auto !important; height: min(calc(100dvh - 200px), calc(100vw * var(--vr, 1.333))); max-height: none; }
+  /* v2.56 : caméra du classeur = tout l'espace libre entre l'en-tête et le bouton de photo, image agrandie (cover) :
+     on peut photographier la page de près (avant : image entière rétrécie, il fallait reculer → photo moins nette) */
+  .scan-view.batch-view.live-fit { aspect-ratio: auto !important; height: calc(100dvh - 330px); min-height: 300px; max-height: none; }
+  .scan-view.batch-view.live-fit video { object-fit: cover; } /* (la barre du bouton photo reste en dessous, sans mordre sur l'image) */
+  /* avant la photo, avec l'encadré de certification : dessin du classeur plus petit, tout tient sur un écran */
+  :is(.batch-wrap, .scan-wrap):has(.pc-block:not(.hidden)) .scan-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { height: clamp(140px, calc(100svh - 590px), 380px); } /* (les 3 modes) */
+  .pc-block-h .muted { display: none; }
 }
+/* bouton « Certifier chaque carte » (rafale) : même bouton que « Certifier la page », avec son état */
+.pc-switch { width: 100%; justify-content: center; gap: 8px; cursor: pointer; }
+.pc-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.pc-switch .pc-sw { font-weight: 600; font-size: .82rem; padding: 2px 8px; border-radius: 99px; background: rgba(0,0,0,.25); }
+.pc-switch .pc-sw::after { content: 'activé'; }
+.pc-switch:has(input:not(:checked)) { background: rgba(255,255,255,.08); color: var(--muted, #aab); box-shadow: none; }
+.pc-switch:has(input:not(:checked)) .pc-sw::after { content: 'désactivé'; }
 @keyframes certPulse { 50% { transform: scale(1.15); } }
 .cert-ok { color: #3ddc97; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
 .cert-pill { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-family: var(--font); font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #16172a; background: linear-gradient(120deg, #3ddc97, #34d5ff); }
