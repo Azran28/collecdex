@@ -215,7 +215,7 @@ App.views.scan = {
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
         if (!App.certify.available()) { setStatus(''); return; }
-        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre (il doit être visible : pas d’étui opaque, une pochette transparente convient), retourne-la en prenant ton temps, puis appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
+        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre (il doit être visible : pas d’étui opaque, une pochette transparente convient), si la lampe du téléphone clignote, garde le dos immobile jusqu’à la fin, puis retourne-la en prenant ton temps et appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         trk = App.certify.tracker(cam.video, () => cam.region());
@@ -554,7 +554,7 @@ App.views.scan = {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn ? `<label class="r-cert small"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 14)} <span>Certifier chaque carte <span class="muted">(montre le dos, retourne la carte : elle est prise toute seule)</span></span></label>` : ''}
+          ${certOn ? `<label class="r-cert small"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 14)} <span>Certifier chaque carte <span class="muted">(montre le dos, retourne la carte et tiens-la immobile — la lampe peut clignoter un instant : elle est prise toute seule)</span></span></label>` : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
@@ -1640,6 +1640,7 @@ App.views.scan = {
         if (!rTrk) rTrk = App.certify.tracker(cam.video, () => cam.region(), { auto: true });
         const ph = rTrk.step();
         if (ph === 'pret') { if (rLast && sameCard(rLast, F)) { rTrk.reset(); rHint(`Carte ${cells.length} prise ✓ — passe à la suivante`, 'ok'); return; } rCapture(F, true); return; }
+        if (ph === 'lampe') { rHint('💡 Ne bouge pas : la lampe clignote…', 'go'); return; }
         if (ph === 'dos') { rHint('Retourne-la !', 'go'); return; }
         if (ph === 'retourne') { rHint('Tiens-la immobile…', 'go'); return; }
         if (rLast && sd >= 16 && sameCard(rLast, F)) { rHint(`Carte ${cells.length} prise ✓ — montre le dos de la suivante`, 'ok'); return; }

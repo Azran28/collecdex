@@ -203,6 +203,159 @@ App.certify = (() => {
     return { passed: true, gap, states: states.slice(0, 60), lb };
   }
 
+  /*
+   * Preuve du retournement « E » (v2.43, choisie avec le labo labo-certif.html : 85 % de vrais gestes certifiés,
+   * 74 % de tricheries refusées, contre 80 % / 61 % pour judgeFlip). Pendant le geste (après le dernier dos),
+   * au moins une image doit montrer la carte DE BIAIS : ses deux bords se rapprochent (silhouette), ou, entre
+   * ses deux bords, le dos ou la face « écrasé(e) » plutôt qu'un morceau coupé. Un fondu, une image qui glisse
+   * ou une main passée devant un écran ne donnent jamais ça. Images grises 48×66 (f.d).
+   */
+  const DW = 48, DH = 66, SIL_T = 1.8, SQ_T = 0.03;
+  const sdOf = (G) => { let m = 0; for (const v of G) m += v; m /= G.length; let s = 0; for (const v of G) s += (v - m) ** 2; return Math.sqrt(s / G.length); };
+  const madOf = (A, B) => { let d = 0; for (let i = 0; i < A.length; i++) d += Math.abs(A[i] - B[i]); return d / A.length; };
+  /** Les deux bords les plus nets (un dans chaque moitié) le long d'un axe : largeur w, milieu m (fractions), netteté */
+  function silhouette(F, axis) {
+    const A = axis === 'v' ? DW : DH, B = axis === 'v' ? DH : DW, P = new Float32Array(A);
+    for (let a = 1; a < A - 1; a++) {
+      let s = 0;
+      for (let b = 0; b < B; b++) { const i1 = axis === 'v' ? b * DW + a - 1 : (a - 1) * DW + b, i2 = axis === 'v' ? b * DW + a + 1 : (a + 1) * DW + b; s += Math.abs(F[i2] - F[i1]); }
+      P[a] = s / B;
+    }
+    const h = A >> 1, med = [...P].sort((x, y) => x - y)[A >> 1] || 1;
+    let L = 1, R = A - 2;
+    for (let a = 2; a < h; a++) if (P[a] > P[L]) L = a;
+    for (let a = h; a < A - 2; a++) if (P[a] > P[R]) R = a;
+    return { w: (R - L) / A, m: (L + R) / 2 / A, sharp: Math.min(P[L], P[R]) / med };
+  }
+  /**
+   * Ressemblance entre une bande de F (largeur s, centrée en off) et le modèle Tpl : écrasé dans la bande
+   * (crop < 0, k = perspective), ou en taille réelle dont on ne voit que le début / la fin / la partie à cet endroit (crop 0/1/2)
+   */
+  function bandCorr(F, Tpl, axis, s, off, k, crop = -1) {
+    const A = axis === 'v' ? DW : DH, B = axis === 'v' ? DH : DW;
+    const len = Math.round(s * A), a0 = Math.round(A / 2 - len / 2 + off * A / 2);
+    const t0 = crop === 1 ? A - len : crop === 2 ? a0 : 0;
+    let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0, n = 0;
+    for (let j = 0; j < len; j++) {
+      const a = a0 + j; if (a < 1 || a >= A - 1) continue;
+      const ta = crop >= 0 ? Math.min(A - 1, Math.max(0, t0 + j)) : Math.min(A - 1, ((j + 0.5) / len * A) | 0);
+      const vs = crop >= 0 ? 1 : Math.max(0.6, 1 + k * ((j + 0.5) / len * 2 - 1));
+      const bl = Math.round(B * vs), b0 = Math.round((B - bl) / 2);
+      for (let q = 1; q < bl - 1; q++) {
+        const bp = b0 + q; if (bp < 0 || bp >= B) continue;
+        const tb = Math.min(B - 1, ((q + 0.5) / bl * B) | 0);
+        const fv = axis === 'v' ? F[bp * DW + a] : F[a * DW + bp], tv = axis === 'v' ? Tpl[tb * DW + ta] : Tpl[ta * DW + tb];
+        sa += fv; sb += tv; saa += fv * fv; sbb += tv * tv; sab += fv * tv; n++;
+      }
+    }
+    if (n < 40) return -1;
+    const va = saa - sa * sa / n, vb = sbb - sb * sb / n;
+    if (va < n * 25 || vb < n * 25) return -1;
+    return (sab - sa * sb / n) / Math.sqrt(va * vb);
+  }
+  function judgeE(frames, w = 24, h = 33) {
+    let lb = -1;
+    for (let i = frames.length - 1; i > 0; i--) if (frames[i].b >= BACK_T && frames[i - 1].b >= BACK_T) { lb = i; break; }
+    if (lb < 0) return { passed: false, why: 'le dos de la carte n’a pas été vu' };
+    const last = frames[frames.length - 1];
+    if (lb === frames.length - 1 || last.b >= BACK_T) return { passed: false, why: 'la photo montre le dos : retourne la carte avant d’appuyer', lb, states: '' };
+    const face = last.g;
+    const states = frames.slice(lb + 1).map((f) => (f.b >= BACK_T ? 'B' : corr(f.g, face, w, h) >= FRONT_T ? 'F' : 'X')).join('');
+    const gap = (states.match(/^X*/) || [''])[0].length, fF = states.indexOf('F');
+    const end = Math.min(frames.length - 2, lb + 1 + (fF < 0 ? states.length : fF) + 3, lb + 30);
+    // preuve : silhouette de biais, sinon carte écrasée entre ses bords
+    let sil = 0, sq = -9;
+    for (let i = lb + 1; i <= end; i++) for (const axis of ['v', 'h']) {
+      const s = silhouette(frames[i].d, axis);
+      if (s.w >= 0.15 && s.w <= 0.7 && Math.abs(s.m - 0.5) <= 0.3) sil = Math.max(sil, s.sharp);
+    }
+    if (sil < SIL_T) {
+      const tpls = [frames[lb].d, last.d];
+      for (let i = lb + 1; i <= end; i++) for (const axis of ['v', 'h']) {
+        const F = frames[i].d, s = silhouette(F, axis);
+        if (!(s.w >= 0.15 && s.w <= 0.75 && Math.abs(s.m - 0.5) <= 0.35)) continue;
+        const off = (s.m - 0.5) * 2;
+        for (const Tpl of tpls) {
+          let a = -1, c = -1;
+          for (const ds of [-0.05, 0, 0.05]) {
+            for (const k of [0, -0.2, 0.2, -0.35, 0.35]) a = Math.max(a, bandCorr(F, Tpl, axis, s.w + ds, off, k));
+            for (const cm of [0, 1, 2]) c = Math.max(c, bandCorr(F, Tpl, axis, s.w + ds, off, 0, cm));
+          }
+          sq = Math.max(sq, a - Math.max(c, 0));
+        }
+      }
+    }
+    const r2 = (v) => Math.round(v * 100) / 100, ev = { sil: r2(sil), sq: r2(sq) };
+    if (sil < SIL_T && sq < SQ_T) return { passed: false, why: 'retournement pas reconnu (la carte doit être vue de biais pendant le geste)', gap, states: states.slice(0, 60), lb, ev };
+    // continuité : la photo montre la carte vue juste après le geste (pas une autre carte, pas la table) ;
+    // si les mains tremblent (aucune image immobile), les 3 images les plus calmes de la demi-seconde qui suit
+    const firsts = [];
+    for (let i = lb + 2; i < frames.length - 1 && firsts.length < 3; i++) {
+      const f = frames[i], s = sdOf(f.g);
+      if (f.b < BACK_T && s >= 16 && madOf(f.g, frames[i - 1].g) < 4 + s * 0.08) firsts.push(f);
+    }
+    let cont = firsts.some((f) => corr(f.g, face, w, h, 4) >= FRONT_T);
+    if (!cont && !firsts.length && fF >= 0) {
+      const cand = [], i0 = lb + 1 + fF;
+      for (let i = Math.max(i0, 1); i < frames.length - 1 && frames[i].t - frames[i0].t <= 500; i++) if (frames[i].b < BACK_T && sdOf(frames[i].g) >= 12) cand.push([madOf(frames[i].g, frames[i - 1].g), i]);
+      cand.sort((x, y) => x[0] - y[0]);
+      cont = cand.slice(0, 3).some(([, i]) => corr(frames[i].g, face, w, h, 4) >= FRONT_T);
+    }
+    if (!cont) return { passed: false, why: 'la photo ne montre pas la carte retournée (tiens-la dans le cadre au moment d’appuyer)', gap, states: states.slice(0, 60), lb, ev };
+    return { passed: true, gap, states: states.slice(0, 60), lb, ev };
+  }
+
+  /*
+   * Lampe qui clignote selon un code (principe de « Flashmark » d'iProov) : une vraie carte ou page toute proche
+   * renvoie la lumière de la lampe au bon moment ; un écran émet sa propre lumière (à peine plus clair), une vidéo
+   * préparée ou un flux injecté ne connaissent pas le code. Seulement quand le navigateur sait allumer la lampe
+   * (Chrome Android ; pas l'iPhone) : sinon on s'en passe. Labo : la lampe ne refuse aucun vrai geste, et les
+   * tricheries refusées passent de 74 % à 87 %.
+   */
+  const SLOT = 250;
+  function torchOf(video) {
+    try {
+      const tr = video && video.srcObject && video.srcObject.getVideoTracks()[0];
+      const cap = tr && tr.getCapabilities ? tr.getCapabilities() : null;
+      return cap && cap.torch ? tr : null;
+    } catch (e) { return null; }
+  }
+  function newCode() { // 6 tranches, 2 à 4 allumées
+    for (;;) { const b = Array.from(crypto.getRandomValues(new Uint8Array(6)), (x) => x & 1), s = b.reduce((a, x) => a + x, 0); if (s >= 2 && s <= 4) return b; }
+  }
+  /** Joue le code avec la lampe ; renvoie { bits, ev: [{ t, on }], t0, end } (ev = instants réels d'allumage/extinction) */
+  async function playCode(tr) {
+    const bits = newCode(), ev = [], t0 = Date.now(), set = (on) => tr.applyConstraints({ advanced: [{ torch: on }] });
+    try {
+      for (let i = 0; i < bits.length; i++) {
+        if (i === 0 || bits[i] !== bits[i - 1]) { await set(!!bits[i]); ev.push({ t: Date.now(), on: !!bits[i] }); }
+        const wait = t0 + (i + 1) * SLOT - Date.now(); if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      }
+      await set(false); ev.push({ t: Date.now(), on: false });
+      return { bits, ev, t0, end: Date.now() };
+    } catch (e) {
+      try { await set(false); } catch (e2) { /* */ }
+      return { bits, ev, t0, end: Date.now(), error: String(e && e.message || e) };
+    }
+  }
+  /** La luminosité (échantillons { t, v }) suit-elle le code ? Retard d'image de la caméra permis (0 à 0,6 s) */
+  function flashFit(samples, code) {
+    const s = samples.filter((x) => x.t >= code.t0 && x.t <= code.end + 650);
+    let best = { corr: -1, amp: 0, lag: 0, n: s.length };
+    if (s.length < 10) return best;
+    for (let lag = 0; lag <= 600; lag += 20) {
+      const on = s.map(({ t }) => { let v = 0; for (const e of code.ev) if (e.t <= t - lag) v = e.on ? 1 : 0; return v; });
+      const n1 = on.reduce((a, x) => a + x, 0); if (n1 < 2 || n1 > on.length - 2) continue;
+      let m1 = 0, m0 = 0; on.forEach((x, k) => { if (x) m1 += s[k].v; else m0 += s[k].v; }); m1 /= n1; m0 /= on.length - n1;
+      const mm = s.reduce((a, x) => a + x.v, 0) / s.length, om = n1 / on.length;
+      let num = 0, da = 0, db = 0; s.forEach((x, k) => { num += (x.v - mm) * (on[k] - om); da += (x.v - mm) ** 2; db += (on[k] - om) ** 2; });
+      const c = num / (Math.sqrt(da * db) || 1);
+      if (c > best.corr) best = { corr: c, amp: (m1 - m0) / (m0 || 1), lag, n: s.length };
+    }
+    return best;
+  }
+  const median = (G) => { const s = Array.from(G).sort((a, b) => a - b); return s[s.length >> 1]; };
+
   // ---------- Liaison avec le serveur ----------
   const challenges = {}; // par type de capture ('carte' | 'page') : { id, challenge, at }
   const certs = new Map(); // photoId → { key, at }
@@ -256,9 +409,33 @@ App.certify = (() => {
     const tq = cells[target], tx = (tq[0][0] + tq[1][0] + tq[2][0] + tq[3][0]) / 4 * 100, ty = (tq[0][1] + tq[1][1] + tq[2][1] + tq[3][1]) / 4 * 100;
     ov.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">${cells.map((q, i) => `<polygon points="${poly(q)}" class="${i === target ? 'tgt' : ''}"/>`).join('')}</svg>
       <div class="pc-num" style="left:${tx}%;top:${ty}%">${target + 1}</div>
-      <div class="pc-txt">☝ Touche la carte <b>${target + 1}</b> du bout du doigt</div><div class="cert-bar"><span></span></div>`;
+      <div class="pc-txt">Prépare-toi…</div><div class="cert-bar"><span></span></div>`;
     host.appendChild(ov);
     const txt = ov.querySelector('.pc-txt'), bar = ov.querySelector('.cert-bar span');
+    // lampe (si le téléphone sait l'allumer), AVANT le geste : chaque case doit renvoyer la lumière au rythme du code.
+    // Labo : pièce peu éclairée ou éclairée, 97 à 100 % des vraies pages ; photo de la page sur un écran refusée
+    // à 83–100 % ; en plein jour la lampe ne se voit plus (17 %) → message « à l'intérieur ».
+    let pageFlash = null;
+    const tr = torchOf(video);
+    if (tr) {
+      txt.innerHTML = '💡 Ne bouge pas : la lampe clignote…';
+      const samples = cells.map(() => []), sample = () => { const t = Date.now(); grab().forEach((g, i) => samples[i].push({ t, v: median(g) })); };
+      let playing = true;
+      const codeP = playCode(tr).then((c) => { playing = false; return c; });
+      while (playing) { sample(); await new Promise((r) => setTimeout(r, 90)); }
+      const code = await codeP;
+      for (const stop = Date.now() + 650; Date.now() < stop;) { sample(); await new Promise((r) => setTimeout(r, 90)); } // retard de la caméra
+      if (code.error) pageFlash = { used: false, error: code.error };
+      else {
+        const fits = samples.map((s) => flashFit(s, code)), good = fits.filter((x) => x.corr >= 0.75 && x.amp >= 0.04).length;
+        pageFlash = { used: true, ok: good >= Math.ceil(cells.length * 0.55), good, cells: cells.length, amp: Math.round(median(fits.map((x) => x.amp)) * 1000) / 1000 };
+      }
+      if (pageFlash.used && !pageFlash.ok) {
+        ov.remove();
+        return { passed: false, reasons: ['la lampe n’a pas été vue sur la page (trop de lumière : soleil, fenêtre ? ou un écran ?) — réessaie à l’intérieur'], id: ch.id, challenge: ch.challenge, strip: null, scores: { passed: false, challenge: ch.challenge, kind: 'page', cells: cells.length, flash: pageFlash } };
+      }
+      txt.innerHTML = '✓ Lampe vue — attends…'; // la consigne du geste vient après l’image de départ
+    }
     // image de référence (moyenne de 2 images) et bande-preuve (la case avant, sortie, remise)
     const SW = 72, SH = 100, strip = Object.assign(document.createElement('canvas'), { width: SW * 3, height: SH }), sg = strip.getContext('2d');
     const tb = boxes[target], keep = (slot) => sg.drawImage(video, tb.x, tb.y, tb.w, tb.h, slot * SW, 0, SW, SH);
@@ -301,13 +478,14 @@ App.certify = (() => {
     return {
       passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash,
       strip: passed ? await new Promise((res) => strip.toBlob(res, 'image/jpeg', 0.8)) : null,
-      scores: { passed, challenge: ch.challenge, kind: 'page', cells: cells.length, page: { peak: r2(peak), others: r2(othersAtPeak), moved, frozen, ms: Date.now() - t0 } },
+      scores: { passed, challenge: ch.challenge, kind: 'page', cells: cells.length, page: { peak: r2(peak), others: r2(othersAtPeak), moved, frozen, ms: Date.now() - t0 }, flash: pageFlash },
     };
   }
 
   /** Consignes affichées sur la vidéo selon l'étape */
   const HINTS = {
     attente: '<b>1.</b> Montre le <b>dos</b> de la carte dans le cadre',
+    lampe: '💡 Garde le <b>dos</b> immobile : la lampe clignote…',
     dos: '<b>2.</b> Retourne-la (prends ton temps)',
     retourne: '<b>3.</b> Cadre la face, puis appuie sur <b>Prendre la photo</b>',
     pret: '📸',
@@ -327,16 +505,28 @@ App.certify = (() => {
     const cv = Object.assign(document.createElement('canvas'), { width: SW, height: SH });
     const cg = cv.getContext('2d', { willReadFrequently: true });
     let frames = [], phase = 'attente', lastBack = 0, stable = 0, prev = null, sinceBack = 99;
-    const reset = () => { frames = []; phase = 'attente'; stable = 0; prev = null; sinceBack = 99; };
+    // lampe : carte seule → le code est joué pendant qu'on montre le dos ; rafale → pendant que la face est tenue
+    // immobile, juste avant la photo automatique. lamp : { state: 'idle' | 'play' | 'done', code }
+    let torch, lamp = { state: 'idle', code: null };
+    const reset = () => { frames = []; phase = 'attente'; stable = 0; prev = null; sinceBack = 99; lamp = { state: 'idle', code: null }; };
+    // la lampe joue son code, puis 0,65 s de plus : la caméra montre l'image avec un retard (jusqu'à 0,6 s)
+    const lampBusy = (now) => lamp.state === 'play' || (lamp.state === 'done' && now - lamp.code.end < 650);
+    function startLamp() {
+      if (torch === undefined) torch = torchOf(video);
+      if (!torch || lamp.state !== 'idle') return false;
+      const L = lamp = { state: 'play', code: null };
+      playCode(torch).then((c) => { if (lamp !== L) return; L.code = c; L.state = c.error ? 'error' : 'done'; });
+      return true;
+    }
     function grab() {
       const r = regionFn();
       if (!r || !video || !video.videoWidth) return null;
       cg.drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, SW, SH);
       const b = App.recognizer.backScoreOf(cv, SW, SH);
-      const g = grayOf(cv, 0, 0, SW, SH, GW, GH);
+      const g = grayOf(cv, 0, 0, SW, SH, GW, GH), d = grayOf(cv, 0, 0, SW, SH, DW, DH);
       sinceBack = b >= BACK_T ? 0 : sinceBack + 1;
       // petites images gardées seulement autour du dos (pour la bande-preuve) : c'est léger
-      const f = { t: Date.now(), b, g, img: sinceBack < 12 ? cg.getImageData(0, 0, SW, SH) : null };
+      const f = { t: Date.now(), b, g, d, v: median(d), img: sinceBack < 12 ? cg.getImageData(0, 0, SW, SH) : null };
       frames.push(f);
       if (frames.length > 200) frames.shift();
       return f;
@@ -349,15 +539,22 @@ App.certify = (() => {
       let diff = 99; if (prev) { diff = 0; for (let i = 0; i < g.length; i++) diff += Math.abs(g[i] - prev[i]); diff /= g.length; }
       prev = g;
       const n = frames.length;
-      if (b >= BACK_T) { if (n > 1 && frames[n - 2].b >= BACK_T) { phase = 'dos'; lastBack = now; } stable = 0; return phase; }
+      if (b >= BACK_T) {
+        if (n > 1 && frames[n - 2].b >= BACK_T) { phase = 'dos'; lastBack = now; if (!auto) startLamp(); }
+        stable = 0;
+        return !auto && lampBusy(now) ? 'lampe' : phase;
+      }
       if (phase === 'attente') return phase;
       if (now - lastBack > WINDOW) { reset(); return phase; } // dos vu il y a trop longtemps : on recommence
+      if (!auto && lampBusy(now)) return 'lampe'; // retournée trop tôt : la preuve de la lampe ne comptera pas
       phase = 'retourne';
       if (auto) {
-        // rafale : la face est posée (assez de détails) et immobile un bon moment → photo
+        // rafale : la face est posée (assez de détails) et immobile un bon moment → (lampe) → photo
+        if (lampBusy(now)) return 'lampe';
+        if (lamp.state === 'done' || lamp.state === 'error') { phase = 'pret'; return phase; }
         const still = sd >= 16 && diff < 4 + sd * 0.08;
         stable = still ? stable + 1 : 0;
-        if (stable >= 6) phase = 'pret';
+        if (stable >= 6) { if (startLamp()) return 'lampe'; phase = 'pret'; }
       }
       return phase;
     }
@@ -367,7 +564,15 @@ App.certify = (() => {
       if (!ch) return { passed: false, reasons: [available() ? 'serveur de certification injoignable' : 'connecte-toi pour certifier'] };
       if (ch.challenge !== 'retourne') return { passed: false, reasons: ['serveur de certification pas à jour (supabase-v7.sql)'] };
       grab(); // la dernière image = ce que montre la photo
-      const j = judgeFlip(frames, GW, GH);
+      const j = judgeE(frames, GW, GH);
+      // lampe : la carte a-t-elle renvoyé la lumière au rythme du code ? (au dos en carte seule, à la face en rafale)
+      let flash = null;
+      if (lamp.state === 'play') flash = { used: true, ok: false, why: auto ? 'photo prise pendant le clignotement de la lampe' : 'retourne la carte seulement quand la lampe a fini de clignoter' };
+      else if (lamp.state === 'done') {
+        const fit = flashFit(frames.map((x) => ({ t: x.t, v: x.v })), lamp.code);
+        flash = { used: true, ok: fit.corr >= 0.75 && fit.amp >= 0.06, corr: Math.round(fit.corr * 100) / 100, amp: Math.round(fit.amp * 1000) / 1000, lag: fit.lag, n: fit.n };
+        if (!flash.ok) flash.why = 'la carte n’a pas renvoyé la lumière de la lampe (trop de lumière autour ? ou un écran ?)';
+      } else if (lamp.state === 'error') flash = { used: false, error: lamp.code && lamp.code.error };
       const r = regionFn() || { sx: 0, sy: 0, sw: video.videoWidth, sh: video.videoHeight };
       const N = 256, side = Math.min(r.sw, r.sh, Math.max(N, Math.min(r.sw, r.sh) * 0.5));
       const screen = screenScore(grayOf(video, r.sx + (r.sw - side) / 2, r.sy + (r.sh - side) / 2, side, side, N, N), N);
@@ -378,6 +583,7 @@ App.certify = (() => {
       if (!j.passed) reasons.push(j.why);
       if (frozen >= Math.ceil((recent.length - 1) * 0.8)) reasons.push('image figée (ce n’est pas une caméra en direct)');
       if (screen.peak >= SCREEN_PEAK) reasons.push('on dirait une carte affichée sur un écran');
+      if (flash && flash.used && !flash.ok) reasons.push(flash.why);
       const passed = reasons.length === 0;
       // bande-preuve : le dos, l'image « entre deux », la face photographiée
       let strip = null;
@@ -396,11 +602,12 @@ App.certify = (() => {
         passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash, strip,
         scores: {
           passed, challenge: ch.challenge, frozen, screen: screen.peak, screenStrong: screen.strong,
-          flip: { states: j.states || '', gap: j.gap, back: r2(maxB), ms: j.lb >= 0 ? frames[frames.length - 1].t - frames[j.lb].t : null },
+          flip: { states: j.states || '', gap: j.gap, ev: j.ev, algo: 'E', back: r2(maxB), ms: j.lb >= 0 ? frames[frames.length - 1].t - frames[j.lb].t : null },
+          flash: flash && { ...flash, why: undefined },
         },
       };
     }
-    return { step, proof, reset, get phase() { return phase; } };
+    return { step, proof, reset, get phase() { return phase; }, get _debug() { return { frames, lamp }; } };
   }
 
   /** Après l'ajout : envoie la photo, puis demande au serveur de poser le badge */
@@ -485,6 +692,6 @@ App.certify = (() => {
   return {
     available, prepare, tracker, livePage, pageOnly, HINTS, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
-    _test: { motion, judgeFlip, corr, frozenPairs, screenScore, dhash },
+    _test: { motion, judgeFlip, judgeE, flashFit, silhouette, corr, frozenPairs, screenScore, dhash },
   };
 })();
