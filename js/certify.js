@@ -350,10 +350,12 @@ App.certify = (() => {
    *   (exposition automatique), qui efface la différence de niveau au bout d'un moment.
    */
   function flashFit(samples, code) {
-    const s = samples.filter((x) => x.t >= code.t0 && x.t <= code.end + 1100);
+    const s0 = samples.filter((x) => x.t >= code.t0 && x.t <= code.end + 1100);
+    // images noires ou éblouies d'un coup (certains téléphones reconfigurent la caméra quand la lampe change) : écartées
+    const gm = median(s0.map((x) => x.v)) || 1, s = s0.filter((x) => x.v >= gm * 0.4 && x.v <= gm * 2.5);
     let best = { corr: -1, amp: 0, lag: 0, n: s.length, edges: 0, edgesOk: 0, jump: 0, lagE: 0, score: -9 }, bestE = { e: -1 };
     if (s.length < 8) return best;
-    const W = SLOT * 0.7, mean = (a) => a.reduce((x, y) => x + y.v, 0) / a.length;
+    const W = SLOT * 0.7, mean = (a) => a.reduce((x, y) => x + y.v, 0) / a.length, medv = (a) => median(a.map((x) => x.v));
     // vrais changements (le premier « éteint » ne change rien : la lampe l'était déjà)
     const tr = []; let st = false; for (const e of code.ev) { if (e.on !== st) tr.push(e); st = e.on; }
     for (let lag = 0; lag <= 1000; lag += 25) {
@@ -366,14 +368,14 @@ App.certify = (() => {
         let num = 0, da = 0, db = 0; s.forEach((x, k) => { num += (x.v - mm) * (on[k] - om); da += (x.v - mm) ** 2; db += (on[k] - om) ** 2; });
         c = num / (Math.sqrt(da * db) || 1); amp = (m1 - m0) / (m0 || 1);
       }
-      let edges = 0, edgesOk = 0, jump = 0;
+      let edges = 0, edgesOk = 0; const jumps = [];
       for (const e of tr) {
         const at = e.t + lag, bf = s.filter((x) => x.t >= at - W && x.t < at), af = s.filter((x) => x.t >= at && x.t < at + W);
         if (!bf.length || !af.length) continue;
-        const b = mean(bf), d = (mean(af) - b) / (b || 1), signed = e.on ? d : -d;
-        edges++; jump += signed; if (signed >= 0.02) edgesOk++;
+        const b = medv(bf), d = (medv(af) - b) / (b || 1), signed = Math.max(-0.5, Math.min(0.5, e.on ? d : -d));
+        edges++; jumps.push(signed); if (signed >= 0.02) edgesOk++;
       }
-      if (edges) jump /= edges;
+      const jump = edges ? median(jumps) : 0; // médiane : un changement aberrant ne compte pas
       const eScore = edges >= 3 ? edgesOk / edges + jump : -1; // chaque mesure garde son meilleur retard
       if (eScore > bestE.e) bestE = { e: eScore, edges, edgesOk, jump, lagE: lag };
       if (c > best.corr) best = { ...best, corr: c, amp, lag };
@@ -385,6 +387,29 @@ App.certify = (() => {
   /** Lampe vue ? (carte : ampT 6 %, jumpT 3 % ; case de classeur : 4 % et 2,5 %) */
   const flashOk = (f, ampT, jumpT) => (f.corr >= 0.75 && f.amp >= ampT) || (f.edges >= 3 && f.edgesOk / f.edges >= 0.8 && f.jump >= jumpT);
   const flashTxt = (f) => `mesures : accord ${Math.max(0, f.corr).toFixed(2).replace('.', ',')}, ${f.amp >= 0 ? '+' : ''}${Math.round(f.amp * 100)} %, changements ${f.edgesOk}/${f.edges} (${Math.round(f.jump * 100)} %), retard ${(f.lag / 1000).toFixed(2).replace('.', ',')} s, ${f.n} images`;
+  // Mode essai (v2.46) : la lampe n'est pas encore réglée sur de vrais téléphones (1ers essais d'Arnaud refusés) :
+  // si elle n'est pas reconnue, la certification n'est pas refusée ; on affiche ses mesures et un petit graphique.
+  const LAMP_BLOCKS = false;
+  const LAMP_NOTE = '💡 Lampe pas reconnue sur ce téléphone (réglage en cours : ça ne bloque pas la certification)';
+  /** Mesures de luminosité pendant le code (pour le graphique), en ms depuis le début du code */
+  function lampTrace(samples, code) {
+    const t0 = code.t0, end = code.end + 1100;
+    return { pts: samples.filter((x) => x.t >= t0 - 300 && x.t <= end).map((x) => [x.t - t0, Math.round(x.v * 10) / 10]), ev: code.ev.map((e) => [e.t - t0, e.on ? 1 : 0]), end: end - t0 };
+  }
+  /** Petit graphique : bandes jaunes = lampe allumée, courbe = luminosité vue par la caméra */
+  function lampChart(tr, fit) {
+    if (!tr || !tr.pts.length) return '';
+    const W = 300, H = 70, x0 = -300, x1 = tr.end, X = (t) => ((t - x0) / (x1 - x0) * W).toFixed(1);
+    // échelle sur les images normales (une image noire ou éblouie est collée au bord)
+    const vs = tr.pts.map((p) => p[1]).sort((a, b) => a - b), md = vs[vs.length >> 1] || 1, ok = vs.filter((v) => v >= md * 0.4 && v <= md * 2.5);
+    const lo = Math.min(...ok), hi = Math.max(...ok), Y = (v) => (H - 6 - (Math.max(lo, Math.min(hi, v)) - lo) / ((hi - lo) || 1) * (H - 12)).toFixed(1);
+    let bands = '', on = null;
+    for (const [t, o] of [...tr.ev, [x1, 0]]) { if (o && on == null) on = t; else if (!o && on != null) { bands += `<rect x="${X(on)}" y="0" width="${(X(t) - X(on)).toFixed(1)}" height="${H}" fill="#ffd23f" opacity=".35"/>`; on = null; } }
+    const line = tr.pts.map((p) => `${X(p[0])},${Y(p[1])}`).join(' ');
+    const dots = tr.pts.map((p) => `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="1.8" fill="currentColor"/>`).join('');
+    return `<div class="small muted" style="margin-top:8px">Lampe (jaune) et luminosité vue par la caméra${fit ? ` — ${flashTxt(fit)}` : ''} :</div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:420px;height:auto;background:rgba(127,127,127,.08);border-radius:8px;color:var(--accent,#7c5cff)">${bands}<polyline points="${line}" fill="none" stroke="currentColor" stroke-width="1.5"/>${dots}</svg>`;
+  }
   const median = (G) => { const s = Array.from(G).sort((a, b) => a - b); return s[s.length >> 1]; };
 
   // ---------- Liaison avec le serveur ----------
@@ -446,7 +471,7 @@ App.certify = (() => {
     // lampe (si le téléphone sait l'allumer), AVANT le geste : chaque case doit renvoyer la lumière au rythme du code.
     // Labo : pièce peu éclairée ou éclairée, 97 à 100 % des vraies pages ; photo de la page sur un écran refusée
     // à 83–100 % ; en plein jour la lampe ne se voit plus (17 %) → message « à l'intérieur ».
-    let pageFlash = null;
+    let pageFlash = null, pageTrace = null, pageFit = null, pageNote = null;
     const tr = torchOf(video);
     if (tr) {
       txt.innerHTML = '💡 Ne bouge pas : la lampe clignote…';
@@ -459,14 +484,16 @@ App.certify = (() => {
       if (code.error) pageFlash = { used: false, error: code.error };
       else {
         const fits = samples.map((s) => flashFit(s, code)), good = fits.filter((x) => flashOk(x, 0.04, 0.025)).length;
-        const mid = [...fits].sort((a, b) => b.score - a.score)[Math.floor(fits.length / 2)];
+        const order = fits.map((x, i) => i).sort((a, b) => fits[b].score - fits[a].score), mi = order[Math.floor(fits.length / 2)], mid = fits[mi];
+        pageTrace = lampTrace(samples[mi], code); pageFit = mid;
         pageFlash = { used: true, ok: good >= Math.ceil(cells.length * 0.55), good, cells: cells.length, amp: Math.round(median(fits.map((x) => x.amp)) * 1000) / 1000, txt: `${good}/${cells.length} cases ; case moyenne : ${flashTxt(mid)}` };
       }
-      if (pageFlash.used && !pageFlash.ok) {
+      if (pageFlash.used && !pageFlash.ok && !LAMP_BLOCKS) pageNote = LAMP_NOTE; // mode essai : on continue
+      else if (pageFlash.used && !pageFlash.ok) {
         ov.remove();
         return { passed: false, reasons: [`la lampe n’a pas été vue sur la page (trop de lumière : soleil, fenêtre ? ou un écran ?) — réessaie à l’intérieur (${pageFlash.txt})`], id: ch.id, challenge: ch.challenge, strip: null, scores: { passed: false, challenge: ch.challenge, kind: 'page', cells: cells.length, flash: pageFlash } };
       }
-      txt.innerHTML = '✓ Lampe vue — attends…'; // la consigne du geste vient après l’image de départ
+      txt.innerHTML = pageNote ? 'Attends…' : '✓ Lampe vue — attends…'; // la consigne du geste vient après l’image de départ
     }
     // image de référence (moyenne de 2 images) et bande-preuve (la case avant, sortie, remise)
     const SW = 72, SH = 100, strip = Object.assign(document.createElement('canvas'), { width: SW * 3, height: SH }), sg = strip.getContext('2d');
@@ -508,7 +535,7 @@ App.certify = (() => {
     const passed = reasons.length === 0;
     const r2 = (v) => Math.round(v * 10) / 10;
     return {
-      passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash,
+      passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash, lampNote: pageNote, flashTrace: pageTrace, lampFit: pageFit,
       strip: passed ? await new Promise((res) => strip.toBlob(res, 'image/jpeg', 0.8)) : null,
       scores: { passed, challenge: ch.challenge, kind: 'page', cells: cells.length, page: { peak: r2(peak), others: r2(othersAtPeak), moved, frozen, ms: Date.now() - t0 }, flash: pageFlash },
     };
@@ -598,10 +625,10 @@ App.certify = (() => {
       grab(); // la dernière image = ce que montre la photo
       const j = judgeE(frames, GW, GH);
       // lampe : la carte a-t-elle renvoyé la lumière au rythme du code ? (au dos en carte seule, à la face en rafale)
-      let flash = null;
+      let flash = null, flashTrace = null, lampNote = null, lampFit = null;
       if (lamp.state === 'play') flash = { used: true, ok: false, why: auto ? 'photo prise pendant le clignotement de la lampe' : 'retourne la carte seulement quand la lampe a fini de clignoter' };
       else if (lamp.state === 'done') {
-        const fit = flashFit(frames.map((x) => ({ t: x.t, v: x.v })), lamp.code);
+        const smp = frames.map((x) => ({ t: x.t, v: x.v })), fit = flashFit(smp, lamp.code); flashTrace = lampTrace(smp, lamp.code); lampFit = fit;
         flash = { used: true, ok: flashOk(fit, 0.06, 0.03), corr: Math.round(fit.corr * 100) / 100, amp: Math.round(fit.amp * 1000) / 1000, lag: fit.lag, lagE: fit.lagE, n: fit.n, edges: fit.edges, edgesOk: fit.edgesOk, jump: Math.round(fit.jump * 1000) / 1000 };
         if (!flash.ok) flash.why = `la carte n’a pas renvoyé la lumière de la lampe (trop de lumière autour ? ou un écran ?) — ${flashTxt(fit)}`;
       } else if (lamp.state === 'error') flash = { used: false, error: lamp.code && lamp.code.error };
@@ -615,7 +642,7 @@ App.certify = (() => {
       if (!j.passed) reasons.push(j.why);
       if (frozen >= Math.ceil((recent.length - 1) * 0.8)) reasons.push('image figée (ce n’est pas une caméra en direct)');
       if (screen.peak >= SCREEN_PEAK) reasons.push('on dirait une carte affichée sur un écran');
-      if (flash && flash.used && !flash.ok) reasons.push(flash.why);
+      if (flash && flash.used && !flash.ok) { if (LAMP_BLOCKS) reasons.push(flash.why); else lampNote = LAMP_NOTE; }
       const passed = reasons.length === 0;
       // bande-preuve : le dos, l'image « entre deux », la face photographiée
       let strip = null;
@@ -631,7 +658,7 @@ App.certify = (() => {
       const r2 = (v) => Math.round(v * 100) / 100;
       const maxB = Math.max(0, ...frames.map((f) => f.b));
       return {
-        passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash, strip,
+        passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash, strip, lampNote, flashTrace, lampFit,
         scores: {
           passed, challenge: ch.challenge, frozen, screen: screen.peak, screenStrong: screen.strong,
           flip: { states: j.states || '', gap: j.gap, ev: j.ev, algo: 'E', back: r2(maxB), ms: j.lb >= 0 ? frames[frames.length - 1].t - frames[j.lb].t : null },
@@ -722,7 +749,7 @@ App.certify = (() => {
   const count = () => App.col.all().filter(isCertified).length;
 
   return {
-    available, prepare, tracker, livePage, pageOnly, HINTS, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
+    available, prepare, tracker, livePage, pageOnly, HINTS, lampChart, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     _test: { motion, judgeFlip, judgeE, flashFit, silhouette, corr, frozenPairs, screenScore, dhash },
   };

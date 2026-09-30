@@ -270,7 +270,9 @@ App.views.scan = {
         const certLine = !cert ? '' : cert.passed
           ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— la carte sera certifiée à l’ajout.</span>`
           : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`;
-        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
+        // lampe en mode essai : note + petit graphique (mesures à transmettre pour le réglage)
+        const lampHtml = cert && cert.flashTrace ? `${cert.lampNote ? `<div class="small" style="margin-top:6px">${App.util.esc(cert.lampNote)}</div>` : ''}${App.certify.lampChart(cert.flashTrace, cert.lampFit)}` : '';
+        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${lampHtml}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
       } finally {
         shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
         shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`; camButtons(true);
@@ -680,9 +682,10 @@ App.views.scan = {
       el.querySelector('#b-go').classList.add('hidden'); // la reconnaissance partira toute seule si la grille est sûre
       cells = []; resultsEl.innerHTML = App.views.scan.guide('classeur'); setStatus('');
       pageCert = cert; pageId = null;
-      if (cert) setStatus(cert.passed
+      if (cert) setStatus((cert.passed
         ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— les cartes bien reconnues seront certifiées.</span>`
-        : `<span class="small">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même ajouter les cartes, ou reprendre la photo.</span></span>`);
+        : `<span class="small">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même ajouter les cartes, ou reprendre la photo.</span></span>`
+      ) + (cert && cert.flashTrace ? `${cert.lampNote ? `<div class="small" style="margin-top:6px">${esc(cert.lampNote)}</div>` : ''}${App.certify.lampChart(cert.flashTrace, cert.lampFit)}` : ''));
       const url = URL.createObjectURL(blob); urls.push(url);
       view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Page de classeur"><div class="grid-box"></div></div>`;
       const img = view.querySelector('img');
