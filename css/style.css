@@ -627,16 +627,18 @@ a.chip { text-decoration: none; }
   .scan-view.batch-view.live-fit { aspect-ratio: auto !important; height: calc(100dvh - 330px); min-height: 300px; max-height: none; }
   .scan-view.batch-view.live-fit video { object-fit: cover; } /* (la barre du bouton photo reste en dessous, sans mordre sur l'image) */
   /* avant la photo, avec l'encadré de certification : dessin du classeur plus petit, tout tient sur un écran */
-  :is(.batch-wrap, .scan-wrap):has(.pc-block:not(.hidden)) .scan-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { height: clamp(140px, calc(100svh - 590px), 380px); } /* (les 3 modes) */
+  :is(.batch-wrap, .scan-wrap):has(.pc-block:not(.hidden)) .scan-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { height: clamp(210px, calc(100svh - 560px), 380px); } /* (carte seule et rafale ; min 210 px : le dessin reste entier) */
   .pc-block-h .muted { display: none; }
 }
-/* bouton « Certifier chaque carte » (rafale) : même bouton que « Certifier la page », avec son état */
-.pc-switch { width: 100%; justify-content: center; gap: 8px; cursor: pointer; }
+/* interrupteurs de certification (lampe en carte seule, certification en rafale) : vert = activé, rouge = désactivé */
+.pc-switch { width: 100%; justify-content: space-between; gap: 8px; cursor: pointer; font-weight: 700; color: #fff; border: 1.5px solid rgba(61,220,151,.7); background: rgba(61,220,151,.16); }
 .pc-switch input { position: absolute; opacity: 0; pointer-events: none; }
-.pc-switch .pc-sw { font-weight: 600; font-size: .82rem; padding: 2px 8px; border-radius: 99px; background: rgba(0,0,0,.25); }
-.pc-switch .pc-sw::after { content: 'activé'; }
-.pc-switch:has(input:not(:checked)) { background: rgba(255,255,255,.08); color: var(--muted, #aab); box-shadow: none; }
-.pc-switch:has(input:not(:checked)) .pc-sw::after { content: 'désactivé'; }
+.pc-switch > span { display: inline-flex; align-items: center; gap: 6px; }
+.pc-switch .pc-sw { font-weight: 800; font-size: .8rem; padding: 3px 10px; border-radius: 99px; background: #3ddc97; color: #0c0e19; }
+.pc-switch .pc-sw::after { content: '✓ activée'; }
+.pc-switch:has(input:not(:checked)) { border-color: rgba(255,107,107,.7); background: rgba(255,107,107,.12); }
+.pc-switch:has(input:not(:checked)) .pc-sw { background: #ff6b6b; color: #fff; }
+.pc-switch:has(input:not(:checked)) .pc-sw::after { content: '✗ désactivée'; }
 @keyframes certPulse { 50% { transform: scale(1.15); } }
 .cert-ok { color: #3ddc97; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
 .cert-pill { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-family: var(--font); font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #16172a; background: linear-gradient(120deg, #3ddc97, #34d5ff); }
@@ -787,6 +789,7 @@ a.chip { text-decoration: none; }
 .scan-guide-panel .sg-cert b { color: var(--text); }
 /* boutons de validation collés en bas de l'écran tant qu'on fait défiler */
 .action-dock { position: sticky; bottom: 12px; z-index: 20; padding: 10px 12px; border-radius: 14px; background: rgba(20,23,42,.94); border: 1px solid var(--line); box-shadow: 0 10px 28px rgba(0,0,0,.45); }
+.action-dock:not(:has(> :not(.hidden))) { display: none; } /* v2.57 : barre de boutons vide (tous cachés) = plus de bloc gris inutile sous la photo */
 @media (max-width: 760px) {
   .mode-pick { gap: 8px; }
   .mode-card { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px; }

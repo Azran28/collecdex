@@ -558,7 +558,7 @@ App.certify = (() => {
    * Au moment de la photo, proof() donne le résultat à envoyer au serveur.
    * regionFn() : zone du cadre dans la vidéo { sx, sy, sw, sh }.
    */
-  function tracker(video, regionFn, { auto = false } = {}) {
+  function tracker(video, regionFn, { auto = false, lamp: useLamp = false, onLamp = null } = {}) { // v2.57 : lampe seulement si demandée (carte seule, option)
     const GW = 24, GH = 33, SW = 72, SH = 100;
     const cv = Object.assign(document.createElement('canvas'), { width: SW, height: SH });
     const cg = cv.getContext('2d', { willReadFrequently: true });
@@ -570,10 +570,12 @@ App.certify = (() => {
     // la lampe joue son code, puis 0,65 s de plus : la caméra montre l'image avec un retard (jusqu'à 0,6 s)
     const lampBusy = (now) => lamp.state === 'play' || (lamp.state === 'done' && now - lamp.code.end < 1100);
     function startLamp() {
+      if (!useLamp) return false;
       if (torch === undefined) torch = torchOf(video);
       if (!torch || lamp.state !== 'idle') return false;
       const L = lamp = { state: 'play', code: null };
-      playCode(torch).then((c) => { if (lamp !== L) return; L.code = c; L.state = c.error ? 'error' : 'done'; });
+      L.t0 = Date.now();
+      playCode(torch, onLamp).then((c) => { if (lamp !== L) return; L.code = c; L.state = c.error ? 'error' : 'done'; });
       return true;
     }
     function grab() {
@@ -671,7 +673,7 @@ App.certify = (() => {
         },
       };
     }
-    return { step, proof, reset, get phase() { return phase; }, get _debug() { return { frames, lamp }; } };
+    return { step, proof, reset, get phase() { return phase; }, get lampStart() { return lamp.t0 || 0; }, LAMP_MS: 6 * SLOT + 1100, get _debug() { return { frames, lamp }; } };
   }
 
   /** Après l'ajout : envoie la photo, puis demande au serveur de poser le badge */

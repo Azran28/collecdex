@@ -35,19 +35,27 @@ App.views.scan = {
   guide(mode) {
     const certOn = App.certify && App.certify.available();
     if (mode !== 'carte' || !certOn) return '';
-    return App.views.scan.certBlock('carte');
+    const on = App.settings.certLamp !== false;
+    return App.views.scan.certBlock('carte', App.views.scan.certSwitch('sc-lamp', on, '💡 Lampe (Android, plus sûr)'));
+  },
+
+  /** Interrupteur vert (activé) / rouge (désactivé), le même partout (v2.57 : « plus compréhensible », demande d'Arnaud) */
+  certSwitch(id, on, label) {
+    return `<label class="btn pc-switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}> <span>${label}</span> <b class="pc-sw"></b></label>`;
   },
 
   /**
-   * Encadré « certification », le même dans les 3 modes (v2.55, demande d'Arnaud : même logique visuelle pour une
-   * carte / classeur / rafale) : titre, 3 étapes numérotées, et selon le mode un bouton ou une case à cocher.
+   * Encadré « certification », le même dans les modes (v2.55, demande d'Arnaud : même logique visuelle pour une
+   * carte / classeur / rafale) : titre, 3 étapes numérotées, et selon le mode un bouton ou un interrupteur.
+   * v2.57 : la lampe seulement en carte seule (optionnelle) ; plus de certification de page pour le moment.
    */
   certBlock(mode, extra = '') {
     const I = (n, s = 18) => App.icons.icon(n, s);
+    const lamp = App.settings.certLamp !== false;
     const S = {
       carte: ['Certifier la carte', [
         'Touche <b>Caméra</b> et montre d’abord le <b>dos</b> de la carte (pas d’étui opaque)',
-        '💡 Sur Android, la lampe clignote : <b>garde le dos immobile</b> jusqu’à la fin',
+        lamp ? '💡 La lampe clignote : <b>garde le dos immobile</b> jusqu’à la fin' : 'Garde le dos visible un instant',
         '<b>Retourne</b> la carte, puis appuie sur <b>Prendre la photo</b>']],
       classeur: ['Certifier la page', [
         'Touche <b>Certifier la page</b> et cadre <b>toute la page</b>',
@@ -55,7 +63,7 @@ App.views.scan = {
         '💡 <b>Ne bouge pas 3 secondes</b> : la lampe clignote, puis la photo se prend']],
       rafale: ['Certifier chaque carte', [
         'Montre le <b>dos</b> d’une carte',
-        '<b>Retourne</b>-la et tiens-la immobile (💡 sur Android, la lampe clignote)',
+        '<b>Retourne</b>-la et tiens-la immobile',
         'Elle est prise et certifiée toute seule : passe à la suivante']],
     }[mode];
     return `<div class="pc-block" id="${mode === 'classeur' ? 'b-cert-help' : mode === 'rafale' ? 'r-cert-help' : 'sc-cert-help'}">
@@ -238,7 +246,7 @@ App.views.scan = {
 
     // Certification « dos d'abord » : le dos, on retourne, on tient immobile → la photo se prend toute seule
     let trk = null, trkTimer = null;
-    const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.flip-hint'); if (h) h.remove(); };
+    const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.flip-hint'); if (h) h.remove(); const pc = view.querySelector('.page-cert'); if (pc) pc.remove(); };
     el.querySelector('#sc-cam').addEventListener('click', async () => {
     // pendant la capture, seul « Prendre la photo » reste (demande d'Arnaud) : « Caméra » et « Choisir une photo » reviennent après
     const camButtons = (show) => { el.querySelector('#sc-cam').classList.toggle('hidden', !show); el.querySelector('#sc-file').closest('label').classList.toggle('hidden', !show); };
@@ -250,7 +258,9 @@ App.views.scan = {
         setStatus(''); // les étapes de la certification sont dans l'encadré commun (certBlock), sous la caméra
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
-        trk = App.certify.tracker(cam.video, () => cam.region());
+        // lampe : option de l'encadré (Android) ; pendant le code, grande consigne au centre (ampoule, « Ne bouge pas », compte à rebours)
+        const useLamp = App.settings.certLamp !== false;
+        trk = App.certify.tracker(cam.video, () => cam.region(), { lamp: useLamp, onLamp: (on) => { const b = view.querySelector('.pc-big .pc-bulb'); if (b) b.classList.toggle('on', on); } });
         const t0 = Date.now();
         trkTimer = setInterval(() => {
           if (!cam.on || !alive()) return stopTrack();
@@ -260,6 +270,14 @@ App.views.scan = {
           const h = view.querySelector('.flip-hint'); if (h && h.dataset.phase !== show) { h.innerHTML = show === 'aide' ? 'Dos pas reconnu : il doit être <b>visible</b> (sors la carte d’un étui opaque ; une pochette transparente, ça va)' : App.certify.HINTS[ph]; h.dataset.phase = show; }
           // dos vu : le bouton de photo le montre (la photo sera certifiée)
           const sb = el.querySelector('#sc-shot'); if (sb) sb.classList.toggle('cert-ready', ph === 'retourne');
+          let big = view.querySelector('.page-cert');
+          if (ph === 'lampe') {
+            if (!big) { view.insertAdjacentHTML('beforeend', `<div class="page-cert"><div class="pc-big"><div class="pc-bulb">💡</div><b>Ne bouge pas</b><span class="pc-count">3</span><small>garde le dos immobile : la lampe clignote</small><div class="cert-bar"><span></span></div></div></div>`); big = view.querySelector('.page-cert'); }
+            const el0 = Date.now() - trk.lampStart, left = Math.max(0, trk.LAMP_MS - el0);
+            big.querySelector('.pc-count').textContent = Math.max(1, Math.ceil(left / 1000));
+            big.querySelector('.cert-bar span').style.width = Math.min(100, Math.round(el0 / trk.LAMP_MS * 100)) + '%';
+            if (h) h.style.visibility = 'hidden';
+          } else if (big) { big.remove(); if (h) h.style.visibility = ''; }
         }, 90);
       }
       catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra dans le navigateur, ou utilise « Choisir une photo ».</span>`); }
@@ -309,6 +327,12 @@ App.views.scan = {
       }
     }
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
+    // interrupteur « Lampe » de l'encadré de certification (retenu dans les réglages, synchronisé)
+    el.addEventListener('change', (e) => {
+      if (e.target.id !== 'sc-lamp') return;
+      App.settings.certLamp = e.target.checked; App.col.saveSettings().catch(() => {});
+      const box = el.querySelector('#sc-cert-help'); if (box) box.outerHTML = App.views.scan.guide('carte'); // l'étape 2 change de texte
+    });
     el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });
 
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
@@ -555,6 +579,9 @@ App.views.scan = {
     const urls = [];
 
     const certOn = App.certify.available();
+    // v2.57 : certification d'une page retirée pour le moment (la lampe ne marchait pas assez bien sur la page — Arnaud) ;
+    // le code reste (livePage), il suffit de repasser PAGE_CERT à vrai
+    const PAGE_CERT = false;
     const setBox = (title) => `<div class="set-first">
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
             <select id="b-set"><option value="">Série : je ne sais pas</option></select>
@@ -569,9 +596,9 @@ App.views.scan = {
             <label class="btn primary" id="b-native">${App.icons.icon('camera', 16)} Prendre la page en photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
-            ${certOn && !burst ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
+            ${certOn && !burst && PAGE_CERT ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
           </div>
-          ${certOn && !burst ? App.views.scan.certBlock('classeur', `<button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`) : ''}
+          ${certOn && !burst && PAGE_CERT ? App.views.scan.certBlock('classeur', `<button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`) : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <div id="b-auto" class="b-auto hidden"></div>
             <!-- la reconnaissance part toute seule ; le bouton n'apparaît que si la grille est à placer à la main -->
@@ -588,7 +615,7 @@ App.views.scan = {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn ? App.views.scan.certBlock('rafale', `<label class="btn primary pc-switch"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 16)} Certifier chaque carte <b class="pc-sw"></b></label>`) : ''}
+          ${certOn ? App.views.scan.certBlock('rafale', App.views.scan.certSwitch('r-cert', true, `${App.icons.icon('shield', 16)} Certification`)) : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
@@ -681,7 +708,7 @@ App.views.scan = {
       // (v2.53 faisait l'inverse : sur Android la caméra se relance après une photo pleine résolution, et la lampe
       // n'avait plus d'images à mesurer — « la caméra n'a pas donné assez d'images »)
       let res = null;
-      if (App.certify.available()) {
+      if (App.certify.available() && PAGE_CERT) {
         setStatus('');
         try {
           // la lampe se mesure sur 9 zones de l'image (inutile de chercher les pochettes : plus rapide, on attend moins)
@@ -701,7 +728,7 @@ App.views.scan = {
     el.querySelector('#b-file2').addEventListener('change', fromFile); // galerie
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (running) return;
-      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden'); certHelp(true);
+      el.querySelector('#b-native').classList.remove('hidden'); if (PAGE_CERT) el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden'); certHelp(true);
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus(''); { const cb = el.querySelector('#b-certline'); if (cb) cb.innerHTML = ''; }
       el.querySelector('#b-gridbar').classList.add('hidden');
