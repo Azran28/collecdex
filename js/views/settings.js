@@ -86,16 +86,22 @@ App.views.settings = {
       const f = e.target.files[0]; if (!f) return;
       try {
         const data = JSON.parse(await f.text());
-        const merge = confirm('Fusionner avec la collection actuelle ?\n\nOK = fusionner\nAnnuler = remplacer entièrement la collection actuelle');
-        await App.col.importAll(data, { merge });
+        const how = await App.util.ask({
+          icon: 'download', title: 'Restaurer cette sauvegarde ?',
+          text: `${(data.items || []).length} cartes. Tu peux les ajouter à ta collection actuelle, ou remplacer entièrement ta collection actuelle.`,
+          choices: [{ label: 'Ajouter à ma collection', value: 'merge', kind: 'primary' }, { label: 'Tout remplacer', value: 'replace', kind: 'danger' }],
+        });
+        if (!how) return;
+        await App.col.importAll(data, { merge: how === 'merge' });
         App.util.toast(`Sauvegarde restaurée ✓ (${(data.items || []).length} cartes)`);
-      } catch (err) { alert('Restauration impossible : ' + err.message); }
+      } catch (err) { App.util.toast('Restauration impossible : ' + err.message, 5000); }
+      finally { e.target.value = ''; }
     };
     $('#p-cache').onclick = async () => { await App.db.clear('cache'); App.util.toast('Cache vidé ✓'); };
     $('#p-reset').onclick = async () => {
       const online = App.cloud.enabled && App.cloud.user;
-      if (!confirm(`Effacer TOUTE ta collection, tes photos et ta vitrine${online ? ', sur cet appareil ET dans ton compte en ligne' : ''} ? (fais une sauvegarde avant)`)) return;
-      if (!confirm('Vraiment sûr ? C’est définitif.')) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: 'Effacer toute ta collection ?', text: `Tes cartes, tes photos et ta vitrine seront effacées${online ? ', sur cet appareil ET dans ton compte en ligne' : ''}. Fais une sauvegarde avant.`, ok: 'Tout effacer' })) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: 'Vraiment sûr ?', text: 'C’est définitif : impossible de revenir en arrière.', ok: 'Oui, tout effacer', cancel: 'Non, garder ma collection' })) return;
       if (online) {
         // connecté : on efface aussi dans le compte (sinon tout reviendrait à la prochaine synchronisation)
         for (const it of App.col.all()) await App.col.remove(it.key);

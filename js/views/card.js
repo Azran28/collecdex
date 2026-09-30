@@ -200,7 +200,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     }
     if (t.closest('#cd-minus')) {
       const it = App.col.get(game, card.id);
-      if (it.qty === 1 && !confirm('Retirer cette carte de ta collection ?')) return;
+      if (it.qty === 1 && !await App.util.ask({ icon: 'trash', danger: true, title: 'Retirer cette carte de ta collection ?', text: 'C’est ton seul exemplaire.', ok: 'Retirer' })) return;
       await App.col.setQty(key, it.qty - 1); drawImage(); return drawMine();
     }
     if (t.closest('#cd-fav')) { const it = App.col.get(game, card.id); await App.col.update(key, { favorite: !it.favorite }); App.util.toast(it.favorite ? '★ Ajoutée à tes favorites' : 'Retirée des favorites'); drawImage(); return drawMine(); }
@@ -243,13 +243,13 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     }
     if (t.closest('[data-del]')) {
       e.stopPropagation();
-      if (!confirm('Supprimer cette photo ?')) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: 'Supprimer cette photo ?', ok: 'Supprimer' })) return;
       await App.col.deletePhoto(key, t.closest('[data-del]').dataset.del); drawImage(); return drawMine();
     }
     if (t.closest('[data-ph]')) { await App.col.update(key, { displayPhoto: t.closest('[data-ph]').dataset.ph }); showOfficial = false; drawImage(); return drawMine(); }
     if (t.closest('#cd-useoff')) { await App.col.update(key, { displayPhoto: null }); drawImage(); return drawMine(); }
     if (t.closest('#cd-remove')) {
-      if (!confirm(`Supprimer ${card.name} de ta collection ?\n\nSes photos et ses exemplaires seront supprimés. (Tu pourras la rescanner plus tard.)`)) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: `Supprimer ${card.name} de ta collection ?`, text: 'Ses photos et ses exemplaires seront supprimés. Tu pourras la rescanner plus tard.', ok: 'Supprimer' })) return;
       await App.col.remove(key); drawImage(); return drawMine();
     }
   });

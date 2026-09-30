@@ -1987,3 +1987,38 @@ html { -webkit-tap-highlight-color: transparent; }
 .cap-ov img, .dex-cell img, .evo-cell img { -webkit-user-drag: none; pointer-events: none; }
 .cap-ov :focus:not(:focus-visible), .dex-cell:focus:not(:focus-visible), .evo-cell:focus:not(:focus-visible) { outline: none; }
 .dex-cell.got:active { transform: scale(.96); transition: transform .08s; }
+
+/* Filtres sans bandeau sombre derrière (v2.42) : sur téléphone la barre de filtres n'est pas collante,
+   le fond (re-posé plus haut par « .toolbar { background: rgba(12,14,25,.9) } ») ne servait à rien. */
+@media (max-width: 760px) {
+  .toolbar { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* Question « Tu es sûr ? » (v2.42, App.util.ask) : remplace les fenêtres du navigateur.
+   PC : petite carte au centre ; téléphone : panneau qui monte du bas, gros boutons. */
+.ask { position: fixed; inset: 0; z-index: 6000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ask-bg { position: absolute; inset: 0; background: rgba(4,6,14,.72); animation: askFade .18s ease-out; }
+.ask-box { position: relative; width: min(400px, 100%); background: var(--bg2, #131629); border: 1px solid var(--line); border-radius: 20px; padding: 22px 22px 18px; box-shadow: 0 24px 60px rgba(0,0,0,.55); text-align: center; animation: askIn .22s cubic-bezier(.2,.9,.3,1.15); }
+.ask-ico { width: 52px; height: 52px; margin: 0 auto 10px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #7c5cff, #ff4fa3); }
+.ask-danger .ask-ico { background: linear-gradient(135deg, #ff5a6e, #c4304a); }
+.ask-title { margin: 0 0 6px; font-size: 1.12rem; }
+.ask-text { margin: 0 0 16px; color: var(--muted); font-size: .92rem; line-height: 1.45; }
+.ask-btns { display: flex; flex-direction: row-reverse; gap: 10px; }
+.ask-btns .btn { flex: 1; justify-content: center; padding: 11px 14px; font-weight: 700; }
+.ask-btns .btn.ask-red { background: linear-gradient(120deg, #ff5a6e, #d6334f); border: 0; color: #fff; box-shadow: 0 6px 18px rgba(255,90,110,.3); }
+.ask.ask-out .ask-bg { opacity: 0; transition: opacity .18s; }
+.ask.ask-out .ask-box { opacity: 0; transform: scale(.96); transition: opacity .18s, transform .18s; }
+@keyframes askFade { from { opacity: 0; } }
+@keyframes askIn { from { transform: scale(.94); } }
+@media (max-width: 760px) {
+  .ask { align-items: flex-end; padding: 0; }
+  .ask-box { width: 100%; border-radius: 22px 22px 0 0; border-bottom: 0; padding: 12px 18px calc(16px + env(safe-area-inset-bottom)); animation: askUp .26s cubic-bezier(.2,.9,.3,1); }
+  .ask-box::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.2); margin: 0 auto 14px; }
+  .ask-btns { flex-direction: column; gap: 8px; }
+  .ask-btns .btn { width: 100%; padding: 14px; font-size: 1rem; }
+  .ask.ask-out .ask-box { transform: translateY(40px); }
+  @keyframes askUp { from { transform: translateY(100%); } }
+}
+@media (prefers-reduced-motion: reduce) { .ask-bg, .ask-box { animation: none; } }
+/* le petit message du bas reste visible par-dessus l'ouverture des capsules et le combat */
+.toast { z-index: 6500; }

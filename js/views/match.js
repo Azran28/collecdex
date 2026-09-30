@@ -540,7 +540,7 @@
         if (e.target.closest('[data-back]')) { close(); resolveEnd({ win, again: false }); }
       });
     }
-    ov.querySelector('[data-quit]').addEventListener('click', () => { if (!over && confirm('Abandonner le combat ? (ça compte comme une défaite)')) { quit = true; finish(false); } });
+    ov.querySelector('[data-quit]').addEventListener('click', async () => { if (!over && await App.util.ask({ icon: 'flame', danger: true, title: 'Abandonner le combat ?', text: 'Ça compte comme une défaite.', ok: 'Abandonner', cancel: 'Continuer' }) && !over) { quit = true; finish(false); } });
 
     drawAll(); drawFoeBag();
     log(`Le combat commence ! <b>${esc(B().active(P).name)}</b> contre <b>${esc(B().active(C).name)}</b>.`);
