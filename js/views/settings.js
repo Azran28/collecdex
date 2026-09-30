@@ -24,6 +24,7 @@ App.views.settings = {
         <section class="panel">
           <h2>Application</h2>
           <div id="p-install"></div>
+          <p style="margin-top:12px"><button class="btn" id="p-onboard">${App.icons.icon('sparkles', 16)} Revoir la présentation de l’appli</button></p>
         </section>
         <section class="panel">
           <h2>Notifications</h2>
@@ -50,6 +51,7 @@ App.views.settings = {
 
     const $ = (s) => el.querySelector(s);
     const offInstall = App.install.panel($('#p-install'));
+    $('#p-onboard').addEventListener('click', () => App.onboarding.show());
     const offNotify = App.notify.panel($('#p-notify'));
     const accOff = App.views.account.render($('#p-account'), { query: {}, embedded: true });
     $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket; $('#p-sound').checked = S.sound !== false; $('#p-visual').checked = S.visualCheck !== false; $('#p-timing').checked = !!S.showTiming;

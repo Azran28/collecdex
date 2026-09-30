@@ -312,7 +312,7 @@ App.certify = (() => {
    * (Chrome Android ; pas l'iPhone) : sinon on s'en passe. Labo : la lampe ne refuse aucun vrai geste, et les
    * tricheries refusées passent de 74 % à 87 %.
    */
-  const SLOT = 350; // tranches de 0,35 s (v2.44 ; 0,25 s en v2.43 : trop court pour certaines caméras)
+  const SLOT = 350; // tranches de 0,35 s (v2.45 ; 0,25 s en v2.43 : trop court pour certaines caméras)
   function torchOf(video) {
     try {
       const tr = video && video.srcObject && video.srcObject.getVideoTracks()[0];
@@ -345,7 +345,7 @@ App.certify = (() => {
   /**
    * La luminosité (échantillons { t, v }) suit-elle le code ? Deux mesures, retard d'image de la caméra 0 à 1 s :
    * - niveau : corrélation entre luminosité et lampe allumée / éteinte, et hausse relative (amp) ;
-   * - changements (v2.44, après le 1er essai d'Arnaud refusé) : à chaque allumage la luminosité doit monter, à chaque
+   * - changements (v2.45, après le 1er essai d'Arnaud refusé) : à chaque allumage la luminosité doit monter, à chaque
    *   extinction baisser, juste après le changement. Ça marche même quand la caméra corrige vite sa luminosité
    *   (exposition automatique), qui efface la différence de niveau au bout d'un moment.
    */

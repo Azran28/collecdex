@@ -93,6 +93,9 @@ App.views = App.views || {};
   document.querySelectorAll('[data-icon]').forEach((e) => { e.innerHTML = App.icons.icon(e.dataset.icon, 20); });
   document.querySelectorAll('[data-logo]').forEach((e) => { e.innerHTML = App.icons.logo(30); });
 
+  // première ouverture sur téléphone : présentation de l'appli par-dessus la page d'accueil
+  try { App.onboarding.maybeShow(); } catch (e) { console.error(e); }
+
   (async () => {
     try { await App.col.load(); await App.certify.load(); await App.wish.load(); }
     catch (e) { console.error(e); App.util.toast('Stockage local indisponible : ta collection ne sera pas sauvegardée.', 6000); }
