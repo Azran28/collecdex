@@ -129,6 +129,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - L'appli s'ouvre en plein écran et reste consultable **sans réseau** : ta collection, tes photos, les séries et visuels déjà vus. Les prix, la synchro et la capture ont besoin du réseau.
 - Les mises à jour arrivent toutes seules, comme sur le site.
 - **Sur téléphone, le site se comporte comme une appli** : une flèche **‹** en haut à gauche ramène à la page précédente (séries, paramètres, amis, capsules…) ; l'accueil tient en un écran et demi (bouton « Capturer une carte » + raccourcis « Page de classeur » et « Rafale », tes séries en cours et tes derniers ajouts dans des rangées qui défilent de côté) ; la page Capturer est compacte (Une carte / Classeur / Rafale en onglets, série sur une ligne, grande zone photo avec les boutons juste en dessous).
+- **Présentation à la première ouverture** : sur téléphone, la toute première fois, 5 écrans animés expliquent l'appli (bienvenue, capturer une carte ou une page de classeur, ta collection, les séries, les combats). Fais-les glisser du doigt ou touche « Suivant » ; « Passer » en haut à droite. Pour la revoir : **Paramètres › Application › Revoir la présentation de l'appli**.
 
 ## Le site en ligne
 
