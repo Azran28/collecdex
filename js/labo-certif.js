@@ -238,9 +238,11 @@
     // L'exposition automatique de la caméra compense à moitié en ~0,4 s.
     const on = torchAt(env.torch, t);
     if (on && env.surface !== 'none') {
-      const k = Math.min(1, on.since / 400), a = (env.surface === 'screen' ? 0.02 : 0.22) * (1 - 0.5 * k);
+      const k = Math.min(1, on.since / 400), a = (env.torchAmp ?? (env.surface === 'screen' ? 0.02 : 0.22)) * (1 - 0.5 * k);
       g.globalCompositeOperation = 'screen'; g.fillStyle = `rgba(255,255,255,${a})`; g.fillRect(0, 0, VW, VH);
-      if (env.surface === 'screen') { const hx = env.torch.hx, hy = env.torch.hy, gr = g.createRadialGradient(hx, hy, 2, hx, hy, 22); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(hx - 22, hy - 22, 44, 44); }
+      // reflet de la lampe : petit point sur la vitre d'un écran, grande tache sur des pochettes brillantes
+      const gr0 = env.torchGlare || (env.surface === 'screen' ? 22 : 0);
+      if (gr0) { const hx = env.torch.hx, hy = env.torch.hy, gr = g.createRadialGradient(hx, hy, 2, hx, hy, gr0); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(0.5, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(hx - gr0, hy - gr0, gr0 * 2, gr0 * 2); }
       g.globalCompositeOperation = 'source-over';
     }
   }
@@ -295,7 +297,7 @@
       const awayAt = o.away ? flipEnd + react : Infinity; // téléphone pointé ailleurs juste avant la photo
       env.shootAt = flipEnd + react + (rec ? 1200 : 0) + (o.swap ? 1500 : 0) + (o.away ? 700 : 0);
       if (o.backShot) env.shootAt = tb + 300 + r() * 600;
-      env.info = { tb, D, axis, a: +a.toFixed(2) };
+      env.info = { tb, D, axis, a: +a.toFixed(2) }; env.faceAt = flipEnd;
       const thAt = (t) => {
         if (o.backShot) return 0;
         if (o.hes && t < f0) { const x = (t - tb) / 500; return x < 0 ? 0 : x < 0.5 ? 1.0 * ease(x * 2) : x < 1 ? 1.0 * (1 - ease((x - 0.5) * 2)) : 0; }
@@ -336,7 +338,7 @@
       env.moire = !!o.moire; env.surface = 'screen';
       const tb = env.t0 + 800 + r() * 900, D = kind === 'coupe' ? 0 : lerp(kind === 'fondu' ? [300, 600] : [250, 500], r());
       env.shootAt = tb + D + lerp([600, 1300], r());
-      env.info = { tb, D };
+      env.info = { tb, D }; env.faceAt = tb + D;
       const img = (g, im, x, y, w, h) => g.drawImage(im, x, y, w, h);
       env.draw = (g, t) => drawScreen(g, env, t, (g2, q) => {
         const x = D ? (t - tb) / D : (t >= tb ? 1 : 0);
@@ -371,7 +373,7 @@
       const r = env.r, tb = env.t0 + 800 + r() * 800, out = 250 + r() * 200, gapT = 150 + r() * 350, inn = 300 + r() * 200;
       const dir = r() < 0.5 ? 1 : -1, vert = r() < 0.5;
       env.shootAt = tb + out + gapT + inn + lerp([600, 1200], r());
-      env.info = { tb, D: out + gapT + inn };
+      env.info = { tb, D: out + gapT + inn }; env.faceAt = tb + out + gapT + inn;
       env.draw = (g, t) => {
         const p = posed(env, t), k = t - tb;
         let off = 0, th = 0;
@@ -824,7 +826,164 @@
     }
   }
 
+
+  // ---------- 2ᵉ banc : la lampe en rafale et en classeur ----------
+
+  function genBits(r, n) {
+    const m = Math.max(1, Math.floor(n / 3));
+    for (;;) { const b = Array.from({ length: n }, () => (r() < 0.5 ? 1 : 0)), s = b.reduce((a, x) => a + x, 0); if (s >= m && s <= n - m) return b; }
+  }
+  /** Même geste qu'en carte seule, mais la lampe clignote pendant que la FACE est tenue immobile, juste avant la photo automatique */
+  const rafale = (mk, n, slot) => (env) => {
+    env.t0 = 0; mk(env);
+    const r = env.r;
+    env.torch = { bits: genBits(r, n), slot, start: env.faceAt + 300, lag: 80 + r() * 170, hx: env.torch.hx, hy: env.torch.hy };
+    env.shootAt = env.torch.start + n * slot + 350;
+  };
+  const R_BASE = [
+    ['g-normal', true, 'Retournement normal', flipScene()],
+    ['g-rapide', true, 'Retournement très rapide', flipScene({ D: [150, 220] })],
+    ['g-sombre', true, 'Pièce sombre, mains qui tremblent', flipScene({ dark: true, shake: 6 })],
+    ['g-reflet', true, 'Reflets (holo, pochette)', flipScene({ glare: true })],
+    ['g-lent-cam', true, 'Téléphone lent (7 images/s)', flipScene({ slowCam: true })],
+    ['f-coupe', false, 'Écran : image changée d’un coup', screenScene('coupe')],
+    ['f-fondu', false, 'Écran : fondu enchaîné', screenScene('fondu')],
+    ['f-glisse', false, 'Écran : glissement', screenScene('glisse')],
+    ['f-main', false, 'Écran : main passée devant', screenScene('main')],
+    ['f-video', false, 'Écran : vidéo d’un vrai retournement (moiré)', screenScene('video', { moire: true })],
+    ['f-video-net', false, 'Écran : vidéo d’un vrai retournement, sans moiré', screenScene('video')],
+    ['f-fige', false, 'Flux injecté', flipScene({ frozen: true })],
+    ['f-papier', false, 'Dos imprimé retiré, face imprimée posée', paperSwap()],
+  ];
+  const CODES = [{ id: 'court', n: 4, slot: 200, name: 'code court (4 × 0,2 s = 0,8 s)' }, { id: 'long', n: 6, slot: 250, name: 'code long (6 × 0,25 s = 1,5 s)' }];
+
+  /** Luminosité (série de valeurs) qui suit-elle le code de la lampe ? → meilleure corrélation et hausse relative */
+  function seriesFlash(ts, vals, Tc) {
+    let best = { corr: -1, amp: 0 };
+    for (let lag = 0; lag <= 320; lag += 20) {
+      const on = ts.map((t) => { const i = Math.floor((t - Tc.start - lag) / Tc.slot); return i >= 0 && i < Tc.bits.length && Tc.bits[i] ? 1 : 0; });
+      const n1 = on.reduce((s, x) => s + x, 0); if (n1 < 2 || n1 > on.length - 2) continue;
+      let m1 = 0, m0 = 0; on.forEach((x, k) => { if (x) m1 += vals[k]; else m0 += vals[k]; }); m1 /= n1; m0 /= on.length - n1;
+      const mm = vals.reduce((s, x) => s + x, 0) / vals.length, om = n1 / on.length;
+      let num = 0, da = 0, db = 0; vals.forEach((v, k) => { num += (v - mm) * (on[k] - om); da += (v - mm) ** 2; db += (on[k] - om) ** 2; });
+      const corr = num / (Math.sqrt(da * db) || 1);
+      if (corr > best.corr) best = { corr, amp: (m1 - m0) / (m0 || 1) };
+    }
+    return best;
+  }
+
+  async function runRafale(onStatus) {
+    const cards = state.cards, rows = [];
+    for (let ci = 0; ci < cards.length; ci++) {
+      for (const code of CODES) for (const [id, ok, name, mk] of R_BASE) {
+        const sc = { id: 'r-' + id, ok, mk: rafale(mk, code.n, code.slot) };
+        const seed = hashStr(cards[ci].id + '|' + sc.id + '|' + code.id);
+        const sim = simulate(cards[ci], cards[(ci + 1) % cards.length], state.backs[seed % state.backs.length], sc, seed);
+        const e = algoE(sim.frames);
+        let pE = e.pass && !sim.shared.frozen && !sim.shared.screen;
+        const fl = flashScore(sim.frames, sim.chal);
+        rows.push({ code: code.id, id, ok, name, E: pE, F: pE && fl.ok, corr: fl.corr, amp: fl.amp, why: e.why });
+      }
+      onStatus(`Rafale : ${ci + 1} / ${cards.length} cartes`);
+      await tick();
+    }
+    return rows;
+  }
+
+  // Page de classeur filmée (certification « touche la carte ») : on ne simule que la lampe, le geste du doigt est déjà testé
+  const LIGHTS = [{ id: 'forte', name: 'Pièce peu éclairée (la lampe compte beaucoup)', amp: 0.15, light: 0.55 }, { id: 'moyenne', name: 'Pièce éclairée', amp: 0.07, light: 0.8 }, { id: 'faible', name: 'Plein jour (la lampe compte peu)', amp: 0.03, light: 1 }];
+  const PKINDS = [{ id: 'vrai', ok: true, name: 'Vraie page (pochettes brillantes)' }, { id: 'tremble', ok: true, name: 'Vraie page, mains qui tremblent' }, { id: 'ecran', ok: false, name: 'Photo de la page sur un écran' }, { id: 'fige', ok: false, name: 'Flux injecté' }, { id: 'imprime', ok: false, name: 'Photo de la page imprimée sur papier' }];
+  function pageScene(pg, L, kind) {
+    return (env) => {
+      const r = env.r;
+      env.t0 = 0; env.light = L.light * (0.92 + r() * 0.1);
+      env.surface = kind === 'fige' ? 'none' : kind === 'ecran' ? 'screen' : 'card';
+      if (kind === 'fige') { env.frozen = true; env.shake = () => ({ dx: 0, dy: 0, dr: 0 }); }
+      if (kind === 'tremble') { const amp = 6, ph = r() * 6; env.shake = (t) => ({ dx: amp * Math.sin(t / 180 + ph) + amp * 0.5 * Math.sin(t / 61), dy: amp * Math.cos(t / 150 + ph), dr: 0.008 * Math.sin(t / 300) }); }
+      env.torchAmp = kind === 'ecran' ? L.amp * 0.1 : L.amp;
+      env.torchGlare = kind === 'imprime' ? 0 : kind === 'ecran' ? 30 : 50 + r() * 50;
+      env.torch = { bits: genBits(r, 6), slot: 250, start: 400, lag: 80 + r() * 170, hx: VW * (0.35 + r() * 0.3), hy: VH * (0.35 + r() * 0.3) };
+      env.shootAt = 400 + 1500 + 400;
+      env.info = { tb: 0, D: 0 };
+      const k = Math.max(VW / pg.width, VH / pg.height) * 1.04, w = pg.width * k, h = pg.height * k;
+      env.draw = (g, t) => { const s = env.shake(t); g.save(); g.translate(VW / 2 + s.dx, VH / 2 + s.dy); g.rotate(s.dr); g.drawImage(pg, -w / 2, -h / 2, w, h); g.restore(); };
+    };
+  }
+  function simulatePage(pg, L, kind, seed) {
+    const r = rng(seed), env = baseEnv(r, { img: pg }, { img: pg }, pg);
+    pageScene(pg, L, kind)(env);
+    const ts = [], whole = [], cells = Array.from({ length: 9 }, () => []);
+    let t = 0;
+    while (t <= env.shootAt) {
+      renderFrame(env, t, vcan);
+      const G = grayFrom(vcan, 0, 0, VW, VH, 36, 48, CACHE);
+      const med = (arr) => { const s = Array.from(arr).sort((a, b) => a - b); return s[s.length >> 1]; };
+      ts.push(t); whole.push(med(G));
+      for (let cy = 0; cy < 3; cy++) for (let cx = 0; cx < 3; cx++) { const v = []; for (let y = cy * 16; y < cy * 16 + 16; y++) for (let x = cx * 12; x < cx * 12 + 12; x++) v.push(G[y * 36 + x]); cells[cy * 3 + cx].push(med(v)); }
+      t += env.dt * (r() < 0.06 ? 1.8 : 1);
+    }
+    const win = ts.map((x, i) => (x >= env.torch.start && x <= env.torch.start + 1850 ? i : -1)).filter((i) => i >= 0);
+    const pick = (a) => win.map((i) => a[i]), tt = pick(ts);
+    const w = seriesFlash(tt, pick(whole), env.torch);
+    const cs = cells.map((c) => seriesFlash(tt, pick(c), env.torch));
+    return { whole: w, cells: cs };
+  }
+  const pageOk = (res, amp) => res.cells.filter((c) => c.corr >= 0.75 && c.amp >= amp).length >= 5;
+
+  async function runPages(onStatus) {
+    const names = ['02', '04', '05', '09', '10', '12', '13', '17'], pages = [];
+    for (const n of names) {
+      try { const b = await loadBmp(`_tests-scanner/${n}.jpg`); const k = 480 / Math.max(b.width, b.height), c = canvas(Math.round(b.width * k), Math.round(b.height * k)); c.getContext('2d').drawImage(b, 0, 0, c.width, c.height); pages.push([n, c]); } catch (e) { /* photos absentes (site en ligne) */ }
+    }
+    if (!pages.length) return [];
+    const rows = [];
+    for (const [n, pg] of pages) {
+      for (const L of LIGHTS) for (const K of PKINDS) for (let k = 0; k < 8; k++) {
+        const res = simulatePage(pg, L, K.id, hashStr(n + L.id + K.id + k));
+        rows.push({ page: n, light: L.id, kind: K.id, ok: K.ok, p4: pageOk(res, 0.04), p25: pageOk(res, 0.025), whole: res.whole.corr >= 0.75 && res.whole.amp >= 0.04, amp: res.whole.amp });
+      }
+      onStatus(`Classeur : page ${n}`);
+      await tick();
+    }
+    return rows;
+  }
+
+  async function runLamp() {
+    $('#go2').disabled = true;
+    try {
+      const st = (m) => { $('#status2').textContent = m; };
+      if (!state.cards.length) { $('#o-off').checked = false; await loadAll(); }
+      const t0 = performance.now();
+      const rr = await runRafale(st), pr = await runPages(st);
+      window.__lamp = { rr, pr };
+      const rate = (a, f) => pctTxt(a.filter(f).length, a.length);
+      let h = `<h2>Rafale : lampe pendant la face (${rr.length} vidéos)</h2><div class="box scroll"><table><tr><th>Situation</th><th>Attendu</th>${CODES.map((c) => `<th>Sans lampe (E)</th><th>E + ${esc(c.name)}</th>`).join('')}</tr>`;
+      for (const [id, ok, name] of R_BASE) {
+        h += `<tr><td>${esc(name)}</td><td>${ok ? 'certifiée' : 'refusée'}</td>`;
+        for (const c of CODES) { const x = rr.filter((r) => r.code === c.id && r.id === id); h += `<td class="n">${rate(x, (r) => r.E === ok)}</td><td class="n">${rate(x, (r) => r.F === ok)}</td>`; }
+        h += '</tr>';
+      }
+      for (const [lab, ok] of [['Vrais gestes certifiés', true], ['Tricheries refusées', false]]) {
+        h += `<tr><td><b>${lab}</b></td><td></td>`;
+        for (const c of CODES) { const x = rr.filter((r) => r.code === c.id && r.ok === ok); h += `<td class="n"><b>${rate(x, (r) => r.E === ok)}</b></td><td class="n"><b>${rate(x, (r) => r.F === ok)}</b></td>`; }
+        h += '</tr>';
+      }
+      h += '</table></div>';
+      if (pr.length) {
+        h += `<h2>Classeur : lampe sur la page (${pr.length} vidéos)</h2><div class="box scroll"><table><tr><th>Situation</th>${LIGHTS.map((L) => `<th>${esc(L.name)}<br>seuil 4 %</th><th>seuil 2,5 %</th>`).join('')}</tr>`;
+        for (const K of PKINDS) {
+          h += `<tr><td>${esc(K.name)} — ${K.ok ? 'à certifier' : 'à refuser'}</td>`;
+          for (const L of LIGHTS) { const x = pr.filter((r) => r.kind === K.id && r.light === L.id); h += `<td class="n">${rate(x, (r) => r.p4 === K.ok)}</td><td class="n">${rate(x, (r) => r.p25 === K.ok)}</td>`; }
+          h += '</tr>';
+        }
+        h += '</table><p class="lead" style="margin-top:8px">Bonne décision : vraie page acceptée, tricherie refusée. Seuil = hausse de lumière minimale exigée sur au moins 5 des 9 cases.</p></div>';
+      }
+      $('#results2').innerHTML = h;
+      st(`Terminé en ${Math.round((performance.now() - t0) / 1000)} s.`);
+    } finally { $('#go2').disabled = false; }
+  }
+  $('#go2').addEventListener('click', runLamp);
   $('#go').addEventListener('click', runAll);
   $('#p-go').addEventListener('click', play);
-  window.__laboApi = { tick, state, SCEN, ALGOS, simulate, judge, loadAll, runAll, summarize, core, squeezeScore, silScore, silhouette, hashStr };
+  window.__laboApi = { runLamp, runRafale, runPages, tick, state, SCEN, ALGOS, simulate, judge, loadAll, runAll, summarize, core, squeezeScore, silScore, silhouette, hashStr };
 })();
