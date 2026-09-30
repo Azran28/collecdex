@@ -286,23 +286,32 @@ App.certify = (() => {
       }
     }
     const r2 = (v) => Math.round(v * 100) / 100, ev = { sil: r2(sil), sq: r2(sq), n: end - lb, fps: r2((frames.length - 1) * 1000 / ((frames[frames.length - 1].t - frames[0].t) || 1)) };
-    if (sil < SIL_T && sq < SQ_T) return { passed: false, why: 'retournement pas reconnu (la carte doit être vue de biais pendant le geste)', gap, states: states.slice(0, 60), lb, ev };
-    // continuité : la photo montre la carte vue juste après le geste (pas une autre carte, pas la table) ;
-    // si les mains tremblent (aucune image immobile), les 3 images les plus calmes de la demi-seconde qui suit
+    // continuité : la photo montre la carte vue juste après le geste (pas une autre carte, pas la table).
+    // v2.49 (1er essai d'Arnaud refusé après recadrage) : on compare aussi aux 2 images juste avant l'appui (le doigt
+    // fait parfois bouger le téléphone), et une carte rapprochée ou éloignée compte (recalage zoom + décalage, comme
+    // « même carte » en rafale, seuils plus prudents : même carte zoomée 0,32–0,52, autre carte ≥ 0,74)
+    const refs = [];
+    for (let i = frames.length - 1; i > lb && refs.length < 3; i--) if (frames[i].b < BACK_T && sdOf(frames[i].g) >= 12) refs.push(frames[i].g);
+    if (!refs.length) refs.push(face);
+    const zoomed = (A, B) => { try { const m = motion(A, B, w, h); return m.rel < 0.52 && m.fit < 0.7; } catch (e) { return false; } };
+    const same = (G) => refs.some((R) => corr(G, R, w, h, 4) >= FRONT_T) || refs.some((R) => zoomed(G, R));
+    // les 3 premières images immobiles après le geste ; si les mains tremblent (aucune immobile), les 3 plus calmes de la ½ s qui suit
     const firsts = [];
     for (let i = lb + 2; i < frames.length - 1 && firsts.length < 3; i++) {
       const f = frames[i], s = sdOf(f.g);
       if (f.b < BACK_T && s >= 16 && madOf(f.g, frames[i - 1].g) < 4 + s * 0.08) firsts.push(f);
     }
-    let cont = firsts.some((f) => corr(f.g, face, w, h, 4) >= FRONT_T);
-    if (!cont && !firsts.length && fF >= 0) {
-      const cand = [], i0 = lb + 1 + fF;
+    let cont = firsts.some((f) => same(f.g));
+    if (!cont && !firsts.length) {
+      const cand = [], i0 = fF >= 0 ? lb + 1 + fF : lb + 2;
       for (let i = Math.max(i0, 1); i < frames.length - 1 && frames[i].t - frames[i0].t <= 500; i++) if (frames[i].b < BACK_T && sdOf(frames[i].g) >= 12) cand.push([madOf(frames[i].g, frames[i - 1].g), i]);
       cand.sort((x, y) => x[0] - y[0]);
-      cont = cand.slice(0, 3).some(([, i]) => corr(frames[i].g, face, w, h, 4) >= FRONT_T);
+      cont = cand.slice(0, 3).some(([, i]) => same(frames[i].g));
     }
-    if (!cont) return { passed: false, why: 'la photo ne montre pas la carte retournée (tiens-la dans le cadre au moment d’appuyer)', gap, states: states.slice(0, 60), lb, ev };
-    return { passed: true, gap, states: states.slice(0, 60), lb, ev };
+    const base = { gap, states: states.slice(0, 60), lb, ev, cont };
+    if (sil < SIL_T && sq < SQ_T) return { passed: false, why: 'retournement pas reconnu (la carte doit être vue de biais pendant le geste)', ...base };
+    if (!cont) return { passed: false, why: 'la photo ne montre pas la carte retournée (après l’avoir retournée, ne la change pas de place avant d’appuyer)', ...base };
+    return { passed: true, ...base };
   }
 
   /*
@@ -645,7 +654,7 @@ App.certify = (() => {
       // v2.48 : si la lampe a été reconnue (vrai objet devant la caméra, pas un écran), l'ancienne règle du retournement
       // (judgeFlip, plus souple quand la caméra donne peu d'images) suffit ; sinon on garde la nouvelle (judgeE)
       let flipOk = j.passed, flipHow = 'E';
-      if (!flipOk && flash && flash.ok) { const a = judgeFlip(frames, GW, GH); if (a.passed) { flipOk = true; flipHow = 'lampe+A'; } }
+      if (!flipOk && flash && flash.ok && j.cont) { const a = judgeFlip(frames, GW, GH); if (a.passed || a.gap >= 1) { flipOk = true; flipHow = 'lampe+A'; } } // continuité : celle de judgeE (tolère le recadrage)
       if (!flipOk) reasons.push(j.ev ? `${j.why} — mesures : bords ${String(j.ev.sil).replace('.', ',')}, écrasée ${String(j.ev.sq).replace('.', ',')}, ${j.ev.n} images pendant le geste, ${String(j.ev.fps).replace('.', ',')} images/s` : j.why);
       if (frozen >= Math.ceil((recent.length - 1) * 0.8)) reasons.push('image figée (ce n’est pas une caméra en direct)');
       if (screen.peak >= SCREEN_PEAK && !(flash && flash.ok)) reasons.push(`on dirait une carte affichée sur un écran (motif ${Math.round(screen.peak)})`); // la lampe reconnue prouve déjà que ce n'est pas un écran
