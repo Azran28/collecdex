@@ -61,9 +61,13 @@ App.views.scan = {
           <span class="mc-ico">${App.icons.icon('rafale', 22)}</span>
           <span class="mc-txt"><b>Rafale</b><span>Les cartes défilent, sans cliquer</span></span>
         </a>
+        <button type="button" class="sc-help d-hide" id="sc-help" aria-label="Mode d’emploi de Capturer">?</button>
       </div>
       <div id="sc-body"></div>`;
     const body = el.querySelector('#sc-body');
+    // téléphone : mode d'emploi à la 1re visite, et bouton « ? » pour le revoir
+    el.querySelector('#sc-help').addEventListener('click', () => App.onboarding.showScan());
+    App.onboarding.maybeShowScan();
     const cleanup = mode === 'carte' ? await App.views.scan.single(body, params, alive) : await App.views.scan.batch(body, params, alive, mode === 'rafale');
     return () => { if (cleanup) cleanup(); App.recognizer.stop(); };
   },

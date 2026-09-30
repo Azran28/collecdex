@@ -2160,3 +2160,97 @@ html.ob-lock, html.ob-lock body { overflow: hidden; }
 .ob-small { display: block !important; line-height: 1.6; }
 .ob-small .ob-tab { vertical-align: middle; margin-right: 6px; }
 .ob-s0 .ob-small { text-align: center; }
+
+/* ===== Mode d'emploi de Capturer (v2.46) ===== */
+/* bouton « ? » au bout des onglets de mode (téléphone) */
+.sc-help { flex: 0 0 34px; height: 34px; align-self: center; margin-left: 2px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface2); color: #c8ccea; font-weight: 800; font-size: .95rem; cursor: pointer; }
+.sc-help:active { transform: scale(.94); }
+
+/* 1 — trois modes qui défilent dans le téléphone (3 temps de 3 s) */
+.ob-scene.t1 { animation: obT1 9s infinite; }
+.ob-scene.t2 { visibility: hidden; animation: obT2 9s infinite; }
+.ob-scene.t3 { visibility: hidden; animation: obT3 9s infinite; }
+@keyframes obT1 { 0%, 33.2% { visibility: visible; } 33.3%, 100% { visibility: hidden; } }
+@keyframes obT2 { 0%, 33.2% { visibility: hidden; } 33.3%, 66.5% { visibility: visible; } 66.6%, 100% { visibility: hidden; } }
+@keyframes obT3 { 0%, 66.5% { visibility: hidden; } 66.6%, 100% { visibility: visible; } }
+.ob-modes3 .m.t1 { animation: obMT1 9s infinite; }
+.ob-modes3 .m.t2 { animation: obMT2 9s infinite; }
+.ob-modes3 .m.t3 { animation: obMT3 9s infinite; }
+@keyframes obMT1 { 0%, 33.2% { background: #7c5cff; color: #fff; } 33.3%, 100% { background: transparent; color: #aab0d3; } }
+@keyframes obMT2 { 0%, 33.2% { background: transparent; color: #aab0d3; } 33.3%, 66.5% { background: #7c5cff; color: #fff; } 66.6%, 100% { background: transparent; color: #aab0d3; } }
+@keyframes obMT3 { 0%, 66.5% { background: transparent; color: #aab0d3; } 66.6%, 100% { background: #7c5cff; color: #fff; } }
+.ob-frame { position: absolute; width: 104px; height: 145px; border: 2px dashed rgba(255,210,63,.7); border-radius: 10px; }
+.ob-slidein { animation: obSlideIn 1.5s ease-in-out infinite; }
+@keyframes obSlideIn { 0% { transform: translateX(150px) rotate(8deg); } 30%, 70% { transform: none; } 100% { transform: translateX(-150px) rotate(-8deg); } }
+.ob-plus { position: absolute; top: 12px; right: 12px; padding: 2px 8px; border-radius: 999px; background: #3ddc97; color: #062; font-weight: 800; font-size: .75rem; animation: obPlus 1.5s infinite; }
+@keyframes obPlus { 0%, 38% { transform: scale(0); } 45%, 70% { transform: scale(1); } 80%, 100% { transform: scale(0); } }
+
+/* 2 — menu de la série : « je ne sais pas » puis série choisie */
+.ob-sel { position: relative; width: 240px; height: 44px; }
+.ob-sel > span { position: absolute; inset: 0; display: flex; align-items: center; gap: 7px; padding: 0 14px; border-radius: 12px; background: var(--bg2); font-size: .9rem; font-weight: 600; }
+.ob-sel-a { border: 1.5px dashed rgba(255,210,63,.6); color: #c8ccea; animation: obSelA 5s infinite; }
+.ob-sel-b { border: 1.5px solid rgba(61,220,151,.7); color: #fff; visibility: hidden; animation: obSelB 5s infinite; }
+.ob-sel-b svg { color: #3ddc97; }
+@keyframes obSelA { 0%, 44.9% { visibility: visible; } 45%, 100% { visibility: hidden; } }
+@keyframes obSelB { 0%, 44.9% { visibility: hidden; } 45%, 100% { visibility: visible; } }
+.ob-hint .ob-card { animation: obHint 5s infinite; }
+@keyframes obHint { 0%, 44.9% { filter: brightness(.6) saturate(.3); } 45%, 100% { filter: none; } }
+
+/* 3 — bonne et mauvaise photo */
+.ob-vs2 { display: flex; gap: 26px; }
+.ob-ex { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ob-ex b { font-size: .8rem; }
+.ob-ex.ok b { color: #3ddc97; } .ob-ex.ko b { color: #ff7a8a; }
+.ob-ex .ob-card { --w: 92px; }
+.ob-ex.ko .ob-card { transform: rotate(-11deg) scale(.86); filter: blur(.6px); }
+.ob-glare::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(120deg, transparent 38%, rgba(255,255,255,.9) 50%, transparent 62%); }
+.ob-mark { position: absolute; top: -10px; right: -10px; z-index: 1; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,.4); }
+.ob-ex.ok .ob-mark { background: #3ddc97; color: #062; }
+.ob-ex.ko .ob-mark { background: #ff5b7a; color: #fff; }
+
+/* 4 — page analysée : reconnue / à vérifier / vide */
+.ob-page.big .ob-card { --w: 50px; }
+.ob-page.big .ob-cell { filter: brightness(.55) saturate(.4); }
+.ob-slide.on .ob-page.big .ob-cell { animation: obCellIn .3s ease-out both; }
+.ob-slide.on .ob-page.big .d1 { animation-delay: .3s; } .ob-slide.on .ob-page.big .d2 { animation-delay: .6s; } .ob-slide.on .ob-page.big .d3 { animation-delay: .9s; }
+.ob-slide.on .ob-page.big .d5 { animation-delay: 1.5s; } .ob-slide.on .ob-page.big .d6 { animation-delay: 1.8s; } .ob-slide.on .ob-page.big .d7 { animation-delay: 2.1s; } .ob-slide.on .ob-page.big .d8 { animation-delay: 2.4s; }
+@keyframes obCellIn { to { filter: none; } }
+.ob-page.big .ob-cell.ok { outline: 2px solid #3ddc97; }
+.ob-page.big .ob-cell.doubt { outline: 2px solid #ffb84d; }
+.ob-page.big .ob-cell.empty { background: rgba(255,255,255,.05); border: 1.5px dashed rgba(255,255,255,.25); filter: none; }
+.ob-q { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 1.3rem; color: #ffb84d; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+.ob-legend { display: flex; gap: 10px; font-size: .74rem; color: #c8ccea; }
+.ob-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.ob-legend span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; }
+.ob-legend .ok::before { background: #3ddc97; } .ob-legend .doubt::before { background: #ffb84d; } .ob-legend .empty::before { border: 1.5px dashed rgba(255,255,255,.4); }
+
+/* 5 — récapitulatif */
+.ob-recap { display: flex; gap: 14px; }
+.ob-rc { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ob-rc .ob-card { --w: 76px; }
+.ob-vp { position: absolute; top: calc(76px * 88 / 63 - 16px); left: 50%; transform: translateX(-50%); padding: 3px 8px; border-radius: 999px; background: rgba(12,14,25,.92); border: 1px solid var(--line); font-size: .64rem; font-weight: 800; white-space: nowrap; }
+.ob-vp.doubt { border-color: #ffb84d; color: #ffb84d; animation: obPulse 1.4s ease-in-out infinite; }
+@keyframes obPulse { 50% { transform: translateX(-50%) scale(1.12); } }
+.ob-st { font-size: .7rem; font-weight: 800; color: #3ddc97; }
+.ob-st.dup { color: #34d5ff; }
+.ob-save { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 12px; background: linear-gradient(120deg, #7c5cff, #ff4fa3); color: #fff; font-weight: 700; font-size: .85rem; box-shadow: 0 6px 18px rgba(124,92,255,.35); }
+
+/* 6 — certification : dos, retournement, badge */
+.ob-flip { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; perspective: 700px; }
+.ob-flip-in { position: relative; width: 104px; aspect-ratio: 63 / 88; transform-style: preserve-3d; animation: obFlip 4s ease-in-out infinite; }
+.ob-flip-in > * { position: absolute !important; inset: 0; width: 100% !important; --w: 104px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.ob-back { display: flex; align-items: center; justify-content: center; border-radius: 7px; border: 5px solid #1d3f8f; background: radial-gradient(circle at 50% 50%, #3d6fe0, #1a3a8c 70%); transform: rotateY(180deg); box-shadow: 0 8px 18px rgba(0,0,0,.45); }
+.ob-back i { width: 46%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #ffd23f 0 22%, #e8a323 23% 40%, transparent 41%), rgba(255,255,255,.12); }
+@keyframes obFlip { 0%, 35% { transform: rotateY(180deg); } 55%, 100% { transform: rotateY(360deg); } }
+.ob-shield { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: rgba(61,220,151,.14); border: 1px solid rgba(61,220,151,.5); color: #3ddc97; font-weight: 800; font-size: .8rem; animation: obShield 4s infinite; }
+@keyframes obShield { 0%, 58% { transform: scale(0); } 64% { transform: scale(1.15); } 70%, 100% { transform: scale(1); } }
+.ob-steps li svg { display: inline; vertical-align: -2px; color: #3ddc97; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-scene.t2, .ob-scene.t3, .ob-sel-b { visibility: hidden; }
+  .ob-modes3 .m.t1 { background: #7c5cff; color: #fff; }
+  .ob-flip-in { transform: rotateY(360deg); } .ob-shield, .ob-plus { transform: none; }
+  .ob-page.big .ob-cell { filter: none; }
+}
+.ob-c1 .ob-page .ob-card { animation-name: obCell2; }
+@keyframes obCell2 { 0%, 36% { filter: brightness(.55) saturate(.4); outline: 0 solid transparent; } 38%, 100% { filter: none; outline: 2px solid #3ddc97; } }

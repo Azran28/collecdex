@@ -387,7 +387,7 @@ App.certify = (() => {
   /** Lampe vue ? (carte : ampT 6 %, jumpT 3 % ; case de classeur : 4 % et 2,5 %) */
   const flashOk = (f, ampT, jumpT) => (f.corr >= 0.75 && f.amp >= ampT) || (f.edges >= 3 && f.edgesOk / f.edges >= 0.8 && f.jump >= jumpT);
   const flashTxt = (f) => `mesures : accord ${Math.max(0, f.corr).toFixed(2).replace('.', ',')}, ${f.amp >= 0 ? '+' : ''}${Math.round(f.amp * 100)} %, changements ${f.edgesOk}/${f.edges} (${Math.round(f.jump * 100)} %), retard ${(f.lag / 1000).toFixed(2).replace('.', ',')} s, ${f.n} images`;
-  // Mode essai (v2.46) : la lampe n'est pas encore réglée sur de vrais téléphones (1ers essais d'Arnaud refusés) :
+  // Mode essai (v2.47) : la lampe n'est pas encore réglée sur de vrais téléphones (1ers essais d'Arnaud refusés) :
   // si elle n'est pas reconnue, la certification n'est pas refusée ; on affiche ses mesures et un petit graphique.
   const LAMP_BLOCKS = false;
   const LAMP_NOTE = '💡 Lampe pas reconnue sur ce téléphone (réglage en cours : ça ne bloque pas la certification)';
