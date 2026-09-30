@@ -1168,7 +1168,7 @@ App.views.scan = {
         : 'Pas tout à fait sûr : c’est bien elle ?';
       return `${svTop(sv.single ? `Carte ${c.i + 1}` : `${sureN ? `${sureN} reconnue${sureN > 1 ? 's' : ''} · ` : ''}<span class="warn">${sv.list.length} à vérifier</span>`, sv.single ? '' : `${sv.idx + 1} / ${sv.list.length}`)}
         <div class="sv-pair"><span class="bphoto"><img src="${c.url}" alt="Ta carte ${c.i + 1}"></span>
-          ${cur ? `<img class="sv-off" src="${visOf(cur)}" alt="Visuel officiel">` : '<span class="sv-off sv-wait"><b>?</b></span>'}</div>
+          ${cur ? `<span class="sv-offwrap vfx vfx-${vfxOf(c, cur)}"><img class="sv-off" src="${visOf(cur)}" alt="Visuel officiel"></span>` : '<span class="sv-off sv-wait"><b>?</b></span>'}</div>
         <div class="sv-name">${cur ? `${esc(cur.name)} <span class="muted">· ${esc(App.views.scan.setLabel(cur))} · ${esc(cur.localId)}</span>` : 'Carte non reconnue'}</div>
         <div class="sv-why">${why}</div>
         ${svVersions(c, cur)}
@@ -1188,9 +1188,21 @@ App.views.scan = {
       if (opts.length <= 1 && !fe) return '';
       const v = (c.det && c.det.id === cur.id && versOf(c)) || [];
       const how = !c.det || c.det.id !== cur.id || c.det.measuring ? 'mesure…' : c.det.user ? 'choisie' : c.det.sure ? 'mesurée sur la photo' : 'à vérifier';
+      const b = v.find((x) => x !== 'firstEdition');
+      const hint = { holo: 'Aperçu holo : l’illustration brille.', reverse: 'Aperçu reverse : tout brille sauf l’illustration.', normal: 'Normale : rien ne brille.' }[b] || '';
       return `<div class="sv-vers"><span class="small muted">Version <span class="${how === 'à vérifier' ? 'warn' : ''}">(${how})</span></span>
         <div class="chips">${opts.map((k) => `<button class="chip ${v.includes(k) ? 'on' : ''}" data-sv="vbase" data-v="${k}">${VN[k]}</button>`).join('')}
-        ${fe ? `<button class="chip ${v.includes('firstEdition') ? 'on' : ''}" data-sv="vfe">1ʳᵉ éd.</button>` : ''}</div></div>`;
+        ${fe ? `<button class="chip ${v.includes('firstEdition') ? 'on' : ''}" data-sv="vfe">1ʳᵉ éd.</button>` : ''}</div>
+        ${hint && opts.length > 1 ? `<span class="small muted">${hint} <span class="sv-vnote">(simulé sur le visuel officiel : TCGdex n’a qu’une image par carte)</span></span>` : ''}</div>`;
+    }
+    /**
+     * Effet de la version sur le visuel officiel (demande d'Arnaud : comparer avec sa carte) : TCGdex n'a qu'une image
+     * par carte, on simule donc où ça brille — holo = l'illustration, reverse = tout sauf l'illustration.
+     */
+    function vfxOf(c, cur) {
+      if (!cur || !cur.variants || !c.det || c.det.id !== cur.id || c.det.measuring) return '';
+      const b = (versOf(c) || []).find((x) => x !== 'firstEdition');
+      return b === 'holo' || b === 'reverse' ? b : '';
     }
     /**
      * Étiquette de version posée sur la carte dans le récapitulatif (demande d'Arnaud) : ce qui a été trouvé,
@@ -1217,7 +1229,7 @@ App.views.scan = {
       };
       return `${svTop('<b>Récapitulatif de la page</b>', pageDur ? `<span class="muted small">analyse : ${durTxt(pageDur)}</span>` : '')}
         <div class="sv-recap">${shown.map((c) => { const cur = cardOf(c), [k, t] = tag(c), vp = !c.saved && cur ? versPill(c, cur) : ''; return `<div class="sv-rc ${k}">
-          <button class="sv-rc-open" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}><img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span></button>
+          <button class="sv-rc-open vfx vfx-${cur ? vfxOf(c, cur) : ''}" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}><img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span></button>
           ${vp}<span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span></div>`; }).join('')}</div>
         <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer, ou son étiquette de version (<b class="warn">?</b> = pas sûre) pour passer à la suivante.</div>
         <div class="sv-acts sv-final">
