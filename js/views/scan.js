@@ -35,8 +35,8 @@ App.views.scan = {
   guide(mode) {
     const certOn = App.certify && App.certify.available();
     if (mode !== 'carte' || !certOn) return '';
-    const on = App.settings.certLamp !== false;
-    return App.views.scan.certBlock('carte', App.views.scan.certSwitch('sc-lamp', on, '💡 Lampe (Android, plus sûr)'));
+    const on = App.settings.certCarte !== false; // v2.58 : certification optionnelle en carte seule (demande d'Arnaud)
+    return App.views.scan.certBlock('carte', App.views.scan.certSwitch('sc-certon', on, `${App.icons.icon('shield', 16)} Certification`));
   },
 
   /** Interrupteur vert (activé) / rouge (désactivé), le même partout (v2.57 : « plus compréhensible », demande d'Arnaud) */
@@ -51,7 +51,7 @@ App.views.scan = {
    */
   certBlock(mode, extra = '') {
     const I = (n, s = 18) => App.icons.icon(n, s);
-    const lamp = App.settings.certLamp !== false;
+    const lamp = true; // (la lampe s'utilise dès que le téléphone le permet)
     const S = {
       carte: ['Certifier la carte', [
         'Touche <b>Caméra</b> et montre d’abord le <b>dos</b> de la carte (pas d’étui opaque)',
@@ -66,7 +66,8 @@ App.views.scan = {
         '<b>Retourne</b>-la et tiens-la immobile',
         'Elle est prise et certifiée toute seule : passe à la suivante']],
     }[mode];
-    return `<div class="pc-block" id="${mode === 'classeur' ? 'b-cert-help' : mode === 'rafale' ? 'r-cert-help' : 'sc-cert-help'}">
+    const off = mode === 'carte' && App.settings.certCarte === false;
+    return `<div class="pc-block${off ? ' pc-off' : ''}" id="${mode === 'classeur' ? 'b-cert-help' : mode === 'rafale' ? 'r-cert-help' : 'sc-cert-help'}">
       <div class="pc-block-h">${I('shield')} <b>${S[0]}</b> <span class="small muted">— badge « Certifiée »</span></div>
       <ol class="pc-steps">${S[1].map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join('')}</ol>${extra}
     </div>`;
@@ -254,12 +255,12 @@ App.views.scan = {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = App.views.scan.guide('carte');
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
-        if (!App.certify.available()) { setStatus(''); return; }
+        if (!App.certify.available() || App.settings.certCarte === false) { setStatus(''); return; } // certification désactivée : simple photo
         setStatus(''); // les étapes de la certification sont dans l'encadré commun (certBlock), sous la caméra
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         // lampe : option de l'encadré (Android) ; pendant le code, grande consigne au centre (ampoule, « Ne bouge pas », compte à rebours)
-        const useLamp = App.settings.certLamp !== false;
+        const useLamp = true; // lampe dès que le téléphone le permet (Android)
         trk = App.certify.tracker(cam.video, () => cam.region(), { lamp: useLamp, onLamp: (on) => { const b = view.querySelector('.pc-big .pc-bulb'); if (b) b.classList.toggle('on', on); } });
         const t0 = Date.now();
         trkTimer = setInterval(() => {
@@ -290,7 +291,8 @@ App.views.scan = {
       shooting = true;
       // l'image est figée À L'INSTANT de l'appui (la suite peut prendre 1 à 2 s : on peut bouger)
       const shotP = cam.capture();
-      const proofP = App.certify.available() && flipped ? trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
+      const certWanted = App.certify.available() && App.settings.certCarte !== false;
+      const proofP = certWanted && flipped ? trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
       const shot = el.querySelector('#sc-shot');
       shot.disabled = true; shot.textContent = '✓ Photo prise — recherche de la carte…';
       view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
@@ -304,7 +306,7 @@ App.views.scan = {
         const b = await shotP; if (!b) return;
         lastShot = b; cam.stop();
         await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 80); }); // qu'elle s'affiche avant les calculs (80 ms au plus : onglet caché)
-        if (App.certify.available()) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
+        if (certWanted) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
         stopTrack();
         // la carte est détourée toute seule, au ras de ses bords et remise à plat (sinon recadrée au plus près)
         let card = b;
@@ -327,11 +329,11 @@ App.views.scan = {
       }
     }
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
-    // interrupteur « Lampe » de l'encadré de certification (retenu dans les réglages, synchronisé)
+    // interrupteur « Certification » de l'encadré (retenu dans les réglages, synchronisé)
     el.addEventListener('change', (e) => {
-      if (e.target.id !== 'sc-lamp') return;
-      App.settings.certLamp = e.target.checked; App.col.saveSettings().catch(() => {});
-      const box = el.querySelector('#sc-cert-help'); if (box) box.outerHTML = App.views.scan.guide('carte'); // l'étape 2 change de texte
+      if (e.target.id !== 'sc-certon') return;
+      App.settings.certCarte = e.target.checked; App.col.saveSettings().catch(() => {});
+      const box = el.querySelector('#sc-cert-help'); if (box) box.outerHTML = App.views.scan.guide('carte'); // étapes grisées si désactivée
     });
     el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });
 
@@ -490,13 +492,14 @@ App.views.scan = {
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
         const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
+          : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (certification désactivée). Active-la dans l’encadré « Certifier la carte » pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
         results.innerHTML = `<div class="panel capture-done">${mode === 'rien' || !cardURL ? '' : `<div class="reveal rt-${App.ui.holoTier(ad.rarity.rank(c.rarity))}"><span class="burst"></span><img src="${cardURL}" alt=""></div>`}<div>${what}${verLine}${certLine}</div><br>
           <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
-        if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : 'photo importée depuis la galerie');
+        if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
         if (myCert && myCert.passed && photoId) {
           App.certify.identity(shotBlob, c).then((ident) => App.certify.finish(key, photoId, myCert, ident)).then((r) => {
             const line = results.querySelector('#sc-cert'); if (!line) return;
@@ -582,6 +585,7 @@ App.views.scan = {
     // v2.57 : certification d'une page retirée pour le moment (la lampe ne marchait pas assez bien sur la page — Arnaud) ;
     // le code reste (livePage), il suffit de repasser PAGE_CERT à vrai
     const PAGE_CERT = false;
+    const RAFALE_CERT = false; // v2.58 : certification en rafale retirée pour le moment aussi (demande d'Arnaud)
     const setBox = (title) => `<div class="set-first">
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
             <select id="b-set"><option value="">Série : je ne sais pas</option></select>
@@ -615,7 +619,7 @@ App.views.scan = {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn ? App.views.scan.certBlock('rafale', App.views.scan.certSwitch('r-cert', true, `${App.icons.icon('shield', 16)} Certification`)) : ''}
+          ${certOn && RAFALE_CERT ? App.views.scan.certBlock('rafale', App.views.scan.certSwitch('r-cert', true, `${App.icons.icon('shield', 16)} Certification`)) : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
@@ -1716,7 +1720,7 @@ App.views.scan = {
     }
     const rHint = (html, cls = '') => { const h = view.querySelector('.r-live'); if (h) { h.className = `r-live ${cls}`; h.innerHTML = html; } };
     let rTrk = null; // certification « dos d'abord » (si « Certifier chaque carte » est coché)
-    const wantCert = () => certOn && el.querySelector('#r-cert') && el.querySelector('#r-cert').checked;
+    const wantCert = () => RAFALE_CERT && certOn && el.querySelector('#r-cert') && el.querySelector('#r-cert').checked;
     function rTick() {
       if (rBusy || !cam.on) return;
       const F = rGrab(); if (!F) return;
@@ -1803,7 +1807,7 @@ App.views.scan = {
         catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra, ou utilise « Choisir des photos ».</span>`); return; }
         App.sfx.unlock();
         view.insertAdjacentHTML('beforeend', '<div class="r-live">Présente une carte dans le cadre</div>');
-        if (certOn) App.certify.prepare();
+        if (certOn && RAFALE_CERT) App.certify.prepare();
         rPrev = null; rStable = 0;
         rTrk = null;
         rTimer = setInterval(rTick, 100);

@@ -639,6 +639,8 @@ a.chip { text-decoration: none; }
 .pc-switch:has(input:not(:checked)) { border-color: rgba(255,107,107,.7); background: rgba(255,107,107,.12); }
 .pc-switch:has(input:not(:checked)) .pc-sw { background: #ff6b6b; color: #fff; }
 .pc-switch:has(input:not(:checked)) .pc-sw::after { content: '✗ désactivée'; }
+.pc-block.pc-off { border-color: rgba(255,107,107,.45); background: rgba(255,107,107,.06); }
+.pc-block.pc-off .pc-steps { opacity: .4; }
 @keyframes certPulse { 50% { transform: scale(1.15); } }
 .cert-ok { color: #3ddc97; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
 .cert-pill { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-family: var(--font); font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #16172a; background: linear-gradient(120deg, #3ddc97, #34d5ff); }
