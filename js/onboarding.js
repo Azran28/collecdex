@@ -4,9 +4,9 @@
  * (aucune image à télécharger : marche aussi hors ligne). Revoir : Paramètres › Application.
  */
 App.onboarding = (() => {
-  const KEY = 'onboarded1';
-  const seen = () => { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return true; } };
-  const markSeen = () => { try { localStorage.setItem(KEY, '1'); } catch (e) { /* navigation privée */ } };
+  const KEY = 'onboarded1', KEY_SCAN = 'onboardedScan1';
+  const seen = (k = KEY) => { try { return localStorage.getItem(k) === '1'; } catch (e) { return true; } };
+  const markSeen = (k = KEY) => { try { localStorage.setItem(k, '1'); } catch (e) { /* navigation privée */ } };
   const isPhone = () => window.matchMedia('(max-width: 760px)').matches;
 
   // petite carte dessinée (bordure jaune, illustration colorée, lignes de texte)
@@ -84,10 +84,10 @@ App.onboarding = (() => {
     },
   ];
 
-  function show() {
+  function open(slides, key, label, last) {
     if (document.getElementById('ob')) return;
     const box = document.createElement('div');
-    box.id = 'ob'; box.className = 'ob'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Présentation de CollecDex');
+    box.id = 'ob'; box.className = 'ob'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', label);
     box.innerHTML = `<button class="ob-skip" data-ob="skip">Passer</button>
       <div class="ob-track">${slides.map((s, i) => `<section class="ob-slide ${s.cls}" aria-label="Étape ${i + 1} sur ${slides.length}">
           <div class="ob-art">${s.art}</div>
@@ -104,13 +104,13 @@ App.onboarding = (() => {
       box.querySelectorAll('.ob-dots button').forEach((d, k) => d.classList.toggle('on', k === i));
       // les animations de l'écran visible repartent du début
       box.querySelectorAll('.ob-slide').forEach((s, k) => s.classList.toggle('on', k === i));
-      next.textContent = i === slides.length - 1 ? 'C’est parti !' : 'Suivant';
+      next.textContent = i === slides.length - 1 ? last : 'Suivant';
       next.classList.toggle('go', i === slides.length - 1);
     };
     const go = (i) => track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
     track.addEventListener('scroll', () => setCur(Math.round(track.scrollLeft / Math.max(1, track.clientWidth))), { passive: true });
     const close = () => {
-      markSeen();
+      markSeen(key);
       box.classList.add('out');
       document.documentElement.classList.remove('ob-lock');
       setTimeout(() => box.remove(), 260);
@@ -131,8 +131,93 @@ App.onboarding = (() => {
     setCur(0);
   }
 
+  /* ---------- Mode d'emploi de la page Capturer (v2.45) : plus précis, à la 1re visite de la page ---------- */
+  const flat = (cls = '') => `<span class="ob-back ${cls}"><i></i></span>`; // dos de carte dessiné
+  const scanSlides = [
+    {
+      cls: 'ob-c1',
+      art: `<div class="ob-phone">
+          <div class="ob-scene t1">${card(45, 'big')}<i class="ob-ray"></i></div>
+          <div class="ob-scene t2"><div class="ob-page">${[...Array(9)].map((_, i) => card(20 + i * 37, `mini c${i}`)).join('')}</div><i class="ob-ray"></i></div>
+          <div class="ob-scene t3"><span class="ob-frame"></span>${card(300, 'big ob-slidein')}<span class="ob-plus">+1</span></div>
+        </div>
+        <div class="ob-modes ob-modes3"><span class="m t1">${I('capture', 14)} Une carte</span><span class="m t2">${I('dex', 14)} Classeur</span><span class="m t3">${I('rafale', 14)} Rafale</span></div>`,
+      title: 'Capturer : 3 façons',
+      extra: `<ul class="ob-list">
+          <li>${I('capture', 15)} <span><b>Une carte</b> : la plus fiable. Pour une carte précieuse, ou pour la faire <b>certifier</b>.</span></li>
+          <li>${I('dex', 15)} <span><b>Classeur</b> : une page entière (9 ou 4 cartes), ou le classeur ouvert (18 cartes). Les cases sont trouvées toutes seules.</span></li>
+          <li>${I('rafale', 15)} <span><b>Rafale</b> : présente tes cartes l’une après l’autre devant la caméra ; chacune est prise dès qu’elle ne bouge plus.</span></li>
+        </ul>`,
+    },
+    {
+      cls: 'ob-c2',
+      art: `<div class="ob-sel"><span class="ob-sel-a">Série : je ne sais pas ▾</span><span class="ob-sel-b">${I('check', 14)} 151 (2023) ▾</span></div>
+        <div class="ob-sgrid ob-hint">${[...Array(5)].map((_, i) => card(15 + i * 40, 'mini')).join('')}</div>`,
+      title: 'Choisis la série (si tu la connais)',
+      text: 'C’est facultatif, mais <b>beaucoup plus fiable</b> et plus rapide.',
+      extra: `<ul class="ob-list">
+          <li>${I('layers', 15)} <span>Toutes tes cartes viennent de la même série ? Choisis-la dans le menu <b>au-dessus de la photo</b> : il devient vert.</span></li>
+          <li>${I('search', 15)} <span>Tu ne sais pas, ou elles sont mélangées ? Laisse « je ne sais pas » : l’appli cherche partout, et <b>devine</b> la série d’une page toute seule.</span></li>
+          <li>${I('clock', 15)} <span>La série choisie est gardée pour les photos suivantes.</span></li>
+        </ul>`,
+    },
+    {
+      cls: 'ob-c3',
+      art: `<div class="ob-vs2">
+          <div class="ob-ex ok">${card(45, 'big')}<span class="ob-mark">${I('check', 16)}</span><b>Comme ça</b></div>
+          <div class="ob-ex ko">${card(45, 'big ob-glare')}<span class="ob-mark">✕</span><b>Pas comme ça</b></div>
+        </div>`,
+      title: 'Une bonne photo',
+      text: 'L’appli lit surtout le <b>numéro en bas</b> de la carte (ex. 025/165) et son nom.',
+      extra: `<ul class="ob-list">
+          <li>${I('check', 15)} <span>Carte <b>à plat</b>, prise <b>bien de face</b>, qui remplit le cadre jaune.</span></li>
+          <li>${I('sparkles', 15)} <span>Bonne <b>lumière</b>, mais <b>pas de reflet</b> sur le numéro (penche un peu la carte si besoin).</span></li>
+          <li>${I('dex', 15)} <span>Classeur : <b>toute la page</b> dans la photo, sans flou. L’appareil photo du téléphone est le plus net.</span></li>
+        </ul>`,
+    },
+    {
+      cls: 'ob-c4',
+      art: `<div class="ob-page big">${['ok', 'ok', 'doubt', 'ok', 'empty', 'ok', 'ok', 'doubt', 'ok'].map((s, i) => s === 'empty' ? `<span class="ob-card mini ob-cell empty"></span>` : card(20 + i * 37, `mini ob-cell ${s} d${i}`, s === 'doubt' ? '<em class="ob-q">?</em>' : '')).join('')}</div>
+        <div class="ob-legend"><span class="ok">Reconnue</span><span class="doubt">À vérifier</span><span class="empty">Vide / dos</span></div>`,
+      title: 'L’appli reconnaît tes cartes',
+      extra: `<ol class="ob-steps">
+          <li><span>Elle lit le numéro et le nom, puis <b>compare ta photo aux visuels officiels</b>. La 1ʳᵉ fois, elle télécharge ses outils (Wi‑Fi conseillé).</span></li>
+          <li><span>Elle te montre ensuite <b>seulement les cartes douteuses</b>, en orange.</span></li>
+          <li><span>Pour chacune : <b>« C’est elle »</b>, touche une autre proposition, ou <b>« Chercher »</b> par nom ou numéro.</span></li>
+        </ol>`,
+    },
+    {
+      cls: 'ob-c5',
+      art: `<div class="ob-recap">${[[45, 'Nouvelle', 'Normale'], [200, 'Doublon', 'Holo'], [300, 'Nouvelle', 'Reverse ?']].map(([h, st, v], i) => `<div class="ob-rc">${card(h, 'mid')}<em class="ob-vp ${v.includes('?') ? 'doubt' : ''}">${v}</em><span class="ob-st ${st === 'Doublon' ? 'dup' : ''}">${st}</span></div>`).join('')}</div>
+        <span class="ob-save">${I('check', 15)} Enregistrer 3 cartes</span>`,
+      title: 'Vérifie et enregistre',
+      extra: `<ul class="ob-list">
+          <li>${I('dex', 15)} <span>Le <b>récapitulatif</b> montre chaque carte : <b>Nouvelle</b>, ou <b>Doublon</b> si tu l’as déjà (compté comme exemplaire en plus).</span></li>
+          <li>${I('gem', 15)} <span>Touche l’étiquette de <b>version</b> (Normale, Holo, Reverse) pour la changer ; en orange avec « ? » quand l’appli n’est pas sûre.</span></li>
+          <li>${I('check', 15)} <span><b>Enregistrer</b> : c’est fait ! Ta photo devient le visuel de la carte dans ton Dex.</span></li>
+        </ul>`,
+    },
+    {
+      cls: 'ob-c6',
+      art: `<div class="ob-flip"><div class="ob-flip-in">${flat('face-b')}${card(45, 'big face-f')}</div><span class="ob-shield">${I('shield', 16)} Certifiée</span></div>`,
+      title: 'Bonus : le badge « Certifiée »',
+      text: 'Il prouve que tu as <b>vraiment</b> la carte en main (utile pour les échanges). Il faut être connecté.',
+      extra: `<ol class="ob-steps">
+          <li><span>En <b>Une carte</b>, touche <b>« Caméra »</b> et montre d’abord le <b>dos</b> de la carte.</span></li>
+          <li><span><b>Retourne-la</b> : le bouton devient vert ${I('shield', 13)}.</span></li>
+          <li><span>Prends la photo dans les 15 secondes : la carte est certifiée.</span></li>
+        </ol>
+        <p class="ob-small">Les photos choisies dans la galerie sont ajoutées sans badge. Revoir ce mode d’emploi : bouton <b>?</b> en haut de Capturer.</p>`,
+    },
+  ];
+
+  const show = () => open(slides, KEY, 'Présentation de CollecDex', 'C’est parti !');
+  const showScan = () => open(scanSlides, KEY_SCAN, 'Mode d’emploi de Capturer', 'À moi de jouer !');
+
   /** Au démarrage : seulement sur téléphone, la première fois */
   function maybeShow() { if (!seen() && isPhone()) show(); }
+  /** 1re visite de Capturer sur téléphone (pas par-dessus la présentation générale : ce sera pour la visite suivante) */
+  function maybeShowScan() { if (!seen(KEY_SCAN) && isPhone() && !document.getElementById('ob')) showScan(); }
 
-  return { show, maybeShow, seen };
+  return { show, showScan, maybeShow, maybeShowScan, seen };
 })();
