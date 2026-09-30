@@ -2254,3 +2254,13 @@ html.ob-lock, html.ob-lock body { overflow: hidden; }
 }
 .ob-c1 .ob-page .ob-card { animation-name: obCell2; }
 @keyframes obCell2 { 0%, 36% { filter: brightness(.55) saturate(.4); outline: 0 solid transparent; } 38%, 100% { filter: none; outline: 2px solid #3ddc97; } }
+
+/* =====================================================================
+   MODE SOMBRE DU TÉLÉPHONE (v2.50) : l'appli est déjà sombre et doit toujours avoir le même aspect.
+   Déclarer « sombre seulement » empêche Chrome / Samsung Internet d'assombrir la page d'office
+   (images et couleurs ternies, textes moins lisibles). Le bloc prefers-color-scheme ne change rien
+   à l'affichage : il signale seulement aux navigateurs que la page gère déjà le mode sombre.
+   ===================================================================== */
+:root { color-scheme: dark only; }
+@media (prefers-color-scheme: dark) { :root { color-scheme: dark only; } }
+@media (prefers-color-scheme: light) { :root { color-scheme: dark only; } }
