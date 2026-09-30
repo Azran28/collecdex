@@ -545,7 +545,7 @@ App.views.scan = {
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             <button class="btn ${certOn ? '' : 'hidden'}" id="b-cam">${App.icons.icon('shield', 16)} Photo certifiée</button>
           </div>
-          ${certOn && !burst ? `<p class="small muted b-cert-help" id="b-cert-help">${App.icons.icon('shield', 13)} <b>Photo certifiée</b> : une carte s’allume, touche-la du doigt puis retire ta main.</p>` : ''}
+          ${certOn && !burst ? `<p class="small muted b-cert-help" id="b-cert-help">${App.icons.icon('shield', 13)} <b>Photo certifiée</b> (Android) : prends la photo, puis ne bouge pas environ 3 secondes pendant que la lampe clignote.</p>` : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <div id="b-auto" class="b-auto hidden"></div>
             <!-- la reconnaissance part toute seule ; le bouton n'apparaît que si la grille est à placer à la main -->
@@ -578,6 +578,7 @@ App.views.scan = {
           ${pageBtns}
         </div>
         <div>
+          <div id="b-certline"></div><!-- résultat de la certification de la page : reste affiché (avant, il était remplacé par la suite) -->
           <div id="b-status"></div>
           <div id="b-results">${App.views.scan.guide('classeur')}</div>
           <div id="b-sv" class="sv hidden" role="dialog" aria-modal="true" aria-label="Analyse de la page"></div>
@@ -645,20 +646,19 @@ App.views.scan = {
     });
     el.querySelector('#b-shot').addEventListener('click', async () => {
       el.querySelector('#b-shot').classList.add('hidden');
-      setStatus('<div class="spinner"></div><div style="text-align:center">Photo en haute définition…</div>');
+      setStatus(App.certify.available() ? '<div class="spinner"></div><div style="text-align:center">Photo en haute définition… <b>ne bouge pas</b>, la lampe va clignoter</div>' : '<div class="spinner"></div><div style="text-align:center">Photo en haute définition…</div>');
       const b = await cam.photo();
       if (!b) { setStatus(''); el.querySelector('#b-shot').classList.remove('hidden'); return; }
-      // certification de la page : une carte tirée au sort à faire glisser hors de sa pochette, puis à remettre
+      // certification de la page (v2.52) : la photo nette d'abord, puis la lampe clignote ~3 s (on ne bouge pas)
       let res = null;
       if (App.certify.available()) { // « Photo certifiée » : la caméra du site sert à ça
         setStatus('');
         try {
           await new Promise((r) => setTimeout(r, 300)); // le flux reprend après la photo
-          const fb = await cam.capture(), fimg = fb ? await createImageBitmap(fb) : null; // pochettes repérées sur l'image vidéo
-          const det = fimg ? R.detectPage(fimg, PAGE_FORMATS, fmt === 'double' ? '3x3' : fmt) : null;
-          const g = det && det.grid;
-          if (g && g.cells && !g.rot && g.fit >= 0.38) res = await App.certify.livePage(cam.video, view, g.cells.map((c) => c.quad));
-          else res = { passed: false, reasons: ['pochettes pas trouvées sur la vidéo (page entière, bien de face)'] };
+          // la lampe se mesure sur 9 zones de l'image (inutile de chercher les pochettes : plus rapide, on attend moins)
+          const q = (x, y) => [[x / 3, y / 3], [(x + 1) / 3, y / 3], [(x + 1) / 3, (y + 1) / 3], [x / 3, (y + 1) / 3]];
+          const uses = FORMATS[fmt] ? FORMATS[fmt][0] * FORMATS[fmt][1] : 9; // nombre de cartes que le défi du serveur pourra certifier
+          res = await App.certify.livePage(cam.video, view, [0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => q(x, y))), uses);
         } catch (e) { console.warn(e); res = { passed: false, reasons: ['vérification impossible'] }; }
       }
       cam.stop();
@@ -671,7 +671,7 @@ App.views.scan = {
       if (running) return;
       el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden');
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
-      photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
+      photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus(''); { const cb = el.querySelector('#b-certline'); if (cb) cb.innerHTML = ''; }
       el.querySelector('#b-gridbar').classList.add('hidden');
       el.querySelector('#b-actions').classList.remove('hidden');
       view.innerHTML = App.views.scan.empty('classeur', dims());
@@ -686,10 +686,11 @@ App.views.scan = {
       el.querySelector('#b-go').classList.add('hidden'); // la reconnaissance partira toute seule si la grille est sûre
       cells = []; resultsEl.innerHTML = App.views.scan.guide('classeur'); setStatus('');
       pageCert = cert; pageId = null;
-      if (cert) setStatus((cert.passed
+      const certBox = el.querySelector('#b-certline'); // encadré qui reste affiché pendant toute la reconnaissance
+      if (certBox) certBox.innerHTML = !cert ? '' : `<div class="panel" style="margin-bottom:14px">${(cert.passed
         ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— les cartes bien reconnues seront certifiées.</span>`
         : `<span class="small">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même ajouter les cartes, ou reprendre la photo.</span></span>`
-      ) + (cert && cert.flashTrace ? `${cert.lampNote ? `<div class="small" style="margin-top:6px">${esc(cert.lampNote)}</div>` : ''}${App.certify.lampChart(cert.flashTrace, cert.lampFit)}` : ''));
+      ) + (cert.flashTrace ? App.certify.lampChart(cert.flashTrace, cert.lampFit) : '')}</div>`;
       const url = URL.createObjectURL(blob); urls.push(url);
       view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Page de classeur"><div class="grid-box"></div></div>`;
       const img = view.querySelector('img');
@@ -1137,6 +1138,12 @@ App.views.scan = {
       };
       return `<div class="sv-board" style="--cols:${cols * parts.length};--rows:${rows}">${parts.map((p) => `<div style="grid-template-columns:repeat(${cols},1fr)">${p.map(th).join('')}</div>`).join('')}</div>`;
     }
+    /** Résultat de la certification de la page, rappelé dans l'écran d'analyse (sur téléphone il recouvre tout : avant, le message disparaissait) */
+    function svCert() {
+      const pc = !burst && pageCert; if (!pc) return '';
+      return pc.passed ? `<div class="small cert-ok" style="margin:6px 0">${App.icons.icon('shield', 14)} Page certifiée en direct : les cartes bien reconnues seront certifiées</div>`
+        : `<div class="small" style="margin:6px 0">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(pc.reasons.join(', '))}</div>`;
+    }
     function svTop(label, right, bar) {
       return `<div class="sv-top"><div class="bprog-lbl"><span>${label}</span><b>${right || ''}</b></div>${bar || ''}</div>`;
     }
@@ -1152,6 +1159,7 @@ App.views.scan = {
           <div class="sv-count">${p ? `<b>${Math.min(p.done + 1, p.total)}</b><span>/ ${p.total}</span>` : ''}</div>
         </div>
         ${p ? `<div class="bprog-bar ${p.kind === 'img' ? 'img' : ''}"><i style="width:${Math.round((100 * p.done) / Math.max(1, p.total))}%"></i></div>` : ''}
+        ${svCert()}
         <div class="sv-stage">
           ${cur ? `<span class="sv-shot"><span class="bphoto sv-card ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
             ${off ? `<span class="sv-pip ${cur.state === 'sure' ? 'hit' : ''}"><img src="${visOf(off)}" alt="Carte envisagée">${cur.state === 'sure' ? '<b>✓</b>' : ''}</span>` : ''}</span>`
@@ -1223,7 +1231,7 @@ App.views.scan = {
         const m = modeOf(c);
         return m === 'nouvelle' ? ['new', 'Nouvelle'] : m === 'doublon' ? ['dup', 'Doublon'] : m === 'photo' ? ['dup', 'Nouvelle photo'] : ['own', 'Déjà dans ton Dex'];
       };
-      return `${svTop('<b>Récapitulatif de la page</b>', pageDur ? `<span class="muted small">analyse : ${durTxt(pageDur)}</span>` : '')}
+      return `${svTop('<b>Récapitulatif de la page</b>', pageDur ? `<span class="muted small">analyse : ${durTxt(pageDur)}</span>` : '')}${svCert()}
         <div class="sv-recap">${shown.map((c) => { const cur = cardOf(c), [k, t] = tag(c), vp = !c.saved && cur ? versPill(c, cur) : ''; return `<div class="sv-rc ${k}">
           <button class="sv-rc-open" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}><img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span></button>
           ${vp}<span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span></div>`; }).join('')}</div>

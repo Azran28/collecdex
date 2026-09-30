@@ -203,11 +203,11 @@ App.onboarding = (() => {
       title: 'Bonus : le badge « Certifiée »',
       text: 'Il prouve que tu as <b>vraiment</b> la carte en main (utile pour les échanges). Il faut être connecté.',
       extra: `<ol class="ob-steps">
-          <li><span>En <b>Une carte</b>, touche <b>« Caméra »</b> et montre d’abord le <b>dos</b> de la carte.</span></li>
+          <li><span>En <b>Une carte</b>, touche <b>« Caméra »</b> et montre d’abord le <b>dos</b> de la carte (sur Android, la lampe clignote : garde-le immobile jusqu’à la fin).</span></li>
           <li><span><b>Retourne-la</b> : le bouton devient vert ${I('shield', 13)}.</span></li>
           <li><span>Prends la photo dans les 15 secondes : la carte est certifiée.</span></li>
         </ol>
-        <p class="ob-small">Les photos choisies dans la galerie sont ajoutées sans badge. Revoir ce mode d’emploi : bouton <b>?</b> en haut de Capturer.</p>`,
+        <p class="ob-small">Page de classeur (Android) : « Photo certifiée », puis ne bouge pas ~3 s pendant que la lampe clignote. Les photos choisies dans la galerie sont ajoutées sans badge. Revoir ce mode d’emploi : bouton <b>?</b> en haut de Capturer.</p>`,
     },
   ];
 

@@ -263,10 +263,10 @@
     const amp = 1.5 + r() * 2, ph = [r() * 6.3, r() * 6.3, r() * 6.3];
     // défi du serveur : code de la lampe (6 tranches de 250 ms, au moins 2 allumées et 2 éteintes), pendant qu'on montre le dos
     let bits;
-    do { bits = [0, 1, 2, 3, 4, 5].map(() => (r() < 0.5 ? 1 : 0)); } while (bits.reduce((s, x) => s + x, 0) < 2 || bits.reduce((s, x) => s + x, 0) > 4);
-    const torch = { bits, slot: 250, start: 150, lag: 80 + r() * 170, hx: VW * (0.35 + r() * 0.3), hy: VH * (0.3 + r() * 0.4) };
+    do { bits = [0, 1, 2, 3, 4, 5].map(() => (r() < 0.5 ? 1 : 0)); } while (bits.reduce((s, x) => s + x, 0) < 2 || bits.reduce((s, x) => s + x, 0) > 4 || bits.filter((x, i) => x && !bits[i - 1]).length < 2); // comme le site : ≥ 2 éclairs
+    const torch = { bits, slot: 350, start: 150, lag: 80 + r() * 170, hx: VW * (0.35 + r() * 0.3), hy: VH * (0.3 + r() * 0.4) };
     return {
-      t0: 1700, torch, surface: 'card', // le geste commence après le code de la lampe
+      t0: 2500, torch, surface: 'card', // le geste commence après le code de la lampe
       r, face: card.img, other: other.img, back, P, skin: skins[(r() * skins.length) | 0],
       table: (r() * TABLES.length) | 0, light: 0.72 + r() * 0.28, warm: r() < 0.5 ? [1, 0.95, 0.85] : [0.92, 0.97, 1], noise: 0.05 + r() * 0.04, ph: r() * 6,
       expo: 4 + r() * 12, // temps de pose de la caméra (ms) : flou de bougé
@@ -677,6 +677,24 @@
     return fl.ok ? { pass: true } : { pass: false, why: 'la carte n’a pas renvoyé la lumière de la lampe au bon moment' };
   }
 
+  /**
+   * V — le site tel qu'il est (v2.51, certify.js) : judgeE (silhouette ou carte écrasée, continuité par chaîne
+   * image par image) ; si la lampe est reconnue, l'ancienne règle du retournement suffit et le détecteur d'écran ne
+   * bloque plus. blocks = lampe bloquante (prochaine étape) ; sinon mode essai (comme aujourd'hui).
+   */
+  const medianOf = (G) => { const s = Array.from(G).sort((a, b) => a - b); return s[s.length >> 1]; };
+  function siteV(frames, sim, blocks) {
+    const j = T.judgeE(frames, GW, GH);
+    const Tc = sim.chal.torch, code = { t0: Tc.start, end: Tc.start + Tc.bits.length * Tc.slot, ev: [] };
+    Tc.bits.forEach((b, i) => { if (i === 0 || b !== Tc.bits[i - 1]) code.ev.push({ t: Tc.start + i * Tc.slot, on: !!b }); });
+    code.ev.push({ t: code.end, on: false });
+    const fit = T.flashFit(frames.map((f) => ({ t: f.t, v: medianOf(f.d) })), code), fok = T.flashOk(fit, 0.06, 0.08);
+    let ok = j.passed, why = j.why;
+    if (!ok && fok && j.cont) { const a = T.judgeFlip(frames, GW, GH); if (a.passed || a.gap >= 1) ok = true; }
+    if (ok && blocks && !fok) { ok = false; why = 'lampe pas reconnue'; }
+    return { pass: ok, why: ok ? undefined : why, screenOk: fok, info: `lampe ${fok ? 'vue' : 'pas vue'}` };
+  }
+
   const ALGOS = [
     { id: 'A', name: 'A — Actuel (v2.21) : une image « entre deux » juste après le dos', fn: algoA },
     { id: 'B', name: 'B — Durée : ≥ 2 images entre deux, geste de 0,12 à 3 s', fn: algoB },
@@ -686,6 +704,8 @@
     { id: 'F', name: 'F — E + lampe qui clignote selon un code du serveur', fn: algoF },
     { id: 'G', name: 'G — E + sens du retournement imposé par le serveur', fn: algoG },
     { id: 'H', name: 'H — E + lampe + sens imposé', fn: algoH },
+    { id: 'V', name: 'V — Site actuel (v2.51), lampe en mode essai', fn: (fr, sim) => siteV(fr, sim, false) },
+    { id: 'W', name: 'W — Site v2.51 avec lampe bloquante (prochaine étape)', fn: (fr, sim) => siteV(fr, sim, true) },
   ];
 
   function judge(sim) {
@@ -696,7 +716,7 @@
       try { r = A.fn(sim.frames, sim); } catch (e) { console.error(e); r = { pass: false, why: 'erreur ' + e.message }; }
       const ms = performance.now() - t0;
       if (r.pass && sim.shared.frozen) r = { pass: false, why: 'image figée' };
-      if (r.pass && sim.shared.screen) r = { pass: false, why: 'écran détecté' };
+      if (r.pass && sim.shared.screen && !r.screenOk) r = { pass: false, why: 'écran détecté' };
       out[A.id] = { ...r, ms };
     }
     return out;
