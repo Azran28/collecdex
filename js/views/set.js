@@ -12,7 +12,7 @@ App.views.set = {
     const costBlock = () => {
       const official = (c) => { const n = parseInt(c.localId, 10); return !isNaN(n) && String(n) === String(c.localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
       const counted = App.settings.completion === 'official' ? set.cards.filter(official) : set.cards;
-      const pv = (c) => (prices[c.id] && prices[c.id].unit === 'EUR' && prices[c.id].value) || 0;
+      const pv = (c) => (prices[c.id] && App.util.toEur(prices[c.id].value, prices[c.id].unit)) || 0;
       const miss = counted.filter((c) => !App.col.owned(game, c.id));
       const missCost = miss.reduce((t, c) => t + pv(c), 0), fullCost = counted.reduce((t, c) => t + pv(c), 0);
       const unknown = counted.filter((c) => !pv(c)).length;

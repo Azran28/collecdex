@@ -832,9 +832,14 @@ App.recognizer = (() => {
     // version de base : holo / normale / reverse
     const base = ['holo', 'normal', 'reverse'].filter((k) => v[k]);
     let pickBase = base.length === 1 ? base[0] : null;
+    // (v2.37, photos d'Arnaud : Libegon et Drattak normales prises pour des holos, Massko reverse prise pour une normale)
+    // - normale, holo ET reverse possibles : si ce n'est pas une reverse, on mesure encore holo / normale
+    //   (avant : la première de la liste restante, « holo », sans mesure) ;
+    // - la mesure n'est pas encore calibrée sur de vraies cartes : « sûr » seulement quand elle est nette dans le bon sens
+    //   (reverse Massko : 0,96, comme une normale) → sinon « à vérifier », et la version se corrige avant l'enregistrement.
+    const rest = base.filter((k) => k !== 'reverse');
     if (base.length > 1 && base.includes('reverse')) {
-      const other = base.find((k) => k !== 'reverse') || null;
-      pickBase = other;
+      pickBase = rest.includes('normal') ? 'normal' : rest[0] || null;
       if (O) {
         // reverse = le fond (zone du texte) brille, pas l'illustration : on compare au visuel officiel
         const f = (Q, x0, x1, y0, y1) => { const r = foilIn(Q, x0, x1, y0, y1); return r ? r.grain + r.satVar * 40 : null; };
@@ -842,7 +847,12 @@ App.recognizer = (() => {
         if (tP && aP && tO && aO) {
           const ratio = (tP / tO) / (aP / aO);
           info.reverseRatio = Math.round(ratio * 100) / 100;
-          if (ratio >= 1.7) { pickBase = 'reverse'; sure.base = ratio >= 2.2; } else sure.base = ratio <= 1.3;
+          if (ratio >= 1.7) { pickBase = 'reverse'; sure.base = ratio >= 2.2; }
+          else if (rest.includes('holo') && rest.includes('normal')) {
+            const hr = (aP / aO) / (tP / tO);
+            info.holoRatio = Math.round(hr * 100) / 100;
+            pickBase = hr >= 1.4 ? 'holo' : 'normal'; sure.base = hr >= 1.9;
+          } else sure.base = false;
         }
       }
     } else if (base.length > 1 && base.includes('holo') && base.includes('normal') && O) {
@@ -853,9 +863,9 @@ App.recognizer = (() => {
       if (tP && aP && tO && aO) {
         const ratio = (aP / aO) / (tP / tO);
         info.holoRatio = Math.round(ratio * 100) / 100;
-        pickBase = ratio >= 1.4 ? 'holo' : 'normal'; sure.base = ratio >= 1.9 || ratio <= 1.1;
-      } else pickBase = 'holo';
-    } else if (base.length > 1) pickBase = base.includes('holo') ? 'holo' : base[0];
+        pickBase = ratio >= 1.4 ? 'holo' : 'normal'; sure.base = ratio >= 1.9;
+      } else pickBase = 'normal';
+    } else if (base.length > 1) pickBase = base.includes('normal') ? 'normal' : base[0];
     if (pickBase) list.push(pickBase);
     if (v.firstEdition) {
       const st = firstEditionStamp(P);

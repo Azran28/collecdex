@@ -4,6 +4,12 @@
     {
       "name": "collecdex",
       "url": "http://localhost:8765"
+    },
+    {
+      "name": "collecdex-copie",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "serveur.ps1", "-NoBrowser", "-Port", "8766"],
+      "port": 8766
     }
   ]
 }

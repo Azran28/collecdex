@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Page de test (banc d'essai des méthodes de reconnaissance) : même sécurité que le site,
+       + le modèle MobileNet (storage.googleapis.com) et 'unsafe-eval' (exigé par OpenCV.js ; seulement sur cette page,
+       qui ne charge que des bibliothèques à version figée et empreinte SRI) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://api.tcgdex.net https://assets.tcgdex.net https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com https://storage.googleapis.com blob: data:; img-src 'self' data: blob: https://assets.tcgdex.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="app-version" content="20260928-173940">
+  <meta name="robots" content="noindex">
+  <title>CollecDex — Labo</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=20260928-173940">
+  <link rel="stylesheet" href="css/labo.css?v=20260928-185753">
+</head>
+<body class="labo">
+  <main id="labo" class="app"></main>
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-box" role="dialog" aria-modal="true">
+      <button class="modal-x" data-close aria-label="Fermer">×</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="js/util.js?v=20260928-173940"></script>
+  <script src="js/icons.js?v=20260928-173940"></script>
+  <script src="js/db.js?v=20260928-173940"></script>
+  <script src="js/games/registry.js?v=20260928-173940"></script>
+  <script src="js/games/pokemon-rarity.js?v=20260928-173940"></script>
+  <script src="js/games/pokemon-pullrates.js?v=20260928-173940"></script>
+  <script src="js/games/pokemon.js?v=20260928-173940"></script>
+  <script src="js/collection.js?v=20260928-173940"></script>
+  <script src="js/pokedex.js?v=20260928-173940"></script>
+  <script src="js/recognizer.js?v=20260928-173940"></script>
+  <script src="js/labo.js?v=20260928-193813"></script>
+</body>
+</html>

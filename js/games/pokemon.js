@@ -268,6 +268,17 @@
    * Extrait un prix lisible d'une carte détaillée.
    * Priorité : Cardmarket (€, tendance) ; sinon TCGplayer ($, prix marché).
    */
+  /** Prix marché TCGplayer ($) : clés « holofoil », « normal », « unlimited-holofoil », « 1st-edition-… », « reverse-… » */
+  function tpMarket(tp, variant) {
+    if (!tp) return null;
+    const rank = (k) => {
+      const rev = /reverse/.test(k), first = /1st/.test(k);
+      return (variant === 'reverse' ? (rev ? 0 : 2) : rev ? 3 : 0) + (first ? 1 : 0);
+    };
+    const keys = Object.keys(tp).filter((k) => tp[k] && tp[k].marketPrice > 0).sort((a, b) => rank(a) - rank(b));
+    return keys.length ? tp[keys[0]].marketPrice : null;
+  }
+
   function price(card, variant) {
     const p = card && card.pricing;
     if (!p) return null;
@@ -279,10 +290,8 @@
       if (v != null) return { value: v, unit: 'EUR', source: 'Cardmarket', updated: cm.updated, raw: cm };
     }
     const tp = p.tcgplayer;
-    if (tp) {
-      const order = variant === 'reverse' ? ['reverse-holofoil', 'reverse', 'holofoil', 'holo', 'normal'] : ['holofoil', 'holo', 'normal', 'reverse-holofoil', 'reverse'];
-      for (const k of order) if (tp[k] && tp[k].marketPrice > 0) return { value: tp[k].marketPrice, unit: 'USD', source: 'TCGplayer', updated: tp.updated, raw: tp };
-    }
+    const v = tpMarket(tp, variant);
+    if (v) return { value: v, unit: 'USD', source: 'TCGplayer', updated: tp.updated, raw: tp };
     return null;
   }
 
@@ -294,7 +303,7 @@
   App.games.register('pokemon', {
     id: 'pokemon',
     name: 'Pokémon',
-    listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, findByNumber, price, img, cardmarketUrl,
+    listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, findByNumber, price, tpMarket, img, cardmarketUrl,
     rarity: App.pokemonRarity,
     pullRates: (setId) => App.pokemonPullRates[setId] || null,
     source: { name: 'TCGdex', url: 'https://tcgdex.dev' },

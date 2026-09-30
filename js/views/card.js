@@ -44,7 +44,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   }
   // Cardmarket donne un seul prix par carte, toutes langues confondues ; TCGplayer = marché américain (cartes anglaises)
   const tp = card.pricing && card.pricing.tcgplayer;
-  const tpVal = tp ? (['holofoil', 'normal', 'reverse-holofoil', '1st-edition-holofoil', '1st-edition'].map((k) => tp[k] && tp[k].marketPrice).find((v) => v > 0) || 0) : 0;
+  const tpVal = (ad.tpMarket && ad.tpMarket(tp)) || 0;
 
   body.innerHTML = `
     <div class="cd">
@@ -76,9 +76,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         <div class="cd-price">
           ${priceRows.length ? `<div class="cd-price-main"><b>${euro(priceRows[0][1])}</b><span>${esc(priceRows[0][0].toLowerCase())} Cardmarket</span></div>
             <div class="cd-price-more">${priceRows.slice(1).map(([l, v]) => `<span>${esc(l)} <b>${euro(v)}</b></span>`).join('')}</div>`
-            : price ? `<div class="cd-price-main"><b>${euro(price.value, price.unit)}</b><span>prix marché ${esc(price.source)}</span></div>`
+            : price ? `<div class="cd-price-main"><b>${price.unit === 'USD' ? '≈ ' : ''}${euro(price.value, price.unit)}</b><span>prix marché ${esc(price.source)}${price.unit === 'USD' ? ` (${App.util.usd(price.value)}, converti en euros)` : ''}</span></div>`
             : '<div class="muted small">Pas de prix disponible pour cette carte.</div>'}
-          ${priceRows.length && tpVal ? `<div class="cd-price-more"><span title="Prix marché TCGplayer : cartes anglaises vendues aux États-Unis">Marché US (cartes anglaises) <b>${euro(tpVal, 'USD')}</b></span></div>` : ''}
+          ${priceRows.length && tpVal ? `<div class="cd-price-more"><span title="Prix marché TCGplayer : cartes anglaises vendues aux États-Unis">Marché US (cartes anglaises) <b>≈ ${euro(tpVal, 'USD')}</b> <span class="muted">(${App.util.usd(tpVal)})</span></span></div>` : ''}
           <div class="cd-price-foot small muted">${cm ? 'Prix Cardmarket toutes langues confondues · ' : ''}${cm && cm.updated ? `mis à jour le ${dateFr(cm.updated)} · ` : ''}<a target="_blank" rel="noopener" href="${esc(ad.cardmarketUrl(card, setInfo.name))}">Voir sur Cardmarket ↗</a></div>
         </div>
 
@@ -103,7 +103,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   /** Bloc « État de la carte » : échelle Cardmarket, ou carte gradée (société + note), et valeur estimée */
   const condHTML = (it) => {
     const c = it.cond || null, graded = c && c.kind === 'graded';
-    const marketP = it.price && it.price.value && it.price.unit === 'EUR' ? it.price.value : 0;
+    const marketP = it.price && it.price.value ? App.util.toEur(it.price.value, it.price.unit) : 0;
     const est = App.col.valueOf(it);
     const grades = []; for (let g = 10; g >= 1; g -= 0.5) grades.push(g);
     return `<div class="cond-box">
@@ -200,7 +200,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     }
     if (t.closest('#cd-minus')) {
       const it = App.col.get(game, card.id);
-      if (it.qty === 1 && !confirm('Retirer cette carte de ta collection ?')) return;
+      if (it.qty === 1 && !await App.util.ask({ icon: 'trash', danger: true, title: 'Retirer cette carte de ta collection ?', text: 'C’est ton seul exemplaire.', ok: 'Retirer' })) return;
       await App.col.setQty(key, it.qty - 1); drawImage(); return drawMine();
     }
     if (t.closest('#cd-fav')) { const it = App.col.get(game, card.id); await App.col.update(key, { favorite: !it.favorite }); App.util.toast(it.favorite ? '★ Ajoutée à tes favorites' : 'Retirée des favorites'); drawImage(); return drawMine(); }
@@ -243,13 +243,13 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     }
     if (t.closest('[data-del]')) {
       e.stopPropagation();
-      if (!confirm('Supprimer cette photo ?')) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: 'Supprimer cette photo ?', ok: 'Supprimer' })) return;
       await App.col.deletePhoto(key, t.closest('[data-del]').dataset.del); drawImage(); return drawMine();
     }
     if (t.closest('[data-ph]')) { await App.col.update(key, { displayPhoto: t.closest('[data-ph]').dataset.ph }); showOfficial = false; drawImage(); return drawMine(); }
     if (t.closest('#cd-useoff')) { await App.col.update(key, { displayPhoto: null }); drawImage(); return drawMine(); }
     if (t.closest('#cd-remove')) {
-      if (!confirm(`Supprimer ${card.name} de ta collection ?\n\nSes photos et ses exemplaires seront supprimés. (Tu pourras la rescanner plus tard.)`)) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: `Supprimer ${card.name} de ta collection ?`, text: 'Ses photos et ses exemplaires seront supprimés. Tu pourras la rescanner plus tard.', ok: 'Supprimer' })) return;
       await App.col.remove(key); drawImage(); return drawMine();
     }
   });

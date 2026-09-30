@@ -119,7 +119,7 @@ App.views.collection = {
     el.querySelector('#c-selnone').addEventListener('click', () => { selected.clear(); paintSelection(); });
     el.querySelector('#c-seldel').addEventListener('click', async () => {
       const n = selected.size; if (!n) return;
-      if (!confirm(`Supprimer ${n} carte${n > 1 ? 's' : ''} de ta collection ?\n\nLeurs photos et exemplaires seront supprimés. (Tu pourras les rescanner plus tard.)`)) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: `Supprimer ${n} carte${n > 1 ? 's' : ''} de ta collection ?`, text: 'Leurs photos et exemplaires seront supprimés. Tu pourras les rescanner plus tard.', ok: 'Supprimer' })) return;
       for (const k of [...selected]) await App.col.remove(k);
       App.util.toast(`${n} carte${n > 1 ? 's' : ''} supprimée${n > 1 ? 's' : ''}`);
       setSelecting(false);

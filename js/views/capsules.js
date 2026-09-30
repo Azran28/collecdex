@@ -132,8 +132,13 @@
         const prof = await App.col.getProfile().catch(() => ({}));
         const isAv = prof.avatarPoke && prof.avatarPoke.id === id && !!prof.avatarPoke.shiny === sh;
         if (isAv && n >= have) { App.util.toast('C’est ton avatar : change d’avatar avant de vendre ton dernier exemplaire', 4000); return; }
-        if (n >= d.n && !confirm(`Vendre ton dernier ${P().name(id)} ? Il quittera ton Pokédex.`)) return;
-        if (P().tier(id) >= 5 && n >= have && !confirm(`${P().name(id)} est ${P().TIER[P().tier(id)].name.toLowerCase()} : le vendre quand même ?`)) return;
+        const last = n >= d.n, rare = P().tier(id) >= 5 && n >= have;
+        if ((last || rare) && !await App.util.ask({
+          icon: 'coin', danger: true,
+          title: last ? `Vendre ton dernier ${P().name(id)} ?` : `Vendre ${P().name(id)} ?`,
+          text: [last ? 'Il quittera ton Pokédex.' : '', rare ? `C’est un Pokémon ${P().TIER[P().tier(id)].name.toLowerCase()}.` : ''].filter(Boolean).join(' '),
+          ok: `Vendre (+${pts(App.capsules.price(id, sh) * n)})`,
+        })) return;
         sb.disabled = true;
         try {
           const r = await App.capsules.sell(id, sh, n);
@@ -227,7 +232,7 @@
         if (sb) {
           const prof = await App.col.getProfile().catch(() => ({}));
           if (prof.avatarPoke && prof.avatarPoke.id === r.species && !!prof.avatarPoke.shiny === !!r.shiny && r.count === 1) { App.util.toast('C’est ton avatar : impossible de le vendre', 3500); return; }
-          if ((t >= 5 || r.shiny) && !confirm(`Vendre ${P().name(r.species)}${r.shiny ? ' chromatique' : ''} pour ${p} éclats ?`)) return;
+          if ((t >= 5 || r.shiny) && !await App.util.ask({ icon: 'coin', danger: true, title: `Vendre ${P().name(r.species)}${r.shiny ? ' chromatique' : ''} ?`, text: r.shiny ? 'Les chromatiques sont très rares.' : `C’est un Pokémon ${T.name.toLowerCase()}.`, ok: `Vendre (+${p} éclats)` })) return;
           sb.disabled = true;
           try { const x = await App.capsules.sell(r.species, r.shiny, 1); App.sfx.click(); sb.innerHTML = `${App.icons.icon('check', 16)} Vendu (+${x.gain})`; ov.querySelector('[data-avatar]').disabled = true; }
           catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
@@ -391,10 +396,13 @@
         const dp = e.target.closest('[data-dupes]');
         if (dp) {
           const d = App.capsules.dupes(dex);
-          if (!d.n || !confirm(`Vendre ${d.n} doublon${d.n > 1 ? 's' : ''} pour ${pts(d.gain)} ? Tu gardes un exemplaire de chaque Pokémon et tous tes chromatiques.`)) return;
+          if (!d.n) return;
+          App.util.ask({ icon: 'coins', title: `Vendre ${d.n} doublon${d.n > 1 ? 's' : ''} ?`, text: 'Tu gardes un exemplaire de chaque Pokémon et tous tes chromatiques.', ok: `Vendre (+${pts(d.gain)})` }).then((yes) => {
+          if (!yes) return;
           dp.disabled = true;
           App.capsules.sellDupes().then((r) => { App.sfx.click(); App.util.toast(`+${pts(r.gain)} (${r.sold} doublon${r.sold > 1 ? 's' : ''} vendu${r.sold > 1 ? 's' : ''})`); refreshDex(false); })
             .catch((err) => { App.util.toast(err.message, 4000); dp.disabled = false; });
+          });
           return;
         }
         const sb = e.target.closest('#cp-sound');

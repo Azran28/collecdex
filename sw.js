@@ -135,7 +135,8 @@ self.addEventListener('fetch', (e) => {
   }
 
   // Polices et bibliothèques : copie gardée tout de suite, mise à jour en arrière-plan
-  if (/^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net|tessdata\.projectnaptha\.com)$/.test(u.hostname)) {
+  // (+ le modèle du réseau de neurones de la vérification par l'image, ~14 Mo, téléchargé une seule fois)
+  if (/^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net|tessdata\.projectnaptha\.com)$/.test(u.hostname) || (u.hostname === 'storage.googleapis.com' && u.pathname.startsWith('/tfjs-models/'))) {
     e.respondWith((async () => {
       const c = await caches.open(RUNTIME);
       const hit = await c.match(req);

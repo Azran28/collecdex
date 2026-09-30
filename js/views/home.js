@@ -9,25 +9,30 @@ App.views.home = {
     el.innerHTML = `
       <section class="hero">
         <h1>Ton <span class="holo">Dex</span> de collection</h1>
-        <p class="muted">Capture tes cartes, complète tes séries, montre tes pépites.</p>
+        <p class="muted m-hide">Capture tes cartes, complète tes séries, montre tes pépites.</p>
         <div class="stats">
-          <div class="stat"><b>${items.length}</b><span>cartes</span></div>
+          <a class="stat" href="#/collection"><b>${items.length}</b><span>cartes</span></a>
           <div class="stat"><b>${copies - items.length}</b><span>doublons</span></div>
           <div class="stat"><b>${euro(value)}</b><span>valeur estimée</span></div>
           <div class="stat" id="h-complete"><b>…</b><span>séries complètes</span></div>
         </div>
-        <div class="row" style="margin-top:14px">
+        <div class="row hero-cta" style="margin-top:14px">
           <a class="btn primary" href="#/scan">${App.icons.icon('capture', 16)} Capturer une carte</a>
-          <a class="btn" href="#/jeu/pokemon">${App.icons.icon('explore', 16)} Explorer</a>
-          <a class="btn" href="#/compte">${App.icons.icon('trophy', 16)} Ma vitrine</a>
+          <a class="btn m-hide" href="#/jeu/pokemon">${App.icons.icon('explore', 16)} Explorer</a>
+          <a class="btn m-hide" href="#/compte">${App.icons.icon('trophy', 16)} Ma vitrine</a>
+          <!-- téléphone : les deux autres façons de capturer, à portée de pouce -->
+          <a class="btn d-hide" href="#/scan?mode=classeur">${App.icons.icon('dex', 16)} Page de classeur</a>
+          <a class="btn d-hide" href="#/scan?mode=rafale">${App.icons.icon('rafale', 16)} Rafale</a>
         </div>
       </section>
+      <div class="home-flow">
       <div id="h-friends"></div>
       <div id="h-caps"></div>
       <div id="h-install"></div>
 
+      <section class="h-lic">
       <div class="section-title"><h2>Licences</h2></div>
-      <div class="grid-auto licences">
+      <div class="grid-auto licences hscroll">
         ${App.games.list.map((g) => {
           const on = g.status === 'actif';
           const n = items.filter((i) => i.game === g.id).length;
@@ -42,12 +47,16 @@ App.views.home = {
           </a>`;
         }).join('')}
       </div>
+      </section>
 
       <div id="h-goals"></div>
       <div id="h-inprogress"></div>
 
+      <section class="h-recent">
       <div class="section-title"><h2>Derniers ajouts</h2><span class="spacer"></span>${items.length ? '<a href="#/collection">Tout voir ›</a>' : ''}</div>
       <div id="h-recent">${items.length ? '' : '<div class="empty panel">Ton Dex est vide pour l’instant.<br>Capture ta première carte pour commencer !</div>'}</div>
+      </section>
+      </div>
     `;
 
     // Derniers ajouts (redessinés dès qu'une carte change : photo, visuel, quantité…)
@@ -55,7 +64,7 @@ App.views.home = {
     const drawRecent = () => {
       const recent = App.col.all().filter((i) => i.qty > 0).sort((a, b) => b.addedAt - a.addedAt).slice(0, 12);
       if (!recent.length) return;
-      r.innerHTML = `<div class="cards">${recent.map((it) => App.ui.cardTile({ id: it.id, name: it.snap.name, localId: it.snap.localId, image: it.snap.image, rarity: it.snap.rarity, setId: it.setId, serieId: it.snap.serieId, setName: it.snap.setName }, { game: it.game, item: it, showSet: true, quickAdd: false })).join('')}</div>`;
+      r.innerHTML = `<div class="cards hscroll">${recent.map((it) => App.ui.cardTile({ id: it.id, name: it.snap.name, localId: it.snap.localId, image: it.snap.image, rarity: it.snap.rarity, setId: it.setId, serieId: it.snap.serieId, setName: it.snap.setName }, { game: it.game, item: it, showSet: true, quickAdd: false })).join('')}</div>`;
       App.ui.hydratePhotos(r);
     };
     drawRecent();
@@ -118,7 +127,7 @@ App.views.home = {
       el.querySelector('#h-complete b').textContent = started.filter((x) => x.p.complete).length;
       if (started.length) {
         started.sort((a, b) => b.t - a.t);
-        el.querySelector('#h-inprogress').innerHTML = `<div class="section-title"><h2>Mes séries en cours</h2></div><div class="grid-auto">${started.slice(0, 6).map(({ s, p }) => App.views.sets.setCard('pokemon', s, p)).join('')}</div>`;
+        el.querySelector('#h-inprogress').innerHTML = `<div class="section-title"><h2>Mes séries en cours</h2></div><div class="grid-auto hscroll">${started.slice(0, 6).map(({ s, p }) => App.views.sets.setCard('pokemon', s, p)).join('')}</div>`;
       }
     } catch (e) {
       el.querySelector('#h-complete b').textContent = '—';

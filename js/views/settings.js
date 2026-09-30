@@ -18,6 +18,8 @@ App.views.settings = {
           <p><label class="check"><input type="checkbox" id="p-photos"> Afficher mes photos (scans) à la place des visuels officiels</label></p>
           <p><label class="check"><input type="checkbox" id="p-sound"> Sons à l’ouverture des capsules</label></p>
           <p><label class="check"><input type="checkbox" id="p-pocket"> Afficher aussi les séries de Pokémon TCG Pocket (jeu mobile)</label></p>
+          <p><label class="check"><input type="checkbox" id="p-visual"> Vérification par l’image des pages de classeur</label><br><span class="muted small">Bien plus juste, un peu plus lente ; la 1ʳᵉ fois, ~25 Mo d’outils sont téléchargés (plutôt en Wi‑Fi).</span></p>
+          <p><label class="check"><input type="checkbox" id="p-timing"> Afficher le temps de chaque étape sous la liste (pour les tests)</label></p>
         </section>
         <section class="panel">
           <h2>Application</h2>
@@ -50,13 +52,15 @@ App.views.settings = {
     const offInstall = App.install.panel($('#p-install'));
     const offNotify = App.notify.panel($('#p-notify'));
     const accOff = App.views.account.render($('#p-account'), { query: {}, embedded: true });
-    $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket; $('#p-sound').checked = S.sound !== false;
+    $('#p-lang').value = S.lang; $('#p-comp').value = S.completion; $('#p-photos').checked = S.preferPhotos; $('#p-missing').value = S.missingStyle || 'grise'; $('#p-pocket').checked = S.showPocket; $('#p-sound').checked = S.sound !== false; $('#p-visual').checked = S.visualCheck !== false; $('#p-timing').checked = !!S.showTiming;
     const save = async (msg = 'Enregistré ✓') => { await App.col.saveSettings(); App.util.toast(msg); };
     $('#p-lang').onchange = (e) => { S.lang = e.target.value; save('Langue changée ✓ (les séries vont se recharger)'); };
     $('#p-comp').onchange = (e) => { S.completion = e.target.value; save(); };
     $('#p-missing').onchange = (e) => { S.missingStyle = e.target.value; save(); };
     $('#p-photos').onchange = (e) => { S.preferPhotos = e.target.checked; save(); };
     $('#p-sound').onchange = (e) => { S.sound = e.target.checked; save(); if (S.sound) App.sfx.click(); };
+    $('#p-visual').onchange = (e) => { S.visualCheck = e.target.checked; save(); };
+    $('#p-timing').onchange = (e) => { S.showTiming = e.target.checked; save(); };
     $('#p-pocket').onchange = (e) => { S.showPocket = e.target.checked; save(); };
 
     $('#p-export').onclick = async () => {
@@ -82,16 +86,22 @@ App.views.settings = {
       const f = e.target.files[0]; if (!f) return;
       try {
         const data = JSON.parse(await f.text());
-        const merge = confirm('Fusionner avec la collection actuelle ?\n\nOK = fusionner\nAnnuler = remplacer entièrement la collection actuelle');
-        await App.col.importAll(data, { merge });
+        const how = await App.util.ask({
+          icon: 'download', title: 'Restaurer cette sauvegarde ?',
+          text: `${(data.items || []).length} cartes. Tu peux les ajouter à ta collection actuelle, ou remplacer entièrement ta collection actuelle.`,
+          choices: [{ label: 'Ajouter à ma collection', value: 'merge', kind: 'primary' }, { label: 'Tout remplacer', value: 'replace', kind: 'danger' }],
+        });
+        if (!how) return;
+        await App.col.importAll(data, { merge: how === 'merge' });
         App.util.toast(`Sauvegarde restaurée ✓ (${(data.items || []).length} cartes)`);
-      } catch (err) { alert('Restauration impossible : ' + err.message); }
+      } catch (err) { App.util.toast('Restauration impossible : ' + err.message, 5000); }
+      finally { e.target.value = ''; }
     };
     $('#p-cache').onclick = async () => { await App.db.clear('cache'); App.util.toast('Cache vidé ✓'); };
     $('#p-reset').onclick = async () => {
       const online = App.cloud.enabled && App.cloud.user;
-      if (!confirm(`Effacer TOUTE ta collection, tes photos et ta vitrine${online ? ', sur cet appareil ET dans ton compte en ligne' : ''} ? (fais une sauvegarde avant)`)) return;
-      if (!confirm('Vraiment sûr ? C’est définitif.')) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: 'Effacer toute ta collection ?', text: `Tes cartes, tes photos et ta vitrine seront effacées${online ? ', sur cet appareil ET dans ton compte en ligne' : ''}. Fais une sauvegarde avant.`, ok: 'Tout effacer' })) return;
+      if (!await App.util.ask({ icon: 'trash', danger: true, title: 'Vraiment sûr ?', text: 'C’est définitif : impossible de revenir en arrière.', ok: 'Oui, tout effacer', cancel: 'Non, garder ma collection' })) return;
       if (online) {
         // connecté : on efface aussi dans le compte (sinon tout reviendrait à la prochaine synchronisation)
         for (const it of App.col.all()) await App.col.remove(it.key);
