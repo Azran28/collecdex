@@ -613,6 +613,19 @@ a.chip { text-decoration: none; }
 .pc-bulb.on { filter: drop-shadow(0 0 18px #ffd23f) drop-shadow(0 0 6px #fff); transform: scale(1.12); }
 .pc-count { font: 800 2.4rem/1 var(--display, Fredoka, sans-serif); color: #ffd23f; }
 .pc-big .cert-bar { position: static; width: 100%; margin-top: 8px; }
+/* v2.55 : encadré de certification commun aux 3 modes (une carte, classeur, rafale), plus compact sur téléphone */
+.pc-toggle { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.06); border: 1px solid var(--line); font-weight: 700; cursor: pointer; }
+.pc-toggle input { width: 20px; height: 20px; accent-color: #3ddc97; }
+#sc-results > .pc-block:first-child { margin-top: 0; }
+@media (max-width: 760px) {
+  .pc-block { padding: 12px; }
+  .pc-block-h { margin-bottom: 8px; }
+  .pc-steps { gap: 6px; font-size: .88rem; }
+  .pc-steps i { width: 22px; height: 22px; font-size: .78rem; }
+  /* caméra du classeur : toute la largeur de l'écran ; hauteur selon l'image de la caméra, limitée à l'écran (la vidéo
+     garde ses proportions dedans). Avant, la hauteur limitée rétrécissait la boîte : vide à droite */
+  .batch-view.live-fit { aspect-ratio: auto !important; height: min(calc(100dvh - 200px), calc(100vw * var(--vr, 1.333))); max-height: none; }
+}
 @keyframes certPulse { 50% { transform: scale(1.15); } }
 .cert-ok { color: #3ddc97; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
 .cert-pill { display: inline-flex; align-items: center; gap: 4px; font-size: .72rem; font-family: var(--font); font-weight: 700; padding: 3px 9px; border-radius: 999px; color: #16172a; background: linear-gradient(120deg, #3ddc97, #34d5ff); }

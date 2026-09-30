@@ -35,7 +35,33 @@ App.views.scan = {
   guide(mode) {
     const certOn = App.certify && App.certify.available();
     if (mode !== 'carte' || !certOn) return '';
-    return `<p class="small muted sg-mini">${App.icons.icon('shield', 13)} Pour le badge « Certifiée » : montre d’abord le dos de la carte à la caméra, retourne-la, puis prends la photo.</p>`;
+    return App.views.scan.certBlock('carte');
+  },
+
+  /**
+   * Encadré « certification », le même dans les 3 modes (v2.55, demande d'Arnaud : même logique visuelle pour une
+   * carte / classeur / rafale) : titre, 3 étapes numérotées, et selon le mode un bouton ou une case à cocher.
+   */
+  certBlock(mode, extra = '') {
+    const I = (n, s = 18) => App.icons.icon(n, s);
+    const S = {
+      carte: ['Certifier la carte', [
+        'Touche <b>Caméra</b> et montre d’abord le <b>dos</b> de la carte (pas d’étui opaque)',
+        '💡 Sur Android, la lampe clignote : <b>garde le dos immobile</b> jusqu’à la fin',
+        '<b>Retourne</b> la carte, puis appuie sur <b>Prendre la photo</b>']],
+      classeur: ['Certifier la page', [
+        'Touche <b>Certifier la page</b> et cadre <b>toute la page</b>',
+        'Appuie sur <b>Prendre la photo</b>',
+        '💡 <b>Ne bouge pas 3 secondes</b> : la lampe clignote, puis la photo se prend']],
+      rafale: ['Certifier chaque carte', [
+        'Montre le <b>dos</b> d’une carte',
+        '<b>Retourne</b>-la et tiens-la immobile (💡 sur Android, la lampe clignote)',
+        'Elle est prise et certifiée toute seule : passe à la suivante']],
+    }[mode];
+    return `<div class="pc-block" id="${mode === 'classeur' ? 'b-cert-help' : mode === 'rafale' ? 'r-cert-help' : 'sc-cert-help'}">
+      <div class="pc-block-h">${I('shield')} <b>${S[0]}</b> <span class="small muted">— badge « Certifiée »</span></div>
+      <ol class="pc-steps">${S[1].map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join('')}</ol>${extra}
+    </div>`;
   },
 
   /** « Set de Base (1999) » */
@@ -85,7 +111,7 @@ App.views.scan = {
         // en mode classeur la zone prend la forme exacte de l'image (on voit toute la page)
         v.addEventListener('loadedmetadata', () => {
           if (guide) view.classList.add('live-cover');
-          else { view.classList.add('live-fit'); view.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`; }
+          else { view.classList.add('live-fit'); view.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`; view.style.setProperty('--vr', v.videoHeight / v.videoWidth); }
         }, { once: true });
       },
       get video() { return view.querySelector('video'); },
@@ -129,7 +155,7 @@ App.views.scan = {
       },
       stop() {
         if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
-        view.classList.remove('live-cover', 'live-fit'); view.style.aspectRatio = '';
+        view.classList.remove('live-cover', 'live-fit'); view.style.aspectRatio = ''; view.style.removeProperty('--vr');
       },
       get on() { return !!stream; },
     };
@@ -221,7 +247,7 @@ App.views.scan = {
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
         if (!App.certify.available()) { setStatus(''); return; }
-        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre (il doit être visible : pas d’étui opaque, une pochette transparente convient), si la lampe du téléphone clignote, garde le dos immobile jusqu’à la fin, puis retourne-la en prenant ton temps et appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
+        setStatus(''); // les étapes de la certification sont dans l'encadré commun (certBlock), sous la caméra
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         trk = App.certify.tracker(cam.video, () => cam.region());
@@ -545,15 +571,7 @@ App.views.scan = {
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             ${certOn && !burst ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
           </div>
-          ${certOn && !burst ? `<div class="pc-block" id="b-cert-help">
-            <div class="pc-block-h">${App.icons.icon('shield', 18)} <b>Certifier la page</b> <span class="small muted">— badge « Certifiée », téléphone Android</span></div>
-            <ol class="pc-steps">
-              <li><i>1</i><span>Touche <b>Certifier la page</b> et cadre <b>toute la page</b></span></li>
-              <li><i>2</i><span>Appuie sur <b>Prendre la photo</b></span></li>
-              <li><i>3</i><span>💡 <b>Ne bouge pas 3 secondes</b> : la lampe clignote, puis la photo se prend</span></li>
-            </ol>
-            <button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>
-          </div>` : ''}
+          ${certOn && !burst ? App.views.scan.certBlock('classeur', `<button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`) : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <div id="b-auto" class="b-auto hidden"></div>
             <!-- la reconnaissance part toute seule ; le bouton n'apparaît que si la grille est à placer à la main -->
@@ -570,7 +588,7 @@ App.views.scan = {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn ? `<label class="r-cert small"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 14)} <span>Certifier chaque carte <span class="muted">(montre le dos, retourne la carte et tiens-la immobile — la lampe peut clignoter un instant : elle est prise toute seule)</span></span></label>` : ''}
+          ${certOn ? App.views.scan.certBlock('rafale', `<label class="pc-toggle"><input type="checkbox" id="r-cert" checked> <span>Certifier chaque carte</span></label>`) : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
