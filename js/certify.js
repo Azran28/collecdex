@@ -287,26 +287,46 @@ App.certify = (() => {
     }
     const r2 = (v) => Math.round(v * 100) / 100, ev = { sil: r2(sil), sq: r2(sq), n: end - lb, fps: r2((frames.length - 1) * 1000 / ((frames[frames.length - 1].t - frames[0].t) || 1)) };
     // continuité : la photo montre la carte vue juste après le geste (pas une autre carte, pas la table).
-    // v2.49 (1er essai d'Arnaud refusé après recadrage) : on compare aussi aux 2 images juste avant l'appui (le doigt
-    // fait parfois bouger le téléphone), et une carte rapprochée ou éloignée compte (recalage zoom + décalage, comme
-    // « même carte » en rafale, seuils plus prudents : même carte zoomée 0,32–0,52, autre carte ≥ 0,74)
+    // v2.49 : on compare aussi aux 2 images juste avant l’appui (le doigt fait parfois bouger le téléphone)
     const refs = [];
-    for (let i = frames.length - 1; i > lb && refs.length < 3; i--) if (frames[i].b < BACK_T && sdOf(frames[i].g) >= 12) refs.push(frames[i].g);
-    if (!refs.length) refs.push(face);
-    const zoomed = (A, B) => { try { const m = motion(A, B, w, h); return m.rel < 0.52 && m.fit < 0.7; } catch (e) { return false; } };
-    const same = (G) => refs.some((R) => corr(G, R, w, h, 4) >= FRONT_T) || refs.some((R) => zoomed(G, R));
+    // assez de détails pour être la carte (pas la table) : au moins la moitié des détails habituels après le geste (pièce sombre = moins)
+    const sds = frames.slice(lb + 1).map((f) => sdOf(f.g)).sort((a, b) => a - b), minSd = Math.max(6, (sds[sds.length >> 1] || 0) * 0.5);
+    for (let i = frames.length - 1; i > lb && i >= frames.length - 3; i--) if (frames[i].b < BACK_T && sdOf(frames[i].g) >= minSd) refs.push(frames[i].g);
+    const same = (G) => refs.some((R) => corr(G, R, w, h, 4) >= FRONT_T); // (v2.51 : plus de tolérance au zoom : elle confondait la table sans motif avec une carte)
     // les 3 premières images immobiles après le geste ; si les mains tremblent (aucune immobile), les 3 plus calmes de la ½ s qui suit
     const firsts = [];
     for (let i = lb + 2; i < frames.length - 1 && firsts.length < 3; i++) {
       const f = frames[i], s = sdOf(f.g);
       if (f.b < BACK_T && s >= 16 && madOf(f.g, frames[i - 1].g) < 4 + s * 0.08) firsts.push(f);
     }
-    let cont = firsts.some((f) => same(f.g));
+    let cont = refs.length > 0 && firsts.some((f) => same(f.g));
     if (!cont && !firsts.length) {
       const cand = [], i0 = fF >= 0 ? lb + 1 + fF : lb + 2;
       for (let i = Math.max(i0, 1); i < frames.length - 1 && frames[i].t - frames[i0].t <= 500; i++) if (frames[i].b < BACK_T && sdOf(frames[i].g) >= 12) cand.push([madOf(frames[i].g, frames[i - 1].g), i]);
       cand.sort((x, y) => x[0] - y[0]);
       cont = cand.slice(0, 3).some(([, i]) => same(frames[i].g));
+    }
+    // v2.51 : chaîne image par image (5e essai d'Arnaud refusé après avoir « très légèrement bougé ») : en remontant
+    // de la photo vers le retournement, chaque image doit ressembler à la précédente (une image floue peut être sautée) ;
+    // la chaîne doit remonter jusqu'à la carte à plat juste après le geste. Une carte échangée ou la table la cassent.
+    let chainMs = null;
+    if (!cont && refs.length) {
+      const linked = (A, B) => corr(A.g, B.g, w, h, 4) >= FRONT_T;
+      // la carte à plat juste après le retournement : 1re image après le dernier dos dont les bords remplissent le cadre
+      let flat = -1;
+      for (let k = lb + 1; k < frames.length; k++) { const f = frames[k]; if (f.b < BACK_T && sdOf(f.g) >= 16 && silhouette(f.d, 'v').w >= 0.8 && silhouette(f.d, 'h').w >= 0.8) { flat = k; break; } }
+      let i = frames.length - 1, skips = 0;
+      while (i - 1 > lb) {
+        const p = frames[i - 1];
+        if (p.b >= BACK_T || sdOf(p.g) < 12) break;
+        if (linked(p, frames[i])) { i--; continue; }
+        const pp = frames[i - 2]; // image floue sautée : l'avant-dernière doit alors ressembler
+        if (skips < 2 && i - 2 > lb && pp.b < BACK_T && sdOf(pp.g) >= 12 && linked(pp, frames[i])) { i -= 2; skips++; continue; }
+        break;
+      }
+      chainMs = frames[i].t - frames[lb].t;
+      cont = flat >= 0 && i <= flat + 1; // la chaîne remonte jusqu'à la carte à plat juste après le geste
+      ev.chain = Math.round(chainMs / 100) / 10;
     }
     const base = { gap, states: states.slice(0, 60), lb, ev, cont };
     if (sil < SIL_T && sq < SQ_T) return { passed: false, why: 'retournement pas reconnu (la carte doit être vue de biais pendant le geste)', ...base };
@@ -655,7 +675,7 @@ App.certify = (() => {
       // (judgeFlip, plus souple quand la caméra donne peu d'images) suffit ; sinon on garde la nouvelle (judgeE)
       let flipOk = j.passed, flipHow = 'E';
       if (!flipOk && flash && flash.ok && j.cont) { const a = judgeFlip(frames, GW, GH); if (a.passed || a.gap >= 1) { flipOk = true; flipHow = 'lampe+A'; } } // continuité : celle de judgeE (tolère le recadrage)
-      if (!flipOk) reasons.push(j.ev ? `${j.why} — mesures : bords ${String(j.ev.sil).replace('.', ',')}, écrasée ${String(j.ev.sq).replace('.', ',')}, ${j.ev.n} images pendant le geste, ${String(j.ev.fps).replace('.', ',')} images/s` : j.why);
+      if (!flipOk) reasons.push(j.ev ? `${j.why} — mesures : bords ${String(j.ev.sil).replace('.', ',')}, écrasée ${String(j.ev.sq).replace('.', ',')}, ${j.ev.n} images pendant le geste, ${String(j.ev.fps).replace('.', ',')} images/s${j.ev.chain != null ? `, carte suivie jusqu’à ${String(j.ev.chain).replace('.', ',')} s après le dos` : ''}` : j.why);
       if (frozen >= Math.ceil((recent.length - 1) * 0.8)) reasons.push('image figée (ce n’est pas une caméra en direct)');
       if (screen.peak >= SCREEN_PEAK && !(flash && flash.ok)) reasons.push(`on dirait une carte affichée sur un écran (motif ${Math.round(screen.peak)})`); // la lampe reconnue prouve déjà que ce n'est pas un écran
       if (flash && flash.used && !flash.ok) { if (LAMP_BLOCKS) reasons.push(flash.why); else lampNote = LAMP_NOTE; }
