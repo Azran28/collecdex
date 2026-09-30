@@ -1199,13 +1199,16 @@ App.recognizer = (() => {
   }
   let backCanvas = null;
   /** Même mesure, directement sur une image déjà dessinée (canvas, image de la caméra) : sert à la certification en direct */
-  function backScoreOf(src, SW, SH) {
+  // fast (suivi en direct de la certification, v2.48) : sans les petits décalages → 3 essais au lieu de 9 (la caméra
+  // du téléphone d'Arnaud ne donnait que ~6 images par seconde au suivi)
+  function backScoreOf(src, SW, SH, fast = false) {
     if (!backRef) { const bin = atob(BACK.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); backRef = normRGB(a, BACK.w * BACK.h); }
     const W = BACK.w, H = BACK.h, n = W * H;
     const c = backCanvas || (backCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
     const g = c.getContext('2d', { willReadFrequently: true }); g.filter = 'blur(0.6px)';
     let best = -1;
-    for (const sc of [0.78, 0.84, 0.9]) for (const dx of [-0.05, 0, 0.05]) for (const dy of [-0.05, 0, 0.05]) {
+    const offs = fast ? [0] : [-0.05, 0, 0.05];
+    for (const sc of [0.78, 0.84, 0.9]) for (const dx of offs) for (const dy of offs) {
       const bw = SW * sc, bh = SH * sc;
       g.clearRect(0, 0, W, H);
       g.drawImage(src, SW * (0.5 + dx) - bw / 2, SH * (0.5 + dy) - bh / 2, bw, bh, 0, 0, W, H);

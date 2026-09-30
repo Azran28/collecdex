@@ -94,7 +94,7 @@ App.views.friends = {
       const rf = t.closest('[data-refuse]'); if (rf) { await F.respond(rf.dataset.refuse, false); return draw(); }
       const rm = t.closest('[data-remove]');
       if (rm) {
-        if (rm.dataset.name && !confirm(`Retirer ${rm.dataset.name} de tes amis ?`)) return;
+        if (rm.dataset.name && !await App.util.ask({ icon: 'users', danger: true, title: `Retirer ${rm.dataset.name} de tes amis ?`, text: 'Vous ne verrez plus la vitrine l’un de l’autre.', ok: 'Retirer' })) return;
         await F.remove(rm.dataset.remove); return draw();
       }
       if (t.closest('#fr-copy')) {

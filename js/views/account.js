@@ -60,7 +60,7 @@ App.views.account = {
       const t = e.target;
       const tb = t.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; return draw(); }
       if (t.closest('#a-sync')) { C.sync(); return; }
-      if (t.closest('#a-out')) { if (confirm('Te déconnecter ? Ta collection reste enregistrée dans ton compte.')) { await C.signOut(); draw(); } return; }
+      if (t.closest('#a-out')) { if (await App.util.ask({ icon: 'user', title: 'Te déconnecter ?', text: 'Ta collection reste enregistrée dans ton compte.', ok: 'Me déconnecter' })) { await C.signOut(); draw(); } return; }
       if (t.closest('#a-forgot')) {
         const email = el.querySelector('#a-email').value.trim();
         if (!email) return msg('Indique ton e-mail ci-dessus, puis reclique sur « Mot de passe oublié ».');

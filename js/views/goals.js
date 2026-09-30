@@ -18,7 +18,7 @@ App.views.goals = {
       return set.cards.filter((c) => { const n = parseInt(c.localId, 10); return !isNaN(n) && String(n) === String(c.localId).replace(/^0+(?=\d)/, '') && n <= set.official; });
     };
     const missingOf = (set) => counted(set).filter((c) => !App.col.owned(game, c.id));
-    const priceVal = (id) => (prices[id] && prices[id].value) || 0;
+    const priceVal = (id) => (prices[id] && App.util.toEur(prices[id].value, prices[id].unit)) || 0;
     /** Prix des cartes (en arrière-plan, gardés 24 h), puis on redessine */
     const loadPrices = (cards, label, then) => {
       const todo = cards.filter((c) => !prices[c.id]).slice(0, 300);

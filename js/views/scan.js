@@ -45,7 +45,7 @@ App.views.scan = {
     const mode = ['classeur', 'rafale'].includes(params.query.mode) ? params.query.mode : 'carte';
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
-      <h1 style="margin:0 0 4px">Capturer</h1>
+      <h1 class="m-hide" style="margin:0 0 4px">Capturer</h1>
       <div class="mode-pick" role="tablist">
         <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="#/scan" role="tab" aria-selected="${mode === 'carte'}">
           <span class="mc-ico">${App.icons.icon('capture', 22)}</span>
@@ -54,16 +54,20 @@ App.views.scan = {
         </a>
         <a class="mode-card ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur" role="tab" aria-selected="${mode === 'classeur'}">
           <span class="mc-ico">${App.icons.icon('dex', 22)}</span>
-          <span class="mc-txt"><b>Page de classeur</b><span>Jusqu’à 18 cartes d’un coup</span></span>
+          <span class="mc-txt"><b class="m-hide">Page de classeur</b><b class="d-hide">Classeur</b><span>Jusqu’à 18 cartes d’un coup</span></span>
           ${mode === 'classeur' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
         </a>
         <a class="mode-card ${mode === 'rafale' ? 'on' : ''}" href="#/scan?mode=rafale" role="tab" aria-selected="${mode === 'rafale'}">
           <span class="mc-ico">${App.icons.icon('rafale', 22)}</span>
           <span class="mc-txt"><b>Rafale</b><span>Les cartes défilent, sans cliquer</span></span>
         </a>
+        <button type="button" class="sc-help d-hide" id="sc-help" aria-label="Mode d’emploi de Capturer">?</button>
       </div>
       <div id="sc-body"></div>`;
     const body = el.querySelector('#sc-body');
+    // téléphone : mode d'emploi à la 1re visite, et bouton « ? » pour le revoir
+    el.querySelector('#sc-help').addEventListener('click', () => App.onboarding.showScan());
+    App.onboarding.maybeShowScan();
     const cleanup = mode === 'carte' ? await App.views.scan.single(body, params, alive) : await App.views.scan.batch(body, params, alive, mode === 'rafale');
     return () => { if (cleanup) cleanup(); App.recognizer.stop(); };
   },
@@ -145,7 +149,7 @@ App.views.scan = {
       <div id="sc-target"></div>
       <div class="set-first" style="max-width:640px">
         <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
-        <select id="sc-set"><option value="">Je ne sais pas : chercher partout</option></select>
+        <select id="sc-set"><option value="">Série : je ne sais pas (chercher partout)</option></select>
       </div>
       <div class="scan-wrap">
         <div>
@@ -210,12 +214,14 @@ App.views.scan = {
     let trk = null, trkTimer = null;
     const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.flip-hint'); if (h) h.remove(); };
     el.querySelector('#sc-cam').addEventListener('click', async () => {
+    // pendant la capture, seul « Prendre la photo » reste (demande d'Arnaud) : « Caméra » et « Choisir une photo » reviennent après
+    const camButtons = (show) => { el.querySelector('#sc-cam').classList.toggle('hidden', !show); el.querySelector('#sc-file').closest('label').classList.toggle('hidden', !show); };
       try {
-        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = App.views.scan.guide('carte');
+        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = App.views.scan.guide('carte');
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
         if (!App.certify.available()) { setStatus(''); return; }
-        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre (il doit être visible : pas d’étui opaque, une pochette transparente convient), retourne-la en prenant ton temps, puis appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
+        setStatus(`<span class="small">${App.icons.icon('shield', 14)} <b>Pour la certifier</b> : montre d’abord le <b>dos</b> de la carte dans le cadre (il doit être visible : pas d’étui opaque, une pochette transparente convient), si la lampe du téléphone clignote, garde le dos immobile jusqu’à la fin, puis retourne-la en prenant ton temps et appuie sur « Prendre la photo ». <span class="muted">(Sans montrer le dos : photo sans certification)</span></span>`);
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         trk = App.certify.tracker(cam.video, () => cam.region());
@@ -268,10 +274,12 @@ App.views.scan = {
         const certLine = !cert ? '' : cert.passed
           ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— la carte sera certifiée à l’ajout.</span>`
           : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`;
-        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
+        // lampe en mode essai : note + petit graphique (mesures à transmettre pour le réglage)
+        const lampHtml = cert && cert.flashTrace ? `${cert.lampNote ? `<div class="small" style="margin-top:6px">${App.util.esc(cert.lampNote)}</div>` : ''}${App.certify.lampChart(cert.flashTrace, cert.lampFit)}` : '';
+        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${lampHtml}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
       } finally {
         shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
-        shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`;
+        shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`; camButtons(true);
       }
     }
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
@@ -523,11 +531,11 @@ App.views.scan = {
     const certOn = App.certify.available();
     const setBox = (title) => `<div class="set-first">
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
-            <select id="b-set"><option value="">Plusieurs séries / je ne sais pas</option></select>
+            <select id="b-set"><option value="">Série : je ne sais pas</option></select>
           </div>`;
     // commandes du mode page (gardées cachées en rafale : le code commun s'en sert)
     const pageCtl = `<div class="row" style="margin-bottom:10px">
-            <label class="small">Format de la page
+            <label class="small"><span class="m-hide">Format de la page</span>
               <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
           </div>`;
     // page de classeur (pas de certification) : l'appareil photo du téléphone d'abord — plein écran, pleine qualité
@@ -554,7 +562,7 @@ App.views.scan = {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn ? `<label class="r-cert small"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 14)} <span>Certifier chaque carte <span class="muted">(montre le dos, retourne la carte : elle est prise toute seule)</span></span></label>` : ''}
+          ${certOn ? `<label class="r-cert small"><input type="checkbox" id="r-cert" checked> ${App.icons.icon('shield', 14)} <span>Certifier chaque carte <span class="muted">(montre le dos, retourne la carte et tiens-la immobile — la lampe peut clignoter un instant : elle est prise toute seule)</span></span></label>` : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
@@ -565,8 +573,7 @@ App.views.scan = {
       </div>` : `
       <div class="batch-wrap">
         <div>
-          ${setBox('Série de la page')}
-          ${pageCtl}
+          <div class="sc-opts">${setBox('Série de la page')}${pageCtl}</div>
           <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur', FORMATS[fmt])}</div>
           ${pageBtns}
         </div>
@@ -630,7 +637,7 @@ App.views.scan = {
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); setStatus('');
-        el.querySelector('#b-native').classList.add('hidden'); el.querySelector('#b-cam').classList.add('hidden');
+        el.querySelector('#b-native').classList.add('hidden'); el.querySelector('#b-cam').classList.add('hidden'); el.querySelector('#b-file2').closest('label').classList.add('hidden');
         // la vidéo entière à l'écran, sans avoir à faire défiler
         setTimeout(() => window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 60), behavior: 'smooth' }), 350);
       }
@@ -662,7 +669,7 @@ App.views.scan = {
     el.querySelector('#b-file2').addEventListener('change', fromFile); // galerie
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (running) return;
-      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden');
+      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden');
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
       el.querySelector('#b-gridbar').classList.add('hidden');
@@ -679,9 +686,10 @@ App.views.scan = {
       el.querySelector('#b-go').classList.add('hidden'); // la reconnaissance partira toute seule si la grille est sûre
       cells = []; resultsEl.innerHTML = App.views.scan.guide('classeur'); setStatus('');
       pageCert = cert; pageId = null;
-      if (cert) setStatus(cert.passed
+      if (cert) setStatus((cert.passed
         ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— les cartes bien reconnues seront certifiées.</span>`
-        : `<span class="small">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même ajouter les cartes, ou reprendre la photo.</span></span>`);
+        : `<span class="small">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même ajouter les cartes, ou reprendre la photo.</span></span>`
+      ) + (cert && cert.flashTrace ? `${cert.lampNote ? `<div class="small" style="margin-top:6px">${esc(cert.lampNote)}</div>` : ''}${App.certify.lampChart(cert.flashTrace, cert.lampFit)}` : ''));
       const url = URL.createObjectURL(blob); urls.push(url);
       view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Page de classeur"><div class="grid-box"></div></div>`;
       const img = view.querySelector('img');
@@ -1653,6 +1661,7 @@ App.views.scan = {
         if (!rTrk) rTrk = App.certify.tracker(cam.video, () => cam.region(), { auto: true });
         const ph = rTrk.step();
         if (ph === 'pret') { if (rLast && sameCard(rLast, F)) { rTrk.reset(); rHint(`Carte ${cells.length} prise ✓ — passe à la suivante`, 'ok'); return; } rCapture(F, true); return; }
+        if (ph === 'lampe') { rHint('💡 Ne bouge pas : la lampe clignote…', 'go'); return; }
         if (ph === 'dos') { rHint('Retourne-la !', 'go'); return; }
         if (ph === 'retourne') { rHint('Tiens-la immobile…', 'go'); return; }
         if (rLast && sd >= 16 && sameCard(rLast, F)) { rHint(`Carte ${cells.length} prise ✓ — montre le dos de la suivante`, 'ok'); return; }
@@ -1710,7 +1719,7 @@ App.views.scan = {
       cam.stop();
       if (burst) {
         view.innerHTML = App.views.scan.empty('rafale');
-        el.querySelector('#r-start').classList.remove('hidden');
+        el.querySelector('#r-start').classList.remove('hidden'); el.querySelector('#r-files-btn').classList.remove('hidden');
         el.querySelector('#r-start').innerHTML = `${App.icons.icon('camera', 16)} ${cells.length ? 'Reprendre la rafale' : 'Démarrer la rafale'}`;
         el.querySelector('#r-pause').classList.add('hidden');
       }
@@ -1731,7 +1740,7 @@ App.views.scan = {
         rPrev = null; rStable = 0;
         rTrk = null;
         rTimer = setInterval(rTick, 100);
-        el.querySelector('#r-start').classList.add('hidden');
+        el.querySelector('#r-start').classList.add('hidden'); el.querySelector('#r-files-btn').classList.add('hidden');
         el.querySelector('#r-pause').classList.remove('hidden');
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
       });
