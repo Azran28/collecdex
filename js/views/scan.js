@@ -214,8 +214,10 @@ App.views.scan = {
     let trk = null, trkTimer = null;
     const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.flip-hint'); if (h) h.remove(); };
     el.querySelector('#sc-cam').addEventListener('click', async () => {
+    // pendant la capture, seul « Prendre la photo » reste (demande d'Arnaud) : « Caméra » et « Choisir une photo » reviennent après
+    const camButtons = (show) => { el.querySelector('#sc-cam').classList.toggle('hidden', !show); el.querySelector('#sc-file').closest('label').classList.toggle('hidden', !show); };
       try {
-        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); results.innerHTML = App.views.scan.guide('carte');
+        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = App.views.scan.guide('carte');
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
         if (!App.certify.available()) { setStatus(''); return; }
@@ -275,7 +277,7 @@ App.views.scan = {
         status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
       } finally {
         shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
-        shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`;
+        shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`; camButtons(true);
       }
     }
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
@@ -633,7 +635,7 @@ App.views.scan = {
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); setStatus('');
-        el.querySelector('#b-native').classList.add('hidden'); el.querySelector('#b-cam').classList.add('hidden');
+        el.querySelector('#b-native').classList.add('hidden'); el.querySelector('#b-cam').classList.add('hidden'); el.querySelector('#b-file2').closest('label').classList.add('hidden');
         // la vidéo entière à l'écran, sans avoir à faire défiler
         setTimeout(() => window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 60), behavior: 'smooth' }), 350);
       }
@@ -665,7 +667,7 @@ App.views.scan = {
     el.querySelector('#b-file2').addEventListener('change', fromFile); // galerie
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (running) return;
-      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden');
+      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden');
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus('');
       el.querySelector('#b-gridbar').classList.add('hidden');
@@ -1702,7 +1704,7 @@ App.views.scan = {
       cam.stop();
       if (burst) {
         view.innerHTML = App.views.scan.empty('rafale');
-        el.querySelector('#r-start').classList.remove('hidden');
+        el.querySelector('#r-start').classList.remove('hidden'); el.querySelector('#r-files-btn').classList.remove('hidden');
         el.querySelector('#r-start').innerHTML = `${App.icons.icon('camera', 16)} ${cells.length ? 'Reprendre la rafale' : 'Démarrer la rafale'}`;
         el.querySelector('#r-pause').classList.add('hidden');
       }
@@ -1723,7 +1725,7 @@ App.views.scan = {
         rPrev = null; rStable = 0;
         rTrk = null;
         rTimer = setInterval(rTick, 100);
-        el.querySelector('#r-start').classList.add('hidden');
+        el.querySelector('#r-start').classList.add('hidden'); el.querySelector('#r-files-btn').classList.add('hidden');
         el.querySelector('#r-pause').classList.remove('hidden');
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
       });

@@ -312,7 +312,7 @@ App.certify = (() => {
    * (Chrome Android ; pas l'iPhone) : sinon on s'en passe. Labo : la lampe ne refuse aucun vrai geste, et les
    * tricheries refusées passent de 74 % à 87 %.
    */
-  const SLOT = 250;
+  const SLOT = 350; // tranches de 0,35 s (v2.45 ; 0,25 s en v2.43 : trop court pour certaines caméras)
   function torchOf(video) {
     try {
       const tr = video && video.srcObject && video.srcObject.getVideoTracks()[0];
@@ -320,8 +320,12 @@ App.certify = (() => {
       return cap && cap.torch ? tr : null;
     } catch (e) { return null; }
   }
-  function newCode() { // 6 tranches, 2 à 4 allumées
-    for (;;) { const b = Array.from(crypto.getRandomValues(new Uint8Array(6)), (x) => x & 1), s = b.reduce((a, x) => a + x, 0); if (s >= 2 && s <= 4) return b; }
+  function newCode() { // 6 tranches, 2 à 4 allumées, en au moins 2 éclairs (≥ 4 changements à mesurer)
+    for (;;) {
+      const b = Array.from(crypto.getRandomValues(new Uint8Array(6)), (x) => x & 1), s = b.reduce((a, x) => a + x, 0);
+      const pulses = b.filter((x, i) => x && !b[i - 1]).length;
+      if (s >= 2 && s <= 4 && pulses >= 2) return b;
+    }
   }
   /** Joue le code avec la lampe ; renvoie { bits, ev: [{ t, on }], t0, end } (ev = instants réels d'allumage/extinction) */
   async function playCode(tr) {
@@ -338,22 +342,49 @@ App.certify = (() => {
       return { bits, ev, t0, end: Date.now(), error: String(e && e.message || e) };
     }
   }
-  /** La luminosité (échantillons { t, v }) suit-elle le code ? Retard d'image de la caméra permis (0 à 0,6 s) */
+  /**
+   * La luminosité (échantillons { t, v }) suit-elle le code ? Deux mesures, retard d'image de la caméra 0 à 1 s :
+   * - niveau : corrélation entre luminosité et lampe allumée / éteinte, et hausse relative (amp) ;
+   * - changements (v2.45, après le 1er essai d'Arnaud refusé) : à chaque allumage la luminosité doit monter, à chaque
+   *   extinction baisser, juste après le changement. Ça marche même quand la caméra corrige vite sa luminosité
+   *   (exposition automatique), qui efface la différence de niveau au bout d'un moment.
+   */
   function flashFit(samples, code) {
-    const s = samples.filter((x) => x.t >= code.t0 && x.t <= code.end + 650);
-    let best = { corr: -1, amp: 0, lag: 0, n: s.length };
-    if (s.length < 10) return best;
-    for (let lag = 0; lag <= 600; lag += 20) {
+    const s = samples.filter((x) => x.t >= code.t0 && x.t <= code.end + 1100);
+    let best = { corr: -1, amp: 0, lag: 0, n: s.length, edges: 0, edgesOk: 0, jump: 0, lagE: 0, score: -9 }, bestE = { e: -1 };
+    if (s.length < 8) return best;
+    const W = SLOT * 0.7, mean = (a) => a.reduce((x, y) => x + y.v, 0) / a.length;
+    // vrais changements (le premier « éteint » ne change rien : la lampe l'était déjà)
+    const tr = []; let st = false; for (const e of code.ev) { if (e.on !== st) tr.push(e); st = e.on; }
+    for (let lag = 0; lag <= 1000; lag += 25) {
       const on = s.map(({ t }) => { let v = 0; for (const e of code.ev) if (e.t <= t - lag) v = e.on ? 1 : 0; return v; });
-      const n1 = on.reduce((a, x) => a + x, 0); if (n1 < 2 || n1 > on.length - 2) continue;
-      let m1 = 0, m0 = 0; on.forEach((x, k) => { if (x) m1 += s[k].v; else m0 += s[k].v; }); m1 /= n1; m0 /= on.length - n1;
-      const mm = s.reduce((a, x) => a + x.v, 0) / s.length, om = n1 / on.length;
-      let num = 0, da = 0, db = 0; s.forEach((x, k) => { num += (x.v - mm) * (on[k] - om); da += (x.v - mm) ** 2; db += (on[k] - om) ** 2; });
-      const c = num / (Math.sqrt(da * db) || 1);
-      if (c > best.corr) best = { corr: c, amp: (m1 - m0) / (m0 || 1), lag, n: s.length };
+      const n1 = on.reduce((a, x) => a + x, 0);
+      let c = -1, amp = 0;
+      if (n1 >= 2 && n1 <= on.length - 2) {
+        let m1 = 0, m0 = 0; on.forEach((x, k) => { if (x) m1 += s[k].v; else m0 += s[k].v; }); m1 /= n1; m0 /= on.length - n1;
+        const mm = mean(s), om = n1 / on.length;
+        let num = 0, da = 0, db = 0; s.forEach((x, k) => { num += (x.v - mm) * (on[k] - om); da += (x.v - mm) ** 2; db += (on[k] - om) ** 2; });
+        c = num / (Math.sqrt(da * db) || 1); amp = (m1 - m0) / (m0 || 1);
+      }
+      let edges = 0, edgesOk = 0, jump = 0;
+      for (const e of tr) {
+        const at = e.t + lag, bf = s.filter((x) => x.t >= at - W && x.t < at), af = s.filter((x) => x.t >= at && x.t < at + W);
+        if (!bf.length || !af.length) continue;
+        const b = mean(bf), d = (mean(af) - b) / (b || 1), signed = e.on ? d : -d;
+        edges++; jump += signed; if (signed >= 0.02) edgesOk++;
+      }
+      if (edges) jump /= edges;
+      const eScore = edges >= 3 ? edgesOk / edges + jump : -1; // chaque mesure garde son meilleur retard
+      if (eScore > bestE.e) bestE = { e: eScore, edges, edgesOk, jump, lagE: lag };
+      if (c > best.corr) best = { ...best, corr: c, amp, lag };
     }
+    if (bestE.e > -1) Object.assign(best, { edges: bestE.edges, edgesOk: bestE.edgesOk, jump: bestE.jump, lagE: bestE.lagE });
+    best.score = Math.max(best.corr, bestE.e - 1.2);
     return best;
   }
+  /** Lampe vue ? (carte : ampT 6 %, jumpT 3 % ; case de classeur : 4 % et 2,5 %) */
+  const flashOk = (f, ampT, jumpT) => (f.corr >= 0.75 && f.amp >= ampT) || (f.edges >= 3 && f.edgesOk / f.edges >= 0.8 && f.jump >= jumpT);
+  const flashTxt = (f) => `mesures : accord ${Math.max(0, f.corr).toFixed(2).replace('.', ',')}, ${f.amp >= 0 ? '+' : ''}${Math.round(f.amp * 100)} %, changements ${f.edgesOk}/${f.edges} (${Math.round(f.jump * 100)} %), retard ${(f.lag / 1000).toFixed(2).replace('.', ',')} s, ${f.n} images`;
   const median = (G) => { const s = Array.from(G).sort((a, b) => a - b); return s[s.length >> 1]; };
 
   // ---------- Liaison avec le serveur ----------
@@ -424,15 +455,16 @@ App.certify = (() => {
       const codeP = playCode(tr).then((c) => { playing = false; return c; });
       while (playing) { sample(); await new Promise((r) => setTimeout(r, 90)); }
       const code = await codeP;
-      for (const stop = Date.now() + 650; Date.now() < stop;) { sample(); await new Promise((r) => setTimeout(r, 90)); } // retard de la caméra
+      for (const stop = Date.now() + 1100; Date.now() < stop;) { sample(); await new Promise((r) => setTimeout(r, 90)); } // retard de la caméra
       if (code.error) pageFlash = { used: false, error: code.error };
       else {
-        const fits = samples.map((s) => flashFit(s, code)), good = fits.filter((x) => x.corr >= 0.75 && x.amp >= 0.04).length;
-        pageFlash = { used: true, ok: good >= Math.ceil(cells.length * 0.55), good, cells: cells.length, amp: Math.round(median(fits.map((x) => x.amp)) * 1000) / 1000 };
+        const fits = samples.map((s) => flashFit(s, code)), good = fits.filter((x) => flashOk(x, 0.04, 0.025)).length;
+        const mid = [...fits].sort((a, b) => b.score - a.score)[Math.floor(fits.length / 2)];
+        pageFlash = { used: true, ok: good >= Math.ceil(cells.length * 0.55), good, cells: cells.length, amp: Math.round(median(fits.map((x) => x.amp)) * 1000) / 1000, txt: `${good}/${cells.length} cases ; case moyenne : ${flashTxt(mid)}` };
       }
       if (pageFlash.used && !pageFlash.ok) {
         ov.remove();
-        return { passed: false, reasons: ['la lampe n’a pas été vue sur la page (trop de lumière : soleil, fenêtre ? ou un écran ?) — réessaie à l’intérieur'], id: ch.id, challenge: ch.challenge, strip: null, scores: { passed: false, challenge: ch.challenge, kind: 'page', cells: cells.length, flash: pageFlash } };
+        return { passed: false, reasons: [`la lampe n’a pas été vue sur la page (trop de lumière : soleil, fenêtre ? ou un écran ?) — réessaie à l’intérieur (${pageFlash.txt})`], id: ch.id, challenge: ch.challenge, strip: null, scores: { passed: false, challenge: ch.challenge, kind: 'page', cells: cells.length, flash: pageFlash } };
       }
       txt.innerHTML = '✓ Lampe vue — attends…'; // la consigne du geste vient après l’image de départ
     }
@@ -510,7 +542,7 @@ App.certify = (() => {
     let torch, lamp = { state: 'idle', code: null };
     const reset = () => { frames = []; phase = 'attente'; stable = 0; prev = null; sinceBack = 99; lamp = { state: 'idle', code: null }; };
     // la lampe joue son code, puis 0,65 s de plus : la caméra montre l'image avec un retard (jusqu'à 0,6 s)
-    const lampBusy = (now) => lamp.state === 'play' || (lamp.state === 'done' && now - lamp.code.end < 650);
+    const lampBusy = (now) => lamp.state === 'play' || (lamp.state === 'done' && now - lamp.code.end < 1100);
     function startLamp() {
       if (torch === undefined) torch = torchOf(video);
       if (!torch || lamp.state !== 'idle') return false;
@@ -570,8 +602,8 @@ App.certify = (() => {
       if (lamp.state === 'play') flash = { used: true, ok: false, why: auto ? 'photo prise pendant le clignotement de la lampe' : 'retourne la carte seulement quand la lampe a fini de clignoter' };
       else if (lamp.state === 'done') {
         const fit = flashFit(frames.map((x) => ({ t: x.t, v: x.v })), lamp.code);
-        flash = { used: true, ok: fit.corr >= 0.75 && fit.amp >= 0.06, corr: Math.round(fit.corr * 100) / 100, amp: Math.round(fit.amp * 1000) / 1000, lag: fit.lag, n: fit.n };
-        if (!flash.ok) flash.why = 'la carte n’a pas renvoyé la lumière de la lampe (trop de lumière autour ? ou un écran ?)';
+        flash = { used: true, ok: flashOk(fit, 0.06, 0.03), corr: Math.round(fit.corr * 100) / 100, amp: Math.round(fit.amp * 1000) / 1000, lag: fit.lag, lagE: fit.lagE, n: fit.n, edges: fit.edges, edgesOk: fit.edgesOk, jump: Math.round(fit.jump * 1000) / 1000 };
+        if (!flash.ok) flash.why = `la carte n’a pas renvoyé la lumière de la lampe (trop de lumière autour ? ou un écran ?) — ${flashTxt(fit)}`;
       } else if (lamp.state === 'error') flash = { used: false, error: lamp.code && lamp.code.error };
       const r = regionFn() || { sx: 0, sy: 0, sw: video.videoWidth, sh: video.videoHeight };
       const N = 256, side = Math.min(r.sw, r.sh, Math.max(N, Math.min(r.sw, r.sh) * 0.5));

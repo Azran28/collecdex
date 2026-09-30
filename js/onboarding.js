@@ -131,7 +131,7 @@ App.onboarding = (() => {
     setCur(0);
   }
 
-  /* ---------- Mode d'emploi de la page Capturer (v2.45) : plus précis, à la 1re visite de la page ---------- */
+  /* ---------- Mode d'emploi de la page Capturer (v2.46) : plus précis, à la 1re visite de la page ---------- */
   const flat = (cls = '') => `<span class="ob-back ${cls}"><i></i></span>`; // dos de carte dessiné
   const scanSlides = [
     {
