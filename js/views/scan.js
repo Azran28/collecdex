@@ -543,9 +543,17 @@ App.views.scan = {
             <label class="btn primary" id="b-native">${App.icons.icon('camera', 16)} Prendre la page en photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
-            <button class="btn ${certOn ? '' : 'hidden'}" id="b-cam">${App.icons.icon('shield', 16)} Photo certifiée</button>
+            ${certOn && !burst ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
           </div>
-          ${certOn && !burst ? `<p class="small muted b-cert-help" id="b-cert-help">${App.icons.icon('shield', 13)} <b>Photo certifiée</b> (Android) : prends la photo, puis ne bouge pas environ 3 secondes pendant que la lampe clignote.</p>` : ''}
+          ${certOn && !burst ? `<div class="pc-block" id="b-cert-help">
+            <div class="pc-block-h">${App.icons.icon('shield', 18)} <b>Certifier la page</b> <span class="small muted">— badge « Certifiée », téléphone Android</span></div>
+            <ol class="pc-steps">
+              <li><i>1</i><span>Touche <b>Certifier la page</b> et cadre <b>toute la page</b></span></li>
+              <li><i>2</i><span>Appuie sur <b>Prendre la photo</b></span></li>
+              <li><i>3</i><span>💡 <b>Ne bouge pas 3 secondes</b> : la lampe clignote, puis la photo se prend</span></li>
+            </ol>
+            <button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>
+          </div>` : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
             <div id="b-auto" class="b-auto hidden"></div>
             <!-- la reconnaissance part toute seule ; le bouton n'apparaît que si la grille est à placer à la main -->
@@ -635,10 +643,14 @@ App.views.scan = {
       try { sessionStorage.setItem('pageSet', e.target.value); } catch (err) { /* */ }
       e.target.closest('.set-first').classList.toggle('chosen', !!e.target.value);
     });
+    const certHelp = (show) => { const h = el.querySelector('#b-cert-help'); if (h) h.classList.toggle('hidden', !show); };
     el.querySelector('#b-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#b-shot').classList.remove('hidden'); setStatus('');
         el.querySelector('#b-native').classList.add('hidden'); el.querySelector('#b-cam').classList.add('hidden'); el.querySelector('#b-file2').closest('label').classList.add('hidden');
+        certHelp(false);
+        // consigne sur la vidéo : cadrer toute la page
+        view.insertAdjacentHTML('beforeend', `<div class="flip-hint pc-aim">${App.icons.icon('shield', 14)} Cadre <b>toute la page</b>, puis appuie sur <b>Prendre la photo</b></div>`);
         // la vidéo entière à l'écran, sans avoir à faire défiler
         setTimeout(() => window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 60), behavior: 'smooth' }), 350);
       }
@@ -646,21 +658,23 @@ App.views.scan = {
     });
     el.querySelector('#b-shot').addEventListener('click', async () => {
       el.querySelector('#b-shot').classList.add('hidden');
-      setStatus(App.certify.available() ? '<div class="spinner"></div><div style="text-align:center">Photo en haute définition… <b>ne bouge pas</b>, la lampe va clignoter</div>' : '<div class="spinner"></div><div style="text-align:center">Photo en haute définition…</div>');
-      const b = await cam.photo();
-      if (!b) { setStatus(''); el.querySelector('#b-shot').classList.remove('hidden'); return; }
-      // certification de la page (v2.53) : la photo nette d'abord, puis la lampe clignote ~3 s (on ne bouge pas)
+      const aim = view.querySelector('.pc-aim'); if (aim) aim.remove();
+      // certification de la page (v2.54) : la LAMPE d'abord (~3 s, on ne bouge pas), PUIS la photo nette.
+      // (v2.53 faisait l'inverse : sur Android la caméra se relance après une photo pleine résolution, et la lampe
+      // n'avait plus d'images à mesurer — « la caméra n'a pas donné assez d'images »)
       let res = null;
-      if (App.certify.available()) { // « Photo certifiée » : la caméra du site sert à ça
+      if (App.certify.available()) {
         setStatus('');
         try {
-          await new Promise((r) => setTimeout(r, 300)); // le flux reprend après la photo
           // la lampe se mesure sur 9 zones de l'image (inutile de chercher les pochettes : plus rapide, on attend moins)
           const q = (x, y) => [[x / 3, y / 3], [(x + 1) / 3, y / 3], [(x + 1) / 3, (y + 1) / 3], [x / 3, (y + 1) / 3]];
           const uses = FORMATS[fmt] ? FORMATS[fmt][0] * FORMATS[fmt][1] : 9; // nombre de cartes que le défi du serveur pourra certifier
           res = await App.certify.livePage(cam.video, view, [0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => q(x, y))), uses);
         } catch (e) { console.warn(e); res = { passed: false, reasons: ['vérification impossible'] }; }
       }
+      setStatus('<div class="spinner"></div><div style="text-align:center">Photo en haute définition…</div>');
+      const b = await cam.photo();
+      if (!b) { setStatus(''); el.querySelector('#b-shot').classList.remove('hidden'); return; }
       cam.stop();
       startGrid(b, res);
     });
@@ -669,7 +683,7 @@ App.views.scan = {
     el.querySelector('#b-file2').addEventListener('change', fromFile); // galerie
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (running) return;
-      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden');
+      el.querySelector('#b-native').classList.remove('hidden'); el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden'); certHelp(true);
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       photo = null; grid = null; cells = []; pageCert = null; pageId = null; resultsEl.innerHTML = ''; setStatus(''); { const cb = el.querySelector('#b-certline'); if (cb) cb.innerHTML = ''; }
       el.querySelector('#b-gridbar').classList.add('hidden');

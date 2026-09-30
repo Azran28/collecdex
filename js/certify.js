@@ -357,8 +357,8 @@ App.certify = (() => {
     }
   }
   /** Joue le code avec la lampe ; renvoie { bits, ev: [{ t, on }], t0, end } (ev = instants réels d'allumage/extinction) */
-  async function playCode(tr) {
-    const bits = newCode(), ev = [], t0 = Date.now(), set = (on) => tr.applyConstraints({ advanced: [{ torch: on }] });
+  async function playCode(tr, onSet = null) { // onSet(allumée) : pour l'ampoule affichée à l'écran
+    const bits = newCode(), ev = [], t0 = Date.now(), set = (on) => { if (onSet) try { onSet(on); } catch (e) { /* */ } return tr.applyConstraints({ advanced: [{ torch: on }] }); };
     try {
       for (let i = 0; i < bits.length; i++) {
         // instant de la DEMANDE (v2.48 : sur le téléphone d'Arnaud la lampe s'allume avant que la demande « réponde »)
@@ -490,11 +490,9 @@ App.certify = (() => {
     // consigne sur la vidéo
     const ov = document.createElement('div');
     ov.className = 'page-cert';
-    const poly = (q) => q.map(([x, y]) => `${(x * 100).toFixed(2)},${(y * 100).toFixed(2)}`).join(' ');
-    ov.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">${cells.map((q) => `<polygon points="${poly(q)}"/>`).join('')}</svg>
-      <div class="pc-txt">💡 Ne bouge pas : la lampe clignote…</div><div class="cert-bar"><span></span></div>`;
+    ov.innerHTML = `<div class="pc-big"><div class="pc-bulb">💡</div><b>Ne bouge pas</b><span class="pc-count">3</span><small>la lampe clignote, la photo se prend juste après</small><div class="cert-bar"><span></span></div></div>`;
     host.appendChild(ov);
-    const bar = ov.querySelector('.cert-bar span');
+    const bar = ov.querySelector('.cert-bar span'), bulb = ov.querySelector('.pc-bulb'), count = ov.querySelector('.pc-count');
     // bande-preuve : la page lampe éteinte, lampe allumée, après
     const SW = 72, SH = 100, strip = Object.assign(document.createElement('canvas'), { width: SW * 3, height: SH }), sg = strip.getContext('2d');
     const keep = (slot) => sg.drawImage(video, 0, 0, W, H, slot * SW, 0, SW, SH);
@@ -512,9 +510,10 @@ App.certify = (() => {
       prev = cur; n++;
       const v = med(cur.map((g) => median(g))); if (v > brightest) { brightest = v; keep(1); }
       bar.style.width = Math.min(100, Math.round(((t - t0) / TOTAL) * 100)) + '%';
+      count.textContent = Math.max(1, Math.ceil((TOTAL - (t - t0)) / 1000));
     };
     let playing = true;
-    const codeP = playCode(tr).then((c) => { playing = false; return c; });
+    const codeP = playCode(tr, (on) => bulb.classList.toggle('on', on)).then((c) => { playing = false; return c; });
     while (playing) { sample(); await new Promise((r) => setTimeout(r, 90)); }
     const code = await codeP;
     for (const stop = Date.now() + 700; Date.now() < stop;) { sample(); await new Promise((r) => setTimeout(r, 90)); } // retard de la caméra
