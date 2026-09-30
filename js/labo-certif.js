@@ -233,6 +233,24 @@
       g.globalCompositeOperation = 'source-over';
       g.globalAlpha = env.noise; g.drawImage(NOISE[(t / 7 | 0) % 3], -((t * 37) % 280), -((t * 53) % 160)); g.globalAlpha = 1;
     } else { g.globalCompositeOperation = 'multiply'; g.fillStyle = 'rgb(235,235,235)'; g.fillRect(0, 0, VW, VH); g.globalCompositeOperation = 'source-over'; }
+    // lampe du téléphone (code tiré par le serveur) : une carte ou un papier tout proche la renvoie nettement ;
+    // un écran émet sa propre lumière et ne renvoie qu'un petit point brillant ; un flux injecté n'y réagit pas.
+    // L'exposition automatique de la caméra compense à moitié en ~0,4 s.
+    const on = torchAt(env.torch, t);
+    if (on && env.surface !== 'none') {
+      const k = Math.min(1, on.since / 400), a = (env.surface === 'screen' ? 0.02 : 0.22) * (1 - 0.5 * k);
+      g.globalCompositeOperation = 'screen'; g.fillStyle = `rgba(255,255,255,${a})`; g.fillRect(0, 0, VW, VH);
+      if (env.surface === 'screen') { const hx = env.torch.hx, hy = env.torch.hy, gr = g.createRadialGradient(hx, hy, 2, hx, hy, 22); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(hx - 22, hy - 22, 44, 44); }
+      g.globalCompositeOperation = 'source-over';
+    }
+  }
+  /** Lampe allumée à l'instant t ? (avec le retard d'allumage du téléphone) → { since } ou null */
+  function torchAt(T0, t) {
+    if (!T0) return null;
+    const x = t - T0.start - T0.lag, i = Math.floor(x / T0.slot);
+    if (x < 0 || i >= T0.bits.length || !T0.bits[i]) return null;
+    let j = i; while (j > 0 && T0.bits[j - 1]) j--;
+    return { since: x - j * T0.slot };
   }
 
   // ---------- Situations ----------
@@ -241,7 +259,12 @@
     const k = 0.86 + r() * 0.12;
     const P = { cx: VW / 2 + (r() - 0.5) * 14, cy: VH / 2 + (r() - 0.5) * 18, w: RW * k, h: RH * k, rot: (r() - 0.5) * 0.08 };
     const amp = 1.5 + r() * 2, ph = [r() * 6.3, r() * 6.3, r() * 6.3];
+    // défi du serveur : code de la lampe (6 tranches de 250 ms, au moins 2 allumées et 2 éteintes), pendant qu'on montre le dos
+    let bits;
+    do { bits = [0, 1, 2, 3, 4, 5].map(() => (r() < 0.5 ? 1 : 0)); } while (bits.reduce((s, x) => s + x, 0) < 2 || bits.reduce((s, x) => s + x, 0) > 4);
+    const torch = { bits, slot: 250, start: 150, lag: 80 + r() * 170, hx: VW * (0.35 + r() * 0.3), hy: VH * (0.3 + r() * 0.4) };
     return {
+      t0: 1700, torch, surface: 'card', // le geste commence après le code de la lampe
       r, face: card.img, other: other.img, back, P, skin: skins[(r() * skins.length) | 0],
       table: (r() * TABLES.length) | 0, light: 0.72 + r() * 0.28, warm: r() < 0.5 ? [1, 0.95, 0.85] : [0.92, 0.97, 1], noise: 0.05 + r() * 0.04, ph: r() * 6,
       expo: 4 + r() * 12, // temps de pose de la caméra (ms) : flou de bougé
@@ -260,8 +283,8 @@
       if (o.slowCam) env.dt = 125 + r() * 30;
       if (o.glare) env.glare = true;
       if (o.shake) { const amp = o.shake, ph = r() * 6; env.shake = (t) => ({ dx: amp * Math.sin(t / 180 + ph) + amp * 0.5 * Math.sin(t / 61), dy: amp * Math.cos(t / 150 + ph) + amp * 0.5 * Math.sin(t / 53 + 1), dr: 0.01 * Math.sin(t / 300) }); }
-      if (o.frozen) { env.frozen = true; env.shake = () => ({ dx: 0, dy: 0, dr: 0 }); env.dt = 90; }
-      const tb = 700 + r() * 900, D = lerp(o.D || [320, 600], r());
+      if (o.frozen) { env.frozen = true; env.surface = 'none'; env.shake = () => ({ dx: 0, dy: 0, dr: 0 }); env.dt = 90; }
+      const tb = env.t0 + 700 + r() * 900, D = lerp(o.D || [320, 600], r());
       const axis = o.axis || 'v';
       const a = o.offAxis ? (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.4) : (r() - 0.5) * 0.4;
       const hes = o.hes ? 1100 : 0; // hésitation : on commence, on revient, on recommence
@@ -310,8 +333,8 @@
   function screenScene(kind, o = {}) {
     return (env) => {
       const r = env.r;
-      env.moire = !!o.moire;
-      const tb = 800 + r() * 900, D = kind === 'coupe' ? 0 : lerp(kind === 'fondu' ? [300, 600] : [250, 500], r());
+      env.moire = !!o.moire; env.surface = 'screen';
+      const tb = env.t0 + 800 + r() * 900, D = kind === 'coupe' ? 0 : lerp(kind === 'fondu' ? [300, 600] : [250, 500], r());
       env.shootAt = tb + D + lerp([600, 1300], r());
       env.info = { tb, D };
       const img = (g, im, x, y, w, h) => g.drawImage(im, x, y, w, h);
@@ -345,7 +368,7 @@
   /** Deux morceaux de papier (dos imprimé, face imprimée) : on retire l'un du cadre et on met l'autre */
   function paperSwap() {
     return (env) => {
-      const r = env.r, tb = 800 + r() * 800, out = 250 + r() * 200, gapT = 150 + r() * 350, inn = 300 + r() * 200;
+      const r = env.r, tb = env.t0 + 800 + r() * 800, out = 250 + r() * 200, gapT = 150 + r() * 350, inn = 300 + r() * 200;
       const dir = r() < 0.5 ? 1 : -1, vert = r() < 0.5;
       env.shootAt = tb + out + gapT + inn + lerp([600, 1200], r());
       env.info = { tb, D: out + gapT + inn };
@@ -416,7 +439,11 @@
     const screen = T.screenScore(grayFrom(vcan, REG.sx + (REG.sw - side) / 2, REG.sy + (REG.sh - side) / 2, side, side, side, side, CACHE), side);
     const recent = frames.slice(-15).map((x) => x.g);
     const frozen = T.frozenPairs(recent) >= Math.ceil((recent.length - 1) * 0.8);
-    return { frames, video, env, renderMs, n, shared: { screen: screen.peak >= 40, screenPeak: screen.peak, frozen } };
+    // défi « sens du retournement » tiré par le serveur : un vrai joueur le suit (et le tricheur qui retourne
+    // une vraie carte aussi) ; une vidéo préparée ou des papiers préparés d'avance tombent juste une fois sur deux
+    const follows = scen.ok || ['f-autre', 'f-table', 'f-dos'].includes(scen.id);
+    const axis = follows && env.info.axis ? env.info.axis : (r() < 0.5 ? 'v' : 'h');
+    return { frames, video, env, renderMs, n, chal: { torch: env.torch, axis }, shared: { screen: screen.peak >= 40, screenPeak: screen.peak, frozen } };
   }
 
   // ---------- Base commune (même logique que judgeFlip) ----------
@@ -483,9 +510,9 @@
   }
   const narrow = (s) => s.w >= 0.15 && s.w <= 0.7 && Math.abs(s.m - 0.5) <= 0.3; // carte vue de biais, pas sortie du cadre
   /** Netteté de la meilleure silhouette « de biais » pendant le geste */
-  function silScore(frames, c) {
+  function silScore(frames, c, only = null) {
     let best = 0;
-    for (const i of c.gesture) for (const axis of ['v', 'h']) { const s = silhouette(frames[i].d, axis); if (narrow(s)) best = Math.max(best, s.sharp); }
+    for (const i of c.gesture) for (const axis of only ? [only] : ['v', 'h']) { const s = silhouette(frames[i].d, axis); if (narrow(s)) best = Math.max(best, s.sharp); }
     return best;
   }
 
@@ -523,12 +550,12 @@
    * la bande entre les bords doit ressembler au dos (ou à la face) écrasé, mieux qu'à un morceau coupé.
    * Renvoie la meilleure avance (écrasé − coupé).
    */
-  function squeezeScore(frames, c) {
+  function squeezeScore(frames, c, only = null) {
     const tpls = [frames[c.lb].d, frames[frames.length - 1].d];
     let best = -9, info = '';
     for (const i of c.gesture) {
       const F = frames[i].d;
-      for (const axis of ['v', 'h']) {
+      for (const axis of only ? [only] : ['v', 'h']) {
         const s = silhouette(F, axis);
         if (!(s.w >= 0.15 && s.w <= 0.75 && Math.abs(s.m - 0.5) <= 0.35)) continue;
         const off = (s.m - 0.5) * 2;
@@ -597,12 +624,66 @@
     return r;
   }
 
+  // ---------- Méthodes trouvées ailleurs, combinées avec E ----------
+
+  /**
+   * Lampe qui clignote (principe de « Flashmark » d'iProov pour les visages, ici avec la lampe arrière) :
+   * le serveur tire un code (6 tranches de 250 ms) ; pendant qu'on montre le dos, la luminosité de la carte
+   * doit suivre ce code (retard d'allumage permis). Un écran renvoie à peine la lampe, une vidéo préparée ou
+   * un flux injecté ne connaissent pas le code. Luminosité = médiane (un petit reflet ne compte pas).
+   */
+  function flashScore(frames, chal) {
+    const Tc = chal.torch, end = Tc.start + Tc.bits.length * Tc.slot + 350;
+    const fs = frames.filter((f) => f.t >= Tc.start && f.t <= end);
+    if (fs.length < 10) return { ok: false, corr: 0, amp: 0 };
+    const med = fs.map((f) => { const s = Array.from(f.d).sort((a, b) => a - b); return s[s.length >> 1]; });
+    let best = { corr: -1, amp: 0 };
+    for (let lag = 0; lag <= 320; lag += 20) {
+      const on = fs.map((f) => { const i = Math.floor((f.t - Tc.start - lag) / Tc.slot); return i >= 0 && i < Tc.bits.length && Tc.bits[i] ? 1 : 0; });
+      const n1 = on.reduce((s, x) => s + x, 0); if (n1 < 2 || n1 > on.length - 2) continue;
+      let m1 = 0, m0 = 0; on.forEach((x, k) => { if (x) m1 += med[k]; else m0 += med[k]; }); m1 /= n1; m0 /= on.length - n1;
+      const mm = med.reduce((s, x) => s + x, 0) / med.length, om = n1 / on.length;
+      let num = 0, da = 0, db = 0; med.forEach((v, k) => { num += (v - mm) * (on[k] - om); da += (v - mm) ** 2; db += (on[k] - om) ** 2; });
+      const corr = num / (Math.sqrt(da * db) || 1);
+      if (corr > best.corr) best = { corr, amp: (m1 - m0) / (m0 || 1) };
+    }
+    return { ok: best.corr >= 0.75 && best.amp >= 0.06, ...best };
+  }
+
+  /** F — E + lampe qui clignote (téléphones Android : l'iPhone ne laisse pas un site allumer la lampe) */
+  function algoF(frames, sim) {
+    const r = algoE(frames);
+    if (!r.pass) return r;
+    const fl = flashScore(frames, sim.chal);
+    return fl.ok ? { pass: true, info: `lampe ${fl.corr.toFixed(2)} / +${Math.round(fl.amp * 100)} %` } : { pass: false, why: 'la carte n’a pas renvoyé la lumière de la lampe au bon moment', info: `lampe ${fl.corr.toFixed(2)} / ${Math.round(fl.amp * 100)} %` };
+  }
+
+  /** G — E + sens imposé : le serveur dit « de gauche à droite » ou « de haut en bas », la preuve doit être dans ce sens */
+  function algoG(frames, sim) {
+    const c = core(frames);
+    if (c.fail) return finish(c);
+    const ax = sim.chal.axis, s = silScore(frames, c, ax);
+    const q = s >= SIL_T ? null : squeezeScore(frames, c, ax);
+    return finish(c, s >= SIL_T || q.m >= SQ_T, `carte pas retournée dans le sens demandé (${ax === 'v' ? 'gauche-droite' : 'haut-bas'})`, true);
+  }
+
+  /** H — les trois ensemble : E + lampe + sens imposé */
+  function algoH(frames, sim) {
+    const r = algoG(frames, sim);
+    if (!r.pass) return r;
+    const fl = flashScore(frames, sim.chal);
+    return fl.ok ? { pass: true } : { pass: false, why: 'la carte n’a pas renvoyé la lumière de la lampe au bon moment' };
+  }
+
   const ALGOS = [
     { id: 'A', name: 'A — Actuel (v2.21) : une image « entre deux » juste après le dos', fn: algoA },
     { id: 'B', name: 'B — Durée : ≥ 2 images entre deux, geste de 0,12 à 3 s', fn: algoB },
     { id: 'C', name: 'C — Silhouette : les deux bords de la carte se rapprochent', fn: algoC },
     { id: 'D', name: 'D — Carte « écrasée » entre ses bords (pas coupée)', fn: algoD },
     { id: 'E', name: 'E — Combiné : C ou D + continuité tolérante', fn: algoE },
+    { id: 'F', name: 'F — E + lampe qui clignote selon un code du serveur', fn: algoF },
+    { id: 'G', name: 'G — E + sens du retournement imposé par le serveur', fn: algoG },
+    { id: 'H', name: 'H — E + lampe + sens imposé', fn: algoH },
   ];
 
   function judge(sim) {
@@ -610,7 +691,7 @@
     for (const A of ALGOS) {
       const t0 = performance.now();
       let r;
-      try { r = A.fn(sim.frames); } catch (e) { console.error(e); r = { pass: false, why: 'erreur ' + e.message }; }
+      try { r = A.fn(sim.frames, sim); } catch (e) { console.error(e); r = { pass: false, why: 'erreur ' + e.message }; }
       const ms = performance.now() - t0;
       if (r.pass && sim.shared.frozen) r = { pass: false, why: 'image figée' };
       if (r.pass && sim.shared.screen) r = { pass: false, why: 'écran détecté' };
