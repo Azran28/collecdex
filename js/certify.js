@@ -285,7 +285,7 @@ App.certify = (() => {
         }
       }
     }
-    const r2 = (v) => Math.round(v * 100) / 100, ev = { sil: r2(sil), sq: r2(sq) };
+    const r2 = (v) => Math.round(v * 100) / 100, ev = { sil: r2(sil), sq: r2(sq), n: end - lb, fps: r2((frames.length - 1) * 1000 / ((frames[frames.length - 1].t - frames[0].t) || 1)) };
     if (sil < SIL_T && sq < SQ_T) return { passed: false, why: 'retournement pas reconnu (la carte doit être vue de biais pendant le geste)', gap, states: states.slice(0, 60), lb, ev };
     // continuité : la photo montre la carte vue juste après le geste (pas une autre carte, pas la table) ;
     // si les mains tremblent (aucune image immobile), les 3 images les plus calmes de la demi-seconde qui suit
@@ -332,10 +332,11 @@ App.certify = (() => {
     const bits = newCode(), ev = [], t0 = Date.now(), set = (on) => tr.applyConstraints({ advanced: [{ torch: on }] });
     try {
       for (let i = 0; i < bits.length; i++) {
-        if (i === 0 || bits[i] !== bits[i - 1]) { await set(!!bits[i]); ev.push({ t: Date.now(), on: !!bits[i] }); }
+        // instant de la DEMANDE (v2.48 : sur le téléphone d'Arnaud la lampe s'allume avant que la demande « réponde »)
+        if (i === 0 || bits[i] !== bits[i - 1]) { const tc = Date.now(); await set(!!bits[i]); ev.push({ t: tc, on: !!bits[i], done: Date.now() }); }
         const wait = t0 + (i + 1) * SLOT - Date.now(); if (wait > 0) await new Promise((r) => setTimeout(r, wait));
       }
-      await set(false); ev.push({ t: Date.now(), on: false });
+      { const tc = Date.now(); await set(false); ev.push({ t: tc, on: false, done: Date.now() }); }
       return { bits, ev, t0, end: Date.now() };
     } catch (e) {
       try { await set(false); } catch (e2) { /* */ }
@@ -350,7 +351,7 @@ App.certify = (() => {
    *   (exposition automatique), qui efface la différence de niveau au bout d'un moment.
    */
   function flashFit(samples, code) {
-    const s0 = samples.filter((x) => x.t >= code.t0 && x.t <= code.end + 1100);
+    const s0 = samples.filter((x) => x.t >= code.t0 - 400 && x.t <= code.end + 1100);
     // images noires ou éblouies d'un coup (certains téléphones reconfigurent la caméra quand la lampe change) : écartées
     const gm = median(s0.map((x) => x.v)) || 1, s = s0.filter((x) => x.v >= gm * 0.4 && x.v <= gm * 2.5);
     let best = { corr: -1, amp: 0, lag: 0, n: s.length, edges: 0, edgesOk: 0, jump: 0, lagE: 0, score: -9 }, bestE = { e: -1 };
@@ -358,7 +359,7 @@ App.certify = (() => {
     const W = SLOT * 0.7, mean = (a) => a.reduce((x, y) => x + y.v, 0) / a.length, medv = (a) => median(a.map((x) => x.v));
     // vrais changements (le premier « éteint » ne change rien : la lampe l'était déjà)
     const tr = []; let st = false; for (const e of code.ev) { if (e.on !== st) tr.push(e); st = e.on; }
-    for (let lag = 0; lag <= 1000; lag += 25) {
+    for (let lag = -300; lag <= 1000; lag += 25) { // un peu d'avance permise (lampe allumée avant la réponse de la demande)
       const on = s.map(({ t }) => { let v = 0; for (const e of code.ev) if (e.t <= t - lag) v = e.on ? 1 : 0; return v; });
       const n1 = on.reduce((a, x) => a + x, 0);
       let c = -1, amp = 0;
@@ -385,7 +386,7 @@ App.certify = (() => {
     return best;
   }
   /** Lampe vue ? (carte : ampT 6 %, jumpT 3 % ; case de classeur : 4 % et 2,5 %) */
-  const flashOk = (f, ampT, jumpT) => (f.corr >= 0.75 && f.amp >= ampT) || (f.edges >= 3 && f.edgesOk / f.edges >= 0.8 && f.jump >= jumpT);
+  const flashOk = (f, ampT, jumpT) => (f.corr >= 0.75 && f.amp >= ampT) || (f.edges >= 3 && f.edgesOk / f.edges >= 0.75 && f.jump >= jumpT); // un changement raté permis sur 4
   const flashTxt = (f) => `mesures : accord ${Math.max(0, f.corr).toFixed(2).replace('.', ',')}, ${f.amp >= 0 ? '+' : ''}${Math.round(f.amp * 100)} %, changements ${f.edgesOk}/${f.edges} (${Math.round(f.jump * 100)} %), retard ${(f.lag / 1000).toFixed(2).replace('.', ',')} s, ${f.n} images`;
   // Mode essai (v2.47) : la lampe n'est pas encore réglée sur de vrais téléphones (1ers essais d'Arnaud refusés) :
   // si elle n'est pas reconnue, la certification n'est pas refusée ; on affiche ses mesures et un petit graphique.
@@ -581,7 +582,9 @@ App.certify = (() => {
       const r = regionFn();
       if (!r || !video || !video.videoWidth) return null;
       cg.drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, SW, SH);
-      const b = App.recognizer.backScoreOf(cv, SW, SH);
+      // mesure rapide du dos (3 essais) ; complète seulement si c'est « presque un dos »
+      let b = App.recognizer.backScoreOf(cv, SW, SH, true);
+      if (b >= 0.4 && b < BACK_T) b = Math.max(b, App.recognizer.backScoreOf(cv, SW, SH));
       const g = grayOf(cv, 0, 0, SW, SH, GW, GH), d = grayOf(cv, 0, 0, SW, SH, DW, DH);
       sinceBack = b >= BACK_T ? 0 : sinceBack + 1;
       // petites images gardées seulement autour du dos (pour la bande-preuve) : c'est léger
@@ -639,9 +642,13 @@ App.certify = (() => {
       const recent = frames.slice(-15).map((x) => x.g);
       const frozen = frozenPairs(recent);
       const reasons = [];
-      if (!j.passed) reasons.push(j.why);
+      // v2.48 : si la lampe a été reconnue (vrai objet devant la caméra, pas un écran), l'ancienne règle du retournement
+      // (judgeFlip, plus souple quand la caméra donne peu d'images) suffit ; sinon on garde la nouvelle (judgeE)
+      let flipOk = j.passed, flipHow = 'E';
+      if (!flipOk && flash && flash.ok) { const a = judgeFlip(frames, GW, GH); if (a.passed) { flipOk = true; flipHow = 'lampe+A'; } }
+      if (!flipOk) reasons.push(j.ev ? `${j.why} — mesures : bords ${String(j.ev.sil).replace('.', ',')}, écrasée ${String(j.ev.sq).replace('.', ',')}, ${j.ev.n} images pendant le geste, ${String(j.ev.fps).replace('.', ',')} images/s` : j.why);
       if (frozen >= Math.ceil((recent.length - 1) * 0.8)) reasons.push('image figée (ce n’est pas une caméra en direct)');
-      if (screen.peak >= SCREEN_PEAK) reasons.push('on dirait une carte affichée sur un écran');
+      if (screen.peak >= SCREEN_PEAK && !(flash && flash.ok)) reasons.push(`on dirait une carte affichée sur un écran (motif ${Math.round(screen.peak)})`); // la lampe reconnue prouve déjà que ce n'est pas un écran
       if (flash && flash.used && !flash.ok) { if (LAMP_BLOCKS) reasons.push(flash.why); else lampNote = LAMP_NOTE; }
       const passed = reasons.length === 0;
       // bande-preuve : le dos, l'image « entre deux », la face photographiée
@@ -661,7 +668,7 @@ App.certify = (() => {
         passed, reasons, id: ch.id, challenge: ch.challenge, dhash: hash, strip, lampNote, flashTrace, lampFit,
         scores: {
           passed, challenge: ch.challenge, frozen, screen: screen.peak, screenStrong: screen.strong,
-          flip: { states: j.states || '', gap: j.gap, ev: j.ev, algo: 'E', back: r2(maxB), ms: j.lb >= 0 ? frames[frames.length - 1].t - frames[j.lb].t : null },
+          flip: { states: j.states || '', gap: j.gap, ev: j.ev, algo: flipHow, back: r2(maxB), ms: j.lb >= 0 ? frames[frames.length - 1].t - frames[j.lb].t : null },
           flash: flash && { ...flash, why: undefined },
         },
       };
