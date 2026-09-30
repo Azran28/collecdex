@@ -1898,6 +1898,20 @@ html.sv-lock, html.sv-lock body { overflow: hidden; }
 .sv-vpill.doubt { border-color: #ffb84d; color: #ffb84d; }
 .sv-vpill span { opacity: .7; }
 .sg-mini { margin: 0 0 12px; }
+/* aperçu de la version sur le visuel officiel (v2.40) : holo = l'illustration brille, reverse = tout sauf l'illustration */
+.sv-offwrap { position: relative; display: block; overflow: hidden; border-radius: 10px; }
+.sv-offwrap .sv-off { display: block; }
+.vfx { position: relative; }
+.vfx-holo::after, .vfx-reverse::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(115deg, rgba(255,255,255,.08) 10%, rgba(255,0,150,.75) 25%, rgba(255,230,0,.75) 37%, rgba(0,255,170,.75) 50%, rgba(0,160,255,.75) 63%, rgba(180,0,255,.75) 75%, rgba(255,255,255,.08) 90%);
+  background-size: 250% 250%; background-position: 30% 30%; mix-blend-mode: color-dodge; opacity: 1; animation: vfxsweep 3.5s ease-in-out infinite alternate; }
+.vfx-holo::after { clip-path: inset(11% 9% 50% 9%); }
+.vfx-reverse::after { clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, 9% 11%, 91% 11%, 91% 50%, 9% 50%, 9% 11%); }
+.sv-rc-open .sv-badge { z-index: 2; }
+@keyframes vfxsweep { from { background-position: 90% 10%; } to { background-position: 10% 90%; } }
+.sv-vnote { opacity: .75; }
+.sv-vers > .small { text-align: center; }
+@media (prefers-reduced-motion: reduce) { .vfx-holo::after, .vfx-reverse::after { animation: none; } }
 
 /* =====================================================================
    APPLI MOBILE (v2.40) — sur téléphone, le site se comporte comme une appli :

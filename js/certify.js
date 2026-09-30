@@ -414,7 +414,7 @@ App.certify = (() => {
     best.score = Math.max(best.corr, bestE.e - 1.2);
     return best;
   }
-  /** Lampe vue ? v2.52 : carte ampT 6 %, sauts ≥ 5 % et médiane ≥ 8 % (vraies cartes chez Arnaud : 21 à 50 % ; un écran ~3 %) ; case de classeur : 4 %, 3 %, 5 % */
+  /** Lampe vue ? v2.53 : carte ampT 6 %, sauts ≥ 5 % et médiane ≥ 8 % (vraies cartes chez Arnaud : 21 à 50 % ; un écran ~3 %) ; case de classeur : 4 %, 3 %, 5 % */
   const flashOk = (f, ampT, jumpT) => (f.corr >= 0.75 && f.amp >= ampT) || (f.edges >= 3 && f.edgesOk / f.edges >= 0.75 && f.jump >= jumpT); // un changement raté permis sur 4
   const flashTxt = (f) => `mesures : accord ${Math.max(0, f.corr).toFixed(2).replace('.', ',')}, ${f.amp >= 0 ? '+' : ''}${Math.round(f.amp * 100)} %, changements ${f.edgesOk}/${f.edges} (${Math.round(f.jump * 100)} %), retard ${(f.lag / 1000).toFixed(2).replace('.', ',')} s, ${f.n} images`;
   // Mode essai (v2.47) : la lampe n'est pas encore réglée sur de vrais téléphones (1ers essais d'Arnaud refusés) :
@@ -463,7 +463,7 @@ App.certify = (() => {
   }
 
   /**
-   * Certification d'une PAGE de classeur (v2.52, après l'essai d'Arnaud : toucher une carte du doigt en restant
+   * Certification d'une PAGE de classeur (v2.53, après l'essai d'Arnaud : toucher une carte du doigt en restant
    * immobile était « imbuvable », et la photo en pâtissait). Maintenant : la photo nette est prise d'abord, puis
    * on ne bouge pas ~3 s pendant que la lampe clignote selon un code tiré au hasard. Chaque case doit renvoyer la
    * lumière au rythme du code : une vraie page oui ; une page affichée sur un écran ou une vidéo préparée, non.
