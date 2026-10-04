@@ -4,7 +4,7 @@
  * Le choix est propre à chaque appareil (téléphone, ordinateur…) et lié au compte connecté.
  */
 App.notify = (() => {
-  const KINDS = [['capsules', 'Ma réserve de capsules est pleine (10 capsules à ouvrir)'], ['friends', 'Je reçois une demande d’ami']];
+  const KINDS = [['capsules', 'Ma réserve de capsules est pleine (10 capsules à ouvrir)'], ['friends', 'Je reçois une demande d’ami']].filter(([k]) => !(App.play && k === 'capsules'));
   const listeners = new Set();
   const notify = () => listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
 

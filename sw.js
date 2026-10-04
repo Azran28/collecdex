@@ -81,12 +81,16 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate' && isSameOrigin(u)) {
     e.respondWith((async () => {
       const c = await caches.open(SHELL);
+      // l'appli elle-même (…/ ou …/index.html, avec ou sans ?app=play) est gardée sous « ./ » ;
+      // les autres pages (confidentialité…) sous leur propre adresse, sinon elles remplaceraient l'appli hors ligne
+      const isApp = /\/(index\.html)?$/.test(u.pathname);
+      const key = isApp ? './' : u.origin + u.pathname;
       try {
         const r = await fetch(req);
-        if (r.ok) c.put('./', r.clone());
+        if (r.ok) c.put(key, r.clone());
         return r;
       } catch (err) {
-        return (await c.match('./')) || Response.error();
+        return (await c.match(key)) || Response.error();
       }
     })());
     return;

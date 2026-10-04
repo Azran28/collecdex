@@ -16,7 +16,7 @@ App.views.settings = {
           <p><label>Cartes que je n’ai pas encore<br>
             <select id="p-missing"><option value="grise">Visuel officiel grisé</option><option value="numero">Numéro et nom seulement (plus léger)</option></select></label></p>
           <p><label class="check"><input type="checkbox" id="p-photos"> Afficher mes photos (scans) à la place des visuels officiels</label></p>
-          <p><label class="check"><input type="checkbox" id="p-sound"> Sons à l’ouverture des capsules</label></p>
+          <p><label class="check"><input type="checkbox" id="p-sound"> ${App.play ? 'Sons de l’appli' : 'Sons à l’ouverture des capsules'}</label></p>
           <p><label class="check"><input type="checkbox" id="p-visual"> Vérification par l’image des pages de classeur</label><br><span class="muted small">Bien plus juste, un peu plus lente ; la 1ʳᵉ fois, ~25 Mo d’outils sont téléchargés (plutôt en Wi‑Fi).</span></p>
           <p><label class="check"><input type="checkbox" id="p-timing"> Afficher le temps de chaque étape sous la liste (pour les tests)</label></p>
         </section>

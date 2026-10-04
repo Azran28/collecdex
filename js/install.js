@@ -62,6 +62,7 @@ App.install = (() => {
 
   /** Bandeau discret pour l’accueil (téléphone seulement, tant que ce n’est ni installé ni refusé) */
   async function banner(host) {
+    if (App.play) return () => {}; // appli du Play Store : déjà installée
     const draw = async () => {
       const dismissed = await App.db.get('kv', 'installDismissed').catch(() => null);
       const st = state();
@@ -84,6 +85,7 @@ App.install = (() => {
 
   /** Bloc pour les Paramètres */
   function panel(host) {
+    if (App.play) { host.innerHTML = `<p class="small">${App.icons.icon('check', 14)} Tu utilises l’appli CollecDex du Play Store.</p>`; return () => {}; }
     const draw = () => {
       const st = state();
       host.innerHTML = st === 'installed'

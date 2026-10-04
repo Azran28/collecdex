@@ -95,7 +95,7 @@ App.capsules = (() => {
 
   /** Image d'avatar du profil : le Pokémon choisi (sinon l'ancienne photo, s'il y en a une) */
   async function avatarURL(p) {
-    if (p && p.avatarPoke && p.avatarPoke.id) return App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny);
+    if (p && p.avatarPoke && p.avatarPoke.id && !App.play) return App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny);
     if (p && p.avatar) return App.col.photoURL(p.avatar).catch(() => '');
     return '';
   }
@@ -106,9 +106,9 @@ App.capsules = (() => {
     const u = App.cloud.user ? App.cloud.user.id : null;
     if (u === lastUser) return;
     lastUser = u; dexCache = null; missing = false;
-    if (u) status().catch(() => {}); else { st = null; notify(); }
+    if (u && !App.play) status().catch(() => {}); else { st = null; notify(); }
   });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ready()) status().catch(() => {}); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ready() && !App.play) status().catch(() => {}); });
 
   return {
     status, open, dex, countdown, avatarURL, sell, sellDupes, buy, price, dupes, total, PRICES,

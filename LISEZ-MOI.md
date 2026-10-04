@@ -214,3 +214,9 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 - **Signaler** : choisir une raison, ajouter des précisions si besoin (« Bloquer aussi » est coché d'office). Le dresseur ne sait pas qui l'a signalé.
 - **Lire les signalements (toi)** : Supabase › *Table Editor* › `reports_a_traiter` (les plus récents en haut, avec le pseudo de chacun et le nombre de signalements du dresseur). Pour noter qu'un signalement est traité : table `reports`, colonne `status` → `traite` ou `rejete`. Pour bannir quelqu'un : *Authentication* › *Users* › son compte › *Delete user* (tout son contenu est effacé).
 - **À faire une fois** : lancer `supabase-v14.sql` dans Supabase (SQL Editor), après `supabase-v13.sql`. Sans lui, les boutons affichent « Il reste une étape ».
+
+## Version Play Store (sans capsules)
+- L'appli du Play Store ouvrira le site à l'adresse `https://azran28.github.io/collecdex/?app=play` (c'est cette adresse qu'il faudra donner comme « adresse de lancement » au moment de fabriquer l'appli Android).
+- Dans cette version : **pas de capsules** (ni onglet, ni pastille, ni avatar Pokémon) et **pas de bouton « Installer l'appli »**. Tout le reste est identique.
+- **Le site et l'appli que tu as installée depuis le site gardent tout**, capsules comprises, et le bouton « Installer » reste sur le site (il n'a aucun effet sur le Play Store).
+- Pour voir la version Play Store sur ton PC : ouvre `https://azran28.github.io/collecdex/?app=play` ; pour revenir à la normale : `?app=web` (ou ferme l'onglet).

@@ -40,6 +40,7 @@ App.views = App.views || {};
     const query = Object.fromEntries(new URLSearchParams((location.hash.split('?')[1]) || ''));
     let view = null, params = {};
     for (const [re, name, fn] of routes) { const m = path.match(re); if (m) { view = name; params = fn(m); break; } }
+    if (App.play && view === 'capsules') { location.hash = '#/'; return; } // pas de capsules dans la version Play Store
     if (!view) { location.hash = '#/'; return; }
     params.query = query;
 
@@ -136,7 +137,7 @@ App.views = App.views || {};
       const caps = document.getElementById('nav-caps');
       const paintCaps = () => {
         const st = App.capsules.state;
-        caps.hidden = !App.cloud.user || App.capsules.missing || !st;
+        caps.hidden = App.play || !App.cloud.user || App.capsules.missing || !st;
         if (caps.hidden) return;
         const n = caps.querySelector('.caps-n'), tot = App.capsules.total();
         n.textContent = tot ? tot : App.capsules.countdown().replace(/ min .*/, ' min');

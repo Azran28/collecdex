@@ -77,7 +77,7 @@ App.views.home = {
     const drawCaps = () => {
       const box = el.querySelector('#h-caps'); if (!box) return;
       const st = App.capsules.state;
-      if (!st || App.capsules.missing) { box.innerHTML = ''; return; }
+      if (!st || App.capsules.missing || App.play) { box.innerHTML = ''; return; }
       const tot = App.capsules.total();
       box.innerHTML = `<a class="cap-home" href="#/capsules">${App.views.capsules.capsuleSVG('', 34)}
         <div><b>${tot ? `${tot} capsule${tot > 1 ? 's' : ''} à ouvrir` : 'Capsules'}</b><span>${st.stock >= st.max ? 'Réserve pleine : ouvre-les !' : st.next_at ? `Prochaine dans <b class="hc-cd">${App.capsules.countdown()}</b>` : ''}${st.shop && st.coins ? ` · ${st.coins} éclat${st.coins > 1 ? 's' : ''}` : ''}</span></div>

@@ -80,7 +80,7 @@ App.onboarding = (() => {
           <li>${I('bolt', 15)} <span>Leurs vraies <b>attaques et PV</b> contre l’ordinateur, 5 niveaux à battre.</span></li>
           <li>${I('box', 15)} <span>Mode <b>Avancé</b> : ajoute tes cartes Dresseur dans un sac.</span></li>
         </ul>
-        <p class="ob-small">${tab('swap', 'Combat')} Et chaque heure, une <b>capsule</b> à ouvrir pour attraper des Pokémon.</p>`,
+        ${App.play ? '' : `<p class="ob-small">${tab('swap', 'Combat')} Et chaque heure, une <b>capsule</b> à ouvrir pour attraper des Pokémon.</p>`}`,
     },
   ];
 

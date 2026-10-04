@@ -4,6 +4,25 @@ App.views = App.views || {};
 // numéro de version de cette mise en ligne (posé par stamp.ps1 / stamp.sh dans index.html)
 window.APP_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '';
 
+/*
+ * Version Google Play (appli Android) : elle est lancée par l'adresse « …/collecdex/?app=play »
+ * (réglée dans l'appli Android). On y retire les capsules (images officielles des Pokémon : risque de refus)
+ * et le bouton « Installer l'appli ». Le site et l'appli installée depuis le site gardent tout.
+ * Pour voir cette version sur PC : ouvrir le site avec ?app=play ; revenir : ?app=web.
+ * Mémorisé seulement pour l'onglet en cours (sessionStorage) : le site ouvert dans Chrome n'est pas touché.
+ */
+App.play = (() => {
+  let on = false;
+  try {
+    const q = new URLSearchParams(location.search).get('app');
+    if (q === 'web') sessionStorage.removeItem('cdx-play');
+    on = q === 'play' || (q !== 'web' && (document.referrer.startsWith('android-app://') || sessionStorage.getItem('cdx-play') === '1'));
+    if (on) sessionStorage.setItem('cdx-play', '1');
+  } catch (e) { /* stockage indisponible */ }
+  if (on) document.documentElement.classList.add('flavor-play');
+  return on;
+})();
+
 App.util = (() => {
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 

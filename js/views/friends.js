@@ -7,7 +7,7 @@ App.views.friends = {
     if (inviteFromLink) await F.saveInvite(inviteFromLink);
 
     const av = (a, name, size = 44) => {
-      const url = a && a.id ? App.pokedex.img(a.id, !!a.shiny) : '';
+      const url = a && a.id && !App.play ? App.pokedex.img(a.id, !!a.shiny) : '';
       return `<span class="fr-av" style="width:${size}px;height:${size}px;${url ? `background-image:url('${esc(url)}')` : ''}">${url ? '' : esc((name || '?')[0].toUpperCase())}</span>`;
     };
 

@@ -43,7 +43,7 @@ App.views.showcase = {
           if (it.displayPhoto && (!pubName || d.photos)) { const u = await photo(it.displayPhoto); if (u) return { src: u, mine: true }; }
           return { src: ad.img.card({ image: it.snap.image, id: it.id, setId: it.setId, localId: it.snap.localId, serieId: it.snap.serieId, lang: it.lang || 'fr' }, q), mine: false };
         },
-        avatar: async (p) => (p.avatarPoke && p.avatarPoke.id ? App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny) : p.avatar && (!pubName || d.photos) ? photo(p.avatar) : ''),
+        avatar: async (p) => (p.avatarPoke && p.avatarPoke.id && !App.play ? App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny) : p.avatar && (!pubName || d.photos) ? photo(p.avatar) : ''),
       };
     } else {
       S = {
@@ -297,8 +297,8 @@ App.views.showcase = {
           <label class="v-lbl">Quelques mots</label>
           <textarea id="e-bio" placeholder="Quelques mots sur ta collection…" style="width:100%">${esc(profile.bio)}</textarea>
           <label class="v-lbl" style="margin-top:12px">Avatar</label>
-          <div class="row"><button class="btn sm" id="e-avatar-pick">${App.icons.icon('capsule', 14)} Choisir parmi mes Pokémon</button>${profile.avatar || profile.avatarPoke ? '<button class="btn sm ghost" id="e-avatar-del">Retirer</button>' : ''}</div>
-          <div class="small muted" style="margin-top:4px">${App.cloud.user ? 'Tu attrapes des Pokémon en ouvrant tes <a href="#/capsules">capsules</a>.' : 'Connecte-toi pour ouvrir des capsules et attraper des Pokémon.'}</div>`;
+          ${App.play ? `<div class="row">${profile.avatar ? '<button class="btn sm ghost" id="e-avatar-del">Retirer mon avatar</button>' : '<span class="small muted">L’initiale de ton pseudo sert d’avatar.</span>'}</div>` : `<div class="row"><button class="btn sm" id="e-avatar-pick">${App.icons.icon('capsule', 14)} Choisir parmi mes Pokémon</button>${profile.avatar || profile.avatarPoke ? '<button class="btn sm ghost" id="e-avatar-del">Retirer</button>' : ''}</div>
+          <div class="small muted" style="margin-top:4px">${App.cloud.user ? 'Tu attrapes des Pokémon en ouvrant tes <a href="#/capsules">capsules</a>.' : 'Connecte-toi pour ouvrir des capsules et attraper des Pokémon.'}</div>`}`;
         case 'stats': {
           const cur = statKeys();
           return `${showSwitch('stats')}
