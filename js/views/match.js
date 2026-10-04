@@ -1195,9 +1195,19 @@
 
   App._duelTest = { startDuel }; // pour les tests (deux combats simulés dans la même page)
 
+  // règles du combat (dépliables en bas des écrans Combat)
+  const RULES = `<ul class="small">
+  <li>3 Pokémon par équipe : un qui combat, deux sur le banc. Une case vide est remplie par un Pokémon de prêt.</li>
+  <li>À ton tour, ton Pokémon gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> de Pokémon.</li>
+  <li>Une attaque coûte 1 énergie par symbole de la carte ; les énergies en plus restent pour la suite.</li>
+  <li>Dégâts, <b>faiblesse</b> (×2) et <b>résistance</b> de la vraie carte. « 30× » : 30 par face sur 2 pièces ; « 20+ » : bonus si face ; attaque sans dégâts : 10.</li>
+  <li>Mets K.O. les 3 Pokémon adverses pour gagner et débloquer le niveau suivant.</li>
+  <li><b>Avancé</b> (niveaux à part) : un sac de 6 cartes Dresseur / Énergie max (sinon sac de prêt) ; une carte par tour avant l’action, chacune une seule fois. Énergie : +1 (+2 si même type). Dresseurs : effet simplifié (Potion soin 20, PlusPower +20 dégâts, Défenseur −20 dégâts subis, Transfert, Rafale de vent…) ; sinon Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts 3 tours.</li>
+</ul></details>`;
   App.views.match = {
     async render(el, params, alive) {
       let m = await getMatch();
+      const screen = ['ordi', 'decks'].includes(params.query.ecran) ? params.query.ecran : ''; // écran : accueil, ordinateur, decks
       let teamsModal = null; // corps de la fenêtre « Mes équipes » (téléphone), s'il est ouvert
       let view = null;       // données de la dernière page dessinée
 
@@ -1238,37 +1248,70 @@
             </div>
             ${adv ? `<div class="bt-mbag small muted">${bags[ti].length ? `<span class="bt-tm-bagimgs">${bagImgs[ti].map((b) => `<img src="${esc(b.src)}" alt="">`).join('')}</span>` : 'Sac vide : sac de prêt'}</div>` : ''}
           </section>`;
-        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Combat</div>
-          <div class="bt-head"><h1>Combat</h1><span class="muted small">${st.wins} victoire${st.wins > 1 ? 's' : ''} · ${st.losses} défaite${st.losses > 1 ? 's' : ''}</span></div>
-          <div class="bt-modes" role="tablist">
+        // Trois écrans (#/combat, #/combat?ecran=ordi, #/combat?ecran=decks) : on choisit d'abord quoi faire,
+        // puis contre l'ordinateur : le deck, puis la difficulté, puis le combat.
+        const modeTabs = `<div class="bt-modes" role="tablist">
             <button class="${adv ? '' : 'on'}" data-mode="classic" role="tab">Basique</button>
             <button class="${adv ? 'on' : ''}" data-mode="adv" role="tab">Avancé</button>
           </div>
-          <p class="bt-hint small muted">${adv ? 'Avec un sac de cartes Dresseur et Énergie : une carte par tour.' : 'Tes Pokémon contre ceux de l’ordinateur.'}</p>
-          ${mobileTeam}
-          <section class="panel bt-team-panel">
-            <h2 style="margin:0">Mes équipes</h2>
-            ${teamsHtml()}
-          </section>
-          <section class="bt-duel">
-            <div class="bt-duel-h"><span class="bt-duel-ic">${App.icons.icon('users', 20)}</span><div><b>Combat en ligne</b>
-              <span class="small muted">${m.stats.online.wins || m.stats.online.losses ? `${m.stats.online.wins} victoire${m.stats.online.wins > 1 ? 's' : ''} · ${m.stats.online.losses} défaite${m.stats.online.losses > 1 ? 's' : ''}` : `Crée un salon et envoie le code à qui tu veux (il lui faut un compte), ou rejoins un salon : affrontez-vous en mode ${adv ? 'Avancé' : 'Basique'}.`}</span></div></div>
-            ${App.cloud.user ? `<div class="bt-duel-b"><button class="btn primary" data-duel="create">${App.icons.icon('plus', 15)} Créer un salon</button><button class="btn" data-duel="join">Rejoindre avec un code</button></div>`
-              : `<div class="bt-duel-b"><a class="btn" href="#/connexion">${App.icons.icon('user', 15)} Me connecter pour jouer en ligne</a></div>`}
-          </section>
-          <h2>Contre l’ordinateur</h2>
-          <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
-              <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` · sac de ${App.battleCards.aiBag(L.n, 'fire').length}` : '') : `Bats le niveau ${L.n - 1}`}</span></div>
-              ${beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
-          <details class="bt-rules panel"><summary><b>Règles</b></summary>
-            <ul class="small">
-              <li>3 Pokémon par équipe : un qui combat, deux sur le banc. Une case vide est remplie par un Pokémon de prêt.</li>
-              <li>À ton tour, ton Pokémon gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> de Pokémon.</li>
-              <li>Une attaque coûte 1 énergie par symbole de la carte ; les énergies en plus restent pour la suite.</li>
-              <li>Dégâts, <b>faiblesse</b> (×2) et <b>résistance</b> de la vraie carte. « 30× » : 30 par face sur 2 pièces ; « 20+ » : bonus si face ; attaque sans dégâts : 10.</li>
-              <li>Mets K.O. les 3 Pokémon adverses pour gagner et débloquer le niveau suivant.</li>
-              <li><b>Avancé</b> (niveaux à part) : un sac de 6 cartes Dresseur / Énergie max (sinon sac de prêt) ; une carte par tour avant l’action, chacune une seule fois. Énergie : +1 (+2 si même type). Dresseurs : effet simplifié (Potion soin 20, PlusPower +20 dégâts, Défenseur −20 dégâts subis, Transfert, Rafale de vent…) ; sinon Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts 3 tours.</li>
-            </ul></details>`;
+          <p class="bt-hint small muted">${adv ? 'Avec un sac de cartes Dresseur et Énergie : une carte par tour.' : 'Tes Pokémon seulement, sans sac.'}</p>`;
+        const rules = `<details class="bt-rules panel"><summary><b>Règles</b></summary>
+${RULES}`;
+        const beatenN = B().LEVELS.filter((L) => beaten[L.n]).length;
+        if (screen === 'decks') {
+          el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/combat">Combat</a> › Mes decks</div>
+            <div class="bt-head"><h1>Mes decks</h1></div>
+            ${modeTabs}
+            ${mobileTeam}
+            <section class="panel bt-team-panel">
+              <h2 style="margin:0">Mes decks</h2>
+              ${teamsHtml()}
+            </section>
+            <p class="small muted">3 Pokémon par deck${adv ? ', plus un sac de 6 cartes Dresseur / Énergie au plus' : ''}. Une case vide est remplie par un Pokémon de prêt.</p>`;
+        } else if (screen === 'ordi') {
+          const deckBtn = (i) => {
+            const on = i === ti, adv2 = adv && view.bags[i].length;
+            return `<div class="bt-deck ${on ? 'on' : ''}" data-sel="${i}" role="radio" aria-checked="${on}">
+              <span class="bt-deck-ok">${on ? App.icons.icon('check', 14) : ''}</span>
+              <div class="bt-deck-t"><b>${esc(m.teams[i].name)}</b><span class="small muted">${teams[i].length ? `${teams[i].length}/3 Pokémon` : 'Pokémon de prêt'}${adv ? ` · sac : ${adv2 ? view.bags[i].length : 'prêt'}` : ''}</span></div>
+              <div class="bt-deck-cards">${[0, 1, 2].map((j) => teams[i][j] ? `<img src="${esc(imgs[i][j].src)}" alt="" data-alt="${esc(teams[i][j].snap.name)}">` : '<i></i>').join('')}</div>
+              <button class="btn sm ghost bt-deck-ed" data-edit="${i}" title="Modifier ce deck">${App.icons.icon('pencil', 14)}</button>
+            </div>`;
+          };
+          el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/combat">Combat</a> › Contre l’ordinateur</div>
+            <div class="bt-head"><h1>Contre l’ordinateur</h1><span class="muted small">${st.wins} victoire${st.wins > 1 ? 's' : ''} · ${st.losses} défaite${st.losses > 1 ? 's' : ''}</span></div>
+            ${modeTabs}
+            <h2 class="bt-step"><span>1</span> Ton deck</h2>
+            <div class="bt-decks" role="radiogroup">${m.teams.map((t, i) => deckBtn(i)).join('')}</div>
+            <h2 class="bt-step"><span>2</span> Difficulté</h2>
+            <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
+                <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` · sac de ${App.battleCards.aiBag(L.n, 'fire').length}` : '') : `Bats le niveau ${L.n - 1}`}</span></div>
+                ${beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
+            ${rules}`;
+        } else {
+          const on = m.stats.online, tot = { w: m.stats.classic.wins + m.stats.adv.wins + on.wins, l: m.stats.classic.losses + m.stats.adv.losses + on.losses };
+          el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Combat</div>
+            <div class="bt-head"><h1>Combat</h1><span class="muted small">${tot.w} victoire${tot.w > 1 ? 's' : ''} · ${tot.l} défaite${tot.l > 1 ? 's' : ''}</span></div>
+            ${modeTabs}
+            <div class="bt-hub">
+              <a class="bt-choice" href="#/combat?ecran=ordi" style="--cc:#ff7a3d">
+                <span class="bt-choice-ic">${App.icons.icon('bolt', 26)}</span>
+                <span class="bt-choice-t"><b>Contre l’ordinateur</b><span class="small muted">5 niveaux de difficulté · ${beatenN}/${B().LEVELS.length} battu${beatenN > 1 ? 's' : ''} en ${adv ? 'Avancé' : 'Basique'}</span></span>
+                <span class="bt-choice-go">›</span></a>
+              <div class="bt-choice bt-choice-online" style="--cc:#34d5ff">
+                <span class="bt-choice-ic">${App.icons.icon('users', 26)}</span>
+                <span class="bt-choice-t"><b>En ligne</b><span class="small muted">${on.wins || on.losses ? `${on.wins} victoire${on.wins > 1 ? 's' : ''} · ${on.losses} défaite${on.losses > 1 ? 's' : ''} · ` : ''}Crée un salon et envoie le code, ou rejoins celui d’un ami. Vous choisissez vos decks une fois dans le salon.</span></span>
+                ${App.cloud.user ? `<div class="bt-choice-b"><button class="btn primary" data-duel="create">${App.icons.icon('plus', 15)} Créer un salon</button><button class="btn" data-duel="join">Rejoindre avec un code</button></div>`
+                  : `<div class="bt-choice-b"><a class="btn" href="#/connexion">${App.icons.icon('user', 15)} Me connecter pour jouer en ligne</a></div>`}
+              </div>
+              <a class="bt-choice" href="#/combat?ecran=decks" style="--cc:#b08cff">
+                <span class="bt-choice-ic">${App.icons.icon('layers', 26)}</span>
+                <span class="bt-choice-t"><b>Mes decks</b><span class="small muted">Compose tes 3 decks avec tes cartes${adv ? ' (et leur sac)' : ''} · ${m.teams.filter((t, i) => teams[i].length).length}/3 prêts</span></span>
+                <span class="bt-deck-mini">${[0, 1, 2].map((j) => curItems[j] ? `<img src="${esc(imgs[ti][j].src)}" alt="">` : '<i></i>').join('')}</span>
+                <span class="bt-choice-go">›</span></a>
+            </div>
+            ${rules}`;
+        }
         if (teamsModal && document.body.contains(teamsModal)) teamsModal.innerHTML = `<div class="bt-pick"><h2>Mes équipes</h2>${teamsHtml()}</div>`;
       };
       await draw();
@@ -1296,7 +1339,7 @@
         if (!ed && !rn && !bg && !sl) return false;
         busy = true;
         try {
-          if (sl) {
+          if (sl && !ed) { // (le crayon « Modifier » est dans la carte du deck : il passe avant)
             App.sfx.click();
             m = await getMatch(); m.teamIdx = +sl.dataset.sel; await saveMatch(m); await draw();
             return true;
@@ -1337,13 +1380,7 @@
         if (lv && !lv.disabled) {
           busy = true;
           try {
-            // plusieurs équipes prêtes : on demande laquelle
-            const filled = m.teams.filter((t) => teamItems(t.keys).length).length;
-            if (filled >= 2) {
-              const idx = await chooseTeam(m);
-              if (idx == null) return;
-              if (idx !== m.teamIdx) { m = await getMatch(); m.teamIdx = idx; await saveMatch(m); await draw(); }
-            }
+            // le deck est déjà choisi sur cet écran (étape 1) : on lance directement le combat
             let again = true;
             while (again) {
               const t = m.teams[m.teamIdx], adv = m.mode === 'adv';

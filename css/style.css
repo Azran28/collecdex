@@ -2612,3 +2612,35 @@ button.bt-code:active span { transform: scale(.94); }
 .v-lockline { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; }
 .v-lockline .ic { flex: none; }
 .v-sheet .badge-grid { margin-top: 4px; }
+
+/* ===== Combat : accueil en 3 choix, puis deck → difficulté (v2.75) ===== */
+.bt-hub { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 18px; }
+.bt-choice { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; text-decoration: none; color: inherit;
+  border: 1px solid color-mix(in srgb, var(--cc) 40%, transparent); background: radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--cc) 18%, transparent), transparent 65%), rgba(255,255,255,.03); }
+a.bt-choice:active { transform: scale(.985); }
+.bt-choice-ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #fff; background: color-mix(in srgb, var(--cc) 55%, #1a1d33); box-shadow: 0 6px 18px color-mix(in srgb, var(--cc) 30%, transparent); }
+.bt-choice-ic .ic { display: block; }
+.bt-choice-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bt-choice-t b { font-family: var(--display, inherit); font-size: 1.08rem; }
+.bt-choice-go { font-size: 1.6rem; color: var(--muted); }
+.bt-choice-b { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bt-choice-b .btn { justify-content: center; display: inline-flex; align-items: center; gap: 6px; }
+.bt-choice-online { grid-template-columns: auto 1fr; }
+.bt-deck-mini { display: flex; gap: 3px; }
+.bt-deck-mini img, .bt-deck-mini i { width: 22px; aspect-ratio: 63/88; border-radius: 3px; object-fit: cover; background: rgba(255,255,255,.08); display: block; }
+.bt-choice .bt-deck-mini { grid-column: 2; grid-row: 2; }
+.bt-step { display: flex; align-items: center; gap: 10px; margin: 20px 0 10px; font-size: 1.1rem; }
+.bt-step span { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; background: linear-gradient(120deg, #7c5cff, #ff4fa3); color: #fff; }
+.bt-decks { display: flex; flex-direction: column; gap: 8px; }
+.bt-deck { display: grid; grid-template-columns: 26px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.03); cursor: pointer; }
+.bt-deck.on { border-color: rgba(124,92,255,.7); background: rgba(124,92,255,.14); }
+.bt-deck-ok { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; }
+.bt-deck.on .bt-deck-ok { background: #7c5cff; border-color: #7c5cff; color: #fff; }
+.bt-deck-ok .ic { display: block; }
+.bt-deck-t { display: flex; flex-direction: column; min-width: 0; }
+.bt-deck-t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-deck-cards { display: flex; gap: 4px; }
+.bt-deck-cards img, .bt-deck-cards i { width: 30px; aspect-ratio: 63/88; border-radius: 4px; object-fit: cover; background: rgba(255,255,255,.08); display: block; }
+.bt-deck-ed { padding: 6px 8px; }
+.bt-deck-ed .ic { display: block; }
+@media (min-width: 761px) { .bt-hub { max-width: 760px; } .bt-decks { max-width: 760px; } }

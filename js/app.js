@@ -51,7 +51,7 @@ App.views = App.views || {};
     const st = history.state || {};
     if (typeof st.d !== 'number') history.replaceState({ ...st, d: lastDepth + (renderId ? 1 : 0) }, '');
     lastDepth = history.state.d;
-    document.getElementById('nav-back').hidden = TABS.includes(view);
+    document.getElementById('nav-back').hidden = TABS.includes(view) && !query.ecran; // sous-écran d'un onglet (Combat › Contre l'ordinateur) : flèche retour
     document.body.dataset.view = view;
     // conteneur neuf à chaque page, pour repartir sans les écouteurs de la page précédente
     const oldEl = document.getElementById('app');

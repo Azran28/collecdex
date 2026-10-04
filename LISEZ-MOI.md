@@ -84,6 +84,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Pas encore : les cartes japonaises, les anciens fichiers Excel .xls (enregistre-les en .xlsx ou CSV).
 
 ## Combat
+- **Organisation (v2.75)** : l'onglet **Combat** propose d'abord 3 choix : **Contre l'ordinateur**, **En ligne** (créer ou rejoindre un salon), **Mes decks** (composer tes 3 decks = équipes). Contre l'ordinateur : choisis ton deck (étape 1), puis la difficulté (étape 2) : le combat démarre. Le mode Basique / Avancé se choisit en haut. Les règles sont en bas, à déplier.
 - Onglet **Combat** (anciennement « Match ») : tu as **3 équipes** de 3 Pokémon de ta collection. « Composer » / « Modifier » pour choisir les Pokémon (dans l'ordre : le 1er commence), « Renommer » pour leur donner un nom, « Choisir » pour combattre avec cette équipe (bordure rose « Pour combattre »). Si plusieurs équipes sont prêtes, le site demande « Avec quelle équipe ? » avant chaque combat. Une case vide est remplie par un Pokémon « de prêt ».
 - Sur téléphone, les 3 équipes sont des **onglets** : touche un onglet pour choisir l'équipe ; ses 3 cartes s'affichent avec les boutons Modifier / Sac / Renommer (toucher les cartes ouvre aussi le choix des Pokémon).
 - Dans le choix des Pokémon, chaque carte montre ses **PV**, son **type** (pastille de couleur) et sa **plus grosse attaque** (⚔) ; filtres par **type** (les 11 types du jeu de cartes, avec le nombre de Pokémon que tu as dans chacun), **PV minimum**, **énergie** (garder ceux qui ont une attaque à 1, 2 ou 3 énergies max) et tri (plus fort, plus de PV, plus gros dégâts, attaque la moins chère, nom). Ton équipe reste affichée en haut (touche × pour retirer).
@@ -98,7 +99,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Tes victoires et défaites sont comptées.
 
 ## Combat en ligne
-- Page **Combat** › encadré **« Combat en ligne »**. Il faut juste être connecté (avoir un compte CollecDex) : pas besoin d'être amis.
+- Page **Combat** › choix **« En ligne »**. Il faut juste être connecté (avoir un compte CollecDex) : pas besoin d'être amis.
 - **Créer un salon** : un **code de 6 caractères** s’affiche (ex. K7P3QZ). **Touche le code** (ou « Copier le code ») pour le copier, puis colle-le dans un message. Ou envoie-le à qui tu veux avec le bouton « Envoyer » (le lien ouvre directement le salon) et attends qu’il arrive.
 - **Rejoindre avec un code** : tape ou colle le code qu’on t’a donné (tu peux même coller le message entier : l’appli y retrouve le code).
 - **Une fois tous les deux dans le salon**, chacun choisit son équipe (on ne voit pas celle de l’autre avant le combat). L’écran indique quand l’autre a choisi ; le combat démarre tout seul quand les deux sont prêts. Quitter pendant le choix ferme le salon (ni victoire ni défaite).
