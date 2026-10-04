@@ -2,10 +2,12 @@
 (() => {
   const { esc } = App.util;
   const B = () => App.battle;
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // FAST : combat en ligne rejoué en accéléré (reprise après un rafraîchissement) : ni attente, ni effets, ni sons
+  let FAST = false;
+  const sleep = (ms) => (FAST ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
   const ad = () => App.games.get('pokemon');
   const TEAMS = 3, BAG_MAX = 6;
-  const RM = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- Données ----------
   /** profile.match = { teams:[{name, keys:[3 clés]}×3], teamIdx, team (= équipe choisie, pour les anciennes versions), beaten, wins, losses } */
@@ -64,11 +66,11 @@
     const card = await ad().getCard(it.id);
     if (!/pok/i.test(card.category || 'Pokémon') || !card.hp) return null;
     const img = await App.col.displayImage(it, ad(), 'high');
-    return B().fighter(card, { img: img.src, imgOff: card.image ? `${card.image}/high.webp` : '', mine: true });
+    return B().fighter(card, { img: img.src, imgOff: App.battleCards.offImg(card), mine: true });
   }
   async function fromId(id, extra = {}) {
     const card = await ad().getCard(id);
-    const off = card.image ? `${card.image}/high.webp` : '';
+    const off = App.battleCards.offImg(card);
     return B().fighter(card, { img: off, imgOff: off, ...extra });
   }
   const pick = (arr, n) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); };
@@ -91,7 +93,7 @@
     ov.className = 'bt-ov' + (ADV ? ' adv' : '') + (ON ? ' online' : '');
     ov.innerHTML = `<div class="bt-load">${App.ui.loading('Préparation du combat…')}</div>`;
     document.body.appendChild(ov); document.body.classList.add('cap-lock');
-    const close = () => { ov.remove(); document.body.classList.remove('cap-lock'); if (ON) ON.link.close(); };
+    const close = () => { FAST = false; App.sfx.quiet(false); ov.remove(); document.body.classList.remove('cap-lock'); if (ON) ON.link.close(); };
     const L = ON ? { n: 0, name: ON.foeName, color: '#34d5ff' } : B().LEVELS[level - 1];
     const rnd = ON ? ON.rand : Math.random;
     const foeWho = ON ? ON.foeName : 'L’ordinateur';
@@ -121,6 +123,22 @@
       if (!P.bag.length) P.bag = (await Promise.all(BC.loanBag(mine[0].type).map((id) => load(id, { loan: true })))).filter(Boolean);
       C.bag = (await Promise.all(BC.aiBag(L.n, foe[0].type).map((id) => load(id)))).filter(Boolean);
     }
+    // Reprise après un rafraîchissement : mes coups déjà joués (gardés sur ce téléphone) sont rejoués en accéléré,
+    // ceux de l'ami arrivent du serveur ; même graine = mêmes pièces : on retombe exactement au même endroit.
+    const rp = ON && Array.isArray(ON.replay) ? ON.replay.filter((mv) => mv && ['card', 'act', 'replace'].includes(mv.kind)) : [];
+    let pendingTo = null;
+    if (rp.length) { FAST = true; App.sfx.quiet(true); ov.classList.add('bt-replay'); }
+    const caughtUp = () => {
+      if (!FAST) return;
+      FAST = false; App.sfx.quiet(false); ov.classList.remove('bt-replay');
+      if (!over) { drawAll(); drawFoeBag(); }
+    };
+    /** prochain de mes coups enregistrés, sous la forme d'un choix du joueur */
+    const fromRp = () => {
+      const mv = rp.shift();
+      if (mv.kind === 'card') { pendingTo = Number.isInteger(mv.to) ? mv.to : null; return { type: 'card', i: mv.i }; }
+      return { type: mv.type, i: mv.i, to: mv.to };
+    };
 
     ov.innerHTML = `
       <div class="bt-top"><span class="bt-lvl" style="--lc:${L.color}">${ON ? `${App.icons.icon('users', 13)} Contre ${esc(L.name)}` : `Niveau ${L.n} · ${esc(L.name)}`}</span>${ON ? '<span class="bt-net small" hidden>Connexion…</span>' : ''}${teamName ? `<span class="bt-tname muted small">${esc(teamName)}</span>` : ''}<span class="spacer"></span>${ADV ? '<span class="bt-foebag small muted"></span>' : ''}<button class="btn sm ghost" data-quit>Abandonner</button></div>
@@ -427,7 +445,13 @@
       ov.addEventListener('click', h);
     });
     /** Remplaçant après un K.O. (le joueur choisit) */
-    const playerReplace = (msg = 'Ton Pokémon est K.O. : touche le suivant sur ton banc.', notActive = false) => new Promise((resolve) => {
+    const playerReplace = (msg, notActive) => {
+      if (pendingTo != null) { const t = pendingTo; pendingTo = null; return Promise.resolve(t); } // reprise : cible déjà choisie
+      if (rp.length && rp[0].kind === 'replace') return Promise.resolve(rp.shift().to);
+      caughtUp();
+      return playerReplaceUI(msg, notActive);
+    };
+    const playerReplaceUI = (msg = 'Ton Pokémon est K.O. : touche le suivant sur ton banc.', notActive = false) => new Promise((resolve) => {
       log(msg);
       ov.classList.add('pick-bench');
       const h = (e) => {
@@ -554,7 +578,7 @@
     const ended = new Promise((r) => { resolveEnd = r; });
     function finish(win, why = '') {
       if (over) return;
-      over = true;
+      over = true; FAST = false; App.sfx.quiet(false); ov.classList.remove('bt-replay');
       $('.bt-actions').innerHTML = '';
       if (ON) { ON.link.send({ kind: quit ? 'quit' : 'over', win: !!win }); ON.link.flush(); }
       const b = document.createElement('div');
@@ -595,8 +619,10 @@
         box.querySelector('[data-stop]').addEventListener('click', () => { over = true; close(); resolveEnd({ win: null, again: false }); });
       }, 5000);
       stopWait = () => clearInterval(t);
+      // reprise : plus rien à rejouer (mes coups faits, ceux de l'ami déjà reçus) → on repasse en vitesse normale
+      const cu = FAST ? setInterval(() => { if (!rp.length && ON.link.ready && !ON.link.queued) caughtUp(); }, 150) : null;
       const mv = await ON.link.next();
-      clearInterval(t);
+      clearInterval(t); if (cu) clearInterval(cu);
       if (!over) box.innerHTML = idleBag();
       return mv && typeof mv === 'object' ? mv : {};
     }
@@ -643,7 +669,8 @@
       gain(P);
       let act, used = false;
       for (;;) {
-        act = await playerChoice(used);
+        if (rp.length && rp[0].kind === 'replace') rp.length = 0; // ne devrait pas arriver : on arrête de rejouer
+        act = rp.length ? fromRp() : (caughtUp(), await playerChoice(used));
         if (over || act.type !== 'card') break;
         const c = P.bag[act.i], i = act.i;
         if (c && c.fx.key !== 'switch') send({ kind: 'card', i });
@@ -972,16 +999,56 @@
     return { imgs: fs.map((f) => f.img), wire: { name: t.name, fighters: fs.map(App.duel.wireFighter), bag: bag.map(App.duel.wireBag) } };
   }
   /** Lance le combat à partir de l'état du salon (les deux équipes passent par le même filtre : mêmes chiffres des deux côtés) */
-  async function startDuel(s, imgs) {
+  async function startDuel(s, imgs, replay = []) {
     const D = App.duel;
     const mine = s.myTeam.fighters, foe = s.foeTeam.fighters;
     if (!mine.length || !foe.length) throw new Error('équipe vide');
+    // mes photos à la place des visuels officiels (après un rafraîchissement : retrouvées dans ma collection)
+    if (!imgs || !imgs.length) imgs = await Promise.all(mine.map((f) => {
+      const it = !f.loan && App.col.all().find((x) => x.game === 'pokemon' && x.id === f.id && x.qty > 0);
+      return it ? App.col.displayImage(it, ad(), 'high').then((x) => x.src, () => '') : '';
+    }));
     mine.forEach((f, i) => { if (imgs[i]) f.img = imgs[i]; });
     const link = D.link(s.code);
-    return battle(0, [], s.myTeam.name, {
-      adv: s.mode === 'adv',
-      online: { link, rand: D.rng(s.seed), foeName: s.foeName, first: s.meHost === D.hostFirst(s.seed) ? 'P' : 'C', mine, foe, bagP: s.myTeam.bag, bagC: s.foeTeam.bag },
-    });
+    // chaque coup envoyé est aussi gardé sur ce téléphone : de quoi reprendre le combat après un rafraîchissement
+    const rec = { code: s.code, phase: 'play', moves: [] };
+    duelSave(rec);
+    const send0 = link.send;
+    link.send = (mv) => { rec.moves.push(mv); duelSave(rec); send0(mv); };
+    try {
+      return await battle(0, [], s.myTeam.name, {
+        adv: s.mode === 'adv',
+        online: { link, rand: D.rng(s.seed), foeName: s.foeName, first: s.meHost === D.hostFirst(s.seed) ? 'P' : 'C', mine, foe, bagP: s.myTeam.bag, bagC: s.foeTeam.bag, replay },
+      });
+    } finally { duelClear(); }
+  }
+
+  // ---------- Salon en cours gardé sur ce téléphone (pour revenir dedans après un rafraîchissement) ----------
+  const DKEY = 'collecdex:duel';
+  function duelSaved() {
+    try {
+      const sv = JSON.parse(localStorage.getItem(DKEY) || 'null'), u = App.cloud.user;
+      if (!sv || !u || sv.uid !== u.id || !App.duel.CODE.test(sv.code) || Date.now() - (sv.t || 0) > 24 * 3600 * 1000) return null;
+      return sv;
+    } catch (e) { return null; }
+  }
+  const duelSave = (o) => { try { localStorage.setItem(DKEY, JSON.stringify({ ...o, uid: App.cloud.user && App.cloud.user.id, t: Date.now() })); } catch (e) { /* stockage indisponible */ } };
+  const duelClear = () => { try { localStorage.removeItem(DKEY); } catch (e) { /* idem */ } };
+
+  /** Revenir dans le salon gardé : salle d'attente, choix des équipes ou combat (rejoué en accéléré) */
+  async function duelResume(m) {
+    const sv = duelSaved(); if (!sv) return null;
+    App.util.openModal(App.ui.loading('Retour dans ton salon…'));
+    let s;
+    try { s = await App.duel.state(sv.code, -1); } catch (e) { App.util.closeModal(); duelClear(); App.util.toast('Ce salon n’existe plus', 3500); return null; }
+    App.util.closeModal();
+    if (s.status === 'waiting' && s.meHost) return duelCreate(m, s.code, s.mode);
+    if (s.status === 'lobby') return duelLobby(s.code, m, s.mode, s.foeName, { ready: s.myReady });
+    if (s.status === 'playing' && s.foeTeam && s.myTeam.fighters.length) {
+      App.sfx.open(3);
+      try { return await startDuel(s, null, sv.phase === 'play' ? sv.moves || [] : []); } catch (e) { App.util.toast('Combat impossible : ' + e.message, 4500); return null; }
+    }
+    duelClear(); App.util.toast('Ce combat est terminé', 3500); return null;
   }
   /** Choix de l'équipe pour un combat entre amis (renvoie l'index, ou null) */
   const modeName = (mode) => (mode === 'adv' ? 'Avancé (avec sac)' : 'Basique');
@@ -991,17 +1058,18 @@
    * puis on attend que l'autre ait choisi ; le combat commence quand les deux sont prêts.
    * Quitter ici ferme le salon (ni victoire ni défaite).
    */
-  function duelLobby(code, m, mode, foeName) {
+  function duelLobby(code, m, mode, foeName, o = {}) {
     const D = App.duel;
+    duelSave({ code, phase: 'lobby' });
     return new Promise((resolve) => {
       let finished = false, starting = false, team = null, foeReady = false;
       const end = (v) => { if (finished) return; finished = true; stop(); resolve(v); };
-      const leave = () => { if (finished || starting) return; D.cancel(code); end(null); };
+      const leave = () => { if (finished || starting) return; D.cancel(code); duelClear(); end(null); };
       const stop = D.waitStart(code, async (s) => {
         if (finished || !team) return;
         starting = true; App.util.closeModal(); App.sfx.open(3);
-        try { end(await startDuel(s, team.imgs)); } catch (e) { App.util.toast('Combat impossible : ' + e.message, 4500); end(null); }
-      }, (e) => { if (finished || starting) return; finished = true; App.util.closeModal(); App.util.toast(e.message, 4500); resolve(null); },
+        try { end(await startDuel(s, team.imgs)); } catch (e) { duelClear(); App.util.toast('Combat impossible : ' + e.message, 4500); end(null); }
+      }, (e) => { if (finished || starting) return; finished = true; duelClear(); App.util.closeModal(); App.util.toast(e.message, 4500); resolve(null); },
       (s) => {
         if (s.foeReady === foeReady) return;
         foeReady = s.foeReady;
@@ -1009,20 +1077,25 @@
         if (el) el.innerHTML = foeReady ? `<b style="color:var(--ok, #3ddc97)">${esc(foeName)} a choisi son équipe ✓</b>` : `${esc(foeName)} choisit son équipe…`;
       });
       (async () => {
-        const idx = await chooseTeam(m, {
-          title: 'Choisis ton équipe',
-          sub: `Salon ${code} · contre <b>${esc(foeName)}</b> · mode ${esc(modeName(mode))}. ${esc(foeName)} ne verra ton équipe qu’au début du combat.`,
-        });
-        if (finished) return;
-        if (idx == null) { leave(); return; }
-        App.util.openModal(App.ui.loading('Préparation de ton équipe…'), leave);
-        try { team = await onlineTeam(m.teams[idx], mode === 'adv'); if (!finished) await D.setTeam(code, team.wire); }
-        catch (e) { if (finished || starting) return; App.util.closeModal(); App.util.toast('Équipe impossible : ' + e.message, 4500); D.cancel(code); end(null); return; }
+        let teamName = '';
+        if (o.ready) team = { imgs: [] }; // reprise : mon équipe est déjà envoyée (mes photos seront retrouvées au début du combat)
+        else {
+          const idx = await chooseTeam(m, {
+            title: 'Choisis ton équipe',
+            sub: `Salon ${code} · contre <b>${esc(foeName)}</b> · mode ${esc(modeName(mode))}. ${esc(foeName)} ne verra ton équipe qu’au début du combat.`,
+          });
+          if (finished) return;
+          if (idx == null) { leave(); return; }
+          App.util.openModal(App.ui.loading('Préparation de ton équipe…'), leave);
+          try { team = await onlineTeam(m.teams[idx], mode === 'adv'); if (!finished) await D.setTeam(code, team.wire); }
+          catch (e) { if (finished || starting) return; App.util.closeModal(); App.util.toast('Équipe impossible : ' + e.message, 4500); D.cancel(code); duelClear(); end(null); return; }
+          teamName = m.teams[idx].name;
+        }
         if (finished || starting) return;
         App.util.openModal(`<div class="bt-pick bt-room">
             <h2>${App.icons.icon('users', 18)} Salon ${esc(code)}</h2>
             <p class="small muted" style="margin:2px 0 12px">Mode ${esc(modeName(mode))}</p>
-            <p style="margin:0 0 6px"><b style="color:var(--ok, #3ddc97)">${App.icons.icon('check', 14)} Ton équipe « ${esc(m.teams[idx].name)} » est prête</b></p>
+            <p style="margin:0 0 6px"><b style="color:var(--ok, #3ddc97)">${App.icons.icon('check', 14)} ${teamName ? `Ton équipe « ${esc(teamName)} » est prête` : 'Ton équipe est prête'}</b></p>
             <div class="bt-wait" style="justify-content:center"><span class="bt-wait-dots"><i></i><i></i><i></i></span> <span id="bt-lobby-foe">${foeReady ? `${esc(foeName)} a choisi son équipe ✓` : `${esc(foeName)} choisit son équipe…`}</span></div>
             <div class="row" style="justify-content:center;margin-top:8px"><button class="btn ghost sm" id="bt-lobby-quit">Quitter le salon</button></div>
           </div>`, leave);
@@ -1032,26 +1105,29 @@
   }
 
   /** Créer un salon : montre le code, attend l'ami, puis lance le combat */
-  async function duelCreate(m) {
+  async function duelCreate(m, existing = null, mode = m.mode) {
     const D = App.duel;
-    let body = App.util.openModal(App.ui.loading('Préparation du salon…'));
-    let code;
-    try { code = await D.create(m.mode); }
-    catch (e) { App.util.closeModal(); App.util.toast('Salon impossible : ' + e.message, 4500); return null; }
+    let body, code = existing;
+    if (!code) {
+      body = App.util.openModal(App.ui.loading('Préparation du salon…'));
+      try { code = await D.create(mode); }
+      catch (e) { App.util.closeModal(); App.util.toast('Salon impossible : ' + e.message, 4500); return null; }
+    }
+    duelSave({ code, phase: 'room' });
     const link = `${location.origin}${location.pathname}#/combat?salon=${code}`;
     return new Promise((resolve) => {
       let done = false, stop = null;
       const end = (v) => { if (done) return; done = true; if (stop) stop(); resolve(v); };
       body = App.util.openModal(`<div class="bt-pick bt-room">
           <h2>${App.icons.icon('users', 18)} Ton salon</h2>
-          <p class="small muted" style="margin:2px 0 10px">Mode ${esc(modeName(m.mode))} · vous choisirez vos équipes une fois ensemble dans le salon</p>
+          <p class="small muted" style="margin:2px 0 10px">Mode ${esc(modeName(mode))} · vous choisirez vos équipes une fois ensemble dans le salon</p>
           <button type="button" class="bt-code" id="bt-room-code" title="Copier le code" aria-label="Code du salon : toucher pour le copier">${code.split("").map((c) => `<span>${esc(c)}</span>`).join("")}</button>
           <div class="bt-code-hint small muted" id="bt-code-hint">Touche le code pour le copier</div>
           <p class="small" style="text-align:center;margin:10px 0">Donne ce code à ton adversaire : page <b>Combat</b> › « Rejoindre avec un code ». Il lui faut juste un compte CollecDex.</p>
           <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><button class="btn" id="bt-room-copy">${App.icons.icon("copy", 15)} Copier le code</button><button class="btn primary" id="bt-room-share">${App.icons.icon("share", 15)} ${navigator.share ? "Envoyer" : "Copier le lien"}</button></div>
           <div class="bt-wait" style="justify-content:center;margin-top:14px"><span class="bt-wait-dots"><i></i><i></i><i></i></span> En attente de ton adversaire…</div>
           <div class="row" style="justify-content:center;margin-top:8px"><button class="btn ghost sm" id="bt-room-cancel">Fermer le salon</button></div>
-        </div>`, () => { if (!done) { D.cancel(code); end(null); } });
+        </div>`, () => { if (!done) { D.cancel(code); duelClear(); end(null); } });
       // copier le code seul (toucher le code ou le bouton) : presse-papiers, sinon ancienne méthode (vieux navigateurs, page non sécurisée)
       const copyCode = async () => {
         let ok = false;
@@ -1072,13 +1148,13 @@
         if (navigator.share) { navigator.share({ title: 'Combat CollecDex', text, url: link }).catch(() => {}); return; }
         try { await navigator.clipboard.writeText(`${text}\n${link}`); App.util.toast('Lien copié ✓'); } catch (e) { App.util.toast(code); }
       });
-      body.querySelector('#bt-room-cancel').addEventListener('click', () => { D.cancel(code); end(null); App.util.closeModal(); });
+      body.querySelector('#bt-room-cancel').addEventListener('click', () => { D.cancel(code); duelClear(); end(null); App.util.closeModal(); });
       stop = D.waitJoin(code, async (s) => {
         if (done) return;
         done = true; App.util.closeModal(); App.sfx.click();
         App.util.toast(`${s.foeName} est dans le salon !`);
-        resolve(await duelLobby(code, m, m.mode, s.foeName));
-      }, (e) => { if (!done) { App.util.closeModal(); App.util.toast(e.message, 4500); end(null); } });
+        resolve(await duelLobby(code, m, mode, s.foeName));
+      }, (e) => { if (!done) { duelClear(); App.util.closeModal(); App.util.toast(e.message, 4500); end(null); } });
     });
   }
 
@@ -1206,7 +1282,7 @@
         try {
           App.sfx.click();
           m = await getMatch();
-          const r = how === 'create' ? await duelCreate(m) : await duelJoin(m, preset);
+          const r = how === 'create' ? await duelCreate(m) : how === 'resume' ? await duelResume(m) : await duelJoin(m, preset);
           if (!r || r.win == null) return;
           m = await getMatch();
           if (r.win) m.stats.online.wins++; else m.stats.online.losses++;
@@ -1291,7 +1367,21 @@
         if (!alive()) return;
         if (App.cloud.user) runDuel('join', code);
         else App.util.toast('Connecte-toi pour rejoindre ce salon', 4000);
+        return;
+      }
+      // salon en cours (page rafraîchie, appli rouverte) : on y retourne tout seul
+      if ((() => { try { return !!localStorage.getItem(DKEY); } catch (e) { return false; } })()) {
+        for (let i = 0; i < 20 && !App.cloud.user && alive(); i++) await sleep(200);
+        if (alive() && duelSaved()) runDuel('resume');
       }
     },
   };
+
+  // au démarrage de l'appli : un salon en cours ramène sur la page Combat (qui le rouvre)
+  let resumeChecked = false;
+  App.cloud.on(() => {
+    if (resumeChecked || !App.cloud.user) return;
+    resumeChecked = true;
+    if (duelSaved() && !/^#\/(combat|match)\b/.test(location.hash)) location.hash = '#/combat';
+  });
 })();

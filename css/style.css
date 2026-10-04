@@ -2413,3 +2413,6 @@ button.bt-code:active span { transform: scale(.94); }
 .bt-bag.idle .bt-bc:active { transform: scale(.97); }
 /* coche des messages du salon sur la même ligne que le texte (.ic est en display:block) */
 .bt-room b .ic { display: inline-block; vertical-align: -2px; margin-right: 3px; }
+
+/* Combat en ligne repris après un rafraîchissement (v2.66) : le combat est rejoué en accéléré sous ce cache */
+.bt-ov.bt-replay::after { content: 'Retour dans le combat…'; position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: #0d0f1c; color: var(--text, #fff); font-weight: 800; font-size: 1.1rem; }

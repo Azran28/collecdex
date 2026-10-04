@@ -92,6 +92,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le mode (Basique ou Avancé avec le sac) est celui choisi par celui qui crée le salon. En Avancé, ton sac est visible dès le début, même quand l’autre commence (cartes grises tant que ce n’est pas ton tour ; touche-en une pour voir ce qu’elle fait).
 - Vous voyez exactement le même combat, chacun sur son téléphone. Pendant le tour de l’autre : « … réfléchit ». S’il ne répond plus depuis 2 minutes, tu peux arrêter le combat (ni victoire ni défaite). « Abandonner » = défaite, et victoire pour l’autre.
 - Victoires et défaites en ligne sont comptées à part (sous « Combat en ligne »).
+- **Page rafraîchie ou appli fermée par erreur** : rouvre l'appli, elle te ramène toute seule dans ton salon (ou dans le combat, là où il en était). Ça marche sur le même téléphone.
 - **À faire dans Supabase** : *SQL Editor*, coller `supabase-v10.sql` › *Run* (même si tu l’avais déjà fait : la nouvelle version enlève l’obligation d’être amis). Avant ça : « Les combats en ligne ne sont pas encore activés sur le serveur ». Puis coller `supabase-v12.sql` › *Run* (choix des équipes dans le salon).
 
 ## Amis

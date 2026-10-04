@@ -74,9 +74,19 @@ App.battleCards = (() => {
     return mk('heal', 30); // Objet quelconque : petite potion
   }
 
-  /** Carte du sac prête pour le combat */
+  /**
+   * Visuel officiel d'une carte (celui que voit l'adversaire en ligne) : image française, sinon l'anglaise,
+   * retrouvée d'après la série (TCGdex n'a pas toutes les images en français : ex. Rhinastoc sm10-95).
+   */
+  function offImg(card) {
+    if (!card) return '';
+    if (card.image) return `${card.image}/high.webp`;
+    const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
+    return m && card.localId ? `https://assets.tcgdex.net/en/${m[1]}/${m[2]}/${encodeURIComponent(card.localId)}/high.webp` : '';
+  }
+  /** Carte du sac prête pour le combat (img peut être ta photo ; imgOff = visuel officiel, envoyé à l'adversaire) */
   function bagCard(card, extra = {}) {
-    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: card.image ? `${card.image}/high.webp` : '', energy: /energ/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
+    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
   }
 
   const B = () => App.battle;
@@ -153,5 +163,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, bagCard, playable, aiCard, aiBag, loanBag, norm, fxOf };
+  return { effectOf, bagCard, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf };
 })();

@@ -5,7 +5,8 @@
  */
 App.sfx = (() => {
   let ctx = null, master = null;
-  const on = () => !App.settings || App.settings.sound !== false;
+  let hush = false; // silence momentané (combat en ligne rejoué en accéléré après un rafraîchissement)
+  const on = () => !hush && (!App.settings || App.settings.sound !== false);
 
   function ac() {
     if (!ctx) {
@@ -100,5 +101,6 @@ App.sfx = (() => {
     ko: () => play(() => { tone(520, 0, 0.7, 'triangle', 0.3, 90); noise(0.05, 0.4, 0.2, 400, 'lowpass'); }),
     lose: () => play(() => { [67, 63, 60].forEach((m, i) => tone(N(m), i * 0.28, 0.5, 'triangle', 0.25)); tone(N(48), 0.84, 1, 'sine', 0.25); }),
     get enabled() { return on(); },
+    quiet: (v) => { hush = !!v; },
   };
 })();

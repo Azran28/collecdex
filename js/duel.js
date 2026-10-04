@@ -96,7 +96,7 @@ App.duel = (() => {
     const meHost = !!r.me_host;
     return {
       code: r.code, status: ['waiting', 'lobby', 'playing', 'done'].includes(r.status) ? r.status : 'done', mode: r.mode === 'adv' ? 'adv' : 'classic',
-      seed: int(r.seed, 0, 2147483647), meHost, foeReady: !!(meHost ? r.guest_ready : r.host_ready),
+      seed: int(r.seed, 0, 2147483647), meHost, foeReady: !!(meHost ? r.guest_ready : r.host_ready), myReady: !!(meHost ? r.host_ready : r.guest_ready),
       foeName: str(meHost ? r.guest_pseudo : r.host_pseudo, 40) || 'Dresseur',
       myTeam: after < 0 ? cleanTeam(meHost ? r.host_team : r.guest_team) : null,
       foeTeam: after < 0 && (meHost ? r.guest_team : r.host_team) ? cleanTeam(meHost ? r.guest_team : r.host_team) : null,
@@ -141,7 +141,8 @@ App.duel = (() => {
     const queue = [], waiters = [];
     const out = [];
     let sending = false;
-    const L = { onQuit: null, onStatus: null, get idle() { return Date.now() - lastSeen; }, get waiting() { return waiters.length > 0; } };
+    // ready : 1re lecture du serveur faite ; queued : coups de l'ami déjà reçus mais pas encore joués (reprise après un rafraîchissement)
+    const L = { onQuit: null, onStatus: null, ready: false, get idle() { return Date.now() - lastSeen; }, get waiting() { return waiters.length > 0; }, get queued() { return queue.length; } };
     const status = (s) => { if (L.onStatus) try { L.onStatus(s); } catch (e) { console.error(e); } };
 
     async function pump() {
@@ -171,6 +172,7 @@ App.duel = (() => {
         try {
           const s = await state(code, foeN); fails = 0; status('ok');
           for (const m of s.moves.sort((a, b) => a.n - b.n)) if (m.n === foeN + 1) { foeN = m.n; lastSeen = Date.now(); deliver(m.move); }
+          L.ready = true;
           if (s.status === 'done' && !s.moves.length && waiters.length && !queue.length) { /* salon fermé sans coup : l'ami est parti */ deliver({ kind: 'quit' }); }
         } catch (e) { fails++; status('net'); if (fails > 3) await sleep(3000); }
       }
