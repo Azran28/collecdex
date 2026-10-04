@@ -22,11 +22,12 @@ App.views.friends = {
       return;
     }
 
-    let pseudo = null;
+    let pseudo = null, blockedList = [];
     const draw = async () => {
       let rows = [];
       let err = null;
       try { rows = await F.list({ fresh: true }); } catch (e) { err = e; }
+      blockedList = await F.blocked({ fresh: true }).catch(() => []);
       pseudo = await App.cloud.myPseudo().catch(() => null);
       const inv = inviteFromLink || await F.takeInvite();
       if (!alive()) return;
@@ -58,22 +59,27 @@ App.views.friends = {
           </section>
           ${incoming.length ? `<section class="panel fr-incoming"><h2>Demandes reçues <span class="fr-count">${incoming.length}</span></h2>
             ${incoming.map((r) => `<div class="fr-row">${av(r.avatar, r.pseudo)}<div class="fr-who"><b>${esc(r.pseudo)}</b><span class="small muted">veut devenir ton ami</span></div>
-              <button class="btn sm primary" data-accept="${r.user_id}">Accepter</button><button class="btn sm ghost" data-refuse="${r.user_id}">Refuser</button></div>`).join('')}</section>` : ''}
+              <button class="btn sm primary" data-accept="${r.user_id}">Accepter</button><button class="btn sm ghost" data-refuse="${r.user_id}">Refuser</button><button class="btn sm ghost fr-more" data-more="${r.user_id}" data-name="${esc(r.pseudo)}" title="Signaler ou bloquer" aria-label="Signaler ou bloquer">⋯</button></div>`).join('')}</section>` : ''}
         </div>
         <section class="section">
           <div class="section-title"><h2>Mes amis</h2><span class="muted small">${friends.length}</span></div>
           ${friends.length ? `<div class="fr-grid">${friends.map((r) => `<div class="fr-card">
               <a class="fr-open" href="#/ami/${r.user_id}">${av(r.avatar, r.pseudo, 64)}<b>${esc(r.pseudo)}</b><span class="small muted">${r.cards} carte${r.cards > 1 ? 's' : ''}</span></a>
               <a class="btn sm primary" href="#/ami/${r.user_id}">${App.icons.icon('trophy', 14)} Sa vitrine</a>
-              <button class="linkbtn small muted" data-remove="${r.user_id}" data-name="${esc(r.pseudo)}">Retirer</button></div>`).join('')}</div>`
+              <div class="fr-card-links"><button class="linkbtn small muted" data-remove="${r.user_id}" data-name="${esc(r.pseudo)}">Retirer</button><button class="linkbtn small muted" data-more="${r.user_id}" data-name="${esc(r.pseudo)}">Signaler / bloquer</button></div></div>`).join('')}</div>`
             : '<div class="empty panel">Pas encore d’amis : ajoute-les avec leur pseudo, ou envoie-leur ton lien.</div>'}
         </section>
         ${sent.length ? `<section class="section"><div class="section-title"><h2>Demandes envoyées</h2></div>
-          ${sent.map((r) => `<div class="fr-row panel">${av(r.avatar, r.pseudo, 36)}<div class="fr-who"><b>${esc(r.pseudo)}</b><span class="small muted">En attente de réponse</span></div><button class="btn sm ghost" data-remove="${r.user_id}" data-name="">Annuler</button></div>`).join('')}</section>` : ''}`;
+          ${sent.map((r) => `<div class="fr-row panel">${av(r.avatar, r.pseudo, 36)}<div class="fr-who"><b>${esc(r.pseudo)}</b><span class="small muted">En attente de réponse</span></div><button class="btn sm ghost" data-remove="${r.user_id}" data-name="">Annuler</button></div>`).join('')}</section>` : ''}
+        ${blockedList.length ? `<section class="section"><div class="section-title"><h2>Dresseurs bloqués</h2><span class="muted small">${blockedList.length}</span></div>
+          <p class="small muted" style="margin-top:0">Ils ne peuvent plus t’envoyer de demande d’ami ni rejoindre tes combats.</p>
+          ${blockedList.map((r) => `<div class="fr-row panel"><div class="fr-who"><b>${esc(r.pseudo)}</b><span class="small muted">Bloqué</span></div><button class="btn sm ghost" data-unblock="${r.user_id}" data-name="${esc(r.pseudo)}">Débloquer</button></div>`).join('')}</section>` : ''}`;
     };
 
     const add = async (who, msgEl) => {
       if (!who) return;
+      const bl = blockedList.find((b) => b.pseudo.toLowerCase() === String(who).toLowerCase());
+      if (bl) { const t = `Tu as bloqué ${bl.pseudo} : débloque-le d’abord (en bas de la page).`; if (msgEl) { msgEl.style.color = '#ff8a8a'; msgEl.textContent = t; } else App.util.toast(t); return; }
       if (msgEl) { msgEl.style.color = ''; msgEl.textContent = 'Envoi…'; }
       try {
         const r = await F.request(who);
@@ -92,6 +98,14 @@ App.views.friends = {
       if (t.closest('#fr-inv-no')) { await F.clearInvite(); if (params.query.ajout) { location.hash = '#/amis'; return; } return draw(); }
       const ac = t.closest('[data-accept]'); if (ac) { await F.respond(ac.dataset.accept, true); App.util.toast('Nouvel ami ✓'); return draw(); }
       const rf = t.closest('[data-refuse]'); if (rf) { await F.respond(rf.dataset.refuse, false); return draw(); }
+      const mo = t.closest('[data-more]');
+      if (mo) { if (await F.moderate(mo.dataset.more, mo.dataset.name)) await draw(); return; }
+      const ub = t.closest('[data-unblock]');
+      if (ub) {
+        if (!await App.util.ask({ icon: 'shield', title: `Débloquer ${ub.dataset.name} ?`, text: 'Il pourra de nouveau t’envoyer une demande d’ami. Vous ne redevenez pas amis automatiquement.', ok: 'Débloquer' })) return;
+        try { await F.unblock(ub.dataset.unblock); App.util.toast(`${ub.dataset.name} est débloqué`); } catch (err) { App.util.toast(err.message, 5000); }
+        return draw();
+      }
       const rm = t.closest('[data-remove]');
       if (rm) {
         if (rm.dataset.name && !await App.util.ask({ icon: 'users', danger: true, title: `Retirer ${rm.dataset.name} de tes amis ?`, text: 'Vous ne verrez plus la vitrine l’un de l’autre.', ok: 'Retirer' })) return;

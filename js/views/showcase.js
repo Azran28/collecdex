@@ -149,10 +149,10 @@ App.views.showcase = {
         ${S.pub ? `<div class="breadcrumb"><a href="#/">Accueil</a> › Vitrine de ${esc(profile.pseudo)}</div>
         <div class="row v-top" style="margin-bottom:14px"><h1>Vitrine de ${esc(profile.pseudo)}</h1><span class="spacer"></span>
           <button class="btn ghost" id="v-share" title="Partager cette vitrine">${App.icons.icon('share', 16)}<span class="m-hide"> Partager</span></button>
-          ${isMe ? `<a class="btn" href="#/compte?edit=1">✎ Personnaliser</a>` : App.cloud.user ? `<a class="btn primary" href="#/amis?ajout=${encodeURIComponent(profile.pseudo)}">${App.icons.icon('users', 16)} Ajouter en ami</a>` : ''}</div>`
+          ${isMe ? `<a class="btn" href="#/compte?edit=1">✎ Personnaliser</a>` : App.cloud.user ? `<button class="btn ghost v-mod" id="v-mod" title="Signaler ou bloquer ce dresseur">⚑ Signaler</button><a class="btn primary" href="#/amis?ajout=${encodeURIComponent(profile.pseudo)}">${App.icons.icon('users', 16)} Ajouter en ami</a>` : ''}</div>`
         : S.friend ? `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a> › ${esc(profile.pseudo)}</div>
         <div class="row v-top" style="margin-bottom:14px"><h1>Vitrine de ${esc(profile.pseudo)}</h1><span class="spacer"></span>
-          <a class="btn ghost" href="#/amis">${App.icons.icon('users', 16)}<span class="m-hide"> Mes amis</span></a></div>` : `
+          <a class="btn ghost" href="#/amis">${App.icons.icon('users', 16)}<span class="m-hide"> Mes amis</span></a><button class="btn ghost v-mod" id="v-mod" title="Signaler ou bloquer ce dresseur">⚑ Signaler</button></div>` : `
         <div class="row v-top" style="margin-bottom:10px"><h1>Mon profil</h1><span class="spacer"></span>
           ${editing ? '' : `${profile.public && App.cloud.user ? `<button class="btn ghost" id="v-share" title="Partager ma vitrine publique">${App.icons.icon('share', 16)}<span class="m-hide"> Partager</span></button>` : ''}
           <a class="btn ${App.friends.pendingIn() ? 'primary' : 'ghost'} v-friends" href="#/amis" title="Mes amis">${App.icons.icon('users', 16)}<span class="m-hide"> Amis</span>${App.friends.pendingIn() ? `<span class="fr-count">${App.friends.pendingIn()}</span>` : ''}</a>
@@ -438,6 +438,11 @@ App.views.showcase = {
 
     el.addEventListener('click', async (e) => {
       const t = e.target;
+      if (t.closest('#v-mod')) {
+        const r = await App.friends.moderate(S.uid, profile.pseudo);
+        if (r === 'block' && !S.pub) location.hash = '#/amis'; // plus amis : sa vitrine n'est plus lisible
+        return;
+      }
       if (t.closest('#v-edit')) { editing = !editing; await draw(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
       if (t.closest('#v-pickcards2')) { e.preventDefault(); editing = true; await draw(); return openSheet('featured'); }
       if (t.closest('#v-share')) return shareLink();

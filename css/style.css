@@ -2644,3 +2644,12 @@ a.bt-choice:active { transform: scale(.985); }
 .bt-deck-ed { padding: 6px 8px; }
 .bt-deck-ed .ic { display: block; }
 @media (min-width: 761px) { .bt-hub { max-width: 760px; } .bt-decks { max-width: 760px; } }
+
+/* ===== Signaler / bloquer un dresseur (v2.77) ===== */
+.fr-card-links { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.fr-more { font-size: 1.15rem; line-height: 1; padding-left: 10px; padding-right: 10px; letter-spacing: 1px; }
+.v-mod { white-space: nowrap; }
+.rp-reasons { display: grid; gap: 8px; margin: 12px 0 14px; }
+.rp-reasons .check { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.rp-reasons .check:has(input:checked) { border-color: var(--accent2); }
+#rp-details { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; resize: vertical; }

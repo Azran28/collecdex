@@ -79,6 +79,86 @@ App.friends = (() => {
     };
   }
 
+  // ---------- Bloquer / signaler (supabase-v14.sql) ----------
+  const REASONS = [
+    ['pseudo', 'Pseudo ou présentation choquants'],
+    ['vitrine', 'Contenu choquant dans sa vitrine'],
+    ['photos', 'Photos inappropriées'],
+    ['harcelement', 'Harcèlement, insultes, spam'],
+    ['triche', 'Triche ou fausses cartes certifiées'],
+    ['autre', 'Autre chose'],
+  ];
+  const v14 = (e) => (/friend_block|friend_unblock|friend_blocked|friend_report|schema cache|Could not find/i.test(String(e && e.message))
+    ? new Error('Il reste une étape : lancer le script supabase-v14.sql dans Supabase (SQL Editor).') : e);
+  let blockedRows = null;
+  async function blocked({ fresh = false } = {}) {
+    if (!App.cloud.user) return [];
+    if (blockedRows && !fresh) return blockedRows;
+    try {
+      blockedRows = ((await App.cloud.rpc('friend_blocked')) || []).map(obj)
+        .filter((r) => UUID.test(r.user_id)).map((r) => ({ user_id: r.user_id, pseudo: str(r.pseudo, 40) || 'Dresseur' }));
+    } catch (e) { blockedRows = null; throw v14(e); }
+    return blockedRows;
+  }
+  async function block(uid) {
+    if (!UUID.test(uid)) throw new Error('Dresseur introuvable');
+    let r; try { r = obj(await App.cloud.rpc('friend_block', { p_user: uid })); } catch (e) { throw v14(e); }
+    if (!r.ok) throw new Error(str(r.reason) || 'Blocage impossible');
+    blockedRows = null; await list({ fresh: true }).catch(() => {});
+  }
+  async function unblock(uid) {
+    try { await App.cloud.rpc('friend_unblock', { p_user: uid }); } catch (e) { throw v14(e); }
+    blockedRows = null;
+  }
+  async function report(uid, reason, details, alsoBlock) {
+    if (!UUID.test(uid)) throw new Error('Dresseur introuvable');
+    let r; try { r = obj(await App.cloud.rpc('friend_report', { p_user: uid, p_reason: reason, p_details: str(details, 500), p_block: !!alsoBlock })); } catch (e) { throw v14(e); }
+    if (!r.ok) throw new Error(str(r.reason) || 'Signalement impossible');
+    if (alsoBlock) { blockedRows = null; await list({ fresh: true }).catch(() => {}); }
+  }
+
+  /**
+   * Menu « … » d'un dresseur : signaler et/ou bloquer. Renvoie 'block' | 'report' | null (rien fait).
+   * Utilisé dans « Mes amis » et sur la vitrine d'un autre dresseur.
+   */
+  async function moderate(uid, name) {
+    const { esc } = App.util;
+    const pick = await App.util.ask({ icon: 'shield', title: name || 'Ce dresseur', text: 'Un problème avec ce dresseur ?', choices: [
+      { label: 'Signaler', value: 'report', kind: 'primary' },
+      { label: 'Bloquer', value: 'block', kind: 'danger' },
+    ] });
+    if (pick === 'block') {
+      if (!await App.util.ask({ icon: 'shield', danger: true, title: `Bloquer ${name || 'ce dresseur'} ?`, text: 'Vous ne serez plus amis, il ne pourra plus t’envoyer de demande ni rejoindre tes combats, et il ne verra plus ta vitrine d’ami. Il n’est pas prévenu. Tu pourras le débloquer dans « Mes amis ».', ok: 'Bloquer' })) return null;
+      try { await block(uid); App.util.toast(`${name || 'Dresseur'} est bloqué`); return 'block'; } catch (e) { App.util.toast(e.message, 5000); return null; }
+    }
+    if (pick !== 'report') return null;
+    return new Promise((resolve) => {
+      let done = null;
+      const box = App.util.openModal(`<h2>${App.icons.icon('shield', 20)} Signaler ${esc(name || 'ce dresseur')}</h2>
+        <p class="small muted">Ton signalement est envoyé à l’équipe de CollecDex, qui le vérifiera. ${esc(name || 'Ce dresseur')} ne saura pas qui l’a signalé.</p>
+        <form id="rp-form">
+          <div class="rp-reasons">${REASONS.map(([k, l]) => `<label class="check"><input type="radio" name="rp-r" value="${k}"> ${esc(l)}</label>`).join('')}</div>
+          <p><label>Précisions (facultatif)<br><textarea id="rp-details" maxlength="500" rows="3" style="width:100%" placeholder="Ce qui s’est passé…"></textarea></label></p>
+          <p><label class="check"><input type="checkbox" id="rp-block" checked> Bloquer aussi ce dresseur</label></p>
+          <div class="row"><button class="btn primary" type="submit" id="rp-go" disabled>Envoyer le signalement</button><button class="btn ghost" type="button" data-close>Annuler</button></div>
+          <p class="small" id="rp-msg"></p>
+        </form>`, () => resolve(done));
+      box.addEventListener('change', () => { box.querySelector('#rp-go').disabled = !box.querySelector('input[name=rp-r]:checked'); });
+      box.querySelector('#rp-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const r = box.querySelector('input[name=rp-r]:checked'); if (!r) return;
+        const go = box.querySelector('#rp-go'), m = box.querySelector('#rp-msg'), bl = box.querySelector('#rp-block').checked;
+        go.disabled = true; m.style.color = ''; m.textContent = 'Envoi…';
+        try {
+          await report(uid, r.value, box.querySelector('#rp-details').value, bl);
+          done = bl ? 'block' : 'report';
+          App.util.toast(bl ? 'Merci, signalement envoyé. Ce dresseur est bloqué.' : 'Merci, signalement envoyé.', 4000);
+          App.util.closeModal();
+        } catch (err) { m.style.color = '#ff8a8a'; m.textContent = err.message; go.disabled = false; }
+      });
+    });
+  }
+
   /** Vitrine publique d'un dresseur, par son pseudo (supabase-v9.sql) : lisible par tout le monde, même sans compte */
   async function publicShowcase(pseudo) {
     let d;
@@ -107,12 +187,13 @@ App.friends = (() => {
   App.cloud.on(() => {
     const u = App.cloud.user ? App.cloud.user.id : null;
     if (u === lastUser) return;
-    lastUser = u; rows = null; missing = false;
+    lastUser = u; rows = null; blockedRows = null; missing = false;
     if (u) list({ fresh: true }).catch(() => {}); else notify();
   });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && App.cloud.user) list({ fresh: true }).catch(() => {}); });
 
   return {
+    blocked, block, unblock, report, moderate, REASONS,
     list, request, respond, remove, showcase, publicShowcase, publicLink, inviteLink, pendingIn, saveInvite, takeInvite, clearInvite,
     get missing() { return missing; },
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },

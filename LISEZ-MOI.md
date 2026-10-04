@@ -207,3 +207,10 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 - La **politique de confidentialité** est sur `confidentialite.html` (lien dans Paramètres › Données › À propos, et sous « Créer un compte »). C'est l'adresse à donner à Google Play.
 - **Supprimer son compte** : Paramètres › Mon compte › « Supprimer mon compte… », écrire SUPPRIMER, confirmer. Tout est effacé du serveur (cartes, photos, vitrine, pseudo, capsules, amis, notifications, e-mail). La page publique `supprimer-compte.html` explique la marche à suivre : c'est l'adresse « suppression de compte » à donner à Google Play.
 - **À faire une fois** : lancer `supabase-v13.sql` dans Supabase (SQL Editor). Sans lui, le bouton affiche « La suppression n'est pas encore installée sur le serveur » et n'efface rien.
+
+## Bloquer ou signaler un dresseur
+- Dans **Mes amis** : sous chaque ami, « Signaler / bloquer » ; sur une demande d'ami reçue, le bouton « ⋯ ». Sur la vitrine d'un autre dresseur : « ⚑ Signaler ».
+- **Bloquer** : vous n'êtes plus amis, il ne peut plus t'envoyer de demande (elle est ignorée sans qu'il le sache) ni rejoindre tes combats en ligne. La liste « Dresseurs bloqués », en bas de Mes amis, permet de débloquer.
+- **Signaler** : choisir une raison, ajouter des précisions si besoin (« Bloquer aussi » est coché d'office). Le dresseur ne sait pas qui l'a signalé.
+- **Lire les signalements (toi)** : Supabase › *Table Editor* › `reports_a_traiter` (les plus récents en haut, avec le pseudo de chacun et le nombre de signalements du dresseur). Pour noter qu'un signalement est traité : table `reports`, colonne `status` → `traite` ou `rejete`. Pour bannir quelqu'un : *Authentication* › *Users* › son compte › *Delete user* (tout son contenu est effacé).
+- **À faire une fois** : lancer `supabase-v14.sql` dans Supabase (SQL Editor), après `supabase-v13.sql`. Sans lui, les boutons affichent « Il reste une étape ».
