@@ -169,5 +169,13 @@ App.duel = (() => {
   /** Pile ou face : l'hôte commence-t-il ? (tirage à part, pour ne pas décaler celui des pièces des attaques) */
   const hostFirst = (seed) => rng((seed ^ 0x5bd1e995) >>> 0)() < 0.5;
 
-  return { CODE, normCode, rng, hostFirst, wireFighter, wireBag, cleanTeam, create, peek, join, state, cancel, waitJoin, link };
+  /** Code trouvé dans un texte collé (message entier « … Code du salon : K7P3QZ » + lien) ; sinon le texte nettoyé */
+  const pickCode = (txt) => {
+    const s = String(txt || '').toUpperCase();
+    if (s.replace(/[^A-Z0-9]/g, '').length <= 6) return normCode(s);
+    const m = s.match(/SALON=([A-Z0-9]{6})/) || s.match(/(?:^|[^A-Z0-9])([A-HJ-NP-Z2-9]{6})(?:[^A-Z0-9]|$)/);
+    return m ? m[1] : normCode(s);
+  };
+
+  return { CODE, normCode, pickCode, rng, hostFirst, wireFighter, wireBag, cleanTeam, create, peek, join, state, cancel, waitJoin, link };
 })();

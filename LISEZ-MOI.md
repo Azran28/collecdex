@@ -85,8 +85,8 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 ## Combat en ligne
 - Page **Combat** › encadré **« Combat en ligne »**. Il faut juste être connecté (avoir un compte CollecDex) : pas besoin d'être amis.
-- **Créer un salon** : choisis ton équipe, un **code de 6 caractères** s’affiche (ex. K7P3QZ). Envoie-le à qui tu veux avec le bouton « Envoyer le code » (le lien ouvre directement le salon) et attends qu’il arrive : le combat démarre tout seul.
-- **Rejoindre avec un code** : tape le code qu’on t’a donné, choisis ton équipe, c’est parti.
+- **Créer un salon** : choisis ton équipe, un **code de 6 caractères** s’affiche (ex. K7P3QZ). **Touche le code** (ou « Copier le code ») pour le copier, puis colle-le dans un message. Ou envoie-le à qui tu veux avec le bouton « Envoyer le code » (le lien ouvre directement le salon) et attends qu’il arrive : le combat démarre tout seul.
+- **Rejoindre avec un code** : tape ou colle le code qu’on t’a donné (tu peux même coller le message entier : l’appli y retrouve le code), choisis ton équipe, c’est parti.
 - **Pile ou face** au début : une pièce tourne et montre qui commence (le même résultat sur les deux téléphones, une chance sur deux).
 - Le mode (Basique ou Avancé avec le sac) est celui choisi par celui qui crée le salon.
 - Vous voyez exactement le même combat, chacun sur son téléphone. Pendant le tour de l’autre : « … réfléchit ». S’il ne répond plus depuis 2 minutes, tu peux arrêter le combat (ni victoire ni défaite). « Abandonner » = défaite, et victoire pour l’autre.

@@ -991,12 +991,28 @@
       body = App.util.openModal(`<div class="bt-pick bt-room">
           <h2>${App.icons.icon('users', 18)} Ton salon</h2>
           <p class="small muted" style="margin:2px 0 10px">Mode ${esc(modeName(m.mode))} · équipe « ${esc(m.teams[idx].name)} »</p>
-          <div class="bt-code" aria-label="Code du salon">${code.split('').map((c) => `<span>${esc(c)}</span>`).join('')}</div>
+          <button type="button" class="bt-code" id="bt-room-code" title="Copier le code" aria-label="Code du salon : toucher pour le copier">${code.split("").map((c) => `<span>${esc(c)}</span>`).join("")}</button>
+          <div class="bt-code-hint small muted" id="bt-code-hint">Touche le code pour le copier</div>
           <p class="small" style="text-align:center;margin:10px 0">Donne ce code à ton adversaire : page <b>Combat</b> › « Rejoindre avec un code ». Il lui faut juste un compte CollecDex.</p>
-          <div class="row" style="justify-content:center;gap:8px"><button class="btn primary" id="bt-room-share">${App.icons.icon('share', 15)} ${navigator.share ? 'Envoyer le code' : 'Copier le lien'}</button></div>
+          <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><button class="btn" id="bt-room-copy">${App.icons.icon("layers", 15)} Copier le code</button><button class="btn primary" id="bt-room-share">${App.icons.icon("share", 15)} ${navigator.share ? "Envoyer" : "Copier le lien"}</button></div>
           <div class="bt-wait" style="justify-content:center;margin-top:14px"><span class="bt-wait-dots"><i></i><i></i><i></i></span> En attente de ton adversaire…</div>
           <div class="row" style="justify-content:center;margin-top:8px"><button class="btn ghost sm" id="bt-room-cancel">Fermer le salon</button></div>
         </div>`, () => { if (!done) { D.cancel(code); end(null); } });
+      // copier le code seul (toucher le code ou le bouton) : presse-papiers, sinon ancienne méthode (vieux navigateurs, page non sécurisée)
+      const copyCode = async () => {
+        let ok = false;
+        try { await navigator.clipboard.writeText(code); ok = true; } catch (e) {
+          const t = document.createElement('textarea'); t.value = code; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+          document.body.appendChild(t); t.select(); t.setSelectionRange(0, code.length);
+          try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+          t.remove();
+        }
+        const hint = body.querySelector('#bt-code-hint'), box = body.querySelector('#bt-room-code');
+        if (hint) hint.innerHTML = ok ? `<b style="color:var(--ok, #3ddc97)">${App.icons.icon('check', 13)} Code copié : colle-le dans un message</b>` : 'Copie impossible : recopie le code à la main';
+        if (ok && box) { box.classList.remove('copied'); void box.offsetWidth; box.classList.add('copied'); App.sfx.click(); }
+      };
+      body.querySelector('#bt-room-code').addEventListener('click', copyCode);
+      body.querySelector('#bt-room-copy').addEventListener('click', copyCode);
       body.querySelector('#bt-room-share').addEventListener('click', async () => {
         const text = `Viens m’affronter sur CollecDex ! Code du salon : ${code}`;
         if (navigator.share) { navigator.share({ title: 'Combat CollecDex', text, url: link }).catch(() => {}); return; }
@@ -1020,13 +1036,13 @@
       const body = App.util.openModal(`<div class="bt-pick bt-room">
           <h2>${App.icons.icon('users', 18)} Rejoindre un salon</h2>
           <p class="small muted" style="margin:2px 0 10px">Entre le code à 6 caractères que ton adversaire t’a donné.</p>
-          <input type="text" id="bt-code-in" class="bt-code-in" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC234" value="${esc(D.normCode(preset))}">
+          <input type="text" id="bt-code-in" class="bt-code-in" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC234" value="${esc(D.pickCode(preset))}">
           <div class="small" id="bt-code-msg" style="min-height:1.3em;margin-top:6px;text-align:center"></div>
           <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="bt-code-ok">Rejoindre</button></div>
         </div>`, () => end(null));
       const inp = body.querySelector('#bt-code-in'), msg = body.querySelector('#bt-code-msg');
       setTimeout(() => inp.focus(), 50);
-      inp.addEventListener('input', () => { const v = D.normCode(inp.value); if (v !== inp.value) inp.value = v; msg.textContent = ''; });
+      inp.addEventListener('input', () => { const v = D.pickCode(inp.value); if (v !== inp.value) inp.value = v; msg.textContent = ''; });
       const ok = async () => {
         const v = D.normCode(inp.value);
         if (!D.CODE.test(v)) { msg.innerHTML = '<span style="color:#ff8a8a">Le code fait 6 caractères (lettres et chiffres)</span>'; return; }
