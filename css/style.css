@@ -2337,3 +2337,33 @@ html.ob-lock, html.ob-lock body { overflow: hidden; }
 .v-pub-cta { margin-top: 18px; text-align: center; }
 .v-pub-miss { text-align: center; }
 .v-certs .v-wish-grid .vcard img { filter: none; }
+
+/* =====================================================================
+   COMBAT CONTRE UN AMI (v2.60) : panneau « Contre un ami », salon avec code, attente du coup de l'ami
+   ===================================================================== */
+.bt-duel { margin: 18px 0 6px; padding: 14px 16px; border-radius: 16px; border: 1px solid rgba(52,213,255,.35);
+  background: linear-gradient(135deg, rgba(52,213,255,.10), rgba(124,92,255,.10)); }
+.bt-duel-h { display: flex; gap: 12px; align-items: center; }
+.bt-duel-h > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bt-duel-h b { font-size: 1.05rem; }
+.bt-duel-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: rgba(52,213,255,.18); color: #34d5ff; }
+.bt-duel-b { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.bt-duel-b .btn { flex: 1 1 160px; justify-content: center; }
+.bt-room h2 { display: flex; align-items: center; gap: 8px; }
+.bt-code { display: flex; justify-content: center; gap: 6px; margin: 6px 0; user-select: all; }
+.bt-code span { width: 42px; height: 54px; display: grid; place-items: center; border-radius: 10px; font: 800 1.7rem/1 ui-monospace, Consolas, monospace;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(52,213,255,.45); color: #fff; }
+.bt-code-in { width: 100%; text-align: center; font: 800 1.6rem/1.2 ui-monospace, Consolas, monospace; letter-spacing: .35em; text-transform: uppercase; padding: 10px 8px; }
+.bt-wait { display: flex; align-items: center; gap: 10px; padding: 12px; color: var(--muted, #aab); font-weight: 600; }
+.bt-actions .bt-wait { justify-content: center; }
+.bt-wait-dots { display: inline-flex; gap: 4px; }
+.bt-wait-dots i { width: 7px; height: 7px; border-radius: 50%; background: #34d5ff; animation: btWait 1.2s infinite ease-in-out; }
+.bt-wait-dots i:nth-child(2) { animation-delay: .15s; } .bt-wait-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes btWait { 0%, 80%, 100% { transform: scale(.5); } 40% { transform: scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .bt-wait-dots i { animation: none; } }
+.bt-wait-late { text-align: center; padding: 0 10px 10px; }
+.bt-net { color: #ffb347; font-weight: 700; margin-left: 8px; }
+@media (max-width: 760px) {
+  .bt-code span { width: 40px; height: 50px; font-size: 1.5rem; }
+  .bt-duel-b .btn { flex: 1 1 100%; }
+}

@@ -146,5 +146,12 @@ App.battleCards = (() => {
   const aiBag = (level, type) => [...AI_BAGS[level - 1], energyFor(type)];
   const loanBag = (type) => ['base1-94', 'base1-84', 'base1-95', energyFor(type)];
 
-  return { effectOf, bagCard, playable, aiCard, aiBag, loanBag, norm };
+  /** Effet reconstruit à partir de sa clé (cartes reçues d'un ami : on ne garde pas ses textes) */
+  function fxOf(key, n, eType) {
+    if (typeof key !== 'string' || !Object.prototype.hasOwnProperty.call(LABEL, key)) return null;
+    const [short, desc] = LABEL[key](n);
+    return { key, n, short, desc, ...(eType ? { eType } : {}) };
+  }
+
+  return { effectOf, bagCard, playable, aiCard, aiBag, loanBag, norm, fxOf };
 })();

@@ -14,7 +14,7 @@
     if (m.mode !== 'adv') m.mode = 'classic';
     // victoires / défaites par mode (les anciennes comptent pour le mode basique)
     if (!m.stats) m.stats = { classic: { wins: m.wins || 0, losses: m.losses || 0 }, adv: { wins: 0, losses: 0 } };
-    for (const k of ['classic', 'adv']) m.stats[k] = Object.assign({ wins: 0, losses: 0 }, m.stats[k] || {});
+    for (const k of ['classic', 'adv', 'online']) m.stats[k] = Object.assign({ wins: 0, losses: 0 }, m.stats[k] || {});
     let teams = Array.isArray(m.teams) ? m.teams : [];
     if (!teams.length && m.team && m.team.length) teams = [{ name: 'Équipe 1', keys: [...m.team] }];
     while (teams.length < TEAMS) teams.push({ name: `Équipe ${teams.length + 1}`, keys: [] });
@@ -64,11 +64,12 @@
     const card = await ad().getCard(it.id);
     if (!/pok/i.test(card.category || 'Pokémon') || !card.hp) return null;
     const img = await App.col.displayImage(it, ad(), 'high');
-    return B().fighter(card, { img: img.src, mine: true });
+    return B().fighter(card, { img: img.src, imgOff: card.image ? `${card.image}/high.webp` : '', mine: true });
   }
   async function fromId(id, extra = {}) {
     const card = await ad().getCard(id);
-    return B().fighter(card, { img: card.image ? `${card.image}/high.webp` : '', ...extra });
+    const off = card.image ? `${card.image}/high.webp` : '';
+    return B().fighter(card, { img: off, imgOff: off, ...extra });
   }
   const pick = (arr, n) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); };
 
@@ -80,18 +81,25 @@
   const hpCls = (r) => (r < 0.3 ? 'low' : r < 0.6 ? 'mid' : '');
 
   // ---------- Écran de combat ----------
+  /**
+   * Combat. Contre l'ordinateur (level 1…5), ou contre un ami (opts.online = { link, rand, foeName, first: 'P'|'C', mine, foe, bagP, bagC }) :
+   * les décisions de l'adversaire arrivent alors par link.next() au lieu de l'IA, et les miennes partent par link.send().
+   */
   async function battle(level, teamItemsList, teamName, opts = {}) {
-    const ADV = !!opts.adv, BC = App.battleCards;
+    const ADV = !!opts.adv, BC = App.battleCards, ON = opts.online || null;
     const ov = document.createElement('div');
-    ov.className = 'bt-ov' + (ADV ? ' adv' : '');
+    ov.className = 'bt-ov' + (ADV ? ' adv' : '') + (ON ? ' online' : '');
     ov.innerHTML = `<div class="bt-load">${App.ui.loading('Préparation du combat…')}</div>`;
     document.body.appendChild(ov); document.body.classList.add('cap-lock');
-    const close = () => { ov.remove(); document.body.classList.remove('cap-lock'); };
-    const L = B().LEVELS[level - 1];
+    const close = () => { ov.remove(); document.body.classList.remove('cap-lock'); if (ON) ON.link.close(); };
+    const L = ON ? { n: 0, name: ON.foeName, color: '#34d5ff' } : B().LEVELS[level - 1];
+    const rnd = ON ? ON.rand : Math.random;
+    const foeWho = ON ? ON.foeName : 'L’ordinateur';
 
     // équipes
     let mine = [], foe = [];
-    try {
+    if (ON) { mine = ON.mine; foe = ON.foe; }
+    else try {
       mine = (await Promise.all(teamItemsList.map((it) => fromItem(it).catch(() => null)))).filter(Boolean);
       const loan = pick(B().LEVELS[0].pool, 6);
       while (mine.length < 3 && loan.length) { const f = await fromId(loan.shift(), { loan: true }).catch(() => null); if (f) mine.push(f); }
@@ -103,7 +111,8 @@
 
     const P = { team: mine, active: 0, bag: [] }, C = { team: foe, active: 0, bag: [] };
     let over = false, turn = 0, quit = false;
-    if (ADV) {
+    if (ON) { if (ADV) { P.bag = ON.bagP || []; C.bag = ON.bagC || []; } }
+    else if (ADV) {
       // sacs : le tien (ou un sac de prêt) et celui de l'ordinateur
       const load = (id, extra) => ad().getCard(id).then((c) => BC.bagCard(c, extra)).catch(() => null);
       P.bag = (await Promise.all((opts.bag || []).map(async (it) => {
@@ -114,7 +123,7 @@
     }
 
     ov.innerHTML = `
-      <div class="bt-top"><span class="bt-lvl" style="--lc:${L.color}">Niveau ${L.n} · ${esc(L.name)}</span>${teamName ? `<span class="bt-tname muted small">${esc(teamName)}</span>` : ''}<span class="spacer"></span>${ADV ? '<span class="bt-foebag small muted"></span>' : ''}<button class="btn sm ghost" data-quit>Abandonner</button></div>
+      <div class="bt-top"><span class="bt-lvl" style="--lc:${L.color}">${ON ? `${App.icons.icon('users', 13)} Contre ${esc(L.name)}` : `Niveau ${L.n} · ${esc(L.name)}`}</span>${ON ? '<span class="bt-net small" hidden>Connexion…</span>' : ''}${teamName ? `<span class="bt-tname muted small">${esc(teamName)}</span>` : ''}<span class="spacer"></span>${ADV ? '<span class="bt-foebag small muted"></span>' : ''}<button class="btn sm ghost" data-quit>Abandonner</button></div>
       <div class="bt-arena">
         <div class="bt-side foe"><div class="bt-bench" data-side="C"></div><div class="bt-active" data-side="C"></div></div>
         <div class="bt-log" aria-live="polite"></div>
@@ -313,7 +322,7 @@
     /** Une attaque, avec son animation */
     async function doAttack(side, other, i) {
       const a = B().active(side), d = B().active(other), att = a.attacks[i];
-      const r = B().damage(att, a, d);
+      const r = B().damage(att, a, d, rnd);
       if (ADV && r.dmg > 0) {
         r.bonus = (side.power || 0) + (side.stadium && side.stadium.turns > 0 ? side.stadium.n : 0);
         r.shield = (d.shield || 0) + (d.armor || 0);
@@ -460,11 +469,13 @@
         { transform: 'translate(-50%, -50%) scale(.85)', opacity: 0 }], { duration: 1500, easing: 'ease-out', fill: 'forwards' }).finished.catch(() => {});
       d.remove();
     }
-    async function playCard(side, other, i) {
-      const c = side.bag[i]; if (!c || c.used) return;
+    /** joue la carte i du sac ; renvoie le Pokémon choisi pour « Échange » (pour l'envoyer à l'ami) */
+    async function playCard(side, other, i, remoteTo) {
+      const c = side.bag[i]; if (!c || c.used) return null;
       c.used = true; drawFoeBag();
       const isP = side === P, me = B().active(side), him = B().active(other), fx2 = c.fx;
-      log(`${isP ? 'Tu joues' : 'L’ordinateur joue'} <b>${esc(c.name)}</b>…`);
+      let chosen = null;
+      log(`${isP ? 'Tu joues' : `${esc(foeWho)} joue`} <b>${esc(c.name)}</b>…`);
       await showPlayed(c, isP);
       let msg = '';
       switch (fx2.key) {
@@ -479,7 +490,9 @@
         case 'power': side.power = fx2.n; aura(me); msg = `la prochaine attaque de ${esc(me.name)} fait +${fx2.n} dégâts`; break;
         case 'shield': me.shield = fx2.n; ring(figEl(me), '#5fb4ff', 1.1); msg = `${esc(me.name)} subira ${fx2.n} dégâts de moins`; break;
         case 'switch': {
-          const to = isP ? await playerReplace('Choisis le Pokémon à envoyer (touche-le sur ton banc).', true) : B().aiReplace(side, other, L.n);
+          const to = isP ? await playerReplace('Choisis le Pokémon à envoyer (touche-le sur ton banc).', true)
+            : ON ? (B().bench(side).some((x) => x.i === remoteTo) ? remoteTo : null) : B().aiReplace(side, other, L.n);
+          chosen = to;
           if (to != null && to !== side.active) { await switchTo(side, to); msg = `${esc(B().active(side).name)} entre en jeu`; }
           break;
         }
@@ -506,8 +519,9 @@
         default: break;
       }
       refreshTags(side); refreshTags(other); drawBench(side);
-      log(`${isP ? 'Tu joues' : 'L’ordinateur joue'} <b>${esc(c.name)}</b> : ${msg || 'sans effet'}.`);
+      log(`${isP ? 'Tu joues' : `${esc(foeWho)} joue`} <b>${esc(c.name)}</b> : ${msg || 'sans effet'}.`);
       await sleep(650);
+      return chosen;
     }
     function startTurn(side) {
       if (!ADV) return;
@@ -525,22 +539,56 @@
 
     let resolveEnd;
     const ended = new Promise((r) => { resolveEnd = r; });
-    function finish(win) {
+    function finish(win, why = '') {
+      if (over) return;
       over = true;
       $('.bt-actions').innerHTML = '';
+      if (ON) { ON.link.send({ kind: quit ? 'quit' : 'over', win: !!win }); ON.link.flush(); }
       const b = document.createElement('div');
       b.className = 'bt-end ' + (win ? 'win' : 'lose');
+      const txt = ON
+        ? (win ? (why === 'quit' ? `${esc(L.name)} a abandonné : victoire !` : `Tu as battu ${esc(L.name)} en ${turn} tour${turn > 1 ? 's' : ''} !`)
+          : quit ? 'Tu as abandonné.' : `${esc(L.name)} a gagné cette fois. Demande-lui une revanche !`)
+        : (win ? `Tu as battu le niveau ${L.n} · ${esc(L.name)} en ${turn} tour${turn > 1 ? 's' : ''}.${L.n < B().LEVELS.length ? ' Le niveau suivant est débloqué !' : ' Tu es une vraie Légende !'}` : quit ? 'Tu as abandonné. Retente ta chance !' : 'L’ordinateur a gagné cette fois. Change d’équipe ou charge tes attaques plus tôt !');
       b.innerHTML = `<div class="bt-end-box"><div class="bt-end-t">${win ? 'Victoire !' : 'Défaite…'}</div>
-        <p>${win ? `Tu as battu le niveau ${L.n} · ${esc(L.name)} en ${turn} tour${turn > 1 ? 's' : ''}.${L.n < B().LEVELS.length ? ' Le niveau suivant est débloqué !' : ' Tu es une vraie Légende !'}` : quit ? 'Tu as abandonné. Retente ta chance !' : 'L’ordinateur a gagné cette fois. Change d’équipe ou charge tes attaques plus tôt !'}</p>
-        <div class="row" style="justify-content:center;gap:8px"><button class="btn primary" data-again>Rejouer</button><button class="btn ghost" data-back>Retour</button></div></div>`;
+        <p>${txt}</p>
+        <div class="row" style="justify-content:center;gap:8px">${ON ? '' : '<button class="btn primary" data-again>Rejouer</button>'}<button class="btn ${ON ? 'primary' : 'ghost'}" data-back>Retour</button></div></div>`;
       ov.appendChild(b);
-      if (win) { App.sfx.open(L.n >= 3 ? 5 : 3); confetti(); } else App.sfx.lose();
+      if (win) { App.sfx.open(L.n >= 3 || ON ? 5 : 3); confetti(); } else App.sfx.lose();
       b.addEventListener('click', (e) => {
         if (e.target.closest('[data-again]')) { close(); resolveEnd({ win, again: true }); }
         if (e.target.closest('[data-back]')) { close(); resolveEnd({ win, again: false }); }
       });
     }
-    ov.querySelector('[data-quit]').addEventListener('click', async () => { if (!over && await App.util.ask({ icon: 'flame', danger: true, title: 'Abandonner le combat ?', text: 'Ça compte comme une défaite.', ok: 'Abandonner', cancel: 'Continuer' }) && !over) { quit = true; finish(false); } });
+    ov.querySelector('[data-quit]').addEventListener('click', async () => {
+      if (over) return;
+      if (await App.util.ask({ icon: 'flame', danger: true, title: 'Abandonner le combat ?', text: ON ? `Ça compte comme une défaite, et ${L.name} gagne.` : 'Ça compte comme une défaite.', ok: 'Abandonner', cancel: 'Continuer' }) && !over) { quit = true; finish(false); }
+    });
+
+    // ---------- contre un ami : attendre son coup ----------
+    let stopWait = null;
+    if (ON) {
+      ON.link.onQuit = () => { if (!over) finish(true, 'quit'); };
+      const net = $('.bt-net');
+      ON.link.onStatus = (s) => { if (net) net.hidden = s !== 'net'; };
+    }
+    /** prochain coup de l'ami, avec « En attente de … » à l'écran (et, après 2 min, de quoi arrêter) */
+    async function remote() {
+      const box = $('.bt-actions');
+      box.innerHTML = `<div class="bt-wait"><span class="bt-wait-dots"><i></i><i></i><i></i></span> ${esc(L.name)} réfléchit…</div>`;
+      const t = setInterval(() => {
+        if (over || !ON.link.waiting || ON.link.idle < 120000 || box.querySelector('[data-stop]')) return;
+        box.insertAdjacentHTML('beforeend', `<div class="bt-wait-late small muted">${esc(L.name)} ne répond plus ? <button class="btn sm ghost" data-stop>Arrêter le combat</button> <span>(ni victoire ni défaite)</span></div>`);
+        box.querySelector('[data-stop]').addEventListener('click', () => { over = true; close(); resolveEnd({ win: null, again: false }); });
+      }, 5000);
+      stopWait = () => clearInterval(t);
+      const mv = await ON.link.next();
+      clearInterval(t);
+      if (!over) box.innerHTML = '';
+      return mv && typeof mv === 'object' ? mv : {};
+    }
+    const send = (mv) => { if (ON && !over) ON.link.send(mv); };
+    const validIdx = (n, ok) => (Number.isInteger(n) && ok(n) ? n : null);
 
     drawAll(); drawFoeBag();
     log(`Le combat commence ! <b>${esc(B().active(P).name)}</b> contre <b>${esc(B().active(C).name)}</b>.`);
@@ -548,52 +596,91 @@
     await sleep(900);
 
     // ---------- les tours ----------
-    (async () => {
-      while (!over) {
-        turn++;
-        await banner('À toi !', 'me');
-        if (over) break;
-        startTurn(P);
-        gain(P);
-        let act, used = false;
-        for (;;) {
-          act = await playerChoice(used);
-          if (over || act.type !== 'card') break;
-          await playCard(P, C, act.i); used = true;
-          if (over) break;
-        }
-        if (over) break;
-        if (act.type === 'attack') await doAttack(P, C, act.i);
-        else if (act.type === 'charge') { gain(P); aura(B().active(P)); App.sfx.charge(); log(`<b>${esc(B().active(P).name)}</b> se concentre : +1 énergie.`); await sleep(750); }
-        else { await switchTo(P, act.to); log(`Tu envoies <b>${esc(B().active(P).name)}</b> !`); await sleep(750); }
-        if (over) break;
-        await endTurn(P);
-        if (B().active(C).ko) {
-          if (!B().alive(C).length) { await sleep(300); finish(true); break; }
-          C.active = B().aiReplace(C, P, L.n); drawAll(); log(`L’ordinateur envoie <b>${esc(B().active(C).name)}</b>.`); await sleep(950);
-        }
-        if (over) break;
-        await banner('Tour de l’ordinateur', 'foe');
-        if (over) break;
-        startTurn(C);
-        gain(C);
-        await sleep(450);
-        if (ADV) { const ci = BC.aiCard(C, P, L.n); if (ci >= 0) { await playCard(C, P, ci); await sleep(250); } }
-        if (over) break;
-        const mv = B().aiMove(C, P, L.n);
-        if (over) break;
-        if (mv.type === 'attack') await doAttack(C, P, mv.i);
-        else if (mv.type === 'charge') { gain(C); aura(B().active(C)); App.sfx.charge(); log(`<b>${esc(B().active(C).name)}</b> se concentre : +1 énergie.`); await sleep(800); }
-        else { await switchTo(C, mv.to); log(`L’ordinateur rappelle son Pokémon et envoie <b>${esc(B().active(C).name)}</b>.`); await sleep(950); }
-        if (over) break;
-        await endTurn(C);
-        if (B().active(P).ko) {
-          if (!B().alive(P).length) { await sleep(300); finish(false); break; }
-          drawAll();
-          const i = await playerReplace(); P.active = i; drawAll(); log(`Tu envoies <b>${esc(B().active(P).name)}</b> !`); await sleep(700);
-        }
+    /** mon tour ; renvoie faux si le combat est fini */
+    async function turnP() {
+      turn++;
+      await banner('À toi !', 'me');
+      if (over) return false;
+      startTurn(P);
+      gain(P);
+      let act, used = false;
+      for (;;) {
+        act = await playerChoice(used);
+        if (over || act.type !== 'card') break;
+        const c = P.bag[act.i], i = act.i;
+        if (c && c.fx.key !== 'switch') send({ kind: 'card', i });
+        const to = await playCard(P, C, i); used = true;
+        if (c && c.fx.key === 'switch') send({ kind: 'card', i, to });
+        if (over) return false;
       }
-    })();
+      if (over) return false;
+      send({ kind: 'act', type: act.type, i: act.i, to: act.to });
+      if (act.type === 'attack') await doAttack(P, C, act.i);
+      else if (act.type === 'charge') { gain(P); aura(B().active(P)); App.sfx.charge(); log(`<b>${esc(B().active(P).name)}</b> se concentre : +1 énergie.`); await sleep(750); }
+      else { await switchTo(P, act.to); log(`Tu envoies <b>${esc(B().active(P).name)}</b> !`); await sleep(750); }
+      if (over) return false;
+      await endTurn(P);
+      if (B().active(C).ko) {
+        if (!B().alive(C).length) { await sleep(300); finish(true); return false; }
+        if (ON) {
+          const mv = await remote(); if (over) return false;
+          C.active = validIdx(mv.to, (n) => C.team[n] && !C.team[n].ko) ?? B().bench(C)[0].i;
+        } else C.active = B().aiReplace(C, P, L.n);
+        drawAll(); log(`${esc(foeWho)} envoie <b>${esc(B().active(C).name)}</b>.`); await sleep(950);
+      }
+      return !over;
+    }
+    /** tour de l'adversaire (ordinateur ou ami) */
+    async function turnC() {
+      await banner(ON ? `Tour de ${L.name}` : 'Tour de l’ordinateur', 'foe');
+      if (over) return false;
+      startTurn(C);
+      gain(C);
+      await sleep(450);
+      let mv;
+      if (ON) {
+        // l'ami peut d'abord jouer une carte de son sac, puis son action
+        mv = await remote();
+        if (over) return false;
+        if (mv.kind === 'card') {
+          const i = validIdx(mv.i, (n) => C.bag[n] && BC.playable(C.bag[n], C, P));
+          if (ADV && i != null) { await playCard(C, P, i, mv.to); await sleep(250); }
+          if (over) return false;
+          mv = await remote();
+          if (over) return false;
+        }
+        const a = B().active(C);
+        if (mv.type === 'attack' && validIdx(mv.i, (n) => a.attacks[n] && a.attacks[n].cost <= a.energy) != null) mv = { type: 'attack', i: mv.i };
+        else if (mv.type === 'switch' && validIdx(mv.to, (n) => B().bench(C).some((x) => x.i === n)) != null) mv = { type: 'switch', to: mv.to };
+        else mv = { type: 'charge' };
+      } else {
+        if (ADV) { const ci = BC.aiCard(C, P, L.n); if (ci >= 0) { await playCard(C, P, ci); await sleep(250); } }
+        if (over) return false;
+        mv = B().aiMove(C, P, L.n);
+      }
+      if (over) return false;
+      if (mv.type === 'attack') await doAttack(C, P, mv.i);
+      else if (mv.type === 'charge') { gain(C); aura(B().active(C)); App.sfx.charge(); log(`<b>${esc(B().active(C).name)}</b> se concentre : +1 énergie.`); await sleep(800); }
+      else { await switchTo(C, mv.to); log(`${esc(foeWho)} rappelle son Pokémon et envoie <b>${esc(B().active(C).name)}</b>.`); await sleep(950); }
+      if (over) return false;
+      await endTurn(C);
+      if (B().active(P).ko) {
+        if (!B().alive(P).length) { await sleep(300); finish(false); return false; }
+        drawAll();
+        const i = await playerReplace(); if (over) return false;
+        send({ kind: 'replace', to: i });
+        P.active = i; drawAll(); log(`Tu envoies <b>${esc(B().active(P).name)}</b> !`); await sleep(700);
+      }
+      return !over;
+    }
+    (async () => {
+      const foeFirst = ON && ON.first === 'C';
+      while (!over) {
+        if (foeFirst) { if (!await turnC() || !await turnP()) break; }
+        else if (!await turnP() || !await turnC()) break;
+      }
+      if (stopWait) stopWait();
+    })().catch((e) => { console.error(e); if (!over) { App.util.toast('Erreur pendant le combat : ' + e.message, 4000); } });
 
     return ended;
   }
@@ -830,6 +917,119 @@
     });
   }
 
+  // ---------- Contre un ami (salon avec code, js/duel.js) ----------
+  /** Équipe prête à envoyer : mes Pokémon (complétés par des Pokémon de prêt) et mon sac en mode Avancé */
+  async function onlineTeam(t, adv) {
+    const fs = (await Promise.all(teamItems(t.keys).map((it) => fromItem(it).catch(() => null)))).filter(Boolean);
+    const loan = pick(B().LEVELS[0].pool, 6);
+    while (fs.length < 3 && loan.length) { const f = await fromId(loan.shift(), { loan: true }).catch(() => null); if (f) fs.push(f); }
+    if (!fs.length) throw new Error('cartes introuvables (connexion ?)');
+    let bag = [];
+    if (adv) {
+      const BC = App.battleCards;
+      bag = (await Promise.all(bagItems(t.bag).map((it) => ad().getCard(it.id).then((c) => BC.bagCard(c)).catch(() => null)))).filter(Boolean);
+      if (!bag.length) bag = (await Promise.all(BC.loanBag(fs[0].type).map((id) => ad().getCard(id).then((c) => BC.bagCard(c, { loan: true })).catch(() => null)))).filter(Boolean);
+    }
+    return { imgs: fs.map((f) => f.img), wire: { name: t.name, fighters: fs.map(App.duel.wireFighter), bag: bag.map(App.duel.wireBag) } };
+  }
+  /** Lance le combat à partir de l'état du salon (les deux équipes passent par le même filtre : mêmes chiffres des deux côtés) */
+  async function startDuel(s, imgs) {
+    const D = App.duel;
+    const mine = s.myTeam.fighters, foe = s.foeTeam.fighters;
+    if (!mine.length || !foe.length) throw new Error('équipe vide');
+    mine.forEach((f, i) => { if (imgs[i]) f.img = imgs[i]; });
+    const link = D.link(s.code);
+    return battle(0, [], s.myTeam.name, {
+      adv: s.mode === 'adv',
+      online: { link, rand: D.rng(s.seed), foeName: s.foeName, first: s.meHost ? 'P' : 'C', mine, foe, bagP: s.myTeam.bag, bagC: s.foeTeam.bag },
+    });
+  }
+  /** Choix de l'équipe pour un combat entre amis (renvoie l'index, ou null) */
+  async function duelTeam(m) {
+    const filled = m.teams.filter((t) => teamItems(t.keys).length).length;
+    return filled >= 2 ? chooseTeam(m) : m.teamIdx;
+  }
+  const modeName = (mode) => (mode === 'adv' ? 'Avancé (avec sac)' : 'Basique');
+
+  /** Créer un salon : montre le code, attend l'ami, puis lance le combat */
+  async function duelCreate(m) {
+    const idx = await duelTeam(m); if (idx == null) return null;
+    const adv = m.mode === 'adv', D = App.duel;
+    let body = App.util.openModal(App.ui.loading('Préparation du salon…'));
+    let team, code;
+    try { team = await onlineTeam(m.teams[idx], adv); code = await D.create(m.mode, team.wire); }
+    catch (e) { App.util.closeModal(); App.util.toast('Salon impossible : ' + e.message, 4500); return null; }
+    const link = `${location.origin}${location.pathname}#/combat?salon=${code}`;
+    return new Promise((resolve) => {
+      let done = false, stop = null;
+      const end = (v) => { if (done) return; done = true; if (stop) stop(); resolve(v); };
+      body = App.util.openModal(`<div class="bt-pick bt-room">
+          <h2>${App.icons.icon('users', 18)} Ton salon</h2>
+          <p class="small muted" style="margin:2px 0 10px">Mode ${esc(modeName(m.mode))} · équipe « ${esc(m.teams[idx].name)} »</p>
+          <div class="bt-code" aria-label="Code du salon">${code.split('').map((c) => `<span>${esc(c)}</span>`).join('')}</div>
+          <p class="small" style="text-align:center;margin:10px 0">Donne ce code à ton ami : dans <b>Combat › Contre un ami › Rejoindre</b>.</p>
+          <div class="row" style="justify-content:center;gap:8px"><button class="btn primary" id="bt-room-share">${App.icons.icon('share', 15)} ${navigator.share ? 'Envoyer le code' : 'Copier le lien'}</button></div>
+          <div class="bt-wait" style="justify-content:center;margin-top:14px"><span class="bt-wait-dots"><i></i><i></i><i></i></span> En attente de ton ami…</div>
+          <div class="row" style="justify-content:center;margin-top:8px"><button class="btn ghost sm" id="bt-room-cancel">Fermer le salon</button></div>
+        </div>`, () => { if (!done) { D.cancel(code); end(null); } });
+      body.querySelector('#bt-room-share').addEventListener('click', async () => {
+        const text = `Viens m’affronter sur CollecDex ! Code du salon : ${code}`;
+        if (navigator.share) { navigator.share({ title: 'Combat CollecDex', text, url: link }).catch(() => {}); return; }
+        try { await navigator.clipboard.writeText(`${text}\n${link}`); App.util.toast('Lien copié ✓'); } catch (e) { App.util.toast(code); }
+      });
+      body.querySelector('#bt-room-cancel').addEventListener('click', () => { D.cancel(code); end(null); App.util.closeModal(); });
+      stop = D.waitJoin(code, async (s) => {
+        if (done) return;
+        done = true; App.util.closeModal(); App.sfx.open(3);
+        try { resolve(await startDuel(s, team.imgs)); } catch (e) { App.util.toast('Combat impossible : ' + e.message, 4500); resolve(null); }
+      }, (e) => { if (!done) { App.util.closeModal(); App.util.toast(e.message, 4500); end(null); } });
+    });
+  }
+
+  /** Rejoindre le salon d'un ami avec son code */
+  async function duelJoin(m, preset = '') {
+    const D = App.duel;
+    const code = await new Promise((resolve) => {
+      let done = false;
+      const end = (v) => { if (done) return; done = true; resolve(v); };
+      const body = App.util.openModal(`<div class="bt-pick bt-room">
+          <h2>${App.icons.icon('users', 18)} Rejoindre un salon</h2>
+          <p class="small muted" style="margin:2px 0 10px">Entre le code à 6 caractères que ton ami t’a donné.</p>
+          <input type="text" id="bt-code-in" class="bt-code-in" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC234" value="${esc(D.normCode(preset))}">
+          <div class="small" id="bt-code-msg" style="min-height:1.3em;margin-top:6px;text-align:center"></div>
+          <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="bt-code-ok">Rejoindre</button></div>
+        </div>`, () => end(null));
+      const inp = body.querySelector('#bt-code-in'), msg = body.querySelector('#bt-code-msg');
+      setTimeout(() => inp.focus(), 50);
+      inp.addEventListener('input', () => { const v = D.normCode(inp.value); if (v !== inp.value) inp.value = v; msg.textContent = ''; });
+      const ok = async () => {
+        const v = D.normCode(inp.value);
+        if (!D.CODE.test(v)) { msg.innerHTML = '<span style="color:#ff8a8a">Le code fait 6 caractères (lettres et chiffres)</span>'; return; }
+        msg.textContent = 'Recherche du salon…';
+        try { const info = await D.peek(v); end({ code: v, ...info }); App.util.closeModal(); }
+        catch (e) { msg.innerHTML = `<span style="color:#ff8a8a">${esc(e.message)}</span>`; }
+      };
+      body.querySelector('#bt-code-ok').addEventListener('click', ok);
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); });
+    });
+    if (!code) return null;
+    // l'équipe est choisie pour le mode du salon (celui de l'ami qui l'a créé)
+    if (code.mode !== m.mode) App.util.toast(`Salon de ${code.host} en mode ${modeName(code.mode)}`, 3000);
+    const idx = await duelTeam(m); if (idx == null) return null;
+    App.util.openModal(App.ui.loading(`Connexion au salon de ${esc(code.host)}…`));
+    try {
+      const team = await onlineTeam(m.teams[idx], code.mode === 'adv');
+      await D.join(code.code, team.wire);
+      const s = await D.state(code.code, -1);
+      App.util.closeModal();
+      if (!s.foeTeam) throw new Error('salon incomplet');
+      App.sfx.open(3);
+      return await startDuel(s, team.imgs);
+    } catch (e) { App.util.closeModal(); App.util.toast('Impossible de rejoindre : ' + e.message, 4500); return null; }
+  }
+
+  App._duelTest = { startDuel }; // pour les tests (deux combats simulés dans la même page)
+
   App.views.match = {
     async render(el, params, alive) {
       let m = await getMatch();
@@ -885,7 +1085,13 @@
             <h2 style="margin:0">Mes équipes</h2>
             ${teamsHtml()}
           </section>
-          <h2>Adversaire</h2>
+          <section class="bt-duel">
+            <div class="bt-duel-h"><span class="bt-duel-ic">${App.icons.icon('users', 20)}</span><div><b>Contre un ami</b>
+              <span class="small muted">${m.stats.online.wins || m.stats.online.losses ? `${m.stats.online.wins} victoire${m.stats.online.wins > 1 ? 's' : ''} · ${m.stats.online.losses} défaite${m.stats.online.losses > 1 ? 's' : ''}` : `Crée un salon, envoie le code à un ami, et affrontez-vous en mode ${adv ? 'Avancé' : 'Basique'}.`}</span></div></div>
+            ${App.cloud.user ? `<div class="bt-duel-b"><button class="btn primary" data-duel="create">${App.icons.icon('plus', 15)} Créer un salon</button><button class="btn" data-duel="join">Rejoindre avec un code</button></div>`
+              : `<div class="bt-duel-b"><a class="btn" href="#/connexion">${App.icons.icon('user', 15)} Me connecter pour affronter mes amis</a></div>`}
+          </section>
+          <h2>Contre l’ordinateur</h2>
           <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
               <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` · sac de ${App.battleCards.aiBag(L.n, 'fire').length}` : '') : `Bats le niveau ${L.n - 1}`}</span></div>
               ${beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
@@ -903,6 +1109,22 @@
       await draw();
 
       let busy = false;
+      /** combat entre amis : créer ou rejoindre un salon, puis noter le résultat */
+      const runDuel = async (how, preset) => {
+        if (busy) return;
+        if (!App.cloud.user) { location.hash = '#/connexion'; return; }
+        busy = true;
+        try {
+          App.sfx.click();
+          m = await getMatch();
+          const r = how === 'create' ? await duelCreate(m) : await duelJoin(m, preset);
+          if (!r || r.win == null) return;
+          m = await getMatch();
+          if (r.win) m.stats.online.wins++; else m.stats.online.losses++;
+          await saveMatch(m);
+          if (alive()) await draw();
+        } finally { busy = false; }
+      };
       /** actions sur les équipes (page ou fenêtre « Mes équipes ») */
       const onTeam = async (e) => {
         const ed = e.target.closest('[data-edit]'), rn = e.target.closest('[data-rename]'), bg = e.target.closest('[data-bag]'), sl = e.target.closest('[data-sel]');
@@ -944,6 +1166,8 @@
           body.addEventListener('click', async (ev) => { if (!busy) await onTeam(ev); });
           return;
         }
+        const du = e.target.closest('[data-duel]');
+        if (du) { await runDuel(du.dataset.duel); return; }
         const lv = e.target.closest('[data-level]');
         if (lv && !lv.disabled) {
           busy = true;
@@ -969,6 +1193,16 @@
           } finally { busy = false; }
         }
       });
+
+      // lien d'un ami (#/combat?salon=CODE) : on propose de rejoindre son salon
+      if (params.query.salon) {
+        const code = params.query.salon;
+        history.replaceState(history.state, '', location.pathname + location.search + '#/combat');
+        for (let i = 0; i < 20 && !App.cloud.user && alive(); i++) await sleep(200); // la connexion se rétablit au démarrage
+        if (!alive()) return;
+        if (App.cloud.user) runDuel('join', code);
+        else App.util.toast('Connecte-toi pour rejoindre le salon de ton ami', 4000);
+      }
     },
   };
 })();

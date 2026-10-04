@@ -69,7 +69,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le logo 1ʳᵉ édition est cherché en le comparant à un vrai logo photographié : il est trouvé sur une carte seule nette et sur une page de classeur nette (9 cartes). Sur une photo floue, le site ne met pas « 1ʳᵉ édition » (il vaut mieux l'ajouter à la main que se tromper).
 - La **reverse** n'a pas encore pu être testée sur une vraie carte reverse : vérifie-la après l'ajout.
 
-## Combat (contre l'ordinateur)
+## Combat
 - Onglet **Combat** (anciennement « Match ») : tu as **3 équipes** de 3 Pokémon de ta collection. « Composer » / « Modifier » pour choisir les Pokémon (dans l'ordre : le 1er commence), « Renommer » pour leur donner un nom, « Choisir » pour combattre avec cette équipe (bordure rose « Pour combattre »). Si plusieurs équipes sont prêtes, le site demande « Avec quelle équipe ? » avant chaque combat. Une case vide est remplie par un Pokémon « de prêt ».
 - Sur téléphone, les 3 équipes sont des **onglets** : touche un onglet pour choisir l'équipe ; ses 3 cartes s'affichent avec les boutons Modifier / Sac / Renommer (toucher les cartes ouvre aussi le choix des Pokémon).
 - Dans le choix des Pokémon, chaque carte montre ses **PV**, son **type** (pastille de couleur) et sa **plus grosse attaque** (⚔) ; filtres par **type** (les 11 types du jeu de cartes, avec le nombre de Pokémon que tu as dans chacun), **PV minimum**, **énergie** (garder ceux qui ont une attaque à 1, 2 ou 3 énergies max) et tri (plus fort, plus de PV, plus gros dégâts, attaque la moins chère, nom). Ton équipe reste affichée en haut (touche × pour retirer).
@@ -81,7 +81,16 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le combat prend **tout l'écran** (sur PC : grandes cartes, ton banc à gauche, celui de l'adversaire à droite) avec des effets : la carte fonce sur l'adversaire, projectile de la couleur du type (flammes, gouttes, feuilles, éclair…), impact, secousse de l'écran, « Super efficace ! », barre de PV qui descend, K.O. qui s'effondre, arrivée des Pokémon, grande carte au milieu quand un Dresseur est joué, confettis en cas de victoire. Si ton téléphone est réglé sur « réduire les animations », les effets sont coupés.
 - **5 niveaux** : Débutant, Dresseur, Champion, Maître, Légende. Chaque victoire débloque le suivant. La Légende joue avec des Pokémon-ex modernes : il faut tes cartes les plus puissantes.
 - **Règles simplifiées** : au début de ton tour ton Pokémon gagne 1 énergie, puis tu **attaques** (1 énergie par symbole de l'attaque ; les énergies en plus restent pour la suite), tu prends **+1 énergie**, ou tu **changes** de Pokémon (touche-le sur ton banc). Les dégâts, faiblesses (×2) et résistances viennent de tes vraies cartes. « 30× » = pile ou face sur 2 pièces. Mets K.O. les 3 Pokémon adverses pour gagner.
-- Tes victoires et défaites sont comptées. Les combats contre tes amis viendront plus tard.
+- Tes victoires et défaites sont comptées.
+
+## Combat contre un ami
+- Page **Combat** › encadré **« Contre un ami »** (il faut être connecté, et que vous soyez amis dans CollecDex).
+- **Créer un salon** : choisis ton équipe, un **code de 6 caractères** s’affiche (ex. K7P3QZ). Envoie-le à ton ami avec le bouton « Envoyer le code » (le lien ouvre directement son salon) et attends qu’il arrive : le combat démarre tout seul.
+- **Rejoindre avec un code** : tape le code de ton ami, choisis ton équipe, c’est parti.
+- Le mode (Basique ou Avancé avec le sac) est celui choisi par celui qui crée le salon. Celui qui crée le salon joue en premier.
+- Vous voyez exactement le même combat, chacun sur son téléphone. Pendant le tour de ton ami : « … réfléchit ». S’il ne répond plus depuis 2 minutes, tu peux arrêter le combat (ni victoire ni défaite). « Abandonner » = défaite, et victoire pour lui.
+- Victoires et défaites contre tes amis sont comptées à part (sous « Contre un ami »).
+- **À faire une fois** : dans Supabase › *SQL Editor*, coller `supabase-v10.sql` › *Run*. Avant ça : « Les combats entre amis ne sont pas encore activés sur le serveur ».
 
 ## Amis
 - **Mes amis** : sur ta vitrine (touche ton avatar), bouton « Amis ». Ajoute quelqu'un avec son **pseudo**, ou envoie-lui **ton lien d'invitation** (bouton « Partager » / « Copier ») : il ouvre le site, crée son compte, et la demande d'ami est prête.
