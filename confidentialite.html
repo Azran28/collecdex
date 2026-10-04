@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <title>CollecDex — Politique de confidentialité</title>
+  <meta name="description" content="Quelles données CollecDex utilise, où elles sont stockées, qui les voit et comment les effacer.">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png">
+  <link rel="stylesheet" href="css/page.css">
+</head>
+<body>
+<main>
+  <header><img src="icons/icon-192.png" alt=""><b>CollecDex</b></header>
+  <h1>Politique de confidentialité</h1>
+  <p class="muted small">Dernière mise à jour : 4 octobre 2026</p>
+
+  <div class="box">
+    <b>En bref</b>
+    <ul>
+      <li>Sans compte, ta collection reste <b>uniquement sur ton appareil</b> : rien n’est envoyé.</li>
+      <li>Avec un compte, ta collection et tes photos sont copiées sur notre serveur pour les retrouver sur tes autres appareils.</li>
+      <li>Pas de publicité, pas de pistage, pas de statistiques de visite, <b>aucune revente</b> de données.</li>
+      <li>La reconnaissance des cartes se fait <b>sur ton appareil</b> : les images de la caméra ne sont pas envoyées pour être analysées.</li>
+      <li>Tu peux <a href="supprimer-compte.html">supprimer ton compte</a> et toutes ses données à tout moment, depuis l’application.</li>
+    </ul>
+  </div>
+
+  <h2>1. Qui est responsable ?</h2>
+  <p>CollecDex est une application de collection de cartes développée par un particulier, à titre personnel. Pour toute question sur tes données : <a href="mailto:collecdex.app@gmail.com">collecdex.app@gmail.com</a>.</p>
+  <p>CollecDex est une application de fans, <b>non officielle</b>. Elle n’a aucun lien avec Nintendo, The Pokémon Company, Creatures, Game Freak ni aucun autre éditeur de cartes. Pokémon et les noms associés sont des marques de leurs propriétaires respectifs.</p>
+
+  <h2>2. Quelles données, et pourquoi ?</h2>
+  <table>
+    <thead><tr><th>Donnée</th><th>Quand</th><th>À quoi elle sert</th></tr></thead>
+    <tbody>
+      <tr><td>Ta collection (cartes, quantités, versions, état, notes, valeurs saisies)</td><td>Toujours sur l’appareil ; sur le serveur si tu as un compte</td><td>Faire fonctionner l’application, synchroniser tes appareils</td></tr>
+      <tr><td>Photos de tes cartes</td><td>Quand tu captures une carte</td><td>Visuel de la carte dans ta collection ; copie sur le serveur si tu as un compte</td></tr>
+      <tr><td>Adresse e-mail et mot de passe</td><td>À la création d’un compte</td><td>Te connecter. Le mot de passe n’est jamais stocké en clair (il est haché par notre hébergeur).</td></tr>
+      <tr><td>Pseudo, vitrine, avatar, objectifs, liste de souhaits, réglages</td><td>Si tu les renseignes</td><td>Ta page de profil, tes objectifs, retrouver tes réglages</td></tr>
+      <tr><td>Amis</td><td>Si tu ajoutes des amis</td><td>Montrer ta vitrine à tes amis acceptés, et la leur à toi</td></tr>
+      <tr><td>Capsules, éclats, Pokémon attrapés, combats</td><td>Si tu utilises ces jeux</td><td>Tirages, boutique et progression (calculés sur le serveur pour éviter la triche) ; déroulement des combats en ligne</td></tr>
+      <tr><td>Certifications</td><td>Si tu certifies une carte</td><td>Une petite bande de 3 images (dos, retournement, face) prouve que la photo a été prise en direct</td></tr>
+      <tr><td>Abonnement aux notifications</td><td>Seulement si tu les actives</td><td>T’avertir (par exemple quand tes capsules sont prêtes). C’est une adresse technique fournie par ton navigateur, pas ton numéro.</td></tr>
+    </tbody>
+  </table>
+  <p><b>Caméra :</b> utilisée seulement quand tu ouvres la capture. Les images servent à reconnaître la carte, directement sur ton appareil. Seule la photo que tu choisis d’enregistrer est gardée.</p>
+  <p>Nous ne collectons <b>pas</b> : ta position, tes contacts, ton identifiant publicitaire, ni aucune statistique d’utilisation.</p>
+
+  <h2>3. Qui peut voir tes données ?</h2>
+  <ul>
+    <li><b>Toi</b>, sur tes appareils connectés à ton compte.</li>
+    <li><b>Tes amis acceptés</b> : ta vitrine, tes cartes, leurs photos, ton pseudo et ton avatar. Ton adresse e-mail n’est jamais montrée.</li>
+    <li><b>Tout le monde</b>, seulement si tu rends ta vitrine publique (réglage de ta vitrine, désactivé par défaut) : ta vitrine, ton pseudo et les photos qui y sont montrées, à l’adresse …/#/@TonPseudo. Tu peux la remettre en privé à tout moment.</li>
+    <li>Ton <b>adversaire</b> d’un combat en ligne (salon rejoint avec un code) : ton pseudo, ton avatar et les cartes de ton équipe.</li>
+    <li>Personne d’autre. Les règles d’accès du serveur empêchent un utilisateur de lire les données d’un autre.</li>
+  </ul>
+
+  <h2>4. Services utilisés par l’application</h2>
+  <p>Comme tout site ou application en ligne, ces services reçoivent l’adresse IP de ton appareil quand l’application les contacte.</p>
+  <ul>
+    <li><b>Supabase</b> (Supabase Inc.) : comptes, base de données et stockage des photos, pour les utilisateurs connectés.</li>
+    <li><b>GitHub Pages</b> (GitHub Inc.) : hébergement des fichiers de l’application.</li>
+    <li><b>TCGdex</b> : liste des cartes, images officielles et prix. Aucune donnée personnelle n’y est envoyée.</li>
+    <li><b>jsDelivr</b>, <b>Google Fonts</b>, <b>GitHub</b> (images des Pokémon) et <b>tessdata</b> (outils de lecture du texte) : téléchargement de fichiers techniques, sans donnée personnelle.</li>
+    <li>Le service de notifications de ton téléphone ou navigateur (Google, Apple ou Mozilla), seulement si tu actives les notifications.</li>
+  </ul>
+  <p>Certains de ces services peuvent traiter des données hors de l’Union européenne ; ils s’engagent à respecter le RGPD (clauses contractuelles types).</p>
+
+  <h2>5. Combien de temps ?</h2>
+  <p>Tes données sont gardées tant que ton compte existe. Quand tu supprimes ton compte, tout est effacé <b>immédiatement</b> du serveur ; il peut en rester une trace quelques jours dans les copies de sécurité techniques de l’hébergeur, avant qu’elles ne soient écrasées. Les données enregistrées sur ton appareil y restent jusqu’à ce que tu les effaces (Paramètres › Données, ou en supprimant l’application).</p>
+
+  <h2>6. Sécurité</h2>
+  <p>Toutes les connexions sont chiffrées (HTTPS). Chaque utilisateur ne peut lire et modifier que ses propres données (règles appliquées par le serveur). Les récompenses (capsules, certifications) sont décidées par le serveur.</p>
+
+  <h2>7. Tes droits</h2>
+  <p>Conformément au RGPD, tu peux à tout moment :</p>
+  <ul>
+    <li><b>récupérer</b> tes données : Paramètres › Sauvegarde (fichier complet avec tes photos) ou export en tableur ;</li>
+    <li><b>les corriger</b> directement dans l’application ;</li>
+    <li><b>les effacer</b> : <a href="supprimer-compte.html">supprimer ton compte</a> ;</li>
+    <li>nous écrire pour toute autre demande : <a href="mailto:collecdex.app@gmail.com">collecdex.app@gmail.com</a> ;</li>
+    <li>adresser une réclamation à la <a href="https://www.cnil.fr/fr/plaintes" rel="noopener">CNIL</a>.</li>
+  </ul>
+
+  <h2>8. Âge</h2>
+  <p>L’application s’adresse aux personnes de <b>13 ans et plus</b>. En dessous de 15 ans, demande l’accord d’un parent avant de créer un compte.</p>
+
+  <h2>9. Changements</h2>
+  <p>Si cette politique change, la date en haut de la page est mise à jour. En cas de changement important, un message l’indiquera dans l’application.</p>
+
+  <p class="small muted foot"><a href="./">Ouvrir CollecDex</a> · <a href="supprimer-compte.html">Supprimer mon compte</a></p>
+</main>
+</body>
+</html>

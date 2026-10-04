@@ -380,6 +380,37 @@ App.cloud = (() => {
   async function signOut() {
     if (App.notify) await App.notify.disable().catch(() => {}); // plus de notifications de ce compte sur cet appareil
     if (await waitReady()) await sb.auth.signOut().catch(() => {}); user = null; setState('deconnecte'); }
+  /**
+   * Supprime définitivement le compte : photos du dossier photos/<id>/ (par l'API de stockage),
+   * puis tout le reste côté serveur (delete_my_account, supabase-v13.sql, tout part en cascade).
+   */
+  async function deleteAccount() {
+    if (!(await waitReady()) || !user) throw new Error('Connexion requise');
+    const me = uid();
+    clearTimeout(timer); clearTimeout(retryTimer);
+    for (let i = 0; i < 60 && flushing; i++) await new Promise((r) => setTimeout(r, 250));
+    const notInstalled = (e) => /delete_my_account/.test(e.message) ? new Error('La suppression n’est pas encore installée sur le serveur (script supabase-v13.sql).') : new Error(e.message);
+    // 0) la fonction du serveur existe-t-elle ? (sinon on n'efface surtout pas les photos)
+    const chk = await sb.rpc('delete_my_account', { p_check: true });
+    if (chk.error) throw notInstalled(chk.error);
+    if (App.notify) await App.notify.disable().catch(() => {});
+    // 1) photos (on relit la liste jusqu'à ce qu'elle soit vide)
+    for (let round = 0; round < 200; round++) {
+      const { data, error } = await sb.storage.from('photos').list(me, { limit: 100 });
+      if (error) throw new Error('Effacement des photos impossible : ' + error.message);
+      if (!data || !data.length) break;
+      const { error: e2 } = await sb.storage.from('photos').remove(data.map((f) => `${me}/${f.name}`));
+      if (e2) throw new Error('Effacement des photos impossible : ' + e2.message);
+    }
+    // 2) compte et données
+    const { error } = await sb.rpc('delete_my_account');
+    if (error) throw notInstalled(error);
+    // 3) plus rien à envoyer, déconnexion sur cet appareil (le compte n'existe plus côté serveur)
+    pend = { items: {}, dels: {}, photos: {}, photoDels: {}, profile: false };
+    await App.db.del('kv', 'cloudPending').catch(() => {});
+    await sb.auth.signOut({ scope: 'local' }).catch(() => {});
+    user = null; setState('deconnecte');
+  }
   async function resetPassword(email) {
     if (!(await waitReady())) throw new Error('Connexion au serveur impossible (internet ?)');
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: redirect() });
@@ -394,7 +425,7 @@ App.cloud = (() => {
   return {
     enabled, init, sync, flush, flushNow, rpc, publicRpc, fetchPhoto, fetchFriendPhoto, fetchPublicPhoto, myPseudo,
     markItem, markDelete, markPhoto, markPhotoDelete, markProfile,
-    signUp, signIn, signOut, resetPassword, newPassword,
+    signUp, signIn, signOut, resetPassword, newPassword, deleteAccount,
     get user() { return user; }, get state() { return state; }, get error() { return lastError; },
     get lastSync() { return lastSync; }, pendingCount,
     _test: { isAuthErr, isNetErr },

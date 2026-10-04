@@ -202,3 +202,8 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 - `js/games/` : un fichier par jeu (Pokémon aujourd'hui ; One Piece, Magic… ensuite)
 - `js/games/pokemon-pullrates.js` : les taux de drop et leurs sources
 - `js/views/` : une page du site par fichier
+
+## Confidentialité et suppression du compte
+- La **politique de confidentialité** est sur `confidentialite.html` (lien dans Paramètres › Données › À propos, et sous « Créer un compte »). C'est l'adresse à donner à Google Play.
+- **Supprimer son compte** : Paramètres › Mon compte › « Supprimer mon compte… », écrire SUPPRIMER, confirmer. Tout est effacé du serveur (cartes, photos, vitrine, pseudo, capsules, amis, notifications, e-mail). La page publique `supprimer-compte.html` explique la marche à suivre : c'est l'adresse « suppression de compte » à donner à Google Play.
+- **À faire une fois** : lancer `supabase-v13.sql` dans Supabase (SQL Editor). Sans lui, le bouton affiche « La suppression n'est pas encore installée sur le serveur » et n'efface rien.
