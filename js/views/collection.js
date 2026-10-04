@@ -88,10 +88,10 @@ App.views.collection = {
       const total = App.col.totalValue(all);
       const shownVal = App.col.totalValue(items);
       el.querySelector('#c-stats').innerHTML = `
-        <div class="stat"><b>${all.length}</b><span>cartes différentes</span></div>
-        <div class="stat"><b>${all.reduce((s, i) => s + i.qty, 0)}</b><span>exemplaires</span></div>
+        <div class="stat"><b>${all.length}</b><span>${all.length > 1 ? 'cartes différentes' : 'carte différente'}</span></div>
+        ${((n) => `<div class="stat"><b>${n}</b><span>${n > 1 ? 'exemplaires' : 'exemplaire'}</span></div>`)(all.reduce((s, i) => s + i.qty, 0))}
         <div class="stat"><b>${euro(total)}</b><span>valeur totale estimée</span></div>
-        <div class="stat"><b>${all.filter((i) => App.certify.isCertified(i)).length}</b><span>certifiées</span></div>
+        ${((n) => `<div class="stat"><b>${n}</b><span>${n > 1 ? 'certifiées' : 'certifiée'}</span></div>`)(all.filter((i) => App.certify.isCertified(i)).length)}
         `;
       el.querySelector('#c-count').textContent = items.length !== all.length ? `${items.length} carte${items.length > 1 ? 's' : ''} affichée${items.length > 1 ? 's' : ''} · ${euro(shownVal)}` : '';
       grid.innerHTML = items.length

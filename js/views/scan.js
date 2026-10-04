@@ -446,7 +446,7 @@ App.views.scan = {
               ${own ? `<br><span class="pill small">Déjà ×${own.qty} — ce sera un exemplaire de plus</span>` : ''}
               ${c.isTarget && !c.notRead ? '<br><span class="pill small" style="background:var(--ok);color:#063">Carte attendue ✓</span>' : ''}
               ${c.notRead ? '<br><span class="pill small" style="background:#7a4a00">Carte attendue, mais pas reconnue sur la photo</span>' : ''}
-              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.numOk && c.ofOk ? `<br><span class="small muted">Numéro lu sur ta carte ✓</span>` : ''}${c.visual != null ? `<br><span class="small muted">Illustration : ${c.visual >= 0.7 ? 'identique' : c.visual >= 0.55 ? 'très proche' : c.visual >= 0.42 ? 'proche' : 'différente'}</span>` : ''}</div>
+              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.numOk && c.ofOk ? `<br><span class="small muted">Numéro lu sur ta carte ✓</span>` : ''}${c.visual != null && !(c.numOk && c.ofOk && c.visual < 0.42) ? `<br><span class="small muted">Illustration : ${c.visual >= 0.7 ? 'identique' : c.visual >= 0.55 ? 'très proche' : c.visual >= 0.42 ? 'proche' : 'différente'}</span>` : ''}</div>
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
         }).join('')}
