@@ -47,6 +47,7 @@ App.friends = (() => {
       featured: Array.isArray(pr.featured) ? pr.featured.slice(0, 9).map((k) => str(k)) : [], frames,
       avatarPoke: avatarPoke(pr.avatarPoke), avatar: photoId(pr.avatar),
       showStats: pr.showStats !== false, showBadges: pr.showBadges !== false, showTop: pr.showTop !== false, showWish: pr.showWish !== false, showCerts: pr.showCerts !== false,
+      stats: (Array.isArray(pr.stats) ? pr.stats : []).filter((k) => V.STATS.some(([x]) => x === k)).slice(0, 4),
       wishlist: (Array.isArray(pr.wishlist) ? pr.wishlist : []).map(obj).filter((w) => game(w.game)).slice(0, 500).map((w) => ({
         game: w.game, id: str(w.id), setId: str(w.setId), name: str(w.name), setName: str(w.setName), localId: str(w.localId, 20), serieId: str(w.serieId, 40), image: tcgImg(w.image),
       })),

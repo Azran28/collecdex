@@ -98,7 +98,6 @@ App.notify = (() => {
         ${App.cloud.user ? '' : '<p class="small muted"><a href="#/connexion">Connecte-toi</a> pour activer les notifications.</p>'}
         <div class="nt-kinds" ${st === 'on' ? '' : 'hidden'}>
           ${KINDS.map(([k, l]) => `<label class="check small"><input type="checkbox" data-kind="${k}" ${p.kinds[k] !== false ? 'checked' : ''}> ${l}</label>`).join('<br>')}
-          <div class="row" style="margin-top:8px"><button class="btn sm ghost" id="nt-test">Envoyer une notification d’essai</button></div>
         </div>
         <p class="small" id="nt-msg" style="margin-bottom:0"></p>`}`;
     };
@@ -112,9 +111,6 @@ App.notify = (() => {
         await draw();
       }
       if (t.dataset.kind) { try { await setKind(t.dataset.kind, t.checked); App.util.toast('Enregistré ✓'); } catch (err) { say(err.message); } }
-    });
-    host.addEventListener('click', async (e) => {
-      if (e.target.closest('#nt-test')) { try { await test(); say('Notification envoyée : elle doit apparaître sur cet appareil.', true); } catch (err) { say(err.message); } }
     });
     listeners.add(draw);
     const off = App.cloud.on(draw);

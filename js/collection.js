@@ -1,5 +1,5 @@
 /* Ta collection : cartes possédées, photos perso, réglages. Enregistrée sur l'appareil, et copiée dans ton compte en ligne si tu es connecté (voir cloud.js). */
-App.settings = { lang: 'fr', completion: 'total', preferPhotos: true, showPocket: false, missingStyle: 'grise', sound: true, visualCheck: true };
+App.settings = { lang: 'fr', completion: 'total', preferPhotos: true, missingStyle: 'grise', sound: true, visualCheck: true };
 
 App.col = (() => {
   let items = {};           // clé "jeu:id" → entrée

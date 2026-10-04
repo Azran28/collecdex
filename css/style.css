@@ -2476,3 +2476,56 @@ button.bt-code:active span { transform: scale(.94); }
   .imp-maps { grid-template-columns: 1fr 1fr; }
   .imp-src button { font-size: .85rem; }
 }
+
+/* ===== Vitrine : personnalisation sur place (v2.69) ===== */
+/* barre en haut en mode Personnaliser (thème, cadre, vitrine publique) */
+.v-editbar { margin: -4px 0 14px; padding: 10px 12px; border-radius: 14px; border: 1px dashed rgba(124,92,255,.6); background: rgba(124,92,255,.08); }
+.v-editbar p { margin: 0 0 8px; color: var(--muted); }
+.v-pen-demo { display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; border-radius: 50%; background: var(--accent, #7c5cff); color: #fff; vertical-align: -5px; }
+.v-pen-demo .ic { display: block; }
+/* chaque partie modifiable : cadre pointillé + crayon dans le coin */
+.v-sec { position: relative; }
+.v-editable { outline: 2px dashed rgba(124,92,255,.55); outline-offset: 4px; border-radius: 12px; cursor: pointer; margin-top: 14px; }
+.v-editable.v-off > :not(.v-pen) { opacity: .4; }
+.v-pen { position: absolute; top: -12px; right: -6px; z-index: 5; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 8px; border-radius: 999px; border: 0;
+  background: linear-gradient(120deg, #7c5cff, #ff4fa3); color: #fff; font: 700 .74rem/1 var(--font, inherit); box-shadow: 0 4px 14px rgba(0,0,0,.4); cursor: pointer; }
+.v-pen .ic { display: block; }
+.v-pen em { font-style: normal; font-weight: 600; opacity: .85; background: rgba(0,0,0,.25); border-radius: 999px; padding: 2px 6px; }
+.v-pen:active { transform: scale(.95); }
+.v-head.v-editable { padding: 6px; }
+.v-avatar[data-sheet] { cursor: pointer; }
+/* statistiques : la 1re est mise en avant */
+.v-stats .stat.lead { background: linear-gradient(135deg, rgba(124,92,255,.35), rgba(255,79,163,.25)); border-color: rgba(255,255,255,.25); }
+.v-stats .stat.lead b { font-size: 1.5em; }
+/* fenêtres de choix */
+.v-sheet h2 { margin: 0 0 12px; }
+.v-lbl { display: block; font-weight: 700; font-size: .85rem; margin: 0 0 6px; }
+.v-opts { display: flex; flex-direction: column; gap: 6px; }
+.v-opt { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.03); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.v-opt.on { border-color: var(--accent, #7c5cff); background: rgba(124,92,255,.15); font-weight: 700; }
+.v-opt-n { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: .78rem; font-weight: 800; }
+.v-opt.on .v-opt-n { background: var(--accent, #7c5cff); border-color: var(--accent, #7c5cff); color: #fff; }
+.v-switch { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.v-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.v-switch span { width: 42px; height: 24px; flex: none; border-radius: 999px; background: rgba(255,255,255,.15); position: relative; transition: background .2s; }
+.v-switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.v-switch input:checked + span { background: #3ddc97; }
+.v-switch input:checked + span::after { transform: translateX(18px); }
+.v-cframes { display: flex; flex-wrap: wrap; gap: 6px; }
+.modal-box:has(.v-sheet) { width: min(620px, 100%); }
+/* badges compacts : seulement les médailles (toucher = nom du badge) */
+.badge-grid.compact { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge-grid.compact .badge-medal { padding: 0; background: none; border: 0; box-shadow: none; cursor: pointer; }
+.badge-grid.compact .badge-medal .bm-txt { display: none; }
+.badge-grid.compact .badge-medal .bm-disc { width: 36px; height: 36px; }
+.badge-grid.compact .badge-medal.new .bm-disc { box-shadow: 0 0 0 2px #ffd23f; }
+.v-badge-hint { margin: 6px 0 0; }
+.v-achievements .v-badges { gap: 6px; margin-top: 10px; }
+.v-achievements .v-badge { font-size: .72rem; padding: 3px 9px 3px 3px; box-shadow: none; }
+.v-achievements .v-badge img { width: 18px; height: 18px; }
+@media (max-width: 760px) {
+  .v-achievements .v-badges { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+  .v-achievements .v-badges::-webkit-scrollbar { display: none; }
+  .v-achievements .v-badge { flex: none; }
+  .v-pen { right: 0; }
+}

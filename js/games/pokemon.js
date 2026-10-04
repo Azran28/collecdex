@@ -84,7 +84,7 @@
   };
 
   // ---------- Séries ----------
-  const HIDDEN_GROUPS = ['tcgp']; // Pokémon TCG Pocket (jeu mobile, pas de cartes physiques)
+  const HIDDEN_GROUPS = ['tcgp']; // Pokémon TCG Pocket : jeu mobile, sans cartes physiques → jamais affiché
 
   async function listSets() {
     const L = lang();
@@ -140,7 +140,7 @@
       }));
     }).then((sets) => {
       for (const s of sets) if (s.enOnly) enOnly.add(s.id);
-      return sets.filter((s) => App.settings.showPocket || !HIDDEN_GROUPS.includes(s.group.id));
+      return sets.filter((s) => !HIDDEN_GROUPS.includes(s.group.id));
     });
   }
 
@@ -248,7 +248,7 @@
       // + séries qui n'existent qu'en anglais (même nom en anglais : Arceus, Pikachu, Mew…)
       const [d, e] = await Promise.all([q(L), en && L !== 'en' && enOnly.size ? q('en').catch(() => ({ cards: [] })) : { cards: [] }]);
       const cards = [...(d.cards || []).filter(Boolean), ...(e.cards || []).filter((c) => c && enOnly.has(setIdOf(c.id)))];
-      // on ne garde que les séries affichées sur le site (TCG Pocket exclu par défaut)
+      // on ne garde que les séries affichées sur le site (jamais TCG Pocket)
       return cards.filter((c) => c && byId[setIdOf(c.id)]).map((c) => { const st = toSet(setIdOf(c.id)); return { ...normCard(c, { id: setIdOf(c.id), group: st.serie }), set: st }; });
     } catch (e) {
       const res = await getJSON(`/${L}/cards?name=${encodeURIComponent(name)}`);
