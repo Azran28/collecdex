@@ -69,6 +69,18 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le logo 1ʳᵉ édition est cherché en le comparant à un vrai logo photographié : il est trouvé sur une carte seule nette et sur une page de classeur nette (9 cartes). Sur une photo floue, le site ne met pas « 1ʳᵉ édition » (il vaut mieux l'ajouter à la main que se tromper).
 - La **reverse** n'a pas encore pu être testée sur une vraie carte reverse : vérifie-la après l'ajout.
 
+## Importer ma collection (Collectr, Cardmarket, Excel)
+- **Mon Dex › Importer** (ou Paramètres › Sauvegarde › « Importer un fichier »).
+- Choisis d'où vient ton fichier pour voir comment l'obtenir :
+  - **Collectr** : Portfolio › les trois points en haut à droite › Export (offre PRO) : tu reçois un CSV par e-mail.
+  - **Cardmarket** : exporte ta liste (stock, collection ou souhaits) en CSV.
+  - **Excel / CSV** : un tableau avec au moins une colonne « Nom » (mieux avec Série, Numéro comme 4/102, Quantité). Tu peux aussi copier les cases dans Excel et les coller. Le tableur exporté par CollecDex (Paramètres) se réimporte aussi.
+- L'appli reconnaît les colonnes toute seule : vérifie-les, puis « Rechercher les cartes ». Les noms et séries en anglais marchent (Charizard → Dracaufeu).
+- Résultat : **Trouvée** (vert), **À choisir** (jaune : plusieurs cartes portent ce nom, touche la bonne ; « Holo » est indiqué), **Introuvable** (rouge : tape un autre nom et « Chercher »). Décoche une ligne pour ne pas l'importer.
+- L'état (NM, PSA 9…), la version (holo, reverse, 1ʳᵉ édition), la quantité et la langue sont repris. Si une carte est déjà dans ton Dex : ne rien changer, garder la plus grande quantité, ou ajouter les quantités.
+- Les cartes importées **ne sont pas certifiées** (pas de photo) : leur fiche dit « Importée depuis … ». Pour le badge, capture-les avec la caméra.
+- Pas encore : les cartes japonaises, les anciens fichiers Excel .xls (enregistre-les en .xlsx ou CSV).
+
 ## Combat
 - Onglet **Combat** (anciennement « Match ») : tu as **3 équipes** de 3 Pokémon de ta collection. « Composer » / « Modifier » pour choisir les Pokémon (dans l'ordre : le 1er commence), « Renommer » pour leur donner un nom, « Choisir » pour combattre avec cette équipe (bordure rose « Pour combattre »). Si plusieurs équipes sont prêtes, le site demande « Avec quelle équipe ? » avant chaque combat. Une case vide est remplie par un Pokémon « de prêt ».
 - Sur téléphone, les 3 équipes sont des **onglets** : touche un onglet pour choisir l'équipe ; ses 3 cartes s'affichent avec les boutons Modifier / Sac / Renommer (toucher les cartes ouvre aussi le choix des Pokémon).

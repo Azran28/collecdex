@@ -18,8 +18,9 @@ App.views = App.views || {};
     [/^\/compte\/?$/, 'showcase', () => ({})],
     [/^\/objectifs\/?$/, 'goals', () => ({})],
     [/^\/capsules\/?$/, 'capsules', () => ({})],
+    [/^\/importer\/?$/, 'import', () => ({})],
   ];
-  const navOf = { home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', friends: 'compte', goals: 'collection', capsules: 'capsules' };
+  const navOf = { import: 'collection', home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', friends: 'compte', goals: 'collection', capsules: 'capsules' };
 
   let cleanup = null;
   let renderId = 0;

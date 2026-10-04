@@ -11,6 +11,7 @@ App.views.collection = {
       <div class="breadcrumb"><a href="#/">Accueil</a> › Mon Dex</div>
       <div class="row"><h1>Mon Dex</h1><span class="spacer"></span>
         <a class="btn sm primary" href="#/objectifs" title="Objectifs, cartes qui me manquent, liste de souhaits">${App.icons.icon('target', 14)} Objectifs</a>
+        <a class="btn sm" href="#/importer" title="Importer ma collection (Cardmarket, Collectr, Excel)">${App.icons.icon('download', 14)}<span class="m-hide"> Importer</span></a>
         <button class="btn sm" id="c-select" title="Sélectionner des cartes (pour les supprimer)">☑<span class="m-hide"> Sélectionner</span></button>
         <button class="btn sm" id="c-prices" title="Actualiser les prix" aria-label="Actualiser les prix">↻<span class="m-hide"> Prix</span></button>
       </div>
@@ -93,7 +94,7 @@ App.views.collection = {
       el.querySelector('#c-count').textContent = items.length !== all.length ? `${items.length} carte${items.length > 1 ? 's' : ''} affichée${items.length > 1 ? 's' : ''} · ${euro(shownVal)}` : '';
       grid.innerHTML = items.length
         ? items.map((it) => App.ui.cardTile(snapCard(it), { game: it.game, item: it, showSet: true, quickAdd: false })).join('')
-        : `<div class="empty panel" style="grid-column:1/-1">${all.length ? 'Aucune carte ne correspond à ces filtres.' : 'Ton Dex est vide. <a href="#/scan">Capture une carte</a> pour commencer.'}</div>`;
+        : `<div class="empty panel" style="grid-column:1/-1">${all.length ? 'Aucune carte ne correspond à ces filtres.' : 'Ton Dex est vide. <a href="#/scan">Capture une carte</a> pour commencer, ou <a href="#/importer">importe ta collection</a> (Cardmarket, Collectr, Excel).'}</div>`;
       App.ui.hydratePhotos(grid);
       if (selecting) paintSelection();
     };

@@ -38,7 +38,9 @@ App.views.settings = {
           <h3 style="margin-top:18px">Tableur</h3>
           <p class="muted small">La liste de tes cartes (série, numéro, rareté, état, prix, valeur…) à ouvrir dans Excel ou Google Sheets. Ce n’est pas une sauvegarde : elle ne se restaure pas.</p>
           <div class="row"><button class="btn" id="p-csv">⬇ Exporter en tableur (CSV)</button></div>
-          <p class="small muted" style="margin-top:14px">Import depuis d’autres applis (Cardmarket, Collectr, Pokellector…) : prévu dans une prochaine version.</p>
+          <h3 style="margin-top:18px">Importer ma collection</h3>
+          <p class="muted small">Depuis Cardmarket, Collectr, un fichier Excel ou CSV (aussi celui exporté ci-dessus). Les cartes importées ne sont pas certifiées.</p>
+          <div class="row"><a class="btn" href="#/importer">⬆ Importer un fichier</a></div>
         </section>
         <section class="panel">
           <h2>Données</h2>

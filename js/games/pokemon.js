@@ -300,10 +300,30 @@
     return `https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${q}`;
   }
 
+  // ---------- Noms anglais (import d'une collection : Collectr et Cardmarket exportent en anglais) ----------
+  /** Séries avec leur nom anglais : [{ id, name, official, total }] */
+  const setNamesEn = () => cached('pk3:en:setnames', 3 * DAY, async () => {
+    const d = await gql('{ sets @locale(lang: "en") { id name cardCount { total official } } }');
+    return (d.sets || []).filter(Boolean).map((s) => ({ id: s.id, name: s.name, official: s.cardCount ? s.cardCount.official : 0, total: s.cardCount ? s.cardCount.total : 0 }));
+  });
+  /** Cartes d'une série avec leur nom anglais : [{ id, localId, name }] */
+  const setCardsEn = (id) => cached(`pk6:en:names:${String(id).replace(/["\\]/g, '')}`, 7 * DAY, async () => {
+    const sid = String(id).replace(/["\\]/g, '');
+    const d = await gql(`{ cards(filters: { id: "${sid}-" }) @locale(lang: "en") { id localId name } }`);
+    return (d.cards || []).filter((c) => c && c.id.startsWith(sid + '-')).map((c) => ({ id: c.id, localId: c.localId, name: c.name }));
+  });
+  /** Cartes dont le nom anglais contient `name` : [{ id, localId, name, setId }] */
+  async function searchEn(name) {
+    if (!name) return [];
+    const d = await gql(`{ cards(filters: { name: "${String(name).replace(/["\\]/g, '')}" }, pagination: { page: 1, itemsPerPage: 200 }) @locale(lang: "en") { id localId name } }`);
+    return (d.cards || []).filter(Boolean).map((c) => ({ id: c.id, localId: c.localId, name: c.name, setId: c.id.slice(0, c.id.lastIndexOf('-')) }));
+  }
+
   App.games.register('pokemon', {
     id: 'pokemon',
     name: 'Pokémon',
     listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, findByNumber, price, tpMarket, img, cardmarketUrl,
+    setNamesEn, setCardsEn, searchEn,
     rarity: App.pokemonRarity,
     pullRates: (setId) => App.pokemonPullRates[setId] || null,
     source: { name: 'TCGdex', url: 'https://tcgdex.dev' },
