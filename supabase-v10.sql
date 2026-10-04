@@ -1,6 +1,8 @@
 -- CollecDex v10 (à exécuter UNE fois dans Supabase → SQL Editor → Run, après supabase-v9.sql)
--- Combat contre un ami : l'un crée un salon (code de 6 caractères), son ami le rejoint avec le code.
---  • Seulement entre amis (are_friends de supabase-v4.sql).
+-- Combat en ligne : l'un crée un salon (code de 6 caractères), l'autre le rejoint avec le code.
+--  • N'importe quel dresseur connecté (avec un compte) peut rejoindre avec le code, même s'ils ne sont pas amis.
+--  • Déjà exécuté avant ? Pas de souci : on peut le relancer (les tables sont gardées, les fonctions remplacées).
+--  • Qui commence : tiré à pile ou face à partir de « seed » (même résultat sur les deux téléphones).
 --  • Le serveur garde les équipes et la liste des coups ; chaque téléphone rejoue les mêmes coups dans le même ordre
 --    (même tirage des pièces grâce à « seed »), donc les deux voient exactement le même combat.
 --  • Les salons de plus d'un jour sont effacés tout seuls (à chaque création de salon).
@@ -58,7 +60,7 @@ begin
   return json_build_object('ok', true, 'code', c);
 end $$;
 
--- Mode du salon (pour que l'ami prépare la bonne équipe avant de rejoindre)
+-- Mode du salon (pour que l'invité prépare la bonne équipe avant de rejoindre)
 create or replace function public.battle_peek(p_code text)
 returns json language plpgsql stable security definer set search_path = public as $$
 declare me uuid := auth.uid(); r battle_rooms;
@@ -66,8 +68,7 @@ begin
   if me is null then raise exception 'Connexion requise'; end if;
   select * into r from battle_rooms where code = upper(btrim(coalesce(p_code, '')));
   if r.code is null or r.status <> 'waiting' then return json_build_object('ok', false, 'reason', 'Aucun salon en attente avec ce code'); end if;
-  if r.host = me then return json_build_object('ok', false, 'reason', 'C''est ton propre salon : envoie le code à ton ami'); end if;
-  if not are_friends(me, r.host::text) then return json_build_object('ok', false, 'reason', 'Ce salon a été créé par quelqu''un qui n''est pas (encore) ton ami'); end if;
+  if r.host = me then return json_build_object('ok', false, 'reason', 'C''est ton propre salon : envoie le code à ton adversaire'); end if;
   return json_build_object('ok', true, 'mode', r.mode, 'host_pseudo', (select pseudo from pseudos where user_id = r.host));
 end $$;
 
@@ -82,8 +83,7 @@ begin
   end if;
   select * into r from battle_rooms where code = upper(btrim(coalesce(p_code, ''))) for update;
   if r.code is null or r.status <> 'waiting' or r.guest is not null then return json_build_object('ok', false, 'reason', 'Aucun salon en attente avec ce code'); end if;
-  if r.host = me then return json_build_object('ok', false, 'reason', 'C''est ton propre salon : envoie le code à ton ami'); end if;
-  if not are_friends(me, r.host::text) then return json_build_object('ok', false, 'reason', 'Ce salon a été créé par quelqu''un qui n''est pas (encore) ton ami'); end if;
+  if r.host = me then return json_build_object('ok', false, 'reason', 'C''est ton propre salon : envoie le code à ton adversaire'); end if;
   update battle_rooms set guest = me, guest_team = p_team, status = 'playing', updated_at = now() where code = r.code;
   return json_build_object('ok', true, 'code', r.code);
 end $$;

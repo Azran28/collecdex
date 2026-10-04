@@ -11,7 +11,7 @@ App.duel = (() => {
   const isMissing = (e) => /battle_|schema cache|does not exist|Could not find/i.test(String(e && e.message));
   const rpc = async (name, args) => {
     try { return await App.cloud.rpc(name, args); }
-    catch (e) { throw new Error(isMissing(e) ? 'Les combats entre amis ne sont pas encore activés sur le serveur.' : e.message); }
+    catch (e) { throw new Error(isMissing(e) ? 'Les combats en ligne ne sont pas encore activés sur le serveur.' : e.message); }
   };
   const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
 
@@ -74,7 +74,7 @@ App.duel = (() => {
   async function peek(code) {
     const r = await rpc('battle_peek', { p_code: normCode(code) });
     if (!r || !r.ok) throw new Error((r && r.reason) || 'Salon introuvable');
-    return { mode: r.mode === 'adv' ? 'adv' : 'classic', host: str(r.host_pseudo, 40) || 'Ton ami' };
+    return { mode: r.mode === 'adv' ? 'adv' : 'classic', host: str(r.host_pseudo, 40) || 'Dresseur' };
   }
   async function join(code, team) {
     const r = await rpc('battle_join', { p_code: normCode(code), p_team: team });
@@ -89,7 +89,7 @@ App.duel = (() => {
     return {
       code: r.code, status: ['waiting', 'playing', 'done'].includes(r.status) ? r.status : 'done', mode: r.mode === 'adv' ? 'adv' : 'classic',
       seed: int(r.seed, 0, 2147483647), meHost,
-      foeName: str(meHost ? r.guest_pseudo : r.host_pseudo, 40) || 'Ton ami',
+      foeName: str(meHost ? r.guest_pseudo : r.host_pseudo, 40) || 'Dresseur',
       myTeam: after < 0 ? cleanTeam(meHost ? r.host_team : r.guest_team) : null,
       foeTeam: after < 0 && (meHost ? r.guest_team : r.host_team) ? cleanTeam(meHost ? r.guest_team : r.host_team) : null,
       moves: (Array.isArray(r.moves) ? r.moves : []).map((m) => ({ n: int(m && m.n, 0, 5000), move: m && typeof m.move === 'object' && m.move ? m.move : {} })),
@@ -166,5 +166,8 @@ App.duel = (() => {
     return L;
   }
 
-  return { CODE, normCode, rng, wireFighter, wireBag, cleanTeam, create, peek, join, state, cancel, waitJoin, link };
+  /** Pile ou face : l'hôte commence-t-il ? (tirage à part, pour ne pas décaler celui des pièces des attaques) */
+  const hostFirst = (seed) => rng((seed ^ 0x5bd1e995) >>> 0)() < 0.5;
+
+  return { CODE, normCode, rng, hostFirst, wireFighter, wireBag, cleanTeam, create, peek, join, state, cancel, waitJoin, link };
 })();

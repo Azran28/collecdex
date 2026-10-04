@@ -83,14 +83,15 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Règles simplifiées** : au début de ton tour ton Pokémon gagne 1 énergie, puis tu **attaques** (1 énergie par symbole de l'attaque ; les énergies en plus restent pour la suite), tu prends **+1 énergie**, ou tu **changes** de Pokémon (touche-le sur ton banc). Les dégâts, faiblesses (×2) et résistances viennent de tes vraies cartes. « 30× » = pile ou face sur 2 pièces. Mets K.O. les 3 Pokémon adverses pour gagner.
 - Tes victoires et défaites sont comptées.
 
-## Combat contre un ami
-- Page **Combat** › encadré **« Contre un ami »** (il faut être connecté, et que vous soyez amis dans CollecDex).
-- **Créer un salon** : choisis ton équipe, un **code de 6 caractères** s’affiche (ex. K7P3QZ). Envoie-le à ton ami avec le bouton « Envoyer le code » (le lien ouvre directement son salon) et attends qu’il arrive : le combat démarre tout seul.
-- **Rejoindre avec un code** : tape le code de ton ami, choisis ton équipe, c’est parti.
-- Le mode (Basique ou Avancé avec le sac) est celui choisi par celui qui crée le salon. Celui qui crée le salon joue en premier.
-- Vous voyez exactement le même combat, chacun sur son téléphone. Pendant le tour de ton ami : « … réfléchit ». S’il ne répond plus depuis 2 minutes, tu peux arrêter le combat (ni victoire ni défaite). « Abandonner » = défaite, et victoire pour lui.
-- Victoires et défaites contre tes amis sont comptées à part (sous « Contre un ami »).
-- **À faire une fois** : dans Supabase › *SQL Editor*, coller `supabase-v10.sql` › *Run*. Avant ça : « Les combats entre amis ne sont pas encore activés sur le serveur ».
+## Combat en ligne
+- Page **Combat** › encadré **« Combat en ligne »**. Il faut juste être connecté (avoir un compte CollecDex) : pas besoin d'être amis.
+- **Créer un salon** : choisis ton équipe, un **code de 6 caractères** s’affiche (ex. K7P3QZ). Envoie-le à qui tu veux avec le bouton « Envoyer le code » (le lien ouvre directement le salon) et attends qu’il arrive : le combat démarre tout seul.
+- **Rejoindre avec un code** : tape le code qu’on t’a donné, choisis ton équipe, c’est parti.
+- **Pile ou face** au début : une pièce tourne et montre qui commence (le même résultat sur les deux téléphones, une chance sur deux).
+- Le mode (Basique ou Avancé avec le sac) est celui choisi par celui qui crée le salon.
+- Vous voyez exactement le même combat, chacun sur son téléphone. Pendant le tour de l’autre : « … réfléchit ». S’il ne répond plus depuis 2 minutes, tu peux arrêter le combat (ni victoire ni défaite). « Abandonner » = défaite, et victoire pour l’autre.
+- Victoires et défaites en ligne sont comptées à part (sous « Combat en ligne »).
+- **À faire dans Supabase** : *SQL Editor*, coller `supabase-v10.sql` › *Run* (même si tu l’avais déjà fait : la nouvelle version enlève l’obligation d’être amis). Avant ça : « Les combats en ligne ne sont pas encore activés sur le serveur ».
 
 ## Amis
 - **Mes amis** : sur ta vitrine (touche ton avatar), bouton « Amis ». Ajoute quelqu'un avec son **pseudo**, ou envoie-lui **ton lien d'invitation** (bouton « Partager » / « Copier ») : il ouvre le site, crée son compte, et la demande d'ami est prête.

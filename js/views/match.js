@@ -590,10 +590,35 @@
     const send = (mv) => { if (ON && !over) ON.link.send(mv); };
     const validIdx = (n, ok) => (Number.isInteger(n) && ok(n) ? n : null);
 
+    /** Pile ou face au début d'un combat en ligne : la pièce tourne puis montre qui commence (même tirage chez les deux joueurs) */
+    async function coinToss(meFirst) {
+      const w = document.createElement('div');
+      w.className = 'bt-toss';
+      const ini = esc((L.name || '?').trim().charAt(0).toUpperCase() || '?');
+      w.innerHTML = `<div class="bt-toss-box"><div class="bt-toss-t">Pile ou face : qui commence ?</div>
+        <div class="bt-coin3d"><div class="bt-coin ${RM() ? 'still ' + (meFirst ? 'me' : 'foe') : ''}" style="--end:${meFirst ? 1800 : 1980}deg">
+          <div class="bt-coin-f me"><b>${App.icons.icon('user', 30)}</b><span>Toi</span></div>
+          <div class="bt-coin-f foe"><b>${ini}</b><span>${esc(String(L.name).slice(0, 12))}</span></div></div></div>
+        <div class="bt-toss-r"></div></div>`;
+      ov.appendChild(w);
+      App.sfx.whoosh();
+      log('Pile ou face pour savoir qui commence…');
+      await sleep(RM() ? 300 : 1900); // la pièce tourne (animation CSS de 1,8 s)
+      App.sfx.click();
+      const r = w.querySelector('.bt-toss-r');
+      r.innerHTML = meFirst ? '<b>Tu commences !</b>' : `<b>${esc(L.name)} commence</b>`;
+      r.classList.add('on');
+      log(meFirst ? 'Pile ou face : <b>tu commences</b> !' : `Pile ou face : <b>${esc(L.name)}</b> commence.`);
+      await sleep(1500);
+      w.remove();
+    }
+
     drawAll(); drawFoeBag();
     log(`Le combat commence ! <b>${esc(B().active(P).name)}</b> contre <b>${esc(B().active(C).name)}</b>.`);
     App.sfx.unlock();
     await sleep(900);
+    if (ON) await coinToss(ON.first === 'P');
+
 
     // ---------- les tours ----------
     /** mon tour ; renvoie faux si le combat est fini */
@@ -941,7 +966,7 @@
     const link = D.link(s.code);
     return battle(0, [], s.myTeam.name, {
       adv: s.mode === 'adv',
-      online: { link, rand: D.rng(s.seed), foeName: s.foeName, first: s.meHost ? 'P' : 'C', mine, foe, bagP: s.myTeam.bag, bagC: s.foeTeam.bag },
+      online: { link, rand: D.rng(s.seed), foeName: s.foeName, first: s.meHost === D.hostFirst(s.seed) ? 'P' : 'C', mine, foe, bagP: s.myTeam.bag, bagC: s.foeTeam.bag },
     });
   }
   /** Choix de l'équipe pour un combat entre amis (renvoie l'index, ou null) */
@@ -967,9 +992,9 @@
           <h2>${App.icons.icon('users', 18)} Ton salon</h2>
           <p class="small muted" style="margin:2px 0 10px">Mode ${esc(modeName(m.mode))} · équipe « ${esc(m.teams[idx].name)} »</p>
           <div class="bt-code" aria-label="Code du salon">${code.split('').map((c) => `<span>${esc(c)}</span>`).join('')}</div>
-          <p class="small" style="text-align:center;margin:10px 0">Donne ce code à ton ami : dans <b>Combat › Contre un ami › Rejoindre</b>.</p>
+          <p class="small" style="text-align:center;margin:10px 0">Donne ce code à ton adversaire : page <b>Combat</b> › « Rejoindre avec un code ». Il lui faut juste un compte CollecDex.</p>
           <div class="row" style="justify-content:center;gap:8px"><button class="btn primary" id="bt-room-share">${App.icons.icon('share', 15)} ${navigator.share ? 'Envoyer le code' : 'Copier le lien'}</button></div>
-          <div class="bt-wait" style="justify-content:center;margin-top:14px"><span class="bt-wait-dots"><i></i><i></i><i></i></span> En attente de ton ami…</div>
+          <div class="bt-wait" style="justify-content:center;margin-top:14px"><span class="bt-wait-dots"><i></i><i></i><i></i></span> En attente de ton adversaire…</div>
           <div class="row" style="justify-content:center;margin-top:8px"><button class="btn ghost sm" id="bt-room-cancel">Fermer le salon</button></div>
         </div>`, () => { if (!done) { D.cancel(code); end(null); } });
       body.querySelector('#bt-room-share').addEventListener('click', async () => {
@@ -994,7 +1019,7 @@
       const end = (v) => { if (done) return; done = true; resolve(v); };
       const body = App.util.openModal(`<div class="bt-pick bt-room">
           <h2>${App.icons.icon('users', 18)} Rejoindre un salon</h2>
-          <p class="small muted" style="margin:2px 0 10px">Entre le code à 6 caractères que ton ami t’a donné.</p>
+          <p class="small muted" style="margin:2px 0 10px">Entre le code à 6 caractères que ton adversaire t’a donné.</p>
           <input type="text" id="bt-code-in" class="bt-code-in" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC234" value="${esc(D.normCode(preset))}">
           <div class="small" id="bt-code-msg" style="min-height:1.3em;margin-top:6px;text-align:center"></div>
           <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="bt-code-ok">Rejoindre</button></div>
@@ -1086,10 +1111,10 @@
             ${teamsHtml()}
           </section>
           <section class="bt-duel">
-            <div class="bt-duel-h"><span class="bt-duel-ic">${App.icons.icon('users', 20)}</span><div><b>Contre un ami</b>
-              <span class="small muted">${m.stats.online.wins || m.stats.online.losses ? `${m.stats.online.wins} victoire${m.stats.online.wins > 1 ? 's' : ''} · ${m.stats.online.losses} défaite${m.stats.online.losses > 1 ? 's' : ''}` : `Crée un salon, envoie le code à un ami, et affrontez-vous en mode ${adv ? 'Avancé' : 'Basique'}.`}</span></div></div>
+            <div class="bt-duel-h"><span class="bt-duel-ic">${App.icons.icon('users', 20)}</span><div><b>Combat en ligne</b>
+              <span class="small muted">${m.stats.online.wins || m.stats.online.losses ? `${m.stats.online.wins} victoire${m.stats.online.wins > 1 ? 's' : ''} · ${m.stats.online.losses} défaite${m.stats.online.losses > 1 ? 's' : ''}` : `Crée un salon et envoie le code à qui tu veux (il lui faut un compte), ou rejoins un salon : affrontez-vous en mode ${adv ? 'Avancé' : 'Basique'}.`}</span></div></div>
             ${App.cloud.user ? `<div class="bt-duel-b"><button class="btn primary" data-duel="create">${App.icons.icon('plus', 15)} Créer un salon</button><button class="btn" data-duel="join">Rejoindre avec un code</button></div>`
-              : `<div class="bt-duel-b"><a class="btn" href="#/connexion">${App.icons.icon('user', 15)} Me connecter pour affronter mes amis</a></div>`}
+              : `<div class="bt-duel-b"><a class="btn" href="#/connexion">${App.icons.icon('user', 15)} Me connecter pour jouer en ligne</a></div>`}
           </section>
           <h2>Contre l’ordinateur</h2>
           <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
@@ -1201,7 +1226,7 @@
         for (let i = 0; i < 20 && !App.cloud.user && alive(); i++) await sleep(200); // la connexion se rétablit au démarrage
         if (!alive()) return;
         if (App.cloud.user) runDuel('join', code);
-        else App.util.toast('Connecte-toi pour rejoindre le salon de ton ami', 4000);
+        else App.util.toast('Connecte-toi pour rejoindre ce salon', 4000);
       }
     },
   };
