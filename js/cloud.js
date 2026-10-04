@@ -65,6 +65,49 @@ App.cloud = (() => {
     window.addEventListener('online', () => { if (user) flush(); });
   }
 
+  // ---------- Session expirée ----------
+  // Le jeton de connexion (JWT) dure 1 h et se renouvelle tout seul… sauf si l'appli est restée en arrière-plan,
+  // hors ligne, ou si la session a été fermée ailleurs : le serveur répond alors « JWT expired ».
+  // On tente de le renouveler ; si c'est impossible, on se déconnecte proprement (au lieu d'une interface bloquée).
+  const isAuthErr = (e) => {
+    const m = String((e && (e.message || e.msg || e.error_description)) || e || '');
+    const c = String((e && (e.code || e.status || e.statusCode)) || '');
+    return /jwt|token (is )?expired|invalid (refresh )?token|refresh token|auth session missing|session.*(expired|not found)/i.test(m) || /^(401|PGRST30[0-3])$/.test(c);
+  };
+  // panne de réseau : ce n'est pas une session expirée, on ne déconnecte pas
+  const isNetErr = (e) => !!e && (e.status === 0 || e.name === 'AuthRetryableFetchError' || /failed to fetch|network|load failed/i.test(String(e.message || '')));
+  let expiring = false, authFails = 0;
+  async function expire() {
+    if (expiring || !user) return;
+    expiring = true;
+    try { await sb.auth.signOut({ scope: 'local' }); } catch (e) { /* déjà plus de session */ }
+    user = null; authFails = 0; clearTimeout(retryTimer); clearTimeout(timer);
+    setState('deconnecte');
+    expiring = false;
+    App.util.toast('Ta session a expiré : reconnecte-toi. Tes changements sont gardés sur cet appareil.', 6000);
+  }
+  /** Après une erreur de session : vrai si le jeton a pu être renouvelé (on peut réessayer), sinon déconnexion */
+  async function renew() {
+    if (!user) return false;
+    if (++authFails <= 2) {
+      try {
+        const { data, error } = await sb.auth.refreshSession();
+        if (!error && data && data.session) { user = data.session.user; return true; }
+        if (error && isNetErr(error)) return false; // hors ligne : on garde la session, on réessaiera plus tard
+      } catch (e) { if (isNetErr(e)) return false; }
+    }
+    await expire();
+    return false;
+  }
+  // retour sur l'appli (téléphone sorti de veille) : on vérifie la session tout de suite
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible' || !sb || !user) return;
+    try {
+      const { data, error } = await sb.auth.getSession();
+      if (!(data && data.session) && !(error && isNetErr(error))) await expire();
+    } catch (e) { /* réseau : rien */ }
+  });
+
   // ---------- Modifications locales à envoyer ----------
   function schedule() {
     savePend();
@@ -123,10 +166,13 @@ App.cloud = (() => {
         if (error) throw error;
         pend.profile = false; savePend();
       }
-      lastSync = Date.now();
+      lastSync = Date.now(); authFails = 0;
       setState('ok');
     } catch (e) {
       console.warn('Synchronisation', e);
+      flushing = false;
+      if (isAuthErr(e) && await renew()) { clearTimeout(retryTimer); retryTimer = setTimeout(flush, 300); return; }
+      if (!user) return; // session expirée : déconnecté (les changements restent en attente pour la prochaine connexion)
       setState('erreur', e.message || String(e));
       clearTimeout(retryTimer); retryTimer = setTimeout(flush, 30000);
     } finally {
@@ -194,13 +240,14 @@ App.cloud = (() => {
       }
       savePend();
       await loadCerts();
-      lastSync = Date.now();
+      lastSync = Date.now(); authFails = 0;
       if (changed) App.col.notify();
       setState('ok');
       flush();
     } catch (e) {
       console.warn('Synchronisation', e);
-      setState('erreur', e.message || String(e));
+      if (isAuthErr(e) && await renew()) { sync(); return; }
+      if (user) setState('erreur', e.message || String(e));
     }
   }
 
@@ -215,8 +262,13 @@ App.cloud = (() => {
   /** Appel d'une fonction du serveur */
   async function rpc(name, args = {}) {
     if (!user) throw new Error('Connexion requise');
-    const { data, error } = await sb.rpc(name, args);
+    let { data, error } = await sb.rpc(name, args);
+    if (error && isAuthErr(error)) {
+      if (!(await renew())) throw new Error(user ? 'Connexion au serveur impossible (internet ?)' : 'Ta session a expiré : reconnecte-toi');
+      ({ data, error } = await sb.rpc(name, args));
+    }
     if (error) throw new Error(error.message);
+    authFails = 0;
     return data;
   }
 
@@ -317,6 +369,7 @@ App.cloud = (() => {
     signUp, signIn, signOut, resetPassword, newPassword,
     get user() { return user; }, get state() { return state; }, get error() { return lastError; },
     get lastSync() { return lastSync; }, pendingCount,
+    _test: { isAuthErr, isNetErr },
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };
 })();
