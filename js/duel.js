@@ -61,7 +61,7 @@ App.duel = (() => {
     return {
       name: str(t.name, 24),
       fighters: (Array.isArray(t.fighters) ? t.fighters : []).slice(0, 3).map(cleanFighter),
-      bag: (Array.isArray(t.bag) ? t.bag : []).slice(0, 6).map(cleanBag).filter(Boolean),
+      bag: (Array.isArray(t.bag) ? t.bag : []).slice(0, App.battleCards.DECK_MAX).map(cleanBag).filter(Boolean),
     };
   };
 
@@ -100,8 +100,18 @@ App.duel = (() => {
       foeName: str(meHost ? r.guest_pseudo : r.host_pseudo, 40) || 'Dresseur',
       myTeam: after < 0 ? cleanTeam(meHost ? r.host_team : r.guest_team) : null,
       foeTeam: after < 0 && (meHost ? r.guest_team : r.host_team) ? cleanTeam(meHost ? r.guest_team : r.host_team) : null,
+      // revanche proposée (supabase-v15.sql) : code du nouveau salon, et qui l'a demandée
+      rematch: CODE.test(r.rematch || '') ? r.rematch : null, rematchBy: r.rematch_by === 'me' ? 'me' : r.rematch_by === 'foe' ? 'foe' : null,
       moves: (Array.isArray(r.moves) ? r.moves : []).map((m) => ({ n: int(m && m.n, 0, 5000), move: m && typeof m.move === 'object' && m.move ? m.move : {} })),
     };
+  }
+  /** Revanche après un combat terminé : nouveau salon avec le même adversaire (ou celui qu'il a déjà proposé) → code */
+  async function rematch(code) {
+    let r;
+    try { r = await App.cloud.rpc('battle_rematch', { p_code: code }); }
+    catch (e) { throw new Error(isMissing(e) ? 'Il reste une étape côté serveur pour la revanche (supabase-v15.sql).' : e.message); }
+    if (!r || !r.ok || !CODE.test(r.code)) throw new Error((r && r.reason) || 'Revanche impossible');
+    return r.code;
   }
   /** Quitter un salon avant le combat (en attente, ou pendant le choix des équipes) */
   const cancel = (code) => rpc('battle_move', { p_code: code, p_n: 1, p_move: { kind: 'quit' } }).catch(() => {});
@@ -192,5 +202,5 @@ App.duel = (() => {
     return m ? m[1] : normCode(s);
   };
 
-  return { CODE, normCode, pickCode, rng, hostFirst, wireFighter, wireBag, cleanTeam, create, peek, join, setTeam, state, cancel, waitJoin, waitStart, link };
+  return { CODE, normCode, pickCode, rng, hostFirst, wireFighter, wireBag, cleanTeam, create, peek, join, setTeam, state, rematch, cancel, waitJoin, waitStart, link };
 })();

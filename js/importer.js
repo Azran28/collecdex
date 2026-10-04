@@ -1,5 +1,5 @@
 /*
- * Import d'une collection depuis un fichier (Cardmarket, Collectr, Excel / CSV / tableau collé).
+ * Import d'une collection depuis un fichier (Cardmarket, Collectr, Pokellector, Dragon Shield, Excel / CSV / tableau collé).
  * 1) lecture du fichier : CSV (séparateur deviné) ou Excel .xlsx (lu ici même : un .xlsx est un zip de fichiers XML) ;
  * 2) colonnes reconnues par leur titre (anglais, français, allemand…), modifiables à la main ;
  * 3) chaque ligne est rapprochée d'une carte TCGdex : série (nom français OU anglais) + numéro, sinon nom ;
@@ -20,10 +20,14 @@ App.importer = (() => {
   /** CSV / TSV / tableau collé depuis Excel → lignes de cellules (séparateur deviné, guillemets gérés) */
   function parseCSV(text) {
     text = String(text || '').replace(/\r\n?/g, '\n');
+    // 1re ligne « sep=, » (exports Dragon Shield, Excel) : séparateur imposé
+    let forced = null;
+    const sm = text.match(/^\s*"?sep=(.)[^\n]*\n/i);
+    if (sm) { forced = sm[1]; text = text.slice(sm[0].length); }
     const first = text.split('\n').find((l) => l.trim()) || '';
     const count = (ch) => first.split(ch).length - 1;
     const sep = ['\t', ';', ',', '|'].map((c) => [c, count(c)]).sort((a, b) => b[1] - a[1])[0];
-    const S = sep && sep[1] ? sep[0] : ',';
+    const S = forced || (sep && sep[1] ? sep[0] : ',');
     const rows = []; let row = [], cell = '', q = false;
     for (let i = 0; i < text.length; i++) {
       const ch = text[i];
@@ -121,11 +125,11 @@ App.importer = (() => {
     name: ['name', 'product name', 'card name', 'english name', 'local name', 'locname', 'enname', 'nom', 'nom de la carte', 'carte', 'card', 'pokemon', 'produit', 'product', 'kartenname', 'titre', 'title'],
     set: ['set', 'set name', 'expansion', 'exp name', 'expansion name', 'edition', 'serie', 'series', 'extension', 'nom de la serie', 'nom de l extension', 'collection', 'erweiterung', 'set_name'],
     number: ['card number', 'number', 'no', 'nr', 'num', 'numero', 'n', 'n de la carte', 'numero de carte', 'collector number', 'collectors number', 'cn', 'nummer', 'card no', 'card'],
-    qty: ['quantity', 'qty', 'amount', 'count', 'quantite', 'qte', 'nombre', 'nb', 'exemplaires', 'copies', 'anzahl', 'menge', 'stock', 'total quantity'],
+    qty: ['quantity', 'qty', 'owned', 'quantity owned', 'qty owned', 'have', 'collected', 'amount', 'count', 'quantite', 'qte', 'nombre', 'nb', 'exemplaires', 'copies', 'anzahl', 'menge', 'stock', 'total quantity'],
     lang: ['language', 'langue', 'lang', 'idlanguage', 'sprache', 'card language'],
     cond: ['condition', 'card condition', 'etat', 'etat de la carte', 'zustand', 'cond'],
     grade: ['grade', 'grading', 'graded', 'note', 'gradation'],
-    version: ['variance', 'variant', 'version', 'versions', 'printing', 'finish', 'foil', 'foil?', 'isfoil', 'is foil', 'holo', 'type', 'reverse', 'edition type'],
+    version: ['variance', 'variant', 'variation', 'version', 'versions', 'printing', 'finish', 'foil', 'foil?', 'isfoil', 'is foil', 'holo', 'type', 'reverse', 'edition type'],
     firstEd: ['isfirsted', 'first edition', '1st edition', 'first ed', '1st ed', 'premiere edition', '1ere edition', 'edition 1'],
     category: ['category', 'categorie', 'game', 'jeu', 'product line', 'productline'],
   };
@@ -137,7 +141,7 @@ App.importer = (() => {
     let best = { score: 0, at: -1, map: {} };
     for (let r = 0; r < Math.min(10, rows.length); r++) {
       const map = {}; let score = 0;
-      const heads = rows[r].map(norm);
+      const heads = rows[r].map((h) => norm(String(h == null ? '' : h).replace(/#/g, ' number '))); // « Card # », « # » → numéro
       // 1) titres exacts, puis 2) titres qui commencent / finissent par un mot connu (« Card Condition », « Nom FR »)
       for (const pass of [0, 1]) {
         heads.forEach((n, j) => {
@@ -170,6 +174,8 @@ App.importer = (() => {
   function sourceOf(cols) {
     const h = cols.map(norm).join('|');
     if (/portfolio name|variance|average cost paid|market price/.test(h)) return 'collectr';
+    if (/folder name|trade quantity/.test(h)) return 'dragonshield';
+    if (/pokellector/.test(h)) return 'pokellector';
     if (/idproduct|idarticle|exp name|english name|local name|isfoil|foil \?/.test(h)) return 'cardmarket';
     return 'tableau';
   }
@@ -194,12 +200,12 @@ App.importer = (() => {
   function condOf(v, g) {
     const gm = String(g || v || '').match(/\b(PSA|CGC|BGS|PCA|BECKETT)\s*:?\s*(\d+(?:[.,]5)?)\b/i);
     if (gm) return { kind: 'graded', company: gm[1].toUpperCase() === 'BECKETT' ? 'BGS' : gm[1].toUpperCase(), grade: +gm[2].replace(',', '.') };
-    const n = norm(v); if (!n) return null;
+    const n = norm(String(v || '').replace(/([a-z])([A-Z])/g, '$1 $2')); if (!n) return null; // « NearMint », « LightPlayed » (Dragon Shield)
     const code = n.toUpperCase();
     if (['MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO'].includes(code)) return { kind: 'raw', grade: code };
     // expressions les plus précises d'abord (« Moderately Played » commence par un m, « Near Mint » contient « mint »)
     const R = [
-      [/near mint|comme neuf|quasi neuf|^neuf/, 'NM'], [/lightly played|excellent|tres bon/, 'EX'], [/moderately played/, 'LP'],
+      [/near mint|comme neuf|quasi neuf|^neuf/, 'NM'], [/light(?:ly)? played|excellent|tres bon/, 'EX'], [/moderately played/, 'LP'],
       [/heavily played|^played|^joue|bien use/, 'PL'], [/damaged|poor|abime|endommage/, 'PO'], [/^(good|bon|bon etat)$/, 'GD'], [/^(mint|m|parfait)$/, 'MT'],
     ];
     const hit = R.find(([re]) => re.test(n));
@@ -242,13 +248,17 @@ App.importer = (() => {
     const out = [];
     rows.forEach((r, i) => {
       if (i <= det.header) return;
-      const rawName = get(r, 'name');
+      let rawName = get(r, 'name');
       if (!rawName) return;
+      // liste en texte (« 2x Dracaufeu 4/102 », « Dracaufeu x2 ») : quantité dans le nom
+      let qIn = null;
+      const qa = m.qty == null && rawName.match(/^\s*(\d{1,3})\s*[x×]\s+(.+)$/i), qb = m.qty == null && !qa && rawName.match(/^(.+?)\s+[x×]\s*(\d{1,3})\s*$/i);
+      if (qa) { qIn = +qa[1]; rawName = qa[2]; } else if (qb) { qIn = +qb[2]; rawName = qb[1]; }
       const cn = cleanName(rawName);
       const num = numOf(get(r, 'number')) || cn.num;
       const q = parseInt(String(get(r, 'qty')).replace(/[^\d]/g, ''), 10);
       const row = {
-        line: i + 1, raw: rawName, name: cn.name || rawName, setName: get(r, 'set'), num, qty: m.qty != null ? (Number.isFinite(q) ? q : 0) : 1,
+        line: i + 1, raw: rawName, name: cn.name || rawName, setName: get(r, 'set'), num, qty: m.qty != null ? (Number.isFinite(q) ? q : 0) : qIn || 1,
         lang: langOf(get(r, 'lang'), opts.lang || 'fr'), cond: condOf(get(r, 'cond'), get(r, 'grade')),
         ver: versionOf(get(r, 'version'), get(r, 'firstEd'), det.cols[m.version] || ''),
         skip: null,
@@ -420,6 +430,6 @@ App.importer = (() => {
     return stats;
   }
 
-  const SOURCES = { collectr: 'Collectr', cardmarket: 'Cardmarket', tableau: 'un tableau' };
+  const SOURCES = { collectr: 'Collectr', cardmarket: 'Cardmarket', pokellector: 'Pokellector', dragonshield: 'Dragon Shield', tableau: 'un tableau' };
   return { readFile, parseCSV, detect, sourceOf, rowsOf, matchAll, match, apply, variantFor, FIELDS, LABELS, ORDER, SOURCES, _t: { numOf, cleanName, condOf, langOf, versionOf, findSets, norm } };
 })();

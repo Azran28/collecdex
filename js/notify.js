@@ -1,10 +1,12 @@
 /*
  * Notifications (même site fermé) : l'appareil s'abonne auprès du serveur (supabase-v7.sql),
- * qui envoie « ta réserve de 10 capsules est pleine » et « nouvelle demande d'ami » (fonction capsule-notify, supabase-v11.sql).
+ * qui envoie « ta réserve de 10 capsules est pleine », « nouvelle demande d'ami » (supabase-v11.sql) et « carte recherchée proposée »
+ * (un ami l'a en double, supabase-v15.sql) — fonction capsule-notify. « Badge débloqué » est affichée par l'appareil lui-même (local()).
  * Le choix est propre à chaque appareil (téléphone, ordinateur…) et lié au compte connecté.
  */
 App.notify = (() => {
-  const KINDS = [['capsules', 'Ma réserve de capsules est pleine (10 capsules à ouvrir)'], ['friends', 'Je reçois une demande d’ami']].filter(([k]) => !(App.play && k === 'capsules'));
+  const KINDS = [['capsules', 'Ma réserve de capsules est pleine (10 capsules à ouvrir)'], ['friends', 'Je reçois une demande d’ami'],
+    ['wish', 'Un ami a en double une carte que je recherche'], ['badges', 'Je débloque un badge']].filter(([k]) => !(App.play && k === 'capsules'));
   const listeners = new Set();
   const notify = () => listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
 
@@ -21,7 +23,7 @@ App.notify = (() => {
   async function subscription() {
     try { const reg = await navigator.serviceWorker.getRegistration(); return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; }
   }
-  const prefs = async () => Object.assign({ on: false, kinds: { capsules: true, friends: true } }, (await App.db.get('kv', 'notify').catch(() => null)) || {});
+  const prefs = async () => Object.assign({ on: false, kinds: { capsules: true, friends: true, wish: true, badges: true } }, (await App.db.get('kv', 'notify').catch(() => null)) || {});
   const savePrefs = (p) => App.db.set('kv', 'notify', p).catch(() => {});
 
   // clé publique VAPID (texte base64url) → octets
@@ -83,6 +85,18 @@ App.notify = (() => {
     await reg.showNotification('CollecDex', { body: 'Les notifications marchent sur cet appareil ✓', icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', tag: 'test', data: { url: '#/parametres' } });
   }
 
+  /** Notification affichée par l'appareil lui-même (sans serveur : ex. badge débloqué), si elle est activée ici */
+  async function local(kind, title, body, url = '#/', tag = kind) {
+    try {
+      if (!supported() || Notification.permission !== 'granted') return false;
+      const p = await prefs();
+      if (!p.on || p.kinds[kind] === false) return false;
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(title, { body, tag, icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', data: { url } });
+      return true;
+    } catch (e) { return false; }
+  }
+
   /** Bloc des Paramètres */
   function panel(host) {
     const draw = async () => {
@@ -129,5 +143,5 @@ App.notify = (() => {
     if (p.on && sub) send(sub, p.kinds).catch(() => {});
   });
 
-  return { KINDS, supported, state, enable, disable, setKind, test, panel, on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
+  return { KINDS, supported, state, enable, disable, setKind, test, local, panel, on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
 })();

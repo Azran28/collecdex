@@ -71,11 +71,13 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le logo 1ʳᵉ édition est cherché en le comparant à un vrai logo photographié : il est trouvé sur une carte seule nette et sur une page de classeur nette (9 cartes). Sur une photo floue, le site ne met pas « 1ʳᵉ édition » (il vaut mieux l'ajouter à la main que se tromper).
 - La **reverse** n'a pas encore pu être testée sur une vraie carte reverse : vérifie-la après l'ajout.
 
-## Importer ma collection (Collectr, Cardmarket, Excel)
+## Importer ma collection (Collectr, Cardmarket, Pokellector, Dragon Shield, Excel)
 - **Mon Dex › Importer** (ou Paramètres › Sauvegarde › « Importer un fichier »).
 - Choisis d'où vient ton fichier pour voir comment l'obtenir :
   - **Collectr** : Portfolio › les trois points en haut à droite › Export (offre PRO) : tu reçois un CSV par e-mail.
   - **Cardmarket** : exporte ta liste (stock, collection ou souhaits) en CSV.
+  - **Pokellector** : exporte ta collection en CSV depuis l'appli ou le site. Une simple liste copiée (« 2x Dracaufeu 4/102 ») marche aussi : colle-la dans « Ou coller un tableau ».
+  - **Dragon Shield** (Card Manager / Poké TCG Scanner) : ouvre ton dossier › Export › CSV. Quantité, état (NearMint…), langue et version (Holofoil, Reverse Holofoil…) sont repris.
   - **Excel / CSV** : un tableau avec au moins une colonne « Nom » (mieux avec Série, Numéro comme 4/102, Quantité). Tu peux aussi copier les cases dans Excel et les coller. Le tableur exporté par CollecDex (Paramètres) se réimporte aussi.
 - L'appli reconnaît les colonnes toute seule : vérifie-les, puis « Rechercher les cartes ». Les noms et séries en anglais marchent (Charizard → Dracaufeu).
 - Résultat : **Trouvée** (vert), **À choisir** (jaune : plusieurs cartes portent ce nom, touche la bonne ; « Holo » est indiqué), **Introuvable** (rouge : tape un autre nom et « Chercher »). Décoche une ligne pour ne pas l'importer.
@@ -89,7 +91,8 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Sur téléphone, les 3 équipes sont des **onglets** : touche un onglet pour choisir l'équipe ; ses 3 cartes s'affichent avec les boutons Modifier / Sac / Renommer (toucher les cartes ouvre aussi le choix des Pokémon).
 - Dans le choix des Pokémon, chaque carte montre ses **PV**, son **type** (pastille de couleur) et sa **plus grosse attaque** (⚔) ; filtres par **type** (les 11 types du jeu de cartes, avec le nombre de Pokémon que tu as dans chacun), **PV minimum**, **énergie** (garder ceux qui ont une attaque à 1, 2 ou 3 énergies max) et tri (plus fort, plus de PV, plus gros dégâts, attaque la moins chère, nom). Ton équipe reste affichée en haut (touche × pour retirer).
 - **Deux modes** (en haut de la page) : **Basique** et **Avancé**. Chaque mode a ses propres niveaux débloqués et son propre compte de victoires / défaites.
-- **Avancé** : chaque équipe a un **sac** (bouton « Sac ») de 6 cartes Dresseur ou Énergie maximum, prises dans ta collection (plusieurs exemplaires possibles si tu les as). Sans carte : sac de prêt (Potion, PlusPower, Transfert, une Énergie). À ton tour, tu peux jouer **une carte du sac** avant ton action ; chaque carte ne sert qu'une fois par combat. Les cartes inutiles sur le moment sont grisées (ex. Potion quand ton Pokémon a tous ses PV). L'ordinateur a aussi son sac (2 cartes au niveau 1, 7 au niveau Légende).
+- **Avancé** : chaque équipe a une **pioche** (bouton « Pioche ») de **10 cartes** Dresseur ou Énergie maximum, prises dans ta collection (plusieurs exemplaires possibles si tu les as). Sans carte : pioche de prêt de 8 cartes (2 Potion, PlusPower, Défenseur, Transfert, 3 Énergies). Au début du combat elle est **mélangée** : tu as **3 cartes en main**, puis tu en **pioches 1** au début de chacun de tes tours (« Tu pioches … » s'affiche). À ton tour, tu peux jouer **une carte de ta main** avant ton action ; chaque carte ne sert qu'une fois par combat. Les cartes inutiles sur le moment sont grisées (ex. Potion quand ton Pokémon a tous ses PV). En haut : le nombre de cartes en main et dans la pioche de l'adversaire. L'ordinateur a aussi sa pioche (4 cartes au niveau 1, 10 aux niveaux Champion et Légende).
+- **Fin du combat, en un geste** : « Revanche » relance le même niveau ; après une victoire, « Niveau suivant ».
   - Énergie : +1 énergie, +2 si elle est du type de ton Pokémon (Double Énergie Incolore : +2).
   - Dresseurs connus : Potion soin 20, Super Potion soin 40, Centre Pokémon soin 40 pour tous, Rappel soin total (mais perd ses énergies), PlusPower +20 dégâts, Défenseur −20 dégâts subis, Transfert échange gratuit, Rafale de vent (l'adversaire envoie son Pokémon le plus faible), Suppression d'Énergie (−1 énergie adverse, Double : −2), Réanimation (un Pokémon K.O. revient avec la moitié de ses PV), Professeur Chen / Léo +1 énergie.
   - Les autres cartes : effet lu dans leur texte quand c'est possible (soin, dégâts en moins, sans faiblesse, soin à chaque tour…), sinon selon leur genre : Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts pendant 3 tours.
@@ -104,8 +107,9 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Rejoindre avec un code** : tape ou colle le code qu’on t’a donné (tu peux même coller le message entier : l’appli y retrouve le code).
 - **Une fois tous les deux dans le salon**, chacun choisit son équipe (on ne voit pas celle de l’autre avant le combat). L’écran indique quand l’autre a choisi ; le combat démarre tout seul quand les deux sont prêts. Quitter pendant le choix ferme le salon (ni victoire ni défaite).
 - **Pile ou face** au début : une pièce tourne et montre qui commence (le même résultat sur les deux téléphones, une chance sur deux).
-- Le mode (Basique ou Avancé avec le sac) est celui choisi par celui qui crée le salon. En Avancé, ton sac est visible dès le début, même quand l’autre commence (cartes grises tant que ce n’est pas ton tour ; touche-en une pour voir ce qu’elle fait).
+- Le mode (Basique ou Avancé avec la pioche) est celui choisi par celui qui crée le salon. En Avancé, ta main est visible dès le début, même quand l’autre commence (cartes grises tant que ce n’est pas ton tour ; touche-en une pour voir ce qu’elle fait). Les pioches sont mélangées de la même façon sur les deux téléphones.
 - Vous voyez exactement le même combat, chacun sur son téléphone. Pendant le tour de l’autre : « … réfléchit ». S’il ne répond plus depuis 2 minutes, tu peux arrêter le combat (ni victoire ni défaite). « Abandonner » = défaite, et victoire pour l’autre.
+- **Revanche en un geste** : à la fin, touche « Revanche » : un nouveau salon s'ouvre avec le même adversaire et le même mode, directement au choix des équipes. L'autre voit « … propose une revanche ! » et touche « Accepter la revanche ». S'il touche « Retour », la revanche est annulée. (À faire une fois : `supabase-v15.sql`, voir Notifications.)
 - Victoires et défaites en ligne sont comptées à part (sous « Combat en ligne »).
 - **Page rafraîchie ou appli fermée par erreur** : rouvre l'appli, elle te ramène toute seule dans ton salon (ou dans le combat, là où il en était). Ça marche sur le même téléphone.
 - **À faire dans Supabase** : *SQL Editor*, coller `supabase-v10.sql` › *Run* (même si tu l’avais déjà fait : la nouvelle version enlève l’obligation d’être amis). Avant ça : « Les combats en ligne ne sont pas encore activés sur le serveur ». Puis coller `supabase-v12.sql` › *Run* (choix des équipes dans le salon).
@@ -142,13 +146,14 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Ouvrir à la chaîne** : à la fin d'une ouverture, touche le Pokémon pour ouvrir la capsule suivante.
 
 ## Notifications
-- **Paramètres › Notifications** : coche « Notifications sur cet appareil » (le navigateur demande l'autorisation), puis choisis lesquelles recevoir. **« Ma réserve de capsules est pleine »** (10 capsules à ouvrir) et **« Je reçois une demande d'ami »** (avec le pseudo de celui qui demande ; la toucher ouvre la page Amis), même quand le site est fermé.
+- **Paramètres › Notifications** : coche « Notifications sur cet appareil » (le navigateur demande l'autorisation), puis choisis lesquelles recevoir. **« Ma réserve de capsules est pleine »** (10 capsules à ouvrir), **« Je reçois une demande d'ami »** (avec le pseudo de celui qui demande ; la toucher ouvre la page Amis), **« Un ami a en double une carte que je recherche »** (une carte de ta liste de souhaits qu'un ami a en 2 exemplaires ou plus, donc qu'il peut te proposer ; une seule fois par carte et par ami ; la toucher ouvre sa vitrine), même quand le site est fermé, et **« Je débloque un badge »** (affichée par ton téléphone dès que le badge est gagné).
 - Le réglage est propre à chaque appareil (téléphone, ordinateur) ; te déconnecter les coupe sur cet appareil.
 - **iPhone** : les notifications ne marchent qu'avec l'appli **installée** sur l'écran d'accueil (iOS 16.4 ou plus récent) : installe-la, ouvre-la, puis active les notifications dans ses Paramètres.
 - **À faire une fois dans Supabase** (2 étapes) :
   1. *SQL Editor* → coller `supabase-v7.sql` → *Run* (notifications + nouvelle certification).
   2. *Edge Functions* : la fonction d'envoi s'appelle **`hyper-processor`** (nom choisi par Supabase). Son code = le fichier `supabase/functions/capsule-notify/index.ts` (onglet *Code* → tout remplacer → *Deploy*), « Verify JWT » désactivé dans *Settings*. Le serveur l'appelle tout seul toutes les 5 minutes.
   3. **Demandes d'ami (v2.62)** : *SQL Editor* → coller `supabase-v11.sql` → *Run*, puis remettre à jour le code de **`hyper-processor`** comme à l'étape 2 (le fichier a changé).
+  4. **Carte recherchée + revanche (v2.80)** : *SQL Editor* → coller `supabase-v15.sql` → *Run*, puis remettre à jour le code de **`hyper-processor`** comme à l'étape 2 (le fichier a encore changé).
 - Pour le moment, une carte dans un **étui opaque** ne peut pas être certifiée : le site doit voir le dos Pokémon (c'est ce qui prouve que ce n'est pas un écran). Une pochette transparente convient.
 
 ## Sécurité

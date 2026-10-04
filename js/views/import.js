@@ -1,4 +1,4 @@
-/* Page « Importer ma collection » (#/importer) : fichier Cardmarket, Collectr, Excel ou tableau collé → cartes non certifiées */
+/* Page « Importer ma collection » (#/importer) : fichier Cardmarket, Collectr, Pokellector, Dragon Shield, Excel ou tableau collé → cartes non certifiées */
 App.views.import = {
   async render(el, params, alive) {
     const { esc } = App.util;
@@ -6,6 +6,8 @@ App.views.import = {
     const HELP = {
       collectr: 'Dans l’appli Collectr : écran <b>Portfolio</b> › les <b>trois points</b> en haut à droite › <b>Export</b> (offre PRO). Tu reçois un fichier CSV par e-mail : enregistre-le, puis choisis-le ici.',
       cardmarket: 'Sur <b>cardmarket.com</b>, exporte ta liste de cartes (stock, collection ou liste de souhaits) en fichier <b>CSV</b>, puis choisis-le ici. Les noms et séries en anglais sont reconnus.',
+      pokellector: 'Dans <b>Pokellector</b>, exporte ta collection en fichier <b>CSV</b> (fonction d’export de l’appli ou du site), enregistre-le, puis choisis-le ici. Une simple liste copiée (« 2x Dracaufeu 4/102 ») marche aussi : colle-la plus bas.',
+      dragonshield: 'Dans l’appli <b>Dragon Shield</b> (Card Manager / Poké TCG Scanner) : ouvre ton dossier › <b>Export</b> › fichier <b>CSV</b>, envoie-le-toi, puis choisis-le ici. Quantité, état, langue et version (holo, reverse…) sont repris.',
       tableau: 'Un tableau <b>Excel (.xlsx)</b> ou <b>CSV</b> avec au moins une colonne <b>Nom</b> ; mieux avec <b>Série</b>, <b>Numéro</b> (ex. 4/102) et <b>Quantité</b>. Tu peux aussi copier les cases dans Excel et les coller plus bas.',
     };
     let S = { step: 'source', src: 'collectr', cells: null, det: null, list: [], file: '', lang: 'en', mode: 'keep', filter: 'all', shown: 150, busy: false };
@@ -20,7 +22,7 @@ App.views.import = {
     const drawSource = () => {
       el.innerHTML = `${head()}
         <p class="imp-note">${App.icons.icon('shield', 15)} <span>Les cartes importées comptent dans ton Dex (progression, valeur, badges) mais <b>ne sont pas certifiées</b> : elles n’ont pas de photo. Pour le badge, capture-les plus tard avec la caméra.</span></p>
-        <div class="imp-src" role="tablist">${[['collectr', 'Collectr'], ['cardmarket', 'Cardmarket'], ['tableau', 'Excel / CSV']].map(([k, l]) => `<button class="${S.src === k ? 'on' : ''}" data-src="${k}" role="tab">${l}</button>`).join('')}</div>
+        <div class="imp-src" role="tablist">${[['collectr', 'Collectr'], ['cardmarket', 'Cardmarket'], ['pokellector', 'Pokellector'], ['dragonshield', 'Dragon Shield'], ['tableau', 'Excel / CSV']].map(([k, l]) => `<button class="${S.src === k ? 'on' : ''}" data-src="${k}" role="tab">${l}</button>`).join('')}</div>
         <div class="panel imp-help"><p style="margin:0">${HELP[S.src]}</p>
           <label class="btn primary imp-file">${App.icons.icon('download', 16)} Choisir le fichier<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
           <div class="small muted" id="imp-msg" style="margin-top:8px"></div>
@@ -33,7 +35,9 @@ App.views.import = {
     const load = (cells, name) => {
       if (!cells || cells.length < 1) throw new Error('le fichier est vide');
       S.cells = cells; S.file = name; S.det = I.detect(cells);
-      S.src = I.sourceOf(S.det.cols); // le format reconnu dans le fichier compte, pas l'onglet choisi
+      // le format reconnu dans le fichier compte ; sinon on garde l'onglet Pokellector / Dragon Shield choisi (titres de colonnes ordinaires)
+      const found = I.sourceOf(S.det.cols);
+      S.src = found !== 'tableau' || !['pokellector', 'dragonshield'].includes(S.src) ? found : S.src;
       S.lang = S.src === 'tableau' ? (App.settings.lang || 'fr') : 'en';
       S.step = 'cols'; drawCols();
     };
