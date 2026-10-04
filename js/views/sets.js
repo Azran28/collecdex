@@ -48,14 +48,16 @@ App.views.sets = {
         <select id="s-bloc"><option value="">Toutes les époques</option>${blocs.map(([id, n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join('')}</select>
         <select id="s-year"><option value="">Toutes les années</option>${years.map((y) => `<option>${y}</option>`).join('')}</select>
       </div>
-      <div class="row" style="margin:-4px 0 18px">
-        <div class="chips" id="s-f">
-          ${['toutes', 'favorites', 'entamées', 'complétées', 'non commencées'].map((f) => `<button class="chip ${f === state.filter ? 'on' : ''}" data-f="${f}">${f === 'favorites' ? '★ Favorites' : f[0].toUpperCase() + f.slice(1)}</button>`).join('')}
+      <div class="s-filters">
+        <div class="chips s-status" id="s-f">
+          ${[['toutes', 'Toutes'], ['entamées', 'En cours'], ['complétées', 'Complètes'], ['non commencées', 'À faire'], ['favorites', '★<span class="m-hide"> Favorites</span>']].map(([f, l]) => `<button class="chip ${f === state.filter ? 'on' : ''}" data-f="${f}" ${f === 'favorites' ? 'title="Mes séries favorites"' : ''}>${l}</button>`).join('')}
         </div>
-        <span class="spacer"></span>
-        <label class="check small"><input type="checkbox" id="s-group" ${state.group ? 'checked' : ''}> Par époque</label>
-        <label class="check small"><input type="checkbox" id="s-promo" ${state.hidePromo ? 'checked' : ''}> Masquer les promos</label>
-        <span class="muted small" id="s-count"></span>
+        <div class="s-opts">
+          <span class="muted small" id="s-count"></span>
+          <span class="spacer"></span>
+          <label class="s-tog"><input type="checkbox" id="s-group" ${state.group ? 'checked' : ''}><span>Par époque</span></label>
+          <label class="s-tog"><input type="checkbox" id="s-promo" ${state.hidePromo ? 'checked' : ''}><span>Sans les promos</span></label>
+        </div>
       </div>
       <div id="s-list"></div>`;
 

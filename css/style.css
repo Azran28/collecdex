@@ -2566,3 +2566,19 @@ button.bt-code:active span { transform: scale(.94); }
   .badge-grid.compact::-webkit-scrollbar { display: none; }
   .badge-grid.compact .badge-medal { flex: none; }
 }
+
+/* Explorer (v2.71) : filtres sur deux lignes propres — statut des séries, puis nombre + options en interrupteurs */
+.s-filters { margin: -4px 0 18px; display: flex; flex-direction: column; gap: 10px; }
+.s-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.s-tog { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.s-tog input { position: absolute; opacity: 0; pointer-events: none; }
+.s-tog span { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.03); font-size: .82rem; font-weight: 600; color: var(--muted); }
+.s-tog span::before { content: ''; width: 14px; height: 14px; border-radius: 4px; border: 2px solid currentColor; opacity: .7; box-sizing: border-box; }
+.s-tog input:checked + span { color: var(--text); border-color: rgba(124,92,255,.6); background: rgba(124,92,255,.14); }
+.s-tog input:checked + span::before { opacity: 1; border-color: #7c5cff; background: #7c5cff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/10px no-repeat; }
+.s-tog input:focus-visible + span { outline: 2px solid #7c5cff; outline-offset: 2px; }
+@media (max-width: 760px) {
+  /* les 5 statuts tiennent sur une ligne (sinon « Non co… » coupé) */
+  .s-status { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 40px; gap: 6px; overflow: visible; flex-wrap: nowrap; }
+  .s-status .chip { padding: 7px 4px; font-size: .8rem; justify-content: center; text-align: center; white-space: nowrap; min-width: 0; }
+}

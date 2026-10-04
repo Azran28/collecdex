@@ -2,7 +2,7 @@
 App.views.collection = {
   async render(el, params, alive) {
     const { esc, euro, norm, debounce } = App.util;
-    const state = { q: '', game: '', set: '', rarity: '', flag: params.query.f || 'toutes', sort: params.query.tri || 'ajout' };
+    const state = { q: '', game: '', set: '', rarity: '', flag: params.query.f && params.query.f !== 'photos' ? params.query.f : 'toutes', sort: params.query.tri || 'ajout' };
 
     const snapCard = (it) => ({ id: it.id, name: it.snap.name, localId: it.snap.localId, image: it.snap.image, rarity: it.snap.rarity, setId: it.setId, serieId: it.snap.serieId, setName: it.snap.setName });
     const val = (it) => App.col.valueOf(it);
@@ -30,7 +30,7 @@ App.views.collection = {
           <option value="serie">Tri : série puis numéro</option>
         </select>
         <div class="chips" id="c-flag">
-          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['photos', 'Mes photos'], ['certifiees', 'Certifiées'], ['doublons', 'Doublons']].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
+          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['certifiees', 'Certifiées'], ['doublons', 'Doublons'], ...(App.col.all().some((i) => i.qty > 0 && !(i.photos && i.photos.length)) ? [['sansphoto', 'Sans photo']] : [])].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
         </div>
       </div>
       <div class="muted small" id="c-count" style="margin:-6px 0 10px"></div>
@@ -64,7 +64,8 @@ App.views.collection = {
       if (state.set) items = items.filter((i) => i.setId === state.set);
       if (state.rarity) items = items.filter((i) => i.snap.rarity === state.rarity);
       if (state.flag === 'favorites') items = items.filter((i) => i.favorite);
-      if (state.flag === 'photos') items = items.filter((i) => i.photos && i.photos.length);
+      // cartes importées (Collectr, Cardmarket, Excel…) : pas encore prises en photo
+      if (state.flag === 'sansphoto') items = items.filter((i) => !(i.photos && i.photos.length));
       if (state.flag === 'certifiees') items = items.filter((i) => App.certify.isCertified(i));
       if (state.flag === 'doublons') items = items.filter((i) => i.qty > 1);
       if (state.q) { const q = norm(state.q); items = items.filter((i) => norm(`${i.snap.name} ${i.snap.setName} ${i.note}`).includes(q)); }
