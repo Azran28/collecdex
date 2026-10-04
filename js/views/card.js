@@ -11,7 +11,8 @@ App.cardModal = async function (game, cardId, ctx = {}) {
 
   const setInfo = ctx.set || {
     id: card.set.id, name: card.set.name, logo: card.set.logo, symbol: card.set.symbol,
-    official: card.set.cardCount ? card.set.cardCount.official : null, total: card.set.cardCount ? card.set.cardCount.total : null,
+    // hors-série : pas de « n/total »
+    official: card.set.cardCount && !(card.tags || []).includes('hors-serie') ? card.set.cardCount.official : null, total: card.set.cardCount ? card.set.cardCount.total : null,
     group: { id: (App.col.get(game, card.id) || { snap: {} }).snap.serieId || '' },
   };
   const base = { id: card.id, localId: card.localId, name: card.name, image: card.image, rarity: card.rarity, setId: setInfo.id, serieId: setInfo.group ? setInfo.group.id : '' };
@@ -72,6 +73,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
           ${card.illustrator ? `<span title="Illustrateur">✎ ${esc(card.illustrator)}</span>` : ''}
           ${setInfo.releaseDate ? `<span title="Sortie">${dateFr(setInfo.releaseDate)}</span>` : ''}
         </div>
+        ${card.tags && card.tags.includes('hors-serie') ? `<div class="hs-box"><span class="hs-tag big">Hors-série</span>
+          <p>${esc(card.origin || '')}${card.copies ? ` · <b>${esc(card.copies)}</b>` : ''}</p>
+          <p class="small muted">Carte officielle qui n’appartient à aucune série. <a href="#/jeu/pokemon/hors-serie">Toutes les cartes hors-série ›</a></p></div>` : ''}
 
         <div class="cd-price">
           ${priceRows.length ? `<div class="cd-price-main"><b>${euro(priceRows[0][1])}</b><span>${esc(priceRows[0][0].toLowerCase())} Cardmarket</span></div>

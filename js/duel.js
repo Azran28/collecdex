@@ -25,7 +25,7 @@ App.duel = (() => {
   // Ce qui vient de l'ami n'est jamais fiable : on ne garde que des valeurs attendues, bornées.
   const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
   const int = (v, lo, hi, def = lo) => { const n = Math.round(+v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
-  const tcgImg = (v) => (typeof v === 'string' && /^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) ? v : '');
+  const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+\.jpg$/.test(v)) ? v : ''); // carte hors-série : visuel du site
   const type = (t) => (typeof t === 'string' && App.battle.TYPE_INFO[t] ? t : 'colorless');
 
   const wireFighter = (f) => ({

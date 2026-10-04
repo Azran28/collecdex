@@ -30,7 +30,7 @@ App.views.collection = {
           <option value="serie">Tri : série puis numéro</option>
         </select>
         <div class="chips" id="c-flag">
-          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['certifiees', 'Certifiées'], ['doublons', 'Doublons'], ...(App.col.all().some((i) => i.qty > 0 && !(i.photos && i.photos.length)) ? [['sansphoto', 'Sans photo']] : [])].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
+          ${[['toutes', 'Toutes'], ['favorites', '★ Favorites'], ['certifiees', 'Certifiées'], ['doublons', 'Doublons'], ...(App.col.all().some((i) => i.qty > 0 && !(i.photos && i.photos.length)) ? [['sansphoto', 'Sans photo']] : []), ...(App.col.all().some((i) => i.qty > 0 && String(i.id).startsWith('hors-serie-')) ? [['horsserie', 'Hors-série']] : [])].map(([k, l]) => `<button class="chip ${k === state.flag ? 'on' : ''}" data-flag="${k}">${l}</button>`).join('')}
         </div>
       </div>
       <div class="muted small" id="c-count" style="margin:-6px 0 10px"></div>
@@ -66,6 +66,7 @@ App.views.collection = {
       if (state.flag === 'favorites') items = items.filter((i) => i.favorite);
       // cartes importées (Collectr, Cardmarket, Excel…) : pas encore prises en photo
       if (state.flag === 'sansphoto') items = items.filter((i) => !(i.photos && i.photos.length));
+      if (state.flag === 'horsserie') items = items.filter((i) => String(i.id).startsWith('hors-serie-'));
       if (state.flag === 'certifiees') items = items.filter((i) => App.certify.isCertified(i));
       if (state.flag === 'doublons') items = items.filter((i) => i.qty > 1);
       if (state.q) { const q = norm(state.q); items = items.filter((i) => norm(`${i.snap.name} ${i.snap.setName} ${i.note}`).includes(q)); }

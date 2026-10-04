@@ -173,6 +173,7 @@ App.views.showcase = {
             <div class="v-avatar" ${editing ? 'data-sheet="avatar" role="button" title="Changer d’avatar"' : ''} style="${avatar ? `background-image:url('${esc(avatar)}')` : ''}">${avatar ? '' : esc((profile.pseudo || '?')[0].toUpperCase())}</div>
             <div style="flex:1;min-width:220px">
               <div class="v-name">${esc(profile.pseudo)}</div>
+              <div id="v-trust-slot">${trustChip()}</div>
               ${profile.bio ? `<div class="muted" style="white-space:pre-line">${esc(profile.bio)}</div>` : editing ? '<div class="muted small">Ajoute quelques mots sur ta collection</div>' : ''}
             </div>
           </div>
@@ -204,7 +205,73 @@ App.views.showcase = {
         ${S.pub && !isMe && !App.col.all().length ? `<div class="panel v-pub-cta"><b>Toi aussi, collectionnes-tu des cartes ?</b>
           <p class="small muted" style="margin:6px 0 10px">Avec CollecDex, prends tes cartes en photo : l’appli les reconnaît, suit ta progression par série et crée ta propre vitrine. Gratuit.</p>
           <a class="btn primary" href="#/">Découvrir CollecDex</a></div>` : ''}`;
+      fillTrust(); // statut du profil : calculé à part (il peut regarder des photos), puis posé sous le pseudo
     };
+
+    // ---------- Statut du profil (calculé sur l'appareil de celui qui regarde) ----------
+    // Seule la certification vient du serveur (impossible à truquer) ; le reste se mesure ici :
+    // une photo identique à l'image officielle (ressemblance ≥ 0,9) a toutes les chances de venir du web
+    // (une vraie photo de carte donne 0,4 à 0,8).
+    const TRUST = {
+      ok: ['shield', 'Collection vérifiée'],
+      part: ['shield', 'En partie vérifiée'],
+      declared: ['user', 'Collection non vérifiée'],
+      imported: ['download', 'Collection importée'],
+      new: ['sparkles', 'Nouveau collectionneur'],
+      suspect: ['lock', 'Profil suspect'],
+    };
+    let trust = null, trustSig = '';
+    const trustChip = () => (trust ? `<button type="button" class="v-trust t-${trust.k}" id="v-trust">${App.icons.icon(TRUST[trust.k][0], 13)}<span>${esc(TRUST[trust.k][1])}</span></button>` : '');
+    async function computeTrust() {
+      const items = owned(), n = items.length;
+      if (!n) return null;
+      const cert = items.filter((i) => S.cert(i));
+      const totalV = items.reduce((s, i) => s + val(i), 0), certV = cert.reduce((s, i) => s + val(i), 0);
+      const noPhoto = items.filter((i) => !(i.photos && i.photos.length)).length;
+      const pricey = items.filter((i) => val(i) >= 100 && !S.cert(i)).sort((a, b) => val(b) - val(a));
+      const base = { n, cert: cert.length, certPct: totalV ? Math.round((certV / totalV) * 100) : 0, pricey: pricey.length, noPhoto };
+      if (cert.length >= 5 && certV >= totalV * 0.5) return { k: 'ok', ...base };
+      // beaucoup de cartes chères non certifiées, presque rien de certifié : on regarde les photos des plus chères
+      if (pricey.length >= 3 && certV < totalV * 0.1) {
+        let web = 0, checked = 0;
+        for (const it of pricey.slice(0, 6)) {
+          try {
+            const img = await S.img(it, App.games.get(it.game), 'low');
+            if (!img || !img.mine) continue; // pas de photo (carte importée) : rien à juger
+            const blob = await (await fetch(img.src)).blob();
+            const r = await App.recognizer.resemblance(blob, { id: it.id, image: it.snap.image, setId: it.setId, localId: it.snap.localId, serieId: it.snap.serieId, lang: it.lang });
+            if (r == null) continue;
+            checked++; if (r >= 0.9) web++;
+          } catch (e) { /* photo illisible : on passe */ }
+        }
+        if (web >= 3 || (web >= 2 && web >= checked / 2)) return { k: 'suspect', ...base, web, checked };
+      }
+      if (cert.length) return { k: 'part', ...base };
+      if (noPhoto >= n / 2) return { k: 'imported', ...base };
+      if (n < 5) return { k: 'new', ...base };
+      return { k: 'declared', ...base };
+    }
+    async function fillTrust() {
+      const s = owned().map((i) => `${i.key}:${i.qty}:${val(i)}:${S.cert(i) ? 1 : 0}`).join('|');
+      if (s !== trustSig) { trustSig = s; trust = await computeTrust().catch(() => null); }
+      const slot = el.querySelector('#v-trust-slot'); if (slot) slot.innerHTML = trustChip();
+    }
+    function trustSheet() {
+      if (!trust) return;
+      const t = trust, who = S.friend ? (S.pub ? 'Ce dresseur' : profile.pseudo) : 'Tu';
+      const why = {
+        ok: `${t.cert} carte${t.cert > 1 ? 's' : ''} certifiée${t.cert > 1 ? 's' : ''} (${t.certPct} % de la valeur de la collection) : elles ont été photographiées en direct et vérifiées par le serveur.`,
+        part: `${t.cert} carte${t.cert > 1 ? 's' : ''} certifiée${t.cert > 1 ? 's' : ''} sur ${t.n} (${t.certPct} % de la valeur). Les autres n’ont pas été prouvées.`,
+        declared: `Aucune carte certifiée : les ${t.n} cartes ont été prises en photo, mais rien ne prouve qu’elles ont été photographiées en vrai.`,
+        imported: `La plupart des cartes (${t.noPhoto} sur ${t.n}) ont été importées d’une liste, sans photo.`,
+        new: `Moins de 5 cartes pour l’instant.`,
+        suspect: `${t.pricey} cartes chères (100 € ou plus) sans certification, et ${t.web} des ${t.checked} photos vérifiées sont identiques aux images officielles qu’on trouve sur le web : elles n’ont sans doute pas été prises en photo pour de vrai.`,
+      }[t.k];
+      App.util.openModal(`<div class="v-sheet"><h2><span class="v-trust t-${t.k}" style="pointer-events:none">${App.icons.icon(TRUST[t.k][0], 13)}<span>${esc(TRUST[t.k][1])}</span></span></h2>
+        <p>${esc(why)}</p>
+        <p class="small muted">Le statut est calculé automatiquement d’après les cartes certifiées et les photos des cartes chères. ${S.friend ? '' : 'Pour une collection vérifiée : certifie tes cartes (Capturer › « Photo certifiée » : retourne la carte devant la caméra), surtout les plus chères.'}</p>
+        <p class="small muted">Du mieux au moins bien : Collection vérifiée · En partie vérifiée · Non vérifiée / importée · Profil suspect.</p></div>`);
+    }
 
     const save = async (redraw = true) => {
       await App.col.saveProfile(profile);
@@ -373,6 +440,7 @@ App.views.showcase = {
       if (t.closest('#v-pickcards2')) { e.preventDefault(); editing = true; await draw(); return openSheet('featured'); }
       if (t.closest('#v-share')) return shareLink();
       if (t.closest('#v-makepub')) { editing = true; await draw(); return openSheet('public'); }
+      if (t.closest('#v-trust')) return trustSheet();
       const sh = t.closest('[data-sheet]');
       if (sh && editing) { if (sh.dataset.sheet === 'avatar') return pickAvatar(); return openSheet(sh.dataset.sheet); }
       // en personnalisation, toucher une partie de la vitrine ouvre ses choix

@@ -1222,6 +1222,45 @@ App.recognizer = (() => {
   async function looksLikeBack(blob) { return (await backScore(blob)) >= 0.6; }
 
   /**
+   * Ressemblance de la carte ENTIÈRE (petite image couleur 24×33, corrélation), pour les cartes hors-série :
+   * leur mise en page (Illustrator, Trophée…) n'a pas la fenêtre d'illustration des cartes ordinaires,
+   * la comparaison habituelle de l'illustration ne marche pas (Illustrator contre sa propre image : 0,21).
+   * Renvoie Map(id → score de -1 à 1) ; même méthode que la reconnaissance des dos (backScoreOf).
+   */
+  const wholeRefs = new Map();
+  async function wholeCardScores(blob, cards) {
+    const W = BACK.w, H = BACK.h, n = W * H;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.filter = 'blur(0.6px)';
+    const vec = (src, sx, sy, sw, sh) => {
+      g.clearRect(0, 0, W, H); g.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
+      const d = g.getImageData(0, 0, W, H).data, px = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { px[i * 3] = d[i * 4]; px[i * 3 + 1] = d[i * 4 + 1]; px[i * 3 + 2] = d[i * 4 + 2]; }
+      return normRGB(px, n);
+    };
+    const refOf = async (card) => {
+      const url = ad().img.card(card, 'low'); if (!url) return null;
+      if (!wholeRefs.has(url)) wholeRefs.set(url, (async () => { const im = await createImageBitmap(await (await fetch(url)).blob()); return vec(im, 0, 0, im.width, im.height); })().catch(() => null));
+      return wholeRefs.get(url);
+    };
+    const bmp = await createImageBitmap(blob), SW = bmp.width, SH = bmp.height;
+    // la carte peut être un peu plus petite que la découpe (marge du cadre) : quelques tailles et décalages
+    const views = [];
+    for (const sc of [1, 0.94, 0.88]) for (const dx of [-0.03, 0, 0.03]) for (const dy of [-0.03, 0, 0.03]) {
+      const bw = SW * sc, bh = SH * sc;
+      views.push(vec(bmp, SW * (0.5 + dx) - bw / 2, SH * (0.5 + dy) - bh / 2, bw, bh));
+    }
+    const out = new Map();
+    for (const card of cards) {
+      const ref = await refOf(card); if (!ref) continue;
+      let best = -1;
+      for (const v of views) { let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * ref[i]; s /= v.length; if (s > best) best = s; }
+      out.set(card.id, best);
+    }
+    return out;
+  }
+
+  /**
    * La photo montre-t-elle une page de classeur (plusieurs cartes) plutôt qu'une seule carte ?
    * Une page 3×3 a des séparations nettes verticales vers 1/3 et 2/3 de la largeur (entre les pochettes),
    * sur toute la hauteur ; une carte seule n'en a pas à ces endroits.
@@ -1354,7 +1393,7 @@ App.recognizer = (() => {
       const offOk = !!num && num.of && c.set && c.set.cardCount && c.set.cardCount.official === num.of;
       const numOk = !!num && (ln === num.n || (num.n >= 10 && ln === num.n % (num.n >= 100 ? 100 : 10) && offOk) || (offOk && ln > num.of && ln < 1000 && ln % (num.n >= 10 ? 100 : 10) === num.n && String(ln).endsWith(String(num.raw || num.n))));
       const ofOk = !!num && !!(c.set && c.set.cardCount) && c.set.cardCount.official === num.of;
-      if (needName && !numOk && nameScore < 0.35) continue;
+      if (needName && !numOk && nameScore < 0.35 && !c._hint) continue;
       const yr = c.set && c.set.releaseDate ? parseInt(c.set.releaseDate, 10) : 0;
       const yearOk = !!yr && (years.includes(yr) || years.includes(yr - 1));
       const eraOk = wizards && !!yr && yr <= 2003;
@@ -1363,7 +1402,7 @@ App.recognizer = (() => {
       const enPen = c.set && c.set.enOnly && (App.settings.lang || 'fr') !== 'en' ? 0.35 : 0;
       // attaques / talents retrouvés dans le texte lu (seulement si le nom colle : sinon le texte est illisible, inutile)
       const atkM = nameScore >= 0.6 || numOk ? attackMatch(c.atk, allWords, memo) : null;
-      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, yearOk, hpOk: hpOk > 0, hpBonus: hpOk, atkM, visual: null, score: nameScore + (numOk && ofOk ? 1.2 : numOk ? 0.4 : ofOk ? 0.2 : 0) + (yearOk ? 0.6 : 0) + (eraOk ? 0.4 : 0) + hpOk - enPen + (atkM || 0) * 1.4 });
+      uniq.set(c.id, { ...c, nameScore, numOk, ofOk, yearOk, hpOk: hpOk > 0, hpBonus: hpOk, atkM, visual: null, score: nameScore + (numOk && ofOk ? 1.2 : numOk ? 0.4 : ofOk ? 0.2 : 0) + (yearOk ? 0.6 : 0) + (eraOk ? 0.4 : 0) + hpOk - enPen + (atkM || 0) * 1.4 + (c._hint || 0) });
     }
     let out = [...uniq.values()].sort((a, b) => b.score - a.score).slice(0, cap);
     if (mine && out.length) {
@@ -1408,7 +1447,22 @@ App.recognizer = (() => {
     }
     for (const a of alt) { if (byNum.length) break; byNum = await A.findByNumber(a.n, a.of).catch(() => []); if (byNum.length) num = a; }
     const mine = await mineP;
-    let out = await rank(byNum, num, lines, mine, { years, wizards, hp, full });
+    // cartes hors-série (Pikachu Illustrator, Trophée…) : sans numéro ni nom lisible (texte japonais), toujours comparées à la photo ;
+    // un mot-clé lu sur la carte (« ILLUSTRATOR », « TRAINER No.1 », « LV.38 »…) les fait remonter
+    const txt = norm(`${lines.join(' ')} ${full}`);
+    const hs = (A.horsSerie ? A.horsSerie() : []).map((c) => ({ ...c, _hs: true, _hint: c.keys.some((k) => txt.includes(k)) ? 0.8 : 0 }));
+    // … ou la carte entière qui ressemble nettement plus à l'une d'elles qu'aux autres (texte japonais illisible)
+    if (blob && hs.length) {
+      const whole = await wholeCardScores(blob, hs).catch(() => new Map());
+      const ws = [...whole.values()].sort((a, b) => b - a);
+      for (const c of hs) {
+        const w = whole.get(c.id);
+        if (w != null && w >= 0.5 && w - (w === ws[0] ? (ws[1] ?? 0) : ws[0]) >= 0.08) c._hint = Math.max(c._hint, 0.5);
+      }
+    }
+    let out = await rank([...byNum, ...hs], num, lines, mine, { years, wizards, hp, full });
+    // sans mot-clé, une carte hors-série ne reste que si elle ressemble vraiment à la photo (sinon un Pikachu ordinaire → « Illustrator »)
+    out = out.filter((c) => !c._hs || c._hint || (c.visual != null && c.visual >= 0.7));
     // numéro absent, ou carte trouvée qui ne ressemble pas à la photo → on cherche aussi par le nom
     const weak = !out.length || (mine && (out[0].visual == null || out[0].visual < 0.55));
     if (weak && (words.length || known.length)) {
@@ -1417,7 +1471,7 @@ App.recognizer = (() => {
       // le nom de Pokémon reconnu compte comme une ligne lue (« Kadabra » lu dans une attaque, titre illisible)
       const lines2 = [...known.slice(0, 2).map((k) => k.name), ...lines];
       // 60 candidates au plus (les mieux classées par le nom, l'année, les PV) : comparer 100 visuels prenait ~7 s
-      out = await rank([...byNum, ...byName], num, lines2, mine, { cap: 60, visualWeight: 3, needName: true, years, wizards, hp, full });
+      out = await rank([...byNum, ...byName, ...hs], num, lines2, mine, { cap: 60, visualWeight: 3, needName: true, years, wizards, hp, full });
     }
     // « sûre » : bon numéro ET bon total, ou photo très ressemblante
     // (sans visuel officiel à comparer, le numéro seul ne suffit pas : une lecture de travers donne vite « 10/10 »)
@@ -1549,5 +1603,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { get lastVariants() { return lastVariants; }, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
 })();

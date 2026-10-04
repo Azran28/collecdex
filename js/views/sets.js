@@ -59,6 +59,7 @@ App.views.sets = {
           <label class="s-tog"><input type="checkbox" id="s-promo" ${state.hidePromo ? 'checked' : ''}><span>Sans les promos</span></label>
         </div>
       </div>
+      ${ad.horsSerie ? `<a class="hs-entry" href="#/jeu/${esc(game)}/hors-serie"><span class="hs-tag">Hors-série</span><span class="hs-entry-t"><b>Cartes hors-série</b><span class="small muted">Pikachu Illustrator, Pikachu Trophée… · ${ad.horsSerie().length} cartes, hors de toute série</span></span><span class="hs-entry-go">›</span></a>` : ""}
       <div id="s-list"></div>`;
 
     const list = el.querySelector('#s-list');

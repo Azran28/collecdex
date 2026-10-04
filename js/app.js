@@ -5,6 +5,7 @@ App.views = App.views || {};
   const routes = [
     [/^\/?$/, 'home', () => ({})],
     [/^\/jeu\/([^/]+)\/?$/, 'sets', (m) => ({ game: m[1] })],
+    [/^\/jeu\/([^/]+)\/hors-serie\/?$/, 'horsserie', (m) => ({ game: m[1] })],
     [/^\/jeu\/([^/]+)\/serie\/([^/]+)\/?$/, 'set', (m) => ({ game: m[1], setId: decodeURIComponent(m[2]) })],
     [/^\/collection\/?$/, 'collection', () => ({})],
     [/^\/vitrine\/?$/, 'showcase', () => ({})],

@@ -74,6 +74,7 @@ App.ui = (() => {
           ${own && it.cond && it.cond.kind === 'graded' ? `<span class="condchip">${App.icons.icon('slab', 11)}${esc(App.col.condLabel(it.cond))}</span>` : ''}
           ${!own ? `<a class="cap-btn" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Capturer cette carte" aria-label="Capturer ${esc(card.name)}">${App.icons.icon('capture', 20)}</a>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
+          ${ad.isHorsSerie && ad.isHorsSerie(card) ? '<span class="hs-tag tile" title="Carte hors-série">Hors-série</span>' : ''}
           ${otherLang ? `<span class="langchip" title="Ta carte est en ${myLang === 'fr' ? 'français' : myLang === 'en' ? 'anglais' : myLang}">${esc(myLang.toUpperCase())}</span>` : ''}
           ${own && it.displayPhoto && App.settings.preferPhotos ? '<span class="myphoto" title="Visuel : ta photo (et non l’image officielle)">📷</span>' : ''}
           ${!own && App.wish && App.wish.has(game, card.id) ? '<span class="wishmark" title="Dans ta liste de souhaits">♥</span>' : ''}

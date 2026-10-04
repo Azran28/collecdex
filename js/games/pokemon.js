@@ -10,6 +10,8 @@
   const setOfCard = (cardId) => String(cardId).slice(0, String(cardId).lastIndexOf('-'));
   // séries qui n'existent qu'en anglais chez TCGdex (remplie par listSets)
   const enOnly = new Set();
+  // cartes hors-série (Pikachu Illustrator, Pikachu Trophée…) : absentes de TCGdex, décrites dans pokemon-hors-serie.js
+  const HS = App.pokemonHorsSerie;
   const langFor = (setId) => (enOnly.has(setId) ? 'en' : ((App.settings && App.settings.setLangs) || {})[setId] || lang());
   const LANGS = { fr: 'Français', en: 'Anglais', de: 'Allemand', it: 'Italien', es: 'Espagnol' };
   /** Langues proposées sur la page d'une série : français, anglais (+ la langue générale si autre) */
@@ -68,6 +70,7 @@
   // ---------- Images ----------
   const img = {
     card: (c, q = 'low') => {
+      if (c && HS.isLocalImage(c.image)) return HS.imgUrl(c.image); // carte hors-série : visuel du site
       const sid = c && (c.setId || (c.id ? setOfCard(c.id) : ''));
       // langue voulue : celle de TA carte si on la connaît (c.lang), sinon celle choisie pour la série
       const want = sid && enOnly.has(sid) ? null : (c && c.lang) || (sid && ((App.settings && App.settings.setLangs) || {})[sid]); // série seulement en anglais : image anglaise telle quelle
@@ -168,6 +171,7 @@
 
   async function getSet(id) {
     id = String(id).replace(/["\\]/g, ''); // vient de l'adresse de la page : rien qui puisse casser la requête
+    if (HS.isSet(id)) return HS.asSet();
     if (!enOnly.size) await listSets().catch(() => {}); // pour savoir si la série n'existe qu'en anglais
     const L = langFor(id);
     return cached(`pk6:${L}:set:${id}`, 7 * DAY, async () => {
@@ -207,6 +211,7 @@
 
   /** Détail complet d'une carte (avec prix du jour) */
   async function getCard(id, { fresh = false } = {}) {
+    if (HS.has(id)) return HS.get(id);
     if (!enOnly.size) await listSets().catch(() => {});
     const L = langFor(setOfCard(id));
     return cached(`pk:${L}:card:${id}`, fresh ? 0 : DAY, async () => {
@@ -235,8 +240,14 @@
     return out;
   }
 
-  /** Scanner / recherche : cartes dont le nom contient `name` */
-  async function search({ name, en = true }) {
+  /** Scanner / recherche : cartes dont le nom contient `name` (TCGdex + cartes hors-série) */
+  async function search(o) {
+    const q = App.util.norm((o && o.name) || '');
+    const hs = q ? HS.CARDS.filter((c) => App.util.norm(c.name).includes(q) || c.keys.some((k) => q.includes(k))) : [];
+    const tcg = await searchTcgdex(o).catch((e) => { if (hs.length) return []; throw e; });
+    return hs.length ? [...tcg, ...hs] : tcg;
+  }
+  async function searchTcgdex({ name, en = true }) {
     const L = lang();
     if (!name) return [];
     const sets = await listSets().catch(() => []);
@@ -323,6 +334,7 @@
     id: 'pokemon',
     name: 'Pokémon',
     listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, findByNumber, price, tpMarket, img, cardmarketUrl,
+    horsSerie: () => HS.CARDS, isHorsSerie: (c) => HS.tagged(c),
     setNamesEn, setCardsEn, searchEn,
     rarity: App.pokemonRarity,
     pullRates: (setId) => App.pokemonPullRates[setId] || null,
