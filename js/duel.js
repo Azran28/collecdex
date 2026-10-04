@@ -1,5 +1,5 @@
 /*
- * Combat contre un ami (supabase-v10.sql) : salon avec un code de 6 caractères.
+ * Combat contre un ami (supabase-v10.sql, v12) : salon avec un code de 6 caractères ; chacun choisit son équipe une fois l’adversaire arrivé.
  * Principe : chaque téléphone rejoue les mêmes coups dans le même ordre, avec le même tirage des pièces
  * (générateur pseudo-aléatoire partagé, graine donnée par le serveur) : les deux voient le même combat.
  * Les coups passent par le serveur (table battle_moves) ; on la consulte toutes les ~1,2 s pendant le combat.
@@ -66,9 +66,12 @@ App.duel = (() => {
   };
 
   // ---------- Salon ----------
-  async function create(mode, team) {
+  // Salon sans équipe (supabase-v12.sql) : chacun choisit son équipe une fois l'adversaire arrivé.
+  // Serveur pas encore mis à jour : il refuse un salon sans équipe → message clair.
+  const oldServer = (r, team) => (!team && r && r.reason === 'Équipe invalide' ? 'Il reste une étape côté serveur pour les salons (supabase-v12.sql).' : null);
+  async function create(mode, team = null) {
     const r = await rpc('battle_create', { p_mode: mode, p_team: team });
-    if (!r || !r.ok || !CODE.test(r.code)) throw new Error((r && r.reason) || 'Création du salon impossible');
+    if (!r || !r.ok || !CODE.test(r.code)) throw new Error(oldServer(r, team) || (r && r.reason) || 'Création du salon impossible');
     return r.code;
   }
   async function peek(code) {
@@ -76,10 +79,15 @@ App.duel = (() => {
     if (!r || !r.ok) throw new Error((r && r.reason) || 'Salon introuvable');
     return { mode: r.mode === 'adv' ? 'adv' : 'classic', host: str(r.host_pseudo, 40) || 'Dresseur' };
   }
-  async function join(code, team) {
+  async function join(code, team = null) {
     const r = await rpc('battle_join', { p_code: normCode(code), p_team: team });
-    if (!r || !r.ok) throw new Error((r && r.reason) || 'Impossible de rejoindre ce salon');
+    if (!r || !r.ok) throw new Error(oldServer(r, team) || (r && r.reason) || 'Impossible de rejoindre ce salon');
     return r.code;
+  }
+  /** Envoie mon équipe, choisie une fois dans le salon */
+  async function setTeam(code, team) {
+    const r = await rpc('battle_team', { p_code: code, p_team: team });
+    if (!r || !r.ok) throw new Error((r && r.reason) || 'Équipe refusée');
   }
   async function state(code, after = -1) {
     const r = await rpc('battle_state', { p_code: code, p_after: after });
@@ -87,19 +95,19 @@ App.duel = (() => {
     if (r.guest && !UUID.test(r.guest)) throw new Error('Salon invalide');
     const meHost = !!r.me_host;
     return {
-      code: r.code, status: ['waiting', 'playing', 'done'].includes(r.status) ? r.status : 'done', mode: r.mode === 'adv' ? 'adv' : 'classic',
-      seed: int(r.seed, 0, 2147483647), meHost,
+      code: r.code, status: ['waiting', 'lobby', 'playing', 'done'].includes(r.status) ? r.status : 'done', mode: r.mode === 'adv' ? 'adv' : 'classic',
+      seed: int(r.seed, 0, 2147483647), meHost, foeReady: !!(meHost ? r.guest_ready : r.host_ready),
       foeName: str(meHost ? r.guest_pseudo : r.host_pseudo, 40) || 'Dresseur',
       myTeam: after < 0 ? cleanTeam(meHost ? r.host_team : r.guest_team) : null,
       foeTeam: after < 0 && (meHost ? r.guest_team : r.host_team) ? cleanTeam(meHost ? r.guest_team : r.host_team) : null,
       moves: (Array.isArray(r.moves) ? r.moves : []).map((m) => ({ n: int(m && m.n, 0, 5000), move: m && typeof m.move === 'object' && m.move ? m.move : {} })),
     };
   }
-  /** Annuler un salon en attente (créateur seulement) */
+  /** Quitter un salon avant le combat (en attente, ou pendant le choix des équipes) */
   const cancel = (code) => rpc('battle_move', { p_code: code, p_n: 1, p_move: { kind: 'quit' } }).catch(() => {});
 
-  /** Attendre l'ami dans le salon : appelle onJoin(état) quand il arrive. Renvoie une fonction pour arrêter. */
-  function waitJoin(code, onJoin, onError) {
+  /** Surveille le salon jusqu'à ce que ready(état) soit vrai → onOk(état). Renvoie une fonction pour arrêter. */
+  function watch(code, ready, onOk, onError, onTick) {
     let stop = false;
     (async () => {
       let fails = 0;
@@ -109,13 +117,18 @@ App.duel = (() => {
         try {
           const s = await state(code, -1); fails = 0;
           if (stop) return;
-          if (s.status === 'playing' && s.foeTeam) { stop = true; onJoin(s); return; }
-          if (s.status === 'done') { stop = true; onError(new Error('Le salon a été fermé')); return; }
+          if (ready(s)) { stop = true; onOk(s); return; }
+          if (s.status === 'done') { stop = true; onError(new Error(`${s.foeName} a quitté le salon`)); return; }
+          if (onTick) onTick(s);
         } catch (e) { if (++fails >= 8 || /introuvable/i.test(e.message)) { stop = true; onError(e); return; } }
       }
     })();
     return () => { stop = true; };
   }
+  /** L'adversaire est entré dans le salon (choix des équipes ; ou combat direct avec une ancienne version) */
+  const waitJoin = (code, onJoin, onError) => watch(code, (s) => s.status === 'lobby' || (s.status === 'playing' && !!s.foeTeam), onJoin, onError);
+  /** Les deux équipes sont prêtes : le combat commence */
+  const waitStart = (code, onStart, onError, onTick) => watch(code, (s) => s.status === 'playing' && !!s.foeTeam && !!s.myTeam.fighters.length, onStart, onError, onTick);
 
   /**
    * Liaison pendant le combat :
@@ -177,5 +190,5 @@ App.duel = (() => {
     return m ? m[1] : normCode(s);
   };
 
-  return { CODE, normCode, pickCode, rng, hostFirst, wireFighter, wireBag, cleanTeam, create, peek, join, state, cancel, waitJoin, link };
+  return { CODE, normCode, pickCode, rng, hostFirst, wireFighter, wireBag, cleanTeam, create, peek, join, setTeam, state, cancel, waitJoin, waitStart, link };
 })();

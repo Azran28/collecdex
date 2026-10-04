@@ -381,8 +381,21 @@
       requestAnimationFrame(step);
     }
 
+    /** Mon sac (mode Avancé), visible dès le début et pendant le tour de l'adversaire : cartes en gris, les toucher montre leur effet */
+    const idleBag = () => {
+      if (!ADV) return '';
+      const left = P.bag.map((c, i) => ({ c, i })).filter((x) => !x.c.used);
+      return left.length ? `<div class="bt-bag idle"><span class="bt-bag-h">Ton sac · à ton tour</span>${left.map(({ c, i }) =>
+        `<button type="button" class="bt-bc off" data-peek="${i}" title="${esc(c.name)} : ${esc(c.fx.desc)}"><img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.fx.short)}</small></span></button>`).join('')}</div>` : '';
+    };
+    const showIdle = () => { if (!over) $('.bt-actions').innerHTML = idleBag(); };
+    ov.addEventListener('click', (e) => {
+      const p = e.target.closest('[data-peek]'); if (!p) return;
+      const c = P.bag[+p.dataset.peek]; if (c) App.util.toast(`${c.name} : ${c.fx.desc}`, 3500);
+    });
+
     /** Actions du joueur : on attend son choix */
-    const playerChoice = (cardUsed = false) => new Promise((resolve) => {
+    const playerChoice =(cardUsed = false) => new Promise((resolve) => {
       const a = B().active(P), foeA = B().active(C);
       const canSwitch = B().bench(P).length > 0;
       const left = P.bag.map((c, i) => ({ c, i })).filter((x) => !x.c.used);
@@ -398,7 +411,7 @@
         <div class="bt-more"><button class="btn" data-charge>${App.icons.icon('bolt', 16)} +1 énergie</button>
           <button class="btn ghost" data-switch ${canSwitch ? '' : 'disabled'}>${App.icons.icon('swap', 16)} Changer</button></div>`;
       $('.bt-actions').classList.remove('in'); void $('.bt-actions').offsetWidth; $('.bt-actions').classList.add('in');
-      const done = (v) => { ov.removeEventListener('click', h); $('.bt-actions').innerHTML = ''; ov.classList.remove('pick-bench'); resolve(v); };
+      const done = (v) => { ov.removeEventListener('click', h); $('.bt-actions').innerHTML = idleBag(); ov.classList.remove('pick-bench'); resolve(v); };
       const h = (e) => {
         if (over) return;
         const at2 = e.target.closest('[data-atk]'); if (at2 && !at2.disabled) { done({ type: 'attack', i: +at2.dataset.atk }); return; }
@@ -575,7 +588,7 @@
     /** prochain coup de l'ami, avec « En attente de … » à l'écran (et, après 2 min, de quoi arrêter) */
     async function remote() {
       const box = $('.bt-actions');
-      box.innerHTML = `<div class="bt-wait"><span class="bt-wait-dots"><i></i><i></i><i></i></span> ${esc(L.name)} réfléchit…</div>`;
+      box.innerHTML = idleBag() + `<div class="bt-wait"><span class="bt-wait-dots"><i></i><i></i><i></i></span> ${esc(L.name)} réfléchit…</div>`;
       const t = setInterval(() => {
         if (over || !ON.link.waiting || ON.link.idle < 120000 || box.querySelector('[data-stop]')) return;
         box.insertAdjacentHTML('beforeend', `<div class="bt-wait-late small muted">${esc(L.name)} ne répond plus ? <button class="btn sm ghost" data-stop>Arrêter le combat</button> <span>(ni victoire ni défaite)</span></div>`);
@@ -584,7 +597,7 @@
       stopWait = () => clearInterval(t);
       const mv = await ON.link.next();
       clearInterval(t);
-      if (!over) box.innerHTML = '';
+      if (!over) box.innerHTML = idleBag();
       return mv && typeof mv === 'object' ? mv : {};
     }
     const send = (mv) => { if (ON && !over) ON.link.send(mv); };
@@ -613,7 +626,7 @@
       w.remove();
     }
 
-    drawAll(); drawFoeBag();
+    drawAll(); drawFoeBag(); showIdle();
     log(`Le combat commence ! <b>${esc(B().active(P).name)}</b> contre <b>${esc(B().active(C).name)}</b>.`);
     App.sfx.unlock();
     await sleep(900);
@@ -657,6 +670,7 @@
     }
     /** tour de l'adversaire (ordinateur ou ami) */
     async function turnC() {
+      showIdle();
       await banner(ON ? `Tour de ${L.name}` : 'Tour de l’ordinateur', 'foe');
       if (over) return false;
       startTurn(C);
@@ -929,12 +943,12 @@
   }
 
   /** Avant un combat : avec quelle équipe ? */
-  async function chooseTeam(m) {
+  async function chooseTeam(m, o = {}) {
     const imgs = await Promise.all(m.teams.map((t) => Promise.all(teamItems(t.keys).map((it) => App.col.displayImage(it, ad())))));
     return new Promise((resolve) => {
       let done = false;
       const end = (v) => { if (done) return; done = true; resolve(v); };
-      const body = App.util.openModal(`<div class="bt-pick"><h2>Avec quelle équipe ?</h2>
+      const body = App.util.openModal(`<div class="bt-pick"><h2>${esc(o.title || 'Avec quelle équipe ?')}</h2>${o.sub ? `<p class="small muted" style="margin:-4px 0 10px">${o.sub}</p>` : ''}
         <div class="bt-choose">${m.teams.map((t, i) => `<button class="bt-ch ${i === m.teamIdx ? 'on' : ''}" data-ch="${i}"><b>${esc(t.name)}</b>
           <span class="bt-ch-cards">${[0, 1, 2].map((j) => imgs[i][j] ? `<img src="${esc(imgs[i][j].src)}" alt="">` : '<i></i>').join('')}</span>
           ${imgs[i].length < 3 ? `<small class="muted">${imgs[i].length ? 'complétée' : 'que'} par des Pokémon de prêt</small>` : ''}</button>`).join('')}</div></div>`, () => end(null));
@@ -970,19 +984,59 @@
     });
   }
   /** Choix de l'équipe pour un combat entre amis (renvoie l'index, ou null) */
-  async function duelTeam(m) {
-    const filled = m.teams.filter((t) => teamItems(t.keys).length).length;
-    return filled >= 2 ? chooseTeam(m) : m.teamIdx;
-  }
   const modeName = (mode) => (mode === 'adv' ? 'Avancé (avec sac)' : 'Basique');
+
+  /**
+   * Dans le salon, les deux dresseurs sont là : chacun choisit son équipe (sans voir celle de l'autre),
+   * puis on attend que l'autre ait choisi ; le combat commence quand les deux sont prêts.
+   * Quitter ici ferme le salon (ni victoire ni défaite).
+   */
+  function duelLobby(code, m, mode, foeName) {
+    const D = App.duel;
+    return new Promise((resolve) => {
+      let finished = false, starting = false, team = null, foeReady = false;
+      const end = (v) => { if (finished) return; finished = true; stop(); resolve(v); };
+      const leave = () => { if (finished || starting) return; D.cancel(code); end(null); };
+      const stop = D.waitStart(code, async (s) => {
+        if (finished || !team) return;
+        starting = true; App.util.closeModal(); App.sfx.open(3);
+        try { end(await startDuel(s, team.imgs)); } catch (e) { App.util.toast('Combat impossible : ' + e.message, 4500); end(null); }
+      }, (e) => { if (finished || starting) return; finished = true; App.util.closeModal(); App.util.toast(e.message, 4500); resolve(null); },
+      (s) => {
+        if (s.foeReady === foeReady) return;
+        foeReady = s.foeReady;
+        const el = document.getElementById('bt-lobby-foe');
+        if (el) el.innerHTML = foeReady ? `<b style="color:var(--ok, #3ddc97)">${esc(foeName)} a choisi son équipe ✓</b>` : `${esc(foeName)} choisit son équipe…`;
+      });
+      (async () => {
+        const idx = await chooseTeam(m, {
+          title: 'Choisis ton équipe',
+          sub: `Salon ${code} · contre <b>${esc(foeName)}</b> · mode ${esc(modeName(mode))}. ${esc(foeName)} ne verra ton équipe qu’au début du combat.`,
+        });
+        if (finished) return;
+        if (idx == null) { leave(); return; }
+        App.util.openModal(App.ui.loading('Préparation de ton équipe…'), leave);
+        try { team = await onlineTeam(m.teams[idx], mode === 'adv'); if (!finished) await D.setTeam(code, team.wire); }
+        catch (e) { if (finished || starting) return; App.util.closeModal(); App.util.toast('Équipe impossible : ' + e.message, 4500); D.cancel(code); end(null); return; }
+        if (finished || starting) return;
+        App.util.openModal(`<div class="bt-pick bt-room">
+            <h2>${App.icons.icon('users', 18)} Salon ${esc(code)}</h2>
+            <p class="small muted" style="margin:2px 0 12px">Mode ${esc(modeName(mode))}</p>
+            <p style="margin:0 0 6px"><b style="color:var(--ok, #3ddc97)">${App.icons.icon('check', 14)} Ton équipe « ${esc(m.teams[idx].name)} » est prête</b></p>
+            <div class="bt-wait" style="justify-content:center"><span class="bt-wait-dots"><i></i><i></i><i></i></span> <span id="bt-lobby-foe">${foeReady ? `${esc(foeName)} a choisi son équipe ✓` : `${esc(foeName)} choisit son équipe…`}</span></div>
+            <div class="row" style="justify-content:center;margin-top:8px"><button class="btn ghost sm" id="bt-lobby-quit">Quitter le salon</button></div>
+          </div>`, leave);
+        document.getElementById('bt-lobby-quit').addEventListener('click', () => { leave(); App.util.closeModal(); });
+      })();
+    });
+  }
 
   /** Créer un salon : montre le code, attend l'ami, puis lance le combat */
   async function duelCreate(m) {
-    const idx = await duelTeam(m); if (idx == null) return null;
-    const adv = m.mode === 'adv', D = App.duel;
+    const D = App.duel;
     let body = App.util.openModal(App.ui.loading('Préparation du salon…'));
-    let team, code;
-    try { team = await onlineTeam(m.teams[idx], adv); code = await D.create(m.mode, team.wire); }
+    let code;
+    try { code = await D.create(m.mode); }
     catch (e) { App.util.closeModal(); App.util.toast('Salon impossible : ' + e.message, 4500); return null; }
     const link = `${location.origin}${location.pathname}#/combat?salon=${code}`;
     return new Promise((resolve) => {
@@ -990,7 +1044,7 @@
       const end = (v) => { if (done) return; done = true; if (stop) stop(); resolve(v); };
       body = App.util.openModal(`<div class="bt-pick bt-room">
           <h2>${App.icons.icon('users', 18)} Ton salon</h2>
-          <p class="small muted" style="margin:2px 0 10px">Mode ${esc(modeName(m.mode))} · équipe « ${esc(m.teams[idx].name)} »</p>
+          <p class="small muted" style="margin:2px 0 10px">Mode ${esc(modeName(m.mode))} · vous choisirez vos équipes une fois ensemble dans le salon</p>
           <button type="button" class="bt-code" id="bt-room-code" title="Copier le code" aria-label="Code du salon : toucher pour le copier">${code.split("").map((c) => `<span>${esc(c)}</span>`).join("")}</button>
           <div class="bt-code-hint small muted" id="bt-code-hint">Touche le code pour le copier</div>
           <p class="small" style="text-align:center;margin:10px 0">Donne ce code à ton adversaire : page <b>Combat</b> › « Rejoindre avec un code ». Il lui faut juste un compte CollecDex.</p>
@@ -1021,8 +1075,9 @@
       body.querySelector('#bt-room-cancel').addEventListener('click', () => { D.cancel(code); end(null); App.util.closeModal(); });
       stop = D.waitJoin(code, async (s) => {
         if (done) return;
-        done = true; App.util.closeModal(); App.sfx.open(3);
-        try { resolve(await startDuel(s, team.imgs)); } catch (e) { App.util.toast('Combat impossible : ' + e.message, 4500); resolve(null); }
+        done = true; App.util.closeModal(); App.sfx.click();
+        App.util.toast(`${s.foeName} est dans le salon !`);
+        resolve(await duelLobby(code, m, m.mode, s.foeName));
       }, (e) => { if (!done) { App.util.closeModal(); App.util.toast(e.message, 4500); end(null); } });
     });
   }
@@ -1054,19 +1109,12 @@
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); });
     });
     if (!code) return null;
-    // l'équipe est choisie pour le mode du salon (celui de l'ami qui l'a créé)
-    if (code.mode !== m.mode) App.util.toast(`Salon de ${code.host} en mode ${modeName(code.mode)}`, 3000);
-    const idx = await duelTeam(m); if (idx == null) return null;
+    // on entre dans le salon, puis chacun choisit son équipe (pour le mode du salon, celui de l'ami qui l'a créé)
     App.util.openModal(App.ui.loading(`Connexion au salon de ${esc(code.host)}…`));
-    try {
-      const team = await onlineTeam(m.teams[idx], code.mode === 'adv');
-      await D.join(code.code, team.wire);
-      const s = await D.state(code.code, -1);
-      App.util.closeModal();
-      if (!s.foeTeam) throw new Error('salon incomplet');
-      App.sfx.open(3);
-      return await startDuel(s, team.imgs);
-    } catch (e) { App.util.closeModal(); App.util.toast('Impossible de rejoindre : ' + e.message, 4500); return null; }
+    try { await D.join(code.code); }
+    catch (e) { App.util.closeModal(); App.util.toast('Impossible de rejoindre : ' + e.message, 4500); return null; }
+    App.util.closeModal(); App.sfx.click();
+    return duelLobby(code.code, m, code.mode, code.host);
   }
 
   App._duelTest = { startDuel }; // pour les tests (deux combats simulés dans la même page)

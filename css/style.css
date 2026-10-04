@@ -2407,3 +2407,9 @@ button.bt-code:active span { transform: scale(.94); }
 .bt-code-hint b { display: inline-flex; align-items: center; gap: 5px; }
 .bt-room .btn { display: inline-flex; align-items: center; gap: 7px; }
 .modal-box:has(.bt-room) { width: min(580px, 100%); }
+
+/* Combat Avancé (v2.65) : mon sac reste visible hors de mon tour (cartes grises, toucher = voir l'effet) */
+.bt-bag.idle .bt-bc { opacity: .6; cursor: help; }
+.bt-bag.idle .bt-bc:active { transform: scale(.97); }
+/* coche des messages du salon sur la même ligne que le texte (.ic est en display:block) */
+.bt-room b .ic { display: inline-block; vertical-align: -2px; margin-right: 3px; }
