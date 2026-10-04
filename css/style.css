@@ -202,14 +202,6 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 
 /* ---------- Showcase / vitrine ---------- */
 .vitrine { border-radius: 22px; padding: 28px; position: relative; overflow: hidden; border: 1px solid var(--line); }
-.vitrine.theme-nuit { background: radial-gradient(circle at 20% 0%, #2c3c66, transparent 50%), linear-gradient(160deg, #141b2d, #0a0e18); }
-.vitrine.theme-holo { background: linear-gradient(125deg, #3b1e5f, #1d4a6b 35%, #1e6b5a 65%, #6b4a1e); }
-.vitrine.theme-feu { background: radial-gradient(circle at 80% 10%, #ff8a3d55, transparent 40%), linear-gradient(160deg, #3b0f0a, #140606); }
-.vitrine.theme-foret { background: radial-gradient(circle at 10% 90%, #3ecf8e33, transparent 45%), linear-gradient(160deg, #10281e, #07130e); }
-.vitrine.theme-classeur { background: repeating-linear-gradient(0deg, #1b1b1b 0 2px, #202020 2px 4px); }
-.vitrine.theme-pokeball { background: linear-gradient(180deg, #b3200a 0 38%, #111 38% 40%, #f3f3f3 40%); color: #111; }
-.vitrine.theme-pokeball .muted { color: #555; }
-.vitrine.theme-pokeball .stat { background: rgba(255,255,255,.7); border-color: #ccc; }
 .v-head { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-bottom: 22px; }
 .v-avatar { width: 96px; height: 96px; border-radius: 50%; border: 4px solid var(--accent2); background: var(--surface2) center/cover; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; font-weight: 900; }
 .v-name { font-size: 2rem; font-weight: 900; }
@@ -2528,4 +2520,49 @@ button.bt-code:active span { transform: scale(.94); }
   .v-achievements .v-badges::-webkit-scrollbar { display: none; }
   .v-achievements .v-badge { flex: none; }
   .v-pen { right: 0; }
+}
+
+/* ===== Mon profil (v2.70) ===== */
+/* Fonds de la vitrine : tous sombres, dans les couleurs du site (lueurs douces, rien de criard) */
+.vitrine.theme-nuit { background:
+    radial-gradient(1.2px 1.2px at 12% 18%, rgba(255,255,255,.55), transparent 60%), radial-gradient(1px 1px at 72% 12%, rgba(255,255,255,.45), transparent 60%),
+    radial-gradient(1.4px 1.4px at 88% 46%, rgba(255,255,255,.4), transparent 60%), radial-gradient(1px 1px at 34% 62%, rgba(255,255,255,.35), transparent 60%),
+    radial-gradient(1.2px 1.2px at 58% 86%, rgba(255,255,255,.35), transparent 60%),
+    radial-gradient(ellipse at 20% 0%, rgba(124,92,255,.28), transparent 55%), linear-gradient(170deg, #161a33, #0c0e19 70%); }
+.vitrine.theme-holo { background: radial-gradient(ellipse at 0% 0%, rgba(124,92,255,.32), transparent 50%), radial-gradient(ellipse at 100% 20%, rgba(255,79,163,.22), transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(52,213,255,.2), transparent 55%), linear-gradient(170deg, #17162e, #0c0e19); border-color: rgba(176,140,255,.3); }
+.vitrine.theme-feu { background: radial-gradient(ellipse at 85% 0%, rgba(255,122,61,.3), transparent 55%), radial-gradient(ellipse at 10% 100%, rgba(255,79,107,.16), transparent 55%), linear-gradient(170deg, #22141d, #0f0b14); border-color: rgba(255,140,90,.25); }
+.vitrine.theme-foret { background: radial-gradient(ellipse at 10% 100%, rgba(61,220,151,.22), transparent 55%), radial-gradient(ellipse at 90% 0%, rgba(52,213,255,.1), transparent 50%), linear-gradient(170deg, #10211f, #0b1114); border-color: rgba(61,220,151,.22); }
+.vitrine.theme-ocean { background: radial-gradient(ellipse at 80% 0%, rgba(52,213,255,.26), transparent 55%), radial-gradient(ellipse at 0% 100%, rgba(80,110,255,.2), transparent 55%), linear-gradient(170deg, #0f1a30, #0a0f1c); border-color: rgba(52,213,255,.22); }
+.vitrine.theme-or { background: radial-gradient(ellipse at 50% 0%, rgba(255,210,63,.22), transparent 55%), radial-gradient(ellipse at 100% 100%, rgba(255,160,60,.12), transparent 50%), linear-gradient(170deg, #1d1a1a, #0f0e12); border-color: rgba(255,210,63,.3); }
+.vitrine.theme-classeur { background: repeating-linear-gradient(90deg, transparent 0 calc(33.33% - 1px), rgba(255,255,255,.035) calc(33.33% - 1px) 33.33%),
+    repeating-linear-gradient(0deg, transparent 0 219px, rgba(255,255,255,.035) 219px 220px), linear-gradient(170deg, #171b2b, #0e1120); }
+
+/* titres de la vitrine : l'icône reste sur la même ligne que le texte (.ic est en display:block partout) */
+.vitrine h2 { display: flex; align-items: center; gap: 8px; }
+.vitrine h2 .ic { flex: none; }
+.vitrine .row > h2 + .muted { align-self: center; }
+
+/* qui voit cette page ? */
+.v-visibility { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.03); }
+.v-visibility.pub { border-color: rgba(61,220,151,.4); background: rgba(61,220,151,.07); }
+.v-vis-ic { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.07); color: var(--muted); }
+.v-visibility.pub .v-vis-ic { background: rgba(61,220,151,.18); color: #3ddc97; }
+.v-vis-ic .ic { display: block; }
+.v-visibility > div { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.v-visibility > div span { font-size: .8rem; color: var(--muted); }
+.v-visibility .btn { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 760px) {
+  .v-visibility { flex-wrap: wrap; }
+  .v-visibility .btn { width: 100%; justify-content: center; }
+}
+
+/* badges : une seule rangée qui défile de côté sur téléphone, petites médailles alignées */
+.badge-grid.compact { gap: 8px; }
+.badge-grid.compact .badge-medal .bm-disc { width: 34px; height: 34px; }
+.badge-grid.compact .badge-medal .bm-disc .ic { width: 17px; height: 17px; }
+@media (max-width: 760px) {
+  .badge-grid.compact { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -14px; padding: 2px 14px 4px 0; }
+  .badge-grid.compact::-webkit-scrollbar { display: none; }
+  .badge-grid.compact .badge-medal { flex: none; }
 }

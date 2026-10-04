@@ -1,6 +1,7 @@
 /* Vitrine : ton profil de collectionneur, personnalisable (thème, cadres, mise en page, cartes à l'honneur) */
 App.views.showcase = {
-  THEMES: [['nuit', 'Nuit étoilée'], ['holo', 'Holographique'], ['feu', 'Braise'], ['foret', 'Forêt'], ['classeur', 'Classeur'], ['pokeball', 'Poké Ball']],
+  // fonds sombres dans les couleurs du site (l'ancien « Poké Ball », rouge et blanc, devient « Nuit étoilée »)
+  THEMES: [['nuit', 'Nuit étoilée'], ['holo', 'Holographique'], ['feu', 'Braise'], ['foret', 'Forêt'], ['ocean', 'Océan'], ['or', 'Doré'], ['classeur', 'Classeur']],
   FRAMES: [['aucun', 'Aucun'], ['or', 'Or'], ['argent', 'Argent'], ['holo', 'Holo'], ['neon', 'Néon'], ['bois', 'Bois'], ['vitre', 'Vitrine']],
   LAYOUTS: [['vedette', 'Vedette + grille'], ['grille', 'Grille'], ['classeur', 'Page de classeur (3×3)'], ['eventail', 'Éventail']],
   // statistiques que l'on peut afficher (jusqu'à 4, dans l'ordre choisi ; la 1re est mise en avant)
@@ -136,6 +137,8 @@ App.views.showcase = {
       }))).join('');
       if (!alive()) return;
       const isMe = S.pub && App.cloud.user && App.cloud.user.id === S.uid;
+      const myPseudo = !S.friend && App.cloud.user && profile.public ? await App.cloud.myPseudo().catch(() => null) : null;
+      if (!alive()) return;
       const ctx = { items, total, got, wl };
       const stats = statKeys();
       const secrets = App.badges.total - got.length;
@@ -148,7 +151,7 @@ App.views.showcase = {
         : S.friend ? `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a> › ${esc(profile.pseudo)}</div>
         <div class="row v-top" style="margin-bottom:14px"><h1>Vitrine de ${esc(profile.pseudo)}</h1><span class="spacer"></span>
           <a class="btn ghost" href="#/amis">${App.icons.icon('users', 16)}<span class="m-hide"> Mes amis</span></a></div>` : `
-        <div class="row v-top" style="margin-bottom:14px"><h1>Ma vitrine</h1><span class="spacer"></span>
+        <div class="row v-top" style="margin-bottom:10px"><h1>Mon profil</h1><span class="spacer"></span>
           ${editing ? '' : `${profile.public && App.cloud.user ? `<button class="btn ghost" id="v-share" title="Partager ma vitrine publique">${App.icons.icon('share', 16)}<span class="m-hide"> Partager</span></button>` : ''}
           <a class="btn ${App.friends.pendingIn() ? 'primary' : 'ghost'} v-friends" href="#/amis" title="Mes amis">${App.icons.icon('users', 16)}<span class="m-hide"> Amis</span>${App.friends.pendingIn() ? `<span class="fr-count">${App.friends.pendingIn()}</span>` : ''}</a>
           <a class="btn ghost" href="#/parametres" title="Compte, synchronisation et paramètres">${App.icons.icon('gear', 16)}<span class="m-hide"> Compte et réglages</span></a>`}
@@ -159,8 +162,12 @@ App.views.showcase = {
             <button class="chip" data-sheet="theme">${App.icons.icon('sparkles', 14)} Thème</button>
             <button class="chip" data-sheet="frame">${App.icons.icon('layers', 14)} Cadre des cartes</button>
             <button class="chip ${profile.public ? 'on' : ''}" data-sheet="public">${App.icons.icon('globe', 14)} Vitrine publique${profile.public ? ' ✓' : ''}</button>
-          </div></div>` : ''}`}
-        <section class="vitrine theme-${esc(profile.theme)}" id="v-page">
+          </div></div>`
+        // qui voit cette page ? (c'est ta page publique : ce que voient tes amis, et tout le monde si elle est publique)
+        : !App.cloud.user ? `<div class="v-visibility"><span class="v-vis-ic">${App.icons.icon('user', 18)}</span><div><b>Ta page de profil</b><span>Connecte-toi pour que tes amis puissent la voir.</span></div><a class="btn sm" href="#/connexion">Me connecter</a></div>`
+        : profile.public && myPseudo ? `<div class="v-visibility pub"><span class="v-vis-ic">${App.icons.icon('globe', 18)}</span><div><b>Ta page publique</b><span>Tout le monde peut la voir avec ton lien, même sans compte.</span></div><a class="btn sm ghost" href="#/@${esc(encodeURIComponent(myPseudo))}">${App.icons.icon('eye', 14)} Voir comme un visiteur</a></div>`
+        : `<div class="v-visibility"><span class="v-vis-ic">${App.icons.icon('lock', 18)}</span><div><b>Ta page de profil</b><span>Pour l’instant, seuls tes amis la voient.</span></div><button class="btn sm primary" id="v-makepub">${App.icons.icon('globe', 14)} La rendre publique</button></div>`}`}
+        <section class="vitrine theme-${esc(V.THEMES.some(([k]) => k === profile.theme) ? profile.theme : 'nuit')}" id="v-page">
           <div class="v-head ${sec('profil', true)}">
             ${pen('profil', 'Profil')}
             <div class="v-avatar" ${editing ? 'data-sheet="avatar" role="button" title="Changer d’avatar"' : ''} style="${avatar ? `background-image:url('${esc(avatar)}')` : ''}">${avatar ? '' : esc((profile.pseudo || '?')[0].toUpperCase())}</div>
@@ -365,6 +372,7 @@ App.views.showcase = {
       if (t.closest('#v-edit')) { editing = !editing; await draw(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
       if (t.closest('#v-pickcards2')) { e.preventDefault(); editing = true; await draw(); return openSheet('featured'); }
       if (t.closest('#v-share')) return shareLink();
+      if (t.closest('#v-makepub')) { editing = true; await draw(); return openSheet('public'); }
       const sh = t.closest('[data-sheet]');
       if (sh && editing) { if (sh.dataset.sheet === 'avatar') return pickAvatar(); return openSheet(sh.dataset.sheet); }
       // en personnalisation, toucher une partie de la vitrine ouvre ses choix
