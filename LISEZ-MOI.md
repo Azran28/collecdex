@@ -88,6 +88,13 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Une demande reçue apparaît sur l'accueil et sur ton avatar (petite pastille rose). Une fois amis, « Sa vitrine » montre sa collection (cartes à l'honneur, badges, les plus précieuses, ce qu'il recherche, avec « ✓ Tu l'as » sur les cartes que tu possèdes). En lecture seule : il ne peut rien modifier chez toi, et un inconnu ne voit rien.
 - Pour qu'un ami puisse s'inscrire : voir « À faire une fois dans Supabase » ci-dessous.
 
+## Vitrine publique (à partager avec tout le monde)
+- Ta vitrine › **Personnaliser** › encadré **« Vitrine publique »** : coche « Tout le monde peut voir ma vitrine avec le lien ». Il faut être connecté et avoir réservé ton pseudo.
+- Ton adresse : `https://azran28.github.io/collecdex/#/@TonPseudo`. Bouton **Partager** (sur téléphone : WhatsApp, Messages…) ou **Copier**, aussi en haut de ta vitrine. N'importe qui l'ouvre, même sans compte, en lecture seule.
+- « Montrer mes photos des cartes » : décoché, les visiteurs voient les visuels officiels à la place de tes photos.
+- On y voit tes cartes à l'honneur, tes **cartes certifiées** (bouclier vert), tes badges et ce que tu as choisi d'afficher. Jamais tes notes ni tes objectifs. Décoche la case pour la rendre de nouveau privée (tes amis la voient toujours).
+- **À faire une fois** : dans Supabase › *SQL Editor*, coller `supabase-v9.sql` › *Run*. Avant ça, le lien affiche « Les vitrines publiques ne sont pas encore activées sur le serveur ».
+
 ### À faire une fois dans Supabase (pour les amis et les nouveaux comptes)
 1. *SQL Editor* → coller `supabase-v4.sql` → *Run* (active les amis).
 2. *Authentication* → *Sign In / Providers* → *Email* → désactiver **« Confirm email »** → *Save*. Sans ça, tes amis ne reçoivent pas l'e-mail de confirmation : l'envoi d'e-mails gratuit de Supabase ne marche que pour toi (et 2 e-mails par heure au maximum). Ils pourront ainsi créer leur compte et se connecter tout de suite.

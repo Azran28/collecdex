@@ -29,7 +29,7 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 
 **3. Social** (le cœur à terme)
 - ✅ Amis : ajout par pseudo ou lien d'invitation, demandes reçues/envoyées, vitrine d'un ami en lecture seule (avec « ✓ Tu l'as » sur ce qu'il recherche).
-- Vitrine publique partageable (`collecdex/@pseudo`), cartes certifiées mises en avant.
+- ✅ Vitrine publique partageable (`collecdex/#/@Pseudo`, v2.59) : activée par le dresseur dans Personnaliser, visible sans compte, photos de cartes en option, section « Cartes certifiées » et bouclier sur les cartes certifiées, bouton Partager, « Ajouter en ami » pour un visiteur connecté. Pistes : aperçu joli du lien dans les messageries (impossible sans serveur de pages : GitHub Pages ne sert qu’une page), compteur de visites.
 - Échanges : doublons « disponibles », correspondances avec la liste de souhaits des autres, propositions d'échange.
 - Classements et défis du mois, badges exclusifs.
 - Amis : suivre des collectionneurs.
@@ -54,6 +54,7 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 - ✅ Notifications (réglables dans Paramètres) : réserve de capsules pleine. À ajouter : demande d'ami reçue, carte recherchée proposée, badge débloqué.
 
 ## Historique des versions
+- **v2.59 (4 oct.)** : **vitrine publique partageable** : dans « Personnaliser ma vitrine », encadré « Vitrine publique » (case pour la rendre visible par tous, case « Montrer mes photos », lien + bouton Partager) ; adresse `…/collecdex/#/@Pseudo`, lisible même sans compte (`supabase-v9.sql` : `public_showcase`, photos lisibles seulement si choisies comme visuel) ; nouvelle section **« Cartes certifiées »** et bouclier vert sur les cartes certifiées (aussi chez les amis et dans ta vitrine) ; pas de présentation de l’appli par-dessus une vitrine ouverte depuis un lien.
 - **v2.58 (30 sept.)** : correction de la v2.57 (Arnaud parlait de la **certification**, pas de la lampe) : **certification optionnelle en carte seule** (interrupteur « Certification » vert/rouge dans l’encadré, retenu dans les réglages ; désactivée = simple photo) ; la lampe est de nouveau utilisée à chaque certification (Android) ; **certification retirée de la rafale et du classeur** pour le moment.
 - **v2.57 (30 sept.)** : retours d’Arnaud : **lampe optionnelle en carte seule** (interrupteur vert/rouge dans l’encadré, retenu dans les réglages) avec une grande animation pendant le clignotement (ampoule, « Ne bouge pas », compte à rebours) ; **lampe retirée de la rafale** (certification par le retournement seulement) et **certification d’une page retirée pour le moment** (pas assez fiable) ; interrupteur « Certification » de la rafale vert (activée) / rouge (désactivée) ; plus de bloc gris vide sous la photo (barre de boutons vide cachée) ; dessin du cadre vide jamais coupé.
 - **v2.56 (30 sept.)** : **lampe bloquante** en carte seule et en rafale (reconnue à chaque essai réel d’Arnaud ; labo : triches refusées 70 → 84 %, aucun vrai geste en moins) ; caméra du classeur = **tout l’espace libre** de l’écran avec l’image agrandie (on photographie la page de plus près) ; avant la photo, cadre vide plus petit : l’encadré de certification tient sur l’écran dans les 3 modes ; bouton « Certifier chaque carte » de la rafale identique à « Certifier la page » (activé / désactivé).

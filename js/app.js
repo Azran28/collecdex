@@ -11,6 +11,7 @@ App.views = App.views || {};
     [/^\/(?:combat|match)\/?$/, 'match', () => ({})],
     [/^\/amis\/?$/, 'friends', () => ({})],
     [/^\/ami\/([^/]+)\/?$/, 'showcase', (m) => ({ friend: decodeURIComponent(m[1]) })],
+    [/^\/@([^/]+)\/?$/, 'showcase', (m) => { try { return { pub: decodeURIComponent(m[1]) }; } catch (e) { return { pub: m[1] }; } }], // vitrine publique
     [/^\/connexion\/?$/, 'account', () => ({})],
     [/^\/scan\/?$/, 'scan', () => ({})],
     [/^\/parametres\/?$/, 'settings', () => ({})],

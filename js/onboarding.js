@@ -215,7 +215,8 @@ App.onboarding = (() => {
   const showScan = () => open(scanSlides, KEY_SCAN, 'Mode d’emploi de Capturer', 'À moi de jouer !');
 
   /** Au démarrage : seulement sur téléphone, la première fois */
-  function maybeShow() { if (!seen() && isPhone()) show(); }
+  // pas par-dessus une vitrine publique ouverte depuis un lien partagé (#/@Pseudo) : ce sera pour la visite suivante
+  function maybeShow() { if (!seen() && isPhone() && !/^#\/@/.test(location.hash)) show(); }
   /** 1re visite de Capturer sur téléphone (pas par-dessus la présentation générale : ce sera pour la visite suivante) */
   function maybeShowScan() { if (!seen(KEY_SCAN) && isPhone() && !document.getElementById('ob')) showScan(); }
 

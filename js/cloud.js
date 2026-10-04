@@ -220,6 +220,16 @@ App.cloud = (() => {
     return data;
   }
 
+  /** Fonction du serveur ouverte à tous (vitrine publique) : marche aussi sans être connecté */
+  async function publicRpc(name, args = {}) {
+    if (!enabled) throw new Error('Pas de serveur configuré');
+    for (let i = 0; i < 80 && !sb; i++) await new Promise((r) => setTimeout(r, 125)); // le module de connexion se charge
+    if (!sb) throw new Error('Connexion au serveur impossible (internet ?)');
+    const { data, error } = await sb.rpc(name, args);
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
   /** Envoie tout de suite ce qui attend (utile avant une certification) */
   async function flushNow() {
     for (let i = 0; i < 60 && flushing; i++) await new Promise((r) => setTimeout(r, 250));
@@ -244,6 +254,18 @@ App.cloud = (() => {
     if (!friendPhotos.has(k)) {
       friendPhotos.set(k, (async () => {
         if (!user) return '';
+        const { data, error } = await sb.storage.from('photos').download(`${owner}/${id}.jpg`);
+        return error || !data ? '' : URL.createObjectURL(data);
+      })().catch(() => ''));
+    }
+    return friendPhotos.get(k);
+  }
+  /** Photo d'une vitrine publique (le serveur ne laisse lire que les visuels choisis des vitrines publiques) */
+  function fetchPublicPhoto(owner, id) {
+    const k = 'pub:' + owner + '/' + id;
+    if (!friendPhotos.has(k)) {
+      friendPhotos.set(k, (async () => {
+        if (!sb) return '';
         const { data, error } = await sb.storage.from('photos').download(`${owner}/${id}.jpg`);
         return error || !data ? '' : URL.createObjectURL(data);
       })().catch(() => ''));
@@ -290,7 +312,7 @@ App.cloud = (() => {
   }
 
   return {
-    enabled, init, sync, flush, flushNow, rpc, fetchPhoto, fetchFriendPhoto, myPseudo,
+    enabled, init, sync, flush, flushNow, rpc, publicRpc, fetchPhoto, fetchFriendPhoto, fetchPublicPhoto, myPseudo,
     markItem, markDelete, markPhoto, markPhotoDelete, markProfile,
     signUp, signIn, signOut, resetPassword, newPassword,
     get user() { return user; }, get state() { return state; }, get error() { return lastError; },

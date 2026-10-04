@@ -8,14 +8,20 @@ App.views.showcase = {
     const { esc, euro } = App.util;
     const V = App.views.showcase;
     // Vitrine d'un ami (lecture seule) ou la tienne
-    const friendId = params.friend || null;
+    // Vitrine publique (#/@Pseudo, visible par tout le monde, même sans compte)
+    const pubName = params.pub ? String(params.pub).slice(0, 40) : null;
+    let friendId = params.friend || null;
     let S; // source des données affichées
-    if (friendId) {
-      el.innerHTML = App.ui.loading('Chargement de sa vitrine…');
+    if (friendId || pubName) {
+      el.innerHTML = App.ui.loading(pubName ? 'Chargement de la vitrine…' : 'Chargement de sa vitrine…');
       let d;
-      try { d = await App.friends.showcase(friendId); }
-      catch (e) {
-        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a></div><div class="panel">${App.cloud.user ? esc(e.message) : `Connecte-toi pour voir la vitrine de tes amis.<div style="margin-top:10px"><a class="btn primary" href="#/connexion">Me connecter</a></div>`}</div>`;
+      try {
+        d = pubName ? await App.friends.publicShowcase(pubName) : await App.friends.showcase(friendId);
+        if (pubName) friendId = d.user_id;
+      } catch (e) {
+        el.innerHTML = pubName
+          ? `<div class="breadcrumb"><a href="#/">Accueil</a></div><div class="panel v-pub-miss"><h2 style="margin-top:0">Vitrine introuvable</h2><p>${esc(e.message)}</p><a class="btn primary" href="#/">Découvrir CollecDex</a></div>`
+          : `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a></div><div class="panel">${App.cloud.user ? esc(e.message) : `Connecte-toi pour voir la vitrine de tes amis.<div style="margin-top:10px"><a class="btn primary" href="#/connexion">Me connecter</a></div>`}</div>`;
         return;
       }
       if (!alive()) return;
@@ -24,15 +30,16 @@ App.views.showcase = {
       const certs = new Map((d.certs || []).map((c) => [c.photo_id, c.key]));
       const prof = Object.assign({ pseudo: 'Dresseur', bio: '', theme: 'nuit', frame: 'or', layout: 'vedette', featured: [], frames: {}, showStats: true, showBadges: true, showTop: true }, d.profile || {});
       if (d.pseudo) prof.pseudo = d.pseudo;
+      const photo = (id) => (pubName ? App.cloud.fetchPublicPhoto(friendId, id) : App.cloud.fetchFriendPhoto(friendId, id));
       S = {
-        friend: true, profile: prof, items: () => items, byKey: (k) => byKey.get(k),
+        friend: true, pub: !!pubName, uid: friendId, profile: prof, items: () => items, byKey: (k) => byKey.get(k),
         owns: (game, id) => items.some((i) => i.game === game && i.id === id),
         cert: (it) => (it.photos || []).some((p) => certs.get(p) === it.key),
         img: async (it, ad, q = 'low') => {
-          if (it.displayPhoto) { const u = await App.cloud.fetchFriendPhoto(friendId, it.displayPhoto); if (u) return { src: u, mine: true }; }
+          if (it.displayPhoto && (!pubName || d.photos)) { const u = await photo(it.displayPhoto); if (u) return { src: u, mine: true }; }
           return { src: ad.img.card({ image: it.snap.image, id: it.id, setId: it.setId, localId: it.snap.localId, serieId: it.snap.serieId, lang: it.lang || 'fr' }, q), mine: false };
         },
-        avatar: async (p) => (p.avatarPoke && p.avatarPoke.id ? App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny) : p.avatar ? App.cloud.fetchFriendPhoto(friendId, p.avatar) : ''),
+        avatar: async (p) => (p.avatarPoke && p.avatarPoke.id ? App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny) : p.avatar && (!pubName || d.photos) ? photo(p.avatar) : ''),
       };
     } else {
       S = {
@@ -72,6 +79,7 @@ App.views.showcase = {
       const d = i - (n - 1) / 2, step = n > 1 ? Math.min(7, 32 / (n - 1)) : 0;
       const fan = profile.layout === 'eventail' ? `style="--rot:${(d * step).toFixed(2)}deg; --dy:${(Math.abs(d) * step * 0.9).toFixed(1)}px; z-index:${n - Math.abs(Math.round(d))}"` : '';
       return `<div class="vcard" data-card="${esc(it.id)}" data-game="${esc(it.game)}" ${fan}>
+        ${S.cert(it) ? `<span class="v-certmark" title="Certifiée : capturée en direct">${App.icons.icon('shield', 14)}</span>` : ''}
         <div class="frame-${esc(frame)}"><img src="${esc(img.src)}" alt="${esc(it.snap.name)}" data-alt="${esc(it.snap.name)}"></div>
         ${profile.layout !== 'eventail' ? `<div class="vlabel">${esc(it.snap.name)}${val(it) ? ` · <span style="color:var(--accent2)">${euro(val(it))}</span>` : ''}${it.cond && it.cond.kind === 'graded' ? ` <span class="condchip inline">${esc(App.col.condLabel(it.cond))}</span>` : ''}</div>` : ''}
       </div>`;
@@ -91,13 +99,25 @@ App.views.showcase = {
         const img = await S.img(it, App.games.get(it.game));
         return `<div class="vcard" data-card="${esc(it.id)}" data-game="${esc(it.game)}"><div class="frame-aucun"><img src="${esc(img.src)}" alt="" data-alt="${esc(it.snap.name)}"></div><div class="vlabel">${esc(it.snap.name)}<br><span style="color:var(--accent2)">${val(it) ? euro(val(it)) : '—'}</span></div></div>`;
       }))).join('');
+      // cartes certifiées mises en avant (les plus précieuses d'abord)
+      const certItems = profile.showCerts !== false ? items.filter((i) => S.cert(i)).sort((a, b) => val(b) - val(a)) : [];
+      const certHTML = (await Promise.all(certItems.slice(0, 18).map(async (it) => {
+        const img = await S.img(it, App.games.get(it.game));
+        return `<div class="vcard" data-card="${esc(it.id)}" data-game="${esc(it.game)}"><span class="v-certmark">${App.icons.icon('shield', 14)}</span><div class="frame-aucun"><img src="${esc(img.src)}" alt="" loading="lazy" data-alt="${esc(it.snap.name)}"></div><div class="vlabel">${esc(it.snap.name)}</div></div>`;
+      }))).join('');
       if (!alive()) return;
+      const isMe = S.pub && App.cloud.user && App.cloud.user.id === S.uid;
 
       el.innerHTML = `
-        ${S.friend ? `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a> › ${esc(profile.pseudo)}</div>
+        ${S.pub ? `<div class="breadcrumb"><a href="#/">Accueil</a> › Vitrine de ${esc(profile.pseudo)}</div>
+        <div class="row v-top" style="margin-bottom:14px"><h1>Vitrine de ${esc(profile.pseudo)}</h1><span class="spacer"></span>
+          <button class="btn ghost" id="v-share" title="Partager cette vitrine">${App.icons.icon('share', 16)}<span class="m-hide"> Partager</span></button>
+          ${isMe ? `<a class="btn" href="#/compte?edit=1">✎ Personnaliser</a>` : App.cloud.user ? `<a class="btn primary" href="#/amis?ajout=${encodeURIComponent(profile.pseudo)}">${App.icons.icon('users', 16)} Ajouter en ami</a>` : ''}</div>`
+        : S.friend ? `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/amis">Mes amis</a> › ${esc(profile.pseudo)}</div>
         <div class="row v-top" style="margin-bottom:14px"><h1>Vitrine de ${esc(profile.pseudo)}</h1><span class="spacer"></span>
           <a class="btn ghost" href="#/amis">${App.icons.icon('users', 16)}<span class="m-hide"> Mes amis</span></a></div>` : `
         <div class="row v-top" style="margin-bottom:14px"><h1>Ma vitrine</h1><span class="spacer"></span>
+          ${profile.public && App.cloud.user ? `<button class="btn ghost" id="v-share" title="Partager ma vitrine publique">${App.icons.icon('share', 16)}<span class="m-hide"> Partager</span></button>` : ''}
           <a class="btn ${App.friends.pendingIn() ? 'primary' : 'ghost'} v-friends" href="#/amis" title="Mes amis">${App.icons.icon('users', 16)}<span class="m-hide"> Amis</span>${App.friends.pendingIn() ? `<span class="fr-count">${App.friends.pendingIn()}</span>` : ''}</a>
           <a class="btn ghost" href="#/parametres" title="Compte, synchronisation et paramètres">${App.icons.icon('gear', 16)}<span class="m-hide"> Compte et réglages</span></a>
           <button class="btn ${editing ? 'primary' : ''}" id="v-edit">${editing ? '✓ Terminer' : '✎ Personnaliser'}</button></div>`}
@@ -118,6 +138,11 @@ App.views.showcase = {
           ${feat.length ? `<div class="v-featured layout-${esc(profile.layout)}" style="--n:${feat.length}">${featHTML}</div>
             ${editing || S.friend ? '' : `<p class="small muted v-pick-link">${auto ? 'Sélection automatique (favorites ou plus chères). ' : ''}<a href="#" id="v-pickcards2">${App.icons.icon('star', 13)} Choisir mes cartes à l’honneur</a></p>`}`
             : `<div class="empty">${S.friend ? 'Pas encore de cartes dans sa collection.' : 'Ajoute des cartes à ta collection pour remplir ta vitrine.'}</div>`}
+          ${certItems.length ? `<div class="v-certs">
+            <div class="row" style="margin:26px 0 4px"><h2 style="margin:0">${App.icons.icon('shield', 18)} Cartes certifiées</h2><span class="muted small">${certItems.length}</span></div>
+            <p class="small muted" style="margin:0 0 10px">Photographiées en direct dans l’appli et vérifiées par le serveur : ${S.friend ? 'ce dresseur possède' : 'tu possèdes'} vraiment ces cartes.</p>
+            <div class="v-wish-grid">${certHTML}</div>
+          </div>` : ''}
           ${profile.showBadges ? `<div class="v-achievements">
             <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Badges</h2><span class="muted small">${got.length} / ${App.badges.total}</span><span class="spacer"></span>
               ${App.badges.total > got.length ? `<span class="small muted">${App.icons.icon('lock', 13)} ${App.badges.total - got.length} badge${App.badges.total - got.length > 1 ? 's' : ''} secret${App.badges.total - got.length > 1 ? 's' : ''} à débloquer</span>` : ''}</div>
@@ -130,6 +155,9 @@ App.views.showcase = {
           </div>` : ''}
           ${profile.showTop && top.length ? `<h2 style="margin-top:26px">Les ${top.length} plus précieuses</h2><div class="v-featured layout-grille" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${topHTML}</div>` : ''}
         </section>
+        ${S.pub && !isMe && !App.col.all().length ? `<div class="panel v-pub-cta"><b>Toi aussi, collectionnes-tu des cartes ?</b>
+          <p class="small muted" style="margin:6px 0 10px">Avec CollecDex, prends tes cartes en photo : l’appli les reconnaît, suit ta progression par série et crée ta propre vitrine. Gratuit.</p>
+          <a class="btn primary" href="#/">Découvrir CollecDex</a></div>` : ''}
         <section class="panel edit-panel" id="v-editor" ${editing ? '' : 'hidden'}></section>`;
 
       if (editing) await drawEditor();
@@ -139,9 +167,21 @@ App.views.showcase = {
       const box = el.querySelector('#v-editor');
       const items = owned().sort((a, b) => val(b) - val(a));
       const imgs = await Promise.all(items.map((it) => App.col.displayImage(it, App.games.get(it.game))));
+      const myPseudo = App.cloud.user ? await App.cloud.myPseudo().catch(() => null) : null;
+      const link = myPseudo ? App.friends.publicLink(myPseudo) : '';
       const fp = (list, cur, attr, swatch) => `<div class="frame-picker">${list.map(([k, l]) => `<div class="fp ${k === cur ? 'on' : ''}" data-${attr}="${k}">${swatch(k)}${l}</div>`).join('')}</div>`;
       box.innerHTML = `
         <h2>Personnaliser ma vitrine</h2>
+        <div class="v-pubbox ${profile.public && myPseudo ? 'on' : ''}">
+          <h3 style="margin-top:0">${App.icons.icon('globe', 16)} Vitrine publique</h3>
+          ${!App.cloud.user ? `<p class="small muted" style="margin:0"><a href="#/connexion">Connecte-toi</a> et réserve ton pseudo pour partager ta vitrine avec un simple lien.</p>`
+          : !myPseudo ? `<p class="small muted" style="margin:0">Réserve d’abord ton pseudo (plus bas, dans « Profil ») : il sert d’adresse à ta vitrine.</p>`
+          : `<label class="check"><input type="checkbox" id="e-public" ${profile.public ? 'checked' : ''}> Tout le monde peut voir ma vitrine avec le lien (même sans compte)</label>
+            ${profile.public ? `<div style="margin-top:6px"><label class="check"><input type="checkbox" id="e-pubphotos" ${profile.publicPhotos !== false ? 'checked' : ''}> Montrer mes photos des cartes (sinon : visuels officiels)</label></div>
+            <div class="fr-link" style="margin-top:10px"><input type="text" readonly value="${esc(link)}" id="e-publink"><button class="btn primary" id="e-share">${navigator.share ? 'Partager' : 'Copier'}</button></div>
+            <p class="small muted" style="margin:6px 0 0">Visible : tes cartes, badges, statistiques et ce que tu choisis d’afficher ci-dessous. Jamais tes notes ni tes objectifs. <a href="#/@${esc(encodeURIComponent(myPseudo))}">Voir comme un visiteur ›</a></p>`
+            : `<p class="small muted" style="margin:6px 0 0">Pour l’instant, seuls tes amis voient ta vitrine.</p>`}`}
+        </div>
         <h3 id="e-picker">Cartes à l’honneur <span class="muted small">(${profile.featured.length}/9 — clique pour ajouter ou retirer, dans l’ordre voulu)</span></h3>
         ${items.length ? `<div class="row" style="margin-bottom:8px"><input type="search" id="e-pick-q" placeholder="Chercher une carte…" style="flex:1;min-width:0">${profile.featured.length ? '<button class="btn sm ghost" id="e-pick-clear">Tout retirer</button>' : ''}</div>
           <div class="pick-list">${items.map((it, i) => {
@@ -161,6 +201,7 @@ App.views.showcase = {
             <label class="check"><input type="checkbox" id="e-stats" ${profile.showStats ? 'checked' : ''}> Statistiques</label><br>
             <label class="check"><input type="checkbox" id="e-badges" ${profile.showBadges ? 'checked' : ''}> Badges</label><br>
             <label class="check"><input type="checkbox" id="e-top" ${profile.showTop ? 'checked' : ''}> « Les plus précieuses »</label><br>
+            <label class="check"><input type="checkbox" id="e-certs" ${profile.showCerts !== false ? 'checked' : ''}> Cartes certifiées</label><br>
             <label class="check"><input type="checkbox" id="e-wish" ${profile.showWish !== false ? 'checked' : ''}> « Je recherche » (ta liste de souhaits)</label>
           </div>
           <div>
@@ -190,6 +231,16 @@ App.views.showcase = {
       if (t.closest('#v-pickcards2')) {
         e.preventDefault(); editing = true; await draw();
         const h = el.querySelector('#e-picker'); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      if (t.closest('#v-share, #e-share')) {
+        const name = S.pub ? profile.pseudo : await App.cloud.myPseudo().catch(() => null);
+        if (!name) return App.util.toast('Réserve d’abord ton pseudo');
+        const link = App.friends.publicLink(name);
+        const mine = !S.pub || (App.cloud.user && App.cloud.user.id === S.uid);
+        if (navigator.share) { navigator.share({ title: `Vitrine de ${name} · CollecDex`, text: mine ? 'Viens voir ma collection de cartes sur CollecDex !' : `La collection de ${name} sur CollecDex`, url: link }).catch(() => {}); return; }
+        try { await navigator.clipboard.writeText(link); App.util.toast('Lien copié ✓'); }
+        catch (err) { const f = el.querySelector('#e-publink'); if (f) f.select(); else App.util.toast(link); }
         return;
       }
       if (t.closest('#e-pick-clear')) { profile.featured = []; return save(); }
@@ -242,6 +293,13 @@ App.views.showcase = {
       if (t.id === 'e-badges') { profile.showBadges = t.checked; return save(); }
       if (t.id === 'e-top') { profile.showTop = t.checked; return save(); }
       if (t.id === 'e-wish') { profile.showWish = t.checked; return save(); }
+      if (t.id === 'e-certs') { profile.showCerts = t.checked; return save(); }
+      if (t.id === 'e-public') {
+        profile.public = t.checked; await save();
+        App.util.toast(t.checked ? 'Ta vitrine est publique : partage le lien !' : 'Ta vitrine n’est plus publique');
+        return;
+      }
+      if (t.id === 'e-pubphotos') { profile.publicPhotos = t.checked; return save(); }
       if (t.dataset.cframe) { if (t.value) profile.frames[t.dataset.cframe] = t.value; else delete profile.frames[t.dataset.cframe]; return save(); }
     });
     el.addEventListener('input', (e) => {

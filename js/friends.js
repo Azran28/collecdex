@@ -46,7 +46,7 @@ App.friends = (() => {
       bio: str(pr.bio, 1000), theme: oneOf(pr.theme, V.THEMES, 'nuit'), frame: oneOf(pr.frame, V.FRAMES, 'or'), layout: oneOf(pr.layout, V.LAYOUTS, 'vedette'),
       featured: Array.isArray(pr.featured) ? pr.featured.slice(0, 9).map((k) => str(k)) : [], frames,
       avatarPoke: avatarPoke(pr.avatarPoke), avatar: photoId(pr.avatar),
-      showStats: pr.showStats !== false, showBadges: pr.showBadges !== false, showTop: pr.showTop !== false, showWish: pr.showWish !== false,
+      showStats: pr.showStats !== false, showBadges: pr.showBadges !== false, showTop: pr.showTop !== false, showWish: pr.showWish !== false, showCerts: pr.showCerts !== false,
       wishlist: (Array.isArray(pr.wishlist) ? pr.wishlist : []).map(obj).filter((w) => game(w.game)).slice(0, 500).map((w) => ({
         game: w.game, id: str(w.id), setId: str(w.setId), name: str(w.name), setName: str(w.setName), localId: str(w.localId, 20), serieId: str(w.serieId, 40), image: tcgImg(w.image),
       })),
@@ -77,6 +77,21 @@ App.friends = (() => {
     };
   }
 
+  /** Vitrine publique d'un dresseur, par son pseudo (supabase-v9.sql) : lisible par tout le monde, même sans compte */
+  async function publicShowcase(pseudo) {
+    let d;
+    try { d = obj(await App.cloud.publicRpc('public_showcase', { p_pseudo: str(pseudo, 40) })); }
+    catch (e) { throw new Error(/public_showcase|schema cache|Could not find/i.test(e.message) ? 'Les vitrines publiques ne sont pas encore activées sur le serveur.' : e.message); }
+    if (!d.ok || !UUID.test(d.user_id)) throw new Error(str(d.reason) || 'Cette vitrine n’existe pas ou n’est pas publique');
+    return {
+      user_id: d.user_id, pseudo: str(d.pseudo, 40), photos: d.photos !== false, profile: cleanProfile(d.profile),
+      items: (Array.isArray(d.items) ? d.items : []).map(cleanItem).filter(Boolean),
+      certs: (Array.isArray(d.certs) ? d.certs : []).map(obj).map((c) => ({ photo_id: str(c.photo_id), key: str(c.key) })),
+    };
+  }
+  /** Adresse de la vitrine publique (à partager) */
+  const publicLink = (pseudo) => `${location.origin}${location.pathname}#/@${encodeURIComponent(pseudo)}`;
+
   /** Lien d'invitation à partager : ouvre le site et propose de t'ajouter en ami */
   const inviteLink = (pseudo) => `${location.origin}${location.pathname}#/amis?ajout=${encodeURIComponent(pseudo)}`;
 
@@ -96,7 +111,7 @@ App.friends = (() => {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && App.cloud.user) list({ fresh: true }).catch(() => {}); });
 
   return {
-    list, request, respond, remove, showcase, inviteLink, pendingIn, saveInvite, takeInvite, clearInvite,
+    list, request, respond, remove, showcase, publicShowcase, publicLink, inviteLink, pendingIn, saveInvite, takeInvite, clearInvite,
     get missing() { return missing; },
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };
