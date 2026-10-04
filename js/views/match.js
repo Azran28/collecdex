@@ -994,7 +994,7 @@
           <button type="button" class="bt-code" id="bt-room-code" title="Copier le code" aria-label="Code du salon : toucher pour le copier">${code.split("").map((c) => `<span>${esc(c)}</span>`).join("")}</button>
           <div class="bt-code-hint small muted" id="bt-code-hint">Touche le code pour le copier</div>
           <p class="small" style="text-align:center;margin:10px 0">Donne ce code à ton adversaire : page <b>Combat</b> › « Rejoindre avec un code ». Il lui faut juste un compte CollecDex.</p>
-          <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><button class="btn" id="bt-room-copy">${App.icons.icon("layers", 15)} Copier le code</button><button class="btn primary" id="bt-room-share">${App.icons.icon("share", 15)} ${navigator.share ? "Envoyer" : "Copier le lien"}</button></div>
+          <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap"><button class="btn" id="bt-room-copy">${App.icons.icon("copy", 15)} Copier le code</button><button class="btn primary" id="bt-room-share">${App.icons.icon("share", 15)} ${navigator.share ? "Envoyer" : "Copier le lien"}</button></div>
           <div class="bt-wait" style="justify-content:center;margin-top:14px"><span class="bt-wait-dots"><i></i><i></i><i></i></span> En attente de ton adversaire…</div>
           <div class="row" style="justify-content:center;margin-top:8px"><button class="btn ghost sm" id="bt-room-cancel">Fermer le salon</button></div>
         </div>`, () => { if (!done) { D.cancel(code); end(null); } });

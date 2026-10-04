@@ -2399,3 +2399,11 @@ button.bt-code:active span { transform: scale(.94); }
 .bt-code span { transition: transform .12s, border-color .2s, background .2s; }
 .bt-code.copied span { border-color: #3ddc97; background: rgba(61,220,151,.16); }
 .bt-code-hint { text-align: center; margin-top: 2px; min-height: 1.3em; }
+
+/* Salon de combat (v2.64) : tout centré dans une colonne étroite (sur PC la fenêtre fait 980 px de large),
+   coche du « Code copié » sur la même ligne que le texte (.ic est en display:block partout). */
+.bt-room { max-width: 520px; margin: 0 auto; text-align: center; }
+.bt-room h2 { justify-content: center; }
+.bt-code-hint b { display: inline-flex; align-items: center; gap: 5px; }
+.bt-room .btn { display: inline-flex; align-items: center; gap: 7px; }
+.modal-box:has(.bt-room) { width: min(580px, 100%); }
