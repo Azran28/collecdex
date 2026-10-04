@@ -16,6 +16,18 @@ App.cloud = (() => {
   let state = enabled ? 'deconnecte' : 'local', lastError = '', lastSync = 0;
   const listeners = new Set();
   let pend = { items: {}, dels: {}, photos: {}, photoDels: {}, profile: false };
+  // Démarrage rapide : l'appli n'attend plus le serveur pour s'afficher. La session gardée sur l'appareil
+  // (même stockage que supabase-js) donne tout de suite le compte connecté ; init() la confirme ensuite.
+  // Tout ce qui parle au serveur attend `ready` (module de connexion chargé, session vérifiée).
+  let readyDone; const ready = new Promise((r) => { readyDone = r; });
+  if (enabled) {
+    try {
+      const k = Object.keys(localStorage).find((x) => /^sb-.+-auth-token$/.test(x));
+      const s = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+      if (s && s.user && s.user.id) { user = s.user; state = 'synchro'; }
+    } catch (e) { /* stockage illisible : on attendra init() */ }
+  } else readyDone();
+  const waitReady = async () => { if (!sb) await ready; return !!sb; };
 
   const emit = () => listeners.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } });
   const setState = (s, err = '') => { state = s; lastError = err; emit(); };
@@ -46,8 +58,12 @@ App.cloud = (() => {
     try {
       const lib = await getLib();
       sb = lib.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
-      const { data } = await sb.auth.getSession();
-      user = data.session ? data.session.user : null;
+      const { data, error } = await sb.auth.getSession();
+      // hors ligne au lancement (jeton à renouveler, pas de réseau) : on garde le compte de l'appareil
+      const hadUser = !!user, offline = !data.session && error && isNetErr(error) && user;
+      if (!offline) user = data.session ? data.session.user : null;
+      if (hadUser && !user) setTimeout(() => App.util.toast('Ta session a expiré : reconnecte-toi. Tes changements sont gardés sur cet appareil.', 6000), 600);
+      readyDone();
       sb.auth.onAuthStateChange((ev, session) => {
         const was = uid();
         user = session ? session.user : null;
@@ -57,12 +73,14 @@ App.cloud = (() => {
       });
       // retire le « ?code=… » laissé par le lien de confirmation
       if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
-      if (user) sync(); else setState('deconnecte');
+      if (offline) setState('erreur', 'Hors ligne : synchronisation au retour du réseau');
+      else if (user) sync(); else setState('deconnecte');
     } catch (e) {
       console.warn(e);
       setState('erreur', e.message);
     }
-    window.addEventListener('online', () => { if (user) flush(); });
+    readyDone();
+    window.addEventListener('online', () => { if (user) { if (sb && state === 'erreur') sync(); else flush(); } });
   }
 
   // ---------- Session expirée ----------
@@ -124,6 +142,7 @@ App.cloud = (() => {
 
   async function flush() {
     if (!user || flushing) return;
+    if (!sb && (!(await waitReady()) || !user || flushing)) return;
     if (!pendingCount()) { if (state !== 'ok') setState('ok'); return; }
     flushing = true;
     setState('envoi');
@@ -184,6 +203,7 @@ App.cloud = (() => {
   // ---------- Récupération depuis le compte ----------
   async function sync() {
     if (!user) return;
+    if (!(await waitReady()) || !user) return;
     setState('synchro');
     try {
       const me = uid();
@@ -262,6 +282,7 @@ App.cloud = (() => {
   /** Appel d'une fonction du serveur */
   async function rpc(name, args = {}) {
     if (!user) throw new Error('Connexion requise');
+    if (!(await waitReady())) throw new Error('Connexion au serveur impossible (internet ?)');
     let { data, error } = await sb.rpc(name, args);
     if (error && isAuthErr(error)) {
       if (!(await renew())) throw new Error(user ? 'Connexion au serveur impossible (internet ?)' : 'Ta session a expiré : reconnecte-toi');
@@ -293,6 +314,7 @@ App.cloud = (() => {
   /** Photo absente de cet appareil : on la télécharge depuis le compte */
   async function fetchPhoto(id) {
     if (!user || !id) return null;
+    if (!(await waitReady()) || !user) return null;
     const { data, error } = await sb.storage.from('photos').download(photoPath(id));
     if (error || !data) return null;
     await App.db.set('photos', id, data);
@@ -305,6 +327,7 @@ App.cloud = (() => {
     const k = owner + '/' + id;
     if (!friendPhotos.has(k)) {
       friendPhotos.set(k, (async () => {
+        if (!(await waitReady())) return '';
         if (!user) return '';
         const { data, error } = await sb.storage.from('photos').download(`${owner}/${id}.jpg`);
         return error || !data ? '' : URL.createObjectURL(data);
@@ -327,6 +350,7 @@ App.cloud = (() => {
   /** Mon pseudo réservé sur le serveur (null si aucun) */
   async function myPseudo() {
     if (!user) return null;
+    if (!(await waitReady()) || !user) return null;
     const { data } = await sb.from('pseudos').select('pseudo').eq('user_id', user.id).maybeSingle();
     return data ? data.pseudo : null;
   }
@@ -343,22 +367,26 @@ App.cloud = (() => {
     return m;
   };
   async function signUp(email, password) {
+    if (!(await waitReady())) throw new Error('Connexion au serveur impossible (internet ?)');
     const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: redirect() } });
     if (error) throw new Error(tr(error));
     return { needsConfirm: !data.session };
   }
   async function signIn(email, password) {
+    if (!(await waitReady())) throw new Error('Connexion au serveur impossible (internet ?)');
     const { error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw new Error(tr(error));
   }
   async function signOut() {
     if (App.notify) await App.notify.disable().catch(() => {}); // plus de notifications de ce compte sur cet appareil
-    await sb.auth.signOut(); user = null; setState('deconnecte'); }
+    if (await waitReady()) await sb.auth.signOut().catch(() => {}); user = null; setState('deconnecte'); }
   async function resetPassword(email) {
+    if (!(await waitReady())) throw new Error('Connexion au serveur impossible (internet ?)');
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: redirect() });
     if (error) throw new Error(tr(error));
   }
   async function newPassword(password) {
+    if (!(await waitReady())) throw new Error('Connexion au serveur impossible (internet ?)');
     const { error } = await sb.auth.updateUser({ password });
     if (error) throw new Error(tr(error));
   }

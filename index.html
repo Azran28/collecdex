@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <!-- Sécurité : la page n'exécute que les scripts du site et des bibliothèques connues (jsDelivr), et ne contacte que les services utilisés -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://api.tcgdex.net https://assets.tcgdex.net https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com blob: data:; img-src 'self' data: blob: https://assets.tcgdex.net https://raw.githubusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
-  <meta name="app-version" content="20261004-224440">
+  <meta name="app-version" content="20261004-225235">
   <title>CollecDex</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffd23f'/%3E%3Cstop offset='.4' stop-color='%23ff4fa3'/%3E%3Cstop offset='.75' stop-color='%237c5cff'/%3E%3Cstop offset='1' stop-color='%2334d5ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='4' y='6' width='15' height='21' rx='3' transform='rotate(-14 11.5 16.5)' fill='%232a2f52' stroke='%237c5cff' stroke-width='1.5'/%3E%3Crect x='12' y='4' width='15' height='21' rx='3' transform='rotate(10 19.5 14.5)' fill='url(%23g)'/%3E%3C/svg%3E">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -22,11 +22,46 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=20261004-224440">
+  <link rel="stylesheet" href="css/style.css?v=20261004-225235">
+  <!-- écran de lancement : styles ici pour qu'il s'affiche avant tout le reste (téléphone seulement) -->
+  <style>
+    .splash { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 35%, #1d1a3a, #0c0e19 70%); transition: opacity .3s; }
+    .splash.out { opacity: 0; pointer-events: none; }
+    /* sécurité : si l’appli ne démarre pas, l’écran disparaît quand même au bout de 10 s */
+    .splash { animation: spGone 0s 10s forwards; }
+    @keyframes spGone { to { opacity: 0; visibility: hidden; } }
+    .splash-in { display: flex; flex-direction: column; align-items: center; gap: 14px; animation: spIn .4s .12s ease-out both; }
+    .splash-logo { overflow: visible; filter: drop-shadow(0 8px 24px rgba(124,92,255,.45)); }
+    .splash-logo .sp-front { transform-origin: 19.5px 14.5px; animation: spFlip 1.6s ease-in-out infinite; }
+    .splash-logo .sp-back { transform-origin: 11.5px 16.5px; animation: spBob 1.6s ease-in-out infinite; }
+    .splash-name { font: 700 1.6rem/1 'Fredoka', system-ui, sans-serif; color: #fff; letter-spacing: .01em; }
+    .splash-name b { background: linear-gradient(90deg, #ff4fa3, #7c5cff, #34d5ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .splash-bar { width: 120px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
+    .splash-bar i { display: block; width: 40%; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #ff4fa3, #7c5cff, #34d5ff); animation: spBar 1.1s ease-in-out infinite; }
+    @keyframes spIn { from { transform: scale(.9); } }
+    @keyframes spFlip { 0%, 100% { transform: rotate(0) translateY(0); } 50% { transform: rotate(6deg) translateY(-1.5px); } }
+    @keyframes spBob { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-5deg); } }
+    @keyframes spBar { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+    @media (min-width: 761px) { .splash { display: none; } }
+    @media (prefers-reduced-motion: reduce) { .splash-in, .splash-logo .sp-front, .splash-logo .sp-back, .splash-bar i { animation: none; } }
+  </style>
   <link rel="preconnect" href="https://api.tcgdex.net" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 </head>
 <body>
+  <!-- écran de lancement (appli sur téléphone) : visible le temps que l'appli démarre, retiré par app.js -->
+  <div id="splash" class="splash" aria-hidden="true">
+    <div class="splash-in">
+      <svg class="splash-logo" width="84" height="84" viewBox="0 0 32 32">
+        <defs><linearGradient id="splashG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset=".35" stop-color="#ff4fa3"/><stop offset=".7" stop-color="#7c5cff"/><stop offset="1" stop-color="#34d5ff"/></linearGradient></defs>
+        <g class="sp-back"><rect x="4" y="6" width="15" height="21" rx="3" transform="rotate(-14 11.5 16.5)" fill="#2a2f52" stroke="#7c5cff" stroke-width="1.5"/></g>
+        <g class="sp-front"><rect x="12" y="4" width="15" height="21" rx="3" transform="rotate(10 19.5 14.5)" fill="url(#splashG)"/>
+        <path d="M19.6 9.6l1.3 2.8 3 .3-2.3 2 .7 3-2.7-1.6-2.7 1.6.7-3-2.3-2 3-.3z" transform="rotate(10 19.5 14.5)" fill="#fff"/></g>
+      </svg>
+      <div class="splash-name">Collec<b>Dex</b></div>
+      <div class="splash-bar"><i></i></div>
+    </div>
+  </div>
   <header class="topbar">
     <button type="button" class="nav-back" id="nav-back" aria-label="Retour" hidden><span data-icon="back"></span></button>
     <a class="brand" href="#/" aria-label="CollecDex, accueil">
@@ -61,49 +96,49 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="js/util.js?v=20261004-224440"></script>
-  <script src="js/icons.js?v=20261004-224440"></script>
-  <script src="js/db.js?v=20261004-224440"></script>
-  <script src="js/games/registry.js?v=20261004-224440"></script>
-  <script src="js/games/pokemon-rarity.js?v=20261004-224440"></script>
-  <script src="js/games/pokemon-pullrates.js?v=20261004-224440"></script>
-  <script src="js/games/pokemon-hors-serie.js?v=20261004-224440"></script>
-  <script src="js/games/pokemon.js?v=20261004-224440"></script>
-  <script src="js/collection.js?v=20261004-224440"></script>
-  <script src="js/config.js?v=20261004-224440"></script>
-  <script src="js/cloud.js?v=20261004-224440"></script>
-  <script src="js/sfx.js?v=20261004-224440"></script>
-  <script src="js/pokedex.js?v=20261004-224440"></script>
-  <script src="js/capsules.js?v=20261004-224440"></script>
-  <script src="js/battle.js?v=20261004-224440"></script>
-  <script src="js/battle-cards.js?v=20261004-224440"></script>
-  <script src="js/duel.js?v=20261004-224440"></script>
-  <script src="js/friends.js?v=20261004-224440"></script>
-  <script src="js/certify.js?v=20261004-224440"></script>
-  <script src="js/badges.js?v=20261004-224440"></script>
-  <script src="js/wish.js?v=20261004-224440"></script>
-  <script src="js/importer.js?v=20261004-224440"></script>
-  <script src="js/install.js?v=20261004-224440"></script>
-  <script src="js/notify.js?v=20261004-224440"></script>
-  <script src="js/onboarding.js?v=20261004-224440"></script>
-  <script src="js/components.js?v=20261004-224440"></script>
-  <script src="js/recognizer.js?v=20261004-224440"></script>
-  <script src="js/visual.js?v=20261004-224440"></script>
-  <script src="js/views/home.js?v=20261004-224440"></script>
-  <script src="js/views/sets.js?v=20261004-224440"></script>
-  <script src="js/views/set.js?v=20261004-224440"></script>
-  <script src="js/views/hors-serie.js?v=20261004-224440"></script>
-  <script src="js/views/card.js?v=20261004-224440"></script>
-  <script src="js/views/collection.js?v=20261004-224440"></script>
-  <script src="js/views/goals.js?v=20261004-224440"></script>
-  <script src="js/views/import.js?v=20261004-224440"></script>
-  <script src="js/views/showcase.js?v=20261004-224440"></script>
-  <script src="js/views/scan.js?v=20261004-224440"></script>
-  <script src="js/views/capsules.js?v=20261004-224440"></script>
-  <script src="js/views/friends.js?v=20261004-224440"></script>
-  <script src="js/views/match.js?v=20261004-224440"></script>
-  <script src="js/views/settings.js?v=20261004-224440"></script>
-  <script src="js/views/account.js?v=20261004-224440"></script>
-  <script src="js/app.js?v=20261004-224440"></script>
+  <script src="js/util.js?v=20261004-225235" defer></script>
+  <script src="js/icons.js?v=20261004-225235" defer></script>
+  <script src="js/db.js?v=20261004-225235" defer></script>
+  <script src="js/games/registry.js?v=20261004-225235" defer></script>
+  <script src="js/games/pokemon-rarity.js?v=20261004-225235" defer></script>
+  <script src="js/games/pokemon-pullrates.js?v=20261004-225235" defer></script>
+  <script src="js/games/pokemon-hors-serie.js?v=20261004-225235" defer></script>
+  <script src="js/games/pokemon.js?v=20261004-225235" defer></script>
+  <script src="js/collection.js?v=20261004-225235" defer></script>
+  <script src="js/config.js?v=20261004-225235" defer></script>
+  <script src="js/cloud.js?v=20261004-225235" defer></script>
+  <script src="js/sfx.js?v=20261004-225235" defer></script>
+  <script src="js/pokedex.js?v=20261004-225235" defer></script>
+  <script src="js/capsules.js?v=20261004-225235" defer></script>
+  <script src="js/battle.js?v=20261004-225235" defer></script>
+  <script src="js/battle-cards.js?v=20261004-225235" defer></script>
+  <script src="js/duel.js?v=20261004-225235" defer></script>
+  <script src="js/friends.js?v=20261004-225235" defer></script>
+  <script src="js/certify.js?v=20261004-225235" defer></script>
+  <script src="js/badges.js?v=20261004-225235" defer></script>
+  <script src="js/wish.js?v=20261004-225235" defer></script>
+  <script src="js/importer.js?v=20261004-225235" defer></script>
+  <script src="js/install.js?v=20261004-225235" defer></script>
+  <script src="js/notify.js?v=20261004-225235" defer></script>
+  <script src="js/onboarding.js?v=20261004-225235" defer></script>
+  <script src="js/components.js?v=20261004-225235" defer></script>
+  <script src="js/recognizer.js?v=20261004-225235" defer></script>
+  <script src="js/visual.js?v=20261004-225235" defer></script>
+  <script src="js/views/home.js?v=20261004-225235" defer></script>
+  <script src="js/views/sets.js?v=20261004-225235" defer></script>
+  <script src="js/views/set.js?v=20261004-225235" defer></script>
+  <script src="js/views/hors-serie.js?v=20261004-225235" defer></script>
+  <script src="js/views/card.js?v=20261004-225235" defer></script>
+  <script src="js/views/collection.js?v=20261004-225235" defer></script>
+  <script src="js/views/goals.js?v=20261004-225235" defer></script>
+  <script src="js/views/import.js?v=20261004-225235" defer></script>
+  <script src="js/views/showcase.js?v=20261004-225235" defer></script>
+  <script src="js/views/scan.js?v=20261004-225235" defer></script>
+  <script src="js/views/capsules.js?v=20261004-225235" defer></script>
+  <script src="js/views/friends.js?v=20261004-225235" defer></script>
+  <script src="js/views/match.js?v=20261004-225235" defer></script>
+  <script src="js/views/settings.js?v=20261004-225235" defer></script>
+  <script src="js/views/account.js?v=20261004-225235" defer></script>
+  <script src="js/app.js?v=20261004-225235" defer></script>
 </body>
 </html>

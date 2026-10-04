@@ -145,9 +145,13 @@ App.views = App.views || {};
       };
       App.capsules.on(paintCaps); paintCaps();
       setInterval(() => { if (App.capsules.state && !App.capsules.total()) paintCaps(); }, 30000);
-      await App.cloud.init();
+      // le compte se connecte en arrière-plan : la page s’affiche tout de suite (session gardée sur l’appareil)
+      App.cloud.init();
     }
-    route();
+    // écran de lancement : retiré dès la 1re page affichée (au plus tard 2,5 s : une page qui attend le réseau montre son propre chargement)
+    const hideSplash = () => { const s = document.getElementById('splash'); if (!s || s.classList.contains('out')) return; s.classList.add('out'); setTimeout(() => s.remove(), 350); };
+    Promise.resolve(route()).catch(() => {}).finally(hideSplash);
+    setTimeout(hideSplash, 2500);
     setTimeout(() => App.col.refreshStalePrices(), 4000);
     // badges : annonce quand un nouveau se débloque
     setTimeout(() => App.badges.check().catch(() => {}), 3000);
