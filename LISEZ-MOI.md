@@ -125,12 +125,13 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Ouvrir à la chaîne** : à la fin d'une ouverture, touche le Pokémon pour ouvrir la capsule suivante.
 
 ## Notifications
-- **Paramètres › Notifications** : coche « Notifications sur cet appareil » (le navigateur demande l'autorisation), puis choisis lesquelles recevoir. Pour l'instant : **« Ma réserve de capsules est pleine »** (10 capsules à ouvrir), même quand le site est fermé. Le bouton « Envoyer une notification d'essai » vérifie que l'appareil les affiche.
+- **Paramètres › Notifications** : coche « Notifications sur cet appareil » (le navigateur demande l'autorisation), puis choisis lesquelles recevoir. **« Ma réserve de capsules est pleine »** (10 capsules à ouvrir) et **« Je reçois une demande d'ami »** (avec le pseudo de celui qui demande ; la toucher ouvre la page Amis), même quand le site est fermé. Le bouton « Envoyer une notification d'essai » vérifie que l'appareil les affiche.
 - Le réglage est propre à chaque appareil (téléphone, ordinateur) ; te déconnecter les coupe sur cet appareil.
 - **iPhone** : les notifications ne marchent qu'avec l'appli **installée** sur l'écran d'accueil (iOS 16.4 ou plus récent) : installe-la, ouvre-la, puis active les notifications dans ses Paramètres.
 - **À faire une fois dans Supabase** (2 étapes) :
   1. *SQL Editor* → coller `supabase-v7.sql` → *Run* (notifications + nouvelle certification).
   2. *Edge Functions* : la fonction d'envoi s'appelle **`hyper-processor`** (nom choisi par Supabase). Son code = le fichier `supabase/functions/capsule-notify/index.ts` (onglet *Code* → tout remplacer → *Deploy*), « Verify JWT » désactivé dans *Settings*. Le serveur l'appelle tout seul toutes les 5 minutes.
+  3. **Demandes d'ami (v2.62)** : *SQL Editor* → coller `supabase-v11.sql` → *Run*, puis remettre à jour le code de **`hyper-processor`** comme à l'étape 2 (le fichier a changé).
 - Pour le moment, une carte dans un **étui opaque** ne peut pas être certifiée : le site doit voir le dos Pokémon (c'est ce qui prouve que ce n'est pas un écran). Une pochette transparente convient.
 
 ## Sécurité

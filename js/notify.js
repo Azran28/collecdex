@@ -1,10 +1,10 @@
 /*
  * Notifications (même site fermé) : l'appareil s'abonne auprès du serveur (supabase-v7.sql),
- * qui envoie par exemple « ta réserve de 10 capsules est pleine » (fonction capsule-notify).
+ * qui envoie « ta réserve de 10 capsules est pleine » et « nouvelle demande d'ami » (fonction capsule-notify, supabase-v11.sql).
  * Le choix est propre à chaque appareil (téléphone, ordinateur…) et lié au compte connecté.
  */
 App.notify = (() => {
-  const KINDS = [['capsules', 'Ma réserve de capsules est pleine (10 capsules à ouvrir)']];
+  const KINDS = [['capsules', 'Ma réserve de capsules est pleine (10 capsules à ouvrir)'], ['friends', 'Je reçois une demande d’ami']];
   const listeners = new Set();
   const notify = () => listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
 
@@ -21,7 +21,7 @@ App.notify = (() => {
   async function subscription() {
     try { const reg = await navigator.serviceWorker.getRegistration(); return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; }
   }
-  const prefs = async () => Object.assign({ on: false, kinds: { capsules: true } }, (await App.db.get('kv', 'notify').catch(() => null)) || {});
+  const prefs = async () => Object.assign({ on: false, kinds: { capsules: true, friends: true } }, (await App.db.get('kv', 'notify').catch(() => null)) || {});
   const savePrefs = (p) => App.db.set('kv', 'notify', p).catch(() => {});
 
   // clé publique VAPID (texte base64url) → octets
