@@ -2607,3 +2607,8 @@ button.bt-code:active span { transform: scale(.94); }
 .v-trust.t-new { color: #c9b8ff; border-color: rgba(124,92,255,.4); background: rgba(124,92,255,.12); }
 .v-trust.t-suspect { color: #ffb36b; border-color: rgba(255,150,70,.55); background: rgba(255,120,50,.14); }
 .v-sheet h2 .v-trust { font-size: .9rem; padding: 5px 12px; }
+
+/* « Tout voir » des badges (v2.73) */
+.v-lockline { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; }
+.v-lockline .ic { flex: none; }
+.v-sheet .badge-grid { margin-top: 4px; }

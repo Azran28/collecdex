@@ -115,6 +115,7 @@ App.views.showcase = {
     const shown = (flag) => editing || flag;
     const sec = (kind, flag) => `v-sec${editing ? ' v-editable' : ''}${editing && !flag ? ' v-off' : ''}" data-sec="${kind}`;
 
+    let lastGot = []; // badges débloqués (pour « Tout voir »)
     const draw = async () => {
       const items = owned();
       const total = App.col.totalValue(items);
@@ -122,6 +123,7 @@ App.views.showcase = {
       const top = [...items].sort((a, b) => val(b) - val(a)).slice(0, 10);
       const fresh = S.friend ? new Set() : new Set((await App.badges.check({ silent: true })).map((b) => b.id));
       const got = S.friend ? await App.badges.unlocked(owned(), S.cert) : await App.badges.unlocked();
+      lastGot = got;
       const wl = (profile.wishlist || []).filter((w) => !S.owns(w.game, w.id));
       const avatar = await S.avatar(profile);
       const featHTML = (await Promise.all(feat.map((it, i) => vcard(it, i, feat.length)))).join('');
@@ -191,7 +193,7 @@ App.views.showcase = {
             <div class="v-wish-grid">${certHTML}</div>` : '<p class="small muted">Aucune carte certifiée pour l’instant.</p>'}
           </div>` : ''}
           ${shown(profile.showBadges) ? `<div class="v-achievements ${sec('badges', profile.showBadges)}">${pen('badges', 'Badges', !profile.showBadges)}
-            <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Badges</h2><span class="muted small">${got.length} / ${App.badges.total}${secrets > 0 ? ` · ${App.icons.icon('lock', 12)} ${secrets} secret${secrets > 1 ? 's' : ''}` : ''}</span></div>
+            <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Badges</h2><span class="muted small">${got.length} / ${App.badges.total}${secrets > 0 ? ` · ${App.icons.icon('lock', 12)} ${secrets} secret${secrets > 1 ? 's' : ''}` : ''}</span><span class="spacer"></span>${got.length && !editing ? '<a class="small" href="#" id="v-allbadges">Tout voir ›</a>' : ''}</div>
             ${got.length ? `<div class="badge-grid compact">${[...got].sort((a, b) => b.tier - a.tier).map((b) => App.badges.medal(b, { isNew: fresh.has(b.id), size: 'sm' })).join('')}</div>
               <p class="small muted v-badge-hint">Touche un badge pour voir son nom.</p>` : '<div class="muted small">Aucun badge pour l’instant : ils se débloquent en complétant ta collection.</div>'}
             ${completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : App.icons.icon('trophy', 14)}${esc(s.name)}</span>`).join('')}</div>` : ''}
@@ -441,6 +443,14 @@ App.views.showcase = {
       if (t.closest('#v-share')) return shareLink();
       if (t.closest('#v-makepub')) { editing = true; await draw(); return openSheet('public'); }
       if (t.closest('#v-trust')) return trustSheet();
+      if (t.closest('#v-allbadges')) {
+        e.preventDefault();
+        const secrets = App.badges.total - lastGot.length;
+        App.util.openModal(`<div class="v-sheet"><h2>Badges <span class="muted small">${lastGot.length} / ${App.badges.total}</span></h2>
+          <div class="badge-grid">${[...lastGot].sort((a, b) => b.tier - a.tier).map((b) => App.badges.medal(b)).join('')}</div>
+          ${secrets > 0 ? `<p class="small muted v-lockline">${App.icons.icon('lock', 13)} ${secrets} badge${secrets > 1 ? 's' : ''} secret${secrets > 1 ? 's' : ''} à débloquer.</p>` : ''}</div>`);
+        return;
+      }
       const sh = t.closest('[data-sheet]');
       if (sh && editing) { if (sh.dataset.sheet === 'avatar') return pickAvatar(); return openSheet(sh.dataset.sheet); }
       // en personnalisation, toucher une partie de la vitrine ouvre ses choix
