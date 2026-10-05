@@ -268,7 +268,7 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
   .mainnav .ico { display: block; font-size: 1.25rem; line-height: 1.2; }
   .mainnav a.active { background: rgba(227,53,13,.18); opacity: 1; color: #fff; }
   .mainnav a.nav-scan .ico { background: var(--accent); border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; margin-top: -18px; border: 3px solid #141a28; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
-  .app { padding-bottom: 96px; }
+  .app { padding-bottom: calc(72px + env(safe-area-inset-bottom)); } /* barre du bas (≈ 63 px) + un peu d'air */
   .bgtasks { bottom: 80px; }
   .toast { bottom: 84px; }
   .set-hero, .cd, .scan-wrap { grid-template-columns: 1fr; }
@@ -2023,10 +2023,11 @@ a.stat { text-decoration: none; color: inherit; }
   .sc-opts > * { margin: 0 !important; }
   .sc-opts label.small { display: block; }
   .sc-opts select { width: 100%; max-width: 140px; padding: 10px 8px; }
-  .sc-opts .set-first select { max-width: none; }
+  .sc-opts .set-first select { max-width: none; padding: 10px 12px; } /* même départ du texte que « Une carte » et « Rafale » */
   /* avant la photo : le cadre prend la place disponible, les boutons restent juste en dessous */
-  .scan-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { aspect-ratio: auto; height: clamp(230px, calc(100svh - 330px), 560px); }
-  .batch-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { height: clamp(230px, calc(100svh - 385px), 560px); }
+  /* (v2.83) les boutons arrivent juste au-dessus de la barre du bas, sans vide en dessous */
+  .scan-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { aspect-ratio: auto; height: clamp(230px, calc(100svh - 300px), 760px); }
+  .batch-view:not(:has(video)):not(:has(img)):not(:has(canvas)) { height: clamp(230px, calc(100svh - 300px), 760px); }
   .scan-dock { margin-top: 10px !important; }
 }
 /* appli installée : pas d'effet « élastique » en haut de page */

@@ -240,10 +240,90 @@ async function rank({ rid, qid, blob, refs, must = [], bonusSet = null, bonus = 
   return { res: res.slice(0, 12), best: res[0] ? res[0].s : 0, missing: F.filter((f) => !f).length, t, backend: tf.getBackend() };
 }
 
+// ---------- Toute la base (v2.83) : empreintes des ~21 000 cartes préparées d'avance (data/vis-index.*) ----------
+// Fichier .json : { n, d, base, imgs: [chemin du visuel sans « /low.webp »], ids, sets } ; fichier .bin (petit-boutiste) :
+// Pf, Pa (1280 × d float32 : projections du réseau, carte entière / illustration), sc (n × 2 float32 : échelles),
+// v (n × 2d int8 : empreintes réduites et normées). Score ≈ cosinus du réseau, comme la présélection habituelle.
+let idxP = null;
+function loadIndex(base, qs = '') {
+  return idxP || (idxP = (async () => {
+    const [meta, buf] = await Promise.all([
+      fetch(base + '.json' + qs).then((r) => { if (!r.ok) throw new Error('index ' + r.status); return r.json(); }),
+      fetch(base + '.bin' + qs).then((r) => { if (!r.ok) throw new Error('index ' + r.status); return r.arrayBuffer(); }),
+    ]);
+    const { n, d } = meta, D = 1280;
+    let o = 0;
+    const Pf = new Float32Array(buf, o, D * d); o += D * d * 4;
+    const Pa = new Float32Array(buf, o, D * d); o += D * d * 4;
+    const sc = new Float32Array(buf, o, n * 2); o += n * 8;
+    const v = new Int8Array(buf, o, n * 2 * d);
+    return { ...meta, Pf, Pa, sc, v };
+  })().catch((e) => { idxP = null; throw e; }));
+}
+function project(x, P, d) {
+  const y = new Float32Array(d);
+  for (let i = 0; i < 1280; i++) { const xi = x[i]; if (!xi) continue; const row = i * d; for (let j = 0; j < d; j++) y[j] += xi * P[row + j]; }
+  let n = 0; for (const t of y) n += t * t; n = Math.sqrt(n) || 1;
+  for (let j = 0; j < d; j++) y[j] /= n;
+  return y;
+}
+/** Les k cartes de toute la base les plus proches pour le réseau de neurones → [{ id, img, s }] */
+async function globalTop({ qid, blob, k = 40, base, qs }) {
+  await ready();
+  const I = await loadIndex(base, qs);
+  let q = queries.get(qid);
+  if (!q) { q = feats(await createImageBitmap(blob)); queries.set(qid, q); if (queries.size > 60) queries.delete(queries.keys().next().value); }
+  // empreinte moyenne sur 5 cadrages de la photo (marges de pochette, carte un peu décalée) : mesuré sur les cartes de
+  // test, la bonne carte arrive plus souvent parmi les 40 premières (seulement ici : 10 passages du réseau par carte)
+  if (!q.tta) {
+    const bmp = await createImageBitmap(blob), acc = { full: new Float32Array(1280), art: new Float32Array(1280) };
+    for (const [l, t, r, b] of [[0, 0, 0, 0], [0.03, 0.03, 0.03, 0.03], [0.06, 0.05, 0.06, 0.05], [0.03, 0, 0.03, 0.06], [0.03, 0.06, 0.03, 0]]) {
+      const w = Math.round(bmp.width * (1 - l - r)), h = Math.round(bmp.height * (1 - t - b)), c = canvas(w, h);
+      c.getContext('2d').drawImage(bmp, bmp.width * l, bmp.height * t, w, h, 0, 0, w, h);
+      const f = embed(c), a = embed(c, ART);
+      for (let i = 0; i < 1280; i++) { acc.full[i] += f[i]; acc.art[i] += a[i]; }
+    }
+    q.tta = acc;
+  }
+  const { n, d, sc, v } = I, qf = project(q.tta.full, I.Pf, d), qa = project(q.tta.art, I.Pa, d);
+  const s = new Float32Array(n);
+  for (let r = 0; r < n; r++) {
+    const o = r * 2 * d; let a = 0, b = 0;
+    for (let j = 0; j < d; j++) { a += qf[j] * v[o + j]; b += qa[j] * v[o + d + j]; }
+    s[r] = (a * sc[2 * r] + b * sc[2 * r + 1]) / 2;
+  }
+  const top = [...s.keys()].sort((x, y) => s[y] - s[x]).slice(0, k);
+  return { res: top.map((r) => ({ id: I.ids[r], set: I.sets[r], img: I.base + I.imgs[r], s: Math.round(s[r] * 1000) / 1000 })) };
+}
+/** Empreintes du réseau pour une liste de visuels (outil de préparation de l'index, labo) */
+async function embedUrls({ rid, urls }) {
+  await ready();
+  const out = new Array(urls.length).fill(null);
+  let next = 0;
+  await Promise.all(Array.from({ length: 24 }, async () => {
+    while (next < urls.length) {
+      const i = next++;
+      try { const bmp = await fetchBitmap(urls[i]); if (bmp) { const src = trimBackground(bmp); out[i] = { full: embed(src), art: embed(src, ART) }; } } catch (e) { /* visuel introuvable */ }
+    }
+  }));
+  return { vecs: out };
+}
+
 let chain = Promise.resolve();
 self.onmessage = (e) => {
   const m = e.data;
   if (m.op === 'forget') { queries.delete(m.qid); return; }
+  if (m.op === 'global' || m.op === 'embed' || m.op === 'embedBlob') {
+    chain = chain.then(async () => {
+      try {
+        const r = m.op === 'global' ? await globalTop(m)
+          : m.op === 'embed' ? await embedUrls(m)
+          : await (async () => { await ready(); const b = await createImageBitmap(m.blob); return { full: embed(b), art: embed(b, ART) }; })();
+        postMessage({ rid: m.rid, ok: true, ...r });
+      } catch (err) { postMessage({ rid: m.rid, ok: false, error: String((err && err.message) || err) }); }
+    });
+    return;
+  }
   if (m.op === 'warm') {
     chain = chain.then(async () => {
       const t0 = performance.now();

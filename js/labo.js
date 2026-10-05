@@ -336,6 +336,7 @@
     S.queries = out;
     return out;
   }
+  Object.assign(S, { loadTruth, buildQueries }); // (outil de l'index de toute la base : js/labo-index.js)
 
   // ---------- Hybride (réseau de neurones → points clés) ----------
   const FALLBACK = 25; // moins de points en commun que ça : l'hybride n'est pas sûr (mesuré : erreurs de présélection ≤ 21)

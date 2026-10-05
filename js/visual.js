@@ -38,11 +38,27 @@ App.visual = (() => {
       worker().postMessage({ op: 'warm', rid });
     });
   }
+  /** Demande au worker (op + données) → réponse */
+  function ask(op, data) {
+    return new Promise((resolve, reject) => {
+      const rid = ++seq;
+      pend.set(rid, { resolve, reject });
+      worker().postMessage({ op, rid, ...data });
+    });
+  }
+  // empreintes de toute la base, préparées d'avance (v2.83) : data/vis-index.json + .bin
+  const INDEX = 'data/vis-index';
+  /** Les k cartes de toute la base les plus proches pour le réseau de neurones → [{ id, set, img, s }] (img = adresse du visuel sans « /low.webp ») */
+  const INDEX_V = 1; // à changer quand l'index est refait (le service worker garde le fichier tant que le numéro ne change pas)
+  const global = (qid, blob, k = 40) => ask('global', { qid, blob, k, base: new URL(INDEX, location.href).href, qs: '?v=' + INDEX_V }).then((r) => r.res);
+  /** (outil de préparation de l'index) empreintes du réseau pour des visuels / une photo */
+  const embed = (urls) => ask('embed', { urls }).then((r) => r.vecs);
+  const embedBlob = (blob) => ask('embedBlob', { blob });
   const forget = (qid) => { if (w) w.postMessage({ op: 'forget', qid }); };
   function stop() {
     if (w) { w.terminate(); w = null; }
     for (const p of pend.values()) p.reject(new Error('arrêté'));
     pend.clear();
   }
-  return { SURE, supported, rank, warm, forget, stop };
+  return { SURE, supported, rank, warm, global, embed, embedBlob, forget, stop };
 })();

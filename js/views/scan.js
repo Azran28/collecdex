@@ -1121,6 +1121,36 @@ App.views.scan = {
             } finally { c.vscan = false; }
           }
         }
+        // 3) toute la base (v2.83) : cartes encore douteuses qui ne ressemblent à rien de sûr (autre série que la page,
+        //    aucune piste lue…) → le réseau de neurones cherche parmi les ~21 000 cartes (empreintes préparées d'avance),
+        //    les 60 plus proches sont vérifiées par les points clés comme d'habitude (mesuré : la bonne carte y est 76 fois sur 90)
+        const lost = all.filter((c) => c.state !== 'sure' && !(c.vis && c.vis.best >= V.SURE));
+        const sets = new Map(); // séries ouvertes pour retrouver les cartes trouvées (gardées en cache par l'adaptateur)
+        const cardIn = async (setId, id) => {
+          if (!sets.has(setId)) sets.set(setId, ad.getSet(setId).catch(() => null));
+          const s = await sets.get(setId); if (!s) return null;
+          const x = s.cards.find((y) => y.id === id); if (!x) return null;
+          return { ...x, set: { id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, releaseDate: s.releaseDate, cardCount: { total: s.total, official: s.official }, serie: s.group } };
+        };
+        for (const [k, c] of lost.entries()) {
+          if (stopped || !alive()) return;
+          st(`Recherche dans toute la base — carte ${c.i + 1}…`);
+          prog = { step: 'Recherche dans toute la base', done: k, total: lost.length, kind: 'img' };
+          c.vscan = true; drawResults();
+          try {
+            const top = await V.global(qid(c), c.blob, 60);
+            const refs = top.map((t) => ({ id: t.id, url: t.img + '/low.webp', set: t.set })), ids = new Set(refs.map((r) => r.id));
+            const r = await rank(qid(c), c.blob, [...refs, ...c.cands.map(refOf).filter((x) => !ids.has(x.id))], { must: c.cands.map((x) => x.id) });
+            if (r.best <= (c.vis ? c.vis.best : 0)) continue;
+            // cartes trouvées : retrouvées dans leur série (mêmes informations que les autres propositions)
+            const setOf = new Map(top.map((t) => [t.id, t.set]));
+            for (const x of r.res.filter((y) => y.s >= r.best * 0.6).slice(0, 4)) {
+              if (!byId.has(x.id) && setOf.has(x.id)) { const card = await cardIn(setOf.get(x.id), x.id); if (card) byId.set(x.id, card); }
+            }
+            c.vis = r; c.visAll = true;
+          } catch (e) { console.warn('recherche dans toute la base', e.message); if (/index/.test(e.message)) break; } // (index absent : on n'insiste pas)
+          finally { c.vscan = false; }
+        }
       } catch (e) { console.warn('vérification par l’image', e); T.error = e.message; T.total = performance.now() - tv; setStatus(''); return; }
       for (const c of all) {
         const [a, b] = c.vis ? c.vis.res : [];
