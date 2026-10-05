@@ -95,6 +95,12 @@ App.badges = (() => {
       if (firstTime) App.util.toast(`🏅 ${fresh.length} badges débloqués ! Va les voir dans ta vitrine.`, 5000);
       else fresh.forEach((b, k) => setTimeout(() => App.util.toast(`🏅 Nouveau badge : ${b.name}`, 4000), k * 1500));
     }
+    // notification du téléphone (Paramètres › Notifications › « Je débloque un badge ») ; pas pour la toute première fois
+    if (!firstTime && App.notify) {
+      const one = fresh.length === 1;
+      App.notify.local('badges', one ? `🏅 Nouveau badge : ${fresh[0].name}` : `🏅 ${fresh.length} nouveaux badges`,
+        one ? fresh[0].desc : fresh.map((b) => b.name).join(' · '), '#/compte', 'badge-' + fresh.map((b) => b.id).join('-'));
+    }
     return fresh;
   }
 

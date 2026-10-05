@@ -6,7 +6,7 @@
   let FAST = false;
   const sleep = (ms) => (FAST ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
   const ad = () => App.games.get('pokemon');
-  const TEAMS = 3, BAG_MAX = 6;
+  const TEAMS = 3, BAG_MAX = App.battleCards.DECK_MAX; // pioche du mode Avancé : 10 cartes (v2.80)
   const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- Données ----------
@@ -115,13 +115,31 @@
     let over = false, turn = 0, quit = false;
     if (ON) { if (ADV) { P.bag = ON.bagP || []; C.bag = ON.bagC || []; } }
     else if (ADV) {
-      // sacs : le tien (ou un sac de prêt) et celui de l'ordinateur
+      // pioches : la tienne (ou une pioche de prêt) et celle de l'ordinateur
       const load = (id, extra) => ad().getCard(id).then((c) => BC.bagCard(c, extra)).catch(() => null);
       P.bag = (await Promise.all((opts.bag || []).map(async (it) => {
         try { const card = await ad().getCard(it.id); const img = await App.col.displayImage(it, ad(), 'high'); return BC.bagCard(card, { img: img.src }); } catch (e) { return null; }
       }))).filter(Boolean);
       if (!P.bag.length) P.bag = (await Promise.all(BC.loanBag(mine[0].type).map((id) => load(id, { loan: true })))).filter(Boolean);
       C.bag = (await Promise.all(BC.aiBag(L.n, foe[0].type).map((id) => load(id)))).filter(Boolean);
+    }
+    // Pioche (mode Avancé) : chaque deck est mélangé, 3 cartes en main au départ, puis 1 de plus au début de chaque tour.
+    // En ligne, le mélange vient de la graine du salon (le même sur les deux téléphones, dans le même ordre : d'abord celui qui commence).
+    const hand = (side) => side.bag.map((c, i) => ({ c, i })).filter((x) => !x.c.used && x.c.inHand !== false);
+    const pileTxt = (side) => (side.pile && side.pile.length ? `<br>pioche : ${side.pile.length}` : '');
+    const drawCard = (side) => { if (!side.pile || !side.pile.length) return null; const c = side.bag[side.pile.shift()]; if (c) c.inHand = true; return c || null; };
+    if (ADV) {
+      const shuffle = (side, r) => {
+        side.bag.forEach((c) => { c.inHand = false; });
+        side.pile = side.bag.map((_, i) => i);
+        for (let i = side.pile.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [side.pile[i], side.pile[j]] = [side.pile[j], side.pile[i]]; }
+      };
+      if (ON) {
+        const first = ON.first === 'P' ? P : C;
+        shuffle(first, App.duel.rng(((ON.seed | 0) ^ 0x2545f491) >>> 0));
+        shuffle(first === P ? C : P, App.duel.rng(((ON.seed | 0) ^ 0x68e31da4) >>> 0));
+      } else { shuffle(P, Math.random); shuffle(C, Math.random); }
+      for (let k = 0; k < BC.HAND_START; k++) { drawCard(P); drawCard(C); }
     }
     // Reprise après un rafraîchissement : mes coups déjà joués (gardés sur ce téléphone) sont rejoués en accéléré,
     // ceux de l'ami arrivent du serveur ; même graine = mêmes pièces : on retombe exactement au même endroit.
@@ -402,8 +420,8 @@
     /** Mon sac (mode Avancé), visible dès le début et pendant le tour de l'adversaire : cartes en gris, les toucher montre leur effet */
     const idleBag = () => {
       if (!ADV) return '';
-      const left = P.bag.map((c, i) => ({ c, i })).filter((x) => !x.c.used);
-      return left.length ? `<div class="bt-bag idle"><span class="bt-bag-h">Ton sac · à ton tour</span>${left.map(({ c, i }) =>
+      const left = hand(P);
+      return left.length ? `<div class="bt-bag idle"><span class="bt-bag-h">Ta main${pileTxt(P)}</span>${left.map(({ c, i }) =>
         `<button type="button" class="bt-bc off" data-peek="${i}" title="${esc(c.name)} : ${esc(c.fx.desc)}"><img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.fx.short)}</small></span></button>`).join('')}</div>` : '';
     };
     const showIdle = () => { if (!over) $('.bt-actions').innerHTML = idleBag(); };
@@ -416,8 +434,8 @@
     const playerChoice =(cardUsed = false) => new Promise((resolve) => {
       const a = B().active(P), foeA = B().active(C);
       const canSwitch = B().bench(P).length > 0;
-      const left = P.bag.map((c, i) => ({ c, i })).filter((x) => !x.c.used);
-      const bagHtml = ADV && left.length ? `<div class="bt-bag"><span class="bt-bag-h">${cardUsed ? 'Carte jouée ✓' : 'Sac · 1 carte par tour'}</span>${left.map(({ c, i }) => {
+      const left = hand(P);
+      const bagHtml = ADV && left.length ? `<div class="bt-bag"><span class="bt-bag-h">${cardUsed ? 'Carte jouée ✓' : 'Ta main · 1 par tour'}${pileTxt(P)}</span>${left.map(({ c, i }) => {
         const ok = !cardUsed && BC.playable(c, P, C);
         return `<button class="bt-bc ${ok ? '' : 'off'}" data-card="${i}" ${ok ? '' : 'disabled'} title="${esc(c.name)} : ${esc(c.fx.desc)}"><img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.fx.short)}</small></span></button>`;
       }).join('')}</div>` : '';
@@ -485,7 +503,7 @@
     }
     const refreshTags = (side) => { if (!ADV) return; const c = cardEl(B().active(side)); const el = c && c.querySelector('.bt-tags'); if (el) el.innerHTML = tagsHtml(side); };
     const refreshPips = (f) => { const c = cardEl(f); if (c) c.querySelector('.bt-pips').outerHTML = pips(f.energy); };
-    const drawFoeBag = () => { const el = $('.bt-foebag'); if (el) { const n = C.bag.filter((c) => !c.used).length; el.textContent = n ? `Sac adverse : ${n} carte${n > 1 ? 's' : ''}` : ''; } };
+    const drawFoeBag = () => { const el = $('.bt-foebag'); if (el) { const n = hand(C).length, p = (C.pile || []).length; el.textContent = n || p ? `Main adverse : ${n} · pioche : ${p}` : ''; } };
     function heal(side, f, n) {
       const before = f.hp; f.hp = Math.min(f.maxHp, f.hp + n);
       const got = f.hp - before;
@@ -564,6 +582,10 @@
       if (!ADV) return;
       side.team.forEach((f) => { f.shield = 0; });
       refreshTags(side);
+      // pioche d'une carte
+      const c = drawCard(side);
+      if (side === C) drawFoeBag();
+      else if (c) { App.sfx.swap(); log(`Tu pioches <b>${esc(c.name)}</b> (${esc(c.fx.short)}).`); }
     }
     async function endTurn(side) {
       if (!ADV) return;
@@ -587,14 +609,40 @@
         ? (win ? (why === 'quit' ? `${esc(L.name)} a abandonné : victoire !` : `Tu as battu ${esc(L.name)} en ${turn} tour${turn > 1 ? 's' : ''} !`)
           : quit ? 'Tu as abandonné.' : `${esc(L.name)} a gagné cette fois. Demande-lui une revanche !`)
         : (win ? `Tu as battu le niveau ${L.n} · ${esc(L.name)} en ${turn} tour${turn > 1 ? 's' : ''}.${L.n < B().LEVELS.length ? ' Le niveau suivant est débloqué !' : ' Tu es une vraie Légende !'}` : quit ? 'Tu as abandonné. Retente ta chance !' : 'L’ordinateur a gagné cette fois. Change d’équipe ou charge tes attaques plus tôt !');
+      // un geste pour rejouer : « Revanche » (même niveau, ou nouveau salon avec le même ami), « Niveau suivant » après une victoire
+      const next = !ON && win && L.n < B().LEVELS.length;
       b.innerHTML = `<div class="bt-end-box"><div class="bt-end-t">${win ? 'Victoire !' : 'Défaite…'}</div>
         <p>${txt}</p>
-        <div class="row" style="justify-content:center;gap:8px">${ON ? '' : '<button class="btn primary" data-again>Rejouer</button>'}<button class="btn ${ON ? 'primary' : 'ghost'}" data-back>Retour</button></div></div>`;
+        ${ON ? '<p class="bt-rematch-msg small" aria-live="polite"></p>' : ''}
+        <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap">${next ? '<button class="btn primary" data-next>Niveau suivant</button>' : ''}<button class="btn ${next ? '' : 'primary'}" data-again>${App.icons.icon('swap', 15)} Revanche</button><button class="btn ghost" data-back>Retour</button></div></div>`;
       ov.appendChild(b);
       if (win) { App.sfx.open(L.n >= 3 || ON ? 5 : 3); confetti(); } else App.sfx.lose();
-      b.addEventListener('click', (e) => {
-        if (e.target.closest('[data-again]')) { close(); resolveEnd({ win, again: true }); }
-        if (e.target.closest('[data-back]')) { close(); resolveEnd({ win, again: false }); }
+      // en ligne : on regarde si l'ami propose une revanche (salon créé par lui)
+      let watching = !!(ON && ON.code), asked = false, foeAsked = null;
+      const rmMsg = b.querySelector('.bt-rematch-msg'), rmBtn = b.querySelector('[data-again]');
+      if (watching) (async () => {
+        while (watching) {
+          await new Promise((r) => setTimeout(r, document.visibilityState === 'visible' ? 1500 : 4000));
+          if (!watching) return;
+          const s = await App.duel.state(ON.code, 1e6).catch(() => null);
+          if (!watching || !s) continue;
+          if (s.rematch && s.rematchBy === 'foe' && !foeAsked) {
+            foeAsked = s.rematch; App.sfx.click();
+            rmMsg.innerHTML = `<b style="color:var(--ok, #3ddc97)">${esc(L.name)} propose une revanche !</b>`;
+            rmBtn.innerHTML = `${App.icons.icon('check', 15)} Accepter la revanche`; rmBtn.classList.add('primary');
+          }
+        }
+      })();
+      const leave = (v) => { watching = false; close(); resolveEnd(v); };
+      b.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-next]')) { leave({ win, again: 'next' }); return; }
+        if (e.target.closest('[data-back]')) { if (foeAsked) App.duel.cancel(foeAsked); leave({ win, again: false }); return; } // revanche refusée : son salon est fermé
+        if (!e.target.closest('[data-again]')) return;
+        if (!ON) { leave({ win, again: true }); return; }
+        if (asked) return;
+        asked = true; rmBtn.disabled = true; rmMsg.textContent = 'Préparation de la revanche…';
+        try { const code = await App.duel.rematch(ON.code); leave({ win, again: false, rematch: code, mode: ADV ? 'adv' : 'classic', foeName: L.name }); }
+        catch (err) { asked = false; rmBtn.disabled = false; rmMsg.innerHTML = `<span style="color:#ff8a8a">${esc(err.message)}</span>`; }
       });
     }
     ov.querySelector('[data-quit]').addEventListener('click', async () => {
@@ -894,7 +942,7 @@
     });
   }
 
-  /** Choisir le sac de cartes Dresseur / Énergie d'une équipe */
+  /** Choisir la pioche (cartes Dresseur / Énergie) d'une équipe */
   async function pickBag(current, name) {
     let body = App.util.openModal(App.ui.loading('Recherche de tes cartes Dresseur et Énergie…'));
     const list = await myTrainers();
@@ -905,15 +953,15 @@
       let done = false;
       const end = (v) => { if (done) return; done = true; resolve(v); };
       body = App.util.openModal('', () => end(null));
-      const loanTxt = 'Sans carte, tu joues avec un sac de prêt : Potion, PlusPower, Transfert et une Énergie du type de ton 1er Pokémon.';
+      const loanTxt = 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Potion, PlusPower, Défenseur, Transfert et 3 Énergies du type de ton 1er Pokémon.';
       if (!list.length) {
-        body.innerHTML = `<div class="bt-pick"><h2>Sac · ${esc(name)}</h2><p class="muted">Tu n’as pas encore de carte Dresseur ou Énergie dans ton Dex. ${loanTxt} Capture tes cartes Dresseur et Énergie pour les utiliser !</p>
+        body.innerHTML = `<div class="bt-pick"><h2>Pioche · ${esc(name)}</h2><p class="muted">Tu n’as pas encore de carte Dresseur ou Énergie dans ton Dex. ${loanTxt} Capture tes cartes Dresseur et Énergie pour les utiliser !</p>
           <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="bt-ok">OK</button></div></div>`;
         body.querySelector('#bt-ok').addEventListener('click', () => { end(null); App.util.closeModal(); });
         return;
       }
-      body.innerHTML = `<div class="bt-pick"><h2>Sac · ${esc(name)} <span class="muted small" id="bt-cnt"></span></h2>
-        <p class="small muted" style="margin:4px 0 0">Jusqu’à ${BAG_MAX} cartes Dresseur ou Énergie. En combat « Avec Dresseurs », tu peux en jouer une par tour, chacune une seule fois. Touche une carte plusieurs fois pour en mettre plusieurs exemplaires (si tu les as). ${loanTxt}</p>
+      body.innerHTML = `<div class="bt-pick"><h2>Pioche · ${esc(name)} <span class="muted small" id="bt-cnt"></span></h2>
+        <p class="small muted" style="margin:4px 0 0">Jusqu’à ${BAG_MAX} cartes Dresseur ou Énergie. En combat Avancé, elles sont mélangées : tu commences avec 3 cartes en main et tu en pioches 1 à chaque tour ; tu peux en jouer une par tour. Touche une carte plusieurs fois pour en mettre plusieurs exemplaires (si tu les as). ${loanTxt}</p>
         <div class="bt-sel bag" id="bt-sel"></div>
         <input type="search" id="bt-q" placeholder="Rechercher une carte…" autocomplete="off">
         <div class="bt-pick-grid bag" id="bt-grid">${list.map((it, i) => `<button class="bt-pk" data-k="${esc(it.key)}" data-q="${esc(App.util.norm(it.snap.name || ''))}"><span class="n" hidden></span><img src="${esc(imgs[i].src)}" alt="" loading="lazy" data-alt="${esc(it.snap.name)}"><span class="bt-pk-n">${esc(it.snap.name)}</span><span class="bt-pk-s"><em>…</em></span>${it.qty > 1 ? `<span class="bt-qty">×${it.qty}</span>` : ''}</button>`).join('')}</div>
@@ -1018,7 +1066,7 @@
     try {
       return await battle(0, [], s.myTeam.name, {
         adv: s.mode === 'adv',
-        online: { link, rand: D.rng(s.seed), foeName: s.foeName, first: s.meHost === D.hostFirst(s.seed) ? 'P' : 'C', mine, foe, bagP: s.myTeam.bag, bagC: s.foeTeam.bag, replay },
+        online: { link, code: s.code, seed: s.seed, rand: D.rng(s.seed), foeName: s.foeName, first: s.meHost === D.hostFirst(s.seed) ? 'P' : 'C', mine, foe, bagP: s.myTeam.bag, bagC: s.foeTeam.bag, replay },
       });
     } finally { duelClear(); }
   }
@@ -1051,7 +1099,7 @@
     duelClear(); App.util.toast('Ce combat est terminé', 3500); return null;
   }
   /** Choix de l'équipe pour un combat entre amis (renvoie l'index, ou null) */
-  const modeName = (mode) => (mode === 'adv' ? 'Avancé (avec sac)' : 'Basique');
+  const modeName = (mode) => (mode === 'adv' ? 'Avancé (avec pioche)' : 'Basique');
 
   /**
    * Dans le salon, les deux dresseurs sont là : chacun choisit son équipe (sans voir celle de l'autre),
@@ -1202,7 +1250,7 @@
   <li>Une attaque coûte 1 énergie par symbole de la carte ; les énergies en plus restent pour la suite.</li>
   <li>Dégâts, <b>faiblesse</b> (×2) et <b>résistance</b> de la vraie carte. « 30× » : 30 par face sur 2 pièces ; « 20+ » : bonus si face ; attaque sans dégâts : 10.</li>
   <li>Mets K.O. les 3 Pokémon adverses pour gagner et débloquer le niveau suivant.</li>
-  <li><b>Avancé</b> (niveaux à part) : un sac de 6 cartes Dresseur / Énergie max (sinon sac de prêt) ; une carte par tour avant l’action, chacune une seule fois. Énergie : +1 (+2 si même type). Dresseurs : effet simplifié (Potion soin 20, PlusPower +20 dégâts, Défenseur −20 dégâts subis, Transfert, Rafale de vent…) ; sinon Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts 3 tours.</li>
+  <li><b>Avancé</b> (niveaux à part) : une pioche de 10 cartes Dresseur / Énergie max (sinon pioche de prêt), mélangée : 3 cartes en main au départ, 1 de plus au début de chacun de tes tours ; une carte par tour avant l’action, chacune une seule fois. Énergie : +1 (+2 si même type). Dresseurs : effet simplifié (Potion soin 20, PlusPower +20 dégâts, Défenseur −20 dégâts subis, Transfert, Rafale de vent…) ; sinon Objet = soin 30, Supporter = +1 énergie, Outil = +20 PV, Stade = +10 dégâts 3 tours.</li>
 </ul></details>`;
   App.views.match = {
     async render(el, params, alive) {
@@ -1217,8 +1265,8 @@
         return `<div class="bt-tm ${on ? 'on' : ''}">
           <div class="bt-tm-h"><b>${esc(t.name)}</b>${on ? `<span class="bt-tm-on">${App.icons.icon('check', 12)} Pour combattre</span>` : `<button class="btn sm ghost bt-tm-pick" data-sel="${i}">Choisir</button>`}</div>
           <div class="bt-tm-cards">${[0, 1, 2].map((j) => items[j] ? `<img src="${esc(imgs[j].src)}" alt="" title="${esc(items[j].snap.name)}" data-alt="${esc(items[j].snap.name)}">` : '<span class="bt-tm-empty">+</span>').join('')}</div>
-          ${adv ? `<div class="bt-tm-bag"><span class="small muted">Sac : ${bag.length ? `${bag.length} carte${bag.length > 1 ? 's' : ''}` : 'prêt'}</span><span class="bt-tm-bagimgs">${view.bagImgs[i].map((b, j) => `<img src="${esc(b.src)}" alt="" title="${esc(bag[j].snap.name)}">`).join('')}</span></div>` : ''}
-          <div class="bt-tm-f"><button class="btn sm" data-edit="${i}">${App.icons.icon('layers', 14)} ${items.length ? 'Modifier' : 'Composer'}</button>${adv ? `<button class="btn sm" data-bag="${i}">Sac</button>` : ''}<button class="btn sm ghost" data-rename="${i}">Renommer</button></div>
+          ${adv ? `<div class="bt-tm-bag"><span class="small muted">Pioche : ${bag.length ? `${bag.length} carte${bag.length > 1 ? 's' : ''}` : 'prêt'}</span><span class="bt-tm-bagimgs">${view.bagImgs[i].map((b, j) => `<img src="${esc(b.src)}" alt="" title="${esc(bag[j].snap.name)}">`).join('')}</span></div>` : ''}
+          <div class="bt-tm-f"><button class="btn sm" data-edit="${i}">${App.icons.icon('layers', 14)} ${items.length ? 'Modifier' : 'Composer'}</button>${adv ? `<button class="btn sm" data-bag="${i}">Pioche</button>` : ''}<button class="btn sm ghost" data-rename="${i}">Renommer</button></div>
         </div>`;
       };
       const teamsHtml = () => `<div class="bt-teams">${m.teams.map((t, i) => teamCard(i)).join('')}</div>`;
@@ -1242,11 +1290,11 @@
               <div class="bt-mcards" data-edit="${ti}">${[0, 1, 2].map((j) => curItems[j] ? `<img src="${esc(imgs[ti][j].src)}" alt="" data-alt="${esc(curItems[j].snap.name)}">` : '<span class="bt-tm-empty">+</span>').join('')}</div>
               <div class="bt-mact">
                 <button class="btn sm" data-edit="${ti}">${App.icons.icon('layers', 14)} ${curItems.length ? 'Modifier' : 'Composer'}</button>
-                ${adv ? `<button class="btn sm" data-bag="${ti}">Sac${bags[ti].length ? ` · ${bags[ti].length}` : ''}</button>` : ''}
+                ${adv ? `<button class="btn sm" data-bag="${ti}">Pioche${bags[ti].length ? ` · ${bags[ti].length}` : ''}</button>` : ''}
                 <button class="btn sm ghost" data-rename="${ti}">Renommer</button>
               </div>
             </div>
-            ${adv ? `<div class="bt-mbag small muted">${bags[ti].length ? `<span class="bt-tm-bagimgs">${bagImgs[ti].map((b) => `<img src="${esc(b.src)}" alt="">`).join('')}</span>` : 'Sac vide : sac de prêt'}</div>` : ''}
+            ${adv ? `<div class="bt-mbag small muted">${bags[ti].length ? `<span class="bt-tm-bagimgs">${bagImgs[ti].map((b) => `<img src="${esc(b.src)}" alt="">`).join('')}</span>` : 'Pioche vide : pioche de prêt'}</div>` : ''}
           </section>`;
         // Trois écrans (#/combat, #/combat?ecran=ordi, #/combat?ecran=decks) : on choisit d'abord quoi faire,
         // puis contre l'ordinateur : le deck, puis la difficulté, puis le combat.
@@ -1254,7 +1302,7 @@
             <button class="${adv ? '' : 'on'}" data-mode="classic" role="tab">Basique</button>
             <button class="${adv ? 'on' : ''}" data-mode="adv" role="tab">Avancé</button>
           </div>
-          <p class="bt-hint small muted">${adv ? 'Avec un sac de cartes Dresseur et Énergie : une carte par tour.' : 'Tes Pokémon seulement, sans sac.'}</p>`;
+          <p class="bt-hint small muted">${adv ? 'Avec une pioche de 10 cartes Dresseur et Énergie : 3 en main, 1 piochée par tour, une jouée par tour.' : 'Tes Pokémon seulement, sans pioche.'}</p>`;
         const rules = `<details class="bt-rules panel"><summary><b>Règles</b></summary>
 ${RULES}`;
         const beatenN = B().LEVELS.filter((L) => beaten[L.n]).length;
@@ -1267,13 +1315,13 @@ ${RULES}`;
               <h2 style="margin:0">Mes decks</h2>
               ${teamsHtml()}
             </section>
-            <p class="small muted">3 Pokémon par deck${adv ? ', plus un sac de 6 cartes Dresseur / Énergie au plus' : ''}. Une case vide est remplie par un Pokémon de prêt.</p>`;
+            <p class="small muted">3 Pokémon par deck${adv ? ', plus une pioche de 10 cartes Dresseur / Énergie au plus' : ''}. Une case vide est remplie par un Pokémon de prêt.</p>`;
         } else if (screen === 'ordi') {
           const deckBtn = (i) => {
             const on = i === ti, adv2 = adv && view.bags[i].length;
             return `<div class="bt-deck ${on ? 'on' : ''}" data-sel="${i}" role="radio" aria-checked="${on}">
               <span class="bt-deck-ok">${on ? App.icons.icon('check', 14) : ''}</span>
-              <div class="bt-deck-t"><b>${esc(m.teams[i].name)}</b><span class="small muted">${teams[i].length ? `${teams[i].length}/3 Pokémon` : 'Pokémon de prêt'}${adv ? ` · sac : ${adv2 ? view.bags[i].length : 'prêt'}` : ''}</span></div>
+              <div class="bt-deck-t"><b>${esc(m.teams[i].name)}</b><span class="small muted">${teams[i].length ? `${teams[i].length}/3 Pokémon` : 'Pokémon de prêt'}${adv ? ` · pioche : ${adv2 ? view.bags[i].length : 'prêt'}` : ''}</span></div>
               <div class="bt-deck-cards">${[0, 1, 2].map((j) => teams[i][j] ? `<img src="${esc(imgs[i][j].src)}" alt="" data-alt="${esc(teams[i][j].snap.name)}">` : '<i></i>').join('')}</div>
               <button class="btn sm ghost bt-deck-ed" data-edit="${i}" title="Modifier ce deck">${App.icons.icon('pencil', 14)}</button>
             </div>`;
@@ -1285,7 +1333,7 @@ ${RULES}`;
             <div class="bt-decks" role="radiogroup">${m.teams.map((t, i) => deckBtn(i)).join('')}</div>
             <h2 class="bt-step"><span>2</span> Difficulté</h2>
             <div class="bt-levels">${B().LEVELS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
-                <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` · sac de ${App.battleCards.aiBag(L.n, 'fire').length}` : '') : `Bats le niveau ${L.n - 1}`}</span></div>
+                <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` · pioche de ${App.battleCards.aiBag(L.n, 'fire').length}` : '') : `Bats le niveau ${L.n - 1}`}</span></div>
                 ${beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
             ${rules}`;
         } else {
@@ -1306,7 +1354,7 @@ ${RULES}`;
               </div>
               <a class="bt-choice" href="#/combat?ecran=decks" style="--cc:#b08cff">
                 <span class="bt-choice-ic">${App.icons.icon('layers', 26)}</span>
-                <span class="bt-choice-t"><b>Mes decks</b><span class="small muted">Compose tes 3 decks avec tes cartes${adv ? ' (et leur sac)' : ''} · ${m.teams.filter((t, i) => teams[i].length).length}/3 prêts</span></span>
+                <span class="bt-choice-t"><b>Mes decks</b><span class="small muted">Compose tes 3 decks avec tes cartes${adv ? ' (et leur pioche)' : ''} · ${m.teams.filter((t, i) => teams[i].length).length}/3 prêts</span></span>
                 <span class="bt-deck-mini">${[0, 1, 2].map((j) => curItems[j] ? `<img src="${esc(imgs[ti][j].src)}" alt="">` : '<i></i>').join('')}</span>
                 <span class="bt-choice-go">›</span></a>
             </div>
@@ -1325,12 +1373,17 @@ ${RULES}`;
         try {
           App.sfx.click();
           m = await getMatch();
-          const r = how === 'create' ? await duelCreate(m) : how === 'resume' ? await duelResume(m) : await duelJoin(m, preset);
-          if (!r || r.win == null) return;
-          m = await getMatch();
-          if (r.win) m.stats.online.wins++; else m.stats.online.losses++;
-          await saveMatch(m);
-          if (alive()) await draw();
+          let r = how === 'create' ? await duelCreate(m) : how === 'resume' ? await duelResume(m) : await duelJoin(m, preset);
+          // revanche : on enchaîne directement sur le choix des équipes du nouveau salon
+          while (r && r.win != null) {
+            m = await getMatch();
+            if (r.win) m.stats.online.wins++; else m.stats.online.losses++;
+            await saveMatch(m);
+            if (alive()) await draw();
+            if (!r.rematch) break;
+            App.sfx.click();
+            r = await duelLobby(r.rematch, m, r.mode, r.foeName);
+          }
         } finally { busy = false; }
       };
       /** actions sur les équipes (page ou fenêtre « Mes équipes ») */
@@ -1381,16 +1434,17 @@ ${RULES}`;
           busy = true;
           try {
             // le deck est déjà choisi sur cet écran (étape 1) : on lance directement le combat
-            let again = true;
+            let again = true, level = +lv.dataset.level;
             while (again) {
               const t = m.teams[m.teamIdx], adv = m.mode === 'adv';
-              const r = await battle(+lv.dataset.level, teamItems(t.keys), t.name, { adv, bag: bagItems(t.bag) });
+              const r = await battle(level, teamItems(t.keys), t.name, { adv, bag: bagItems(t.bag) });
               if (!r) return;
               m = await getMatch();
-              const st = m.stats[adv ? 'adv' : 'classic']; if (r.win) { st.wins++; m.wins++; (adv ? m.beatenAdv : m.beaten)[+lv.dataset.level] = true; } else { st.losses++; m.losses++; }
+              const st = m.stats[adv ? 'adv' : 'classic']; if (r.win) { st.wins++; m.wins++; (adv ? m.beatenAdv : m.beaten)[level] = true; } else { st.losses++; m.losses++; }
               await saveMatch(m);
               if (alive()) await draw();
-              again = r.again;
+              again = !!r.again;
+              if (r.again === 'next') level = Math.min(B().LEVELS.length, level + 1); // « Niveau suivant »
             }
           } finally { busy = false; }
         }

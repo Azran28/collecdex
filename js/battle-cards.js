@@ -1,7 +1,8 @@
 /*
  * Combat « avec Dresseurs & Énergies » : cartes du sac.
- * Chaque joueur a un sac de 4 à 6 cartes Dresseur / Énergie. À chaque tour, il peut jouer
- * AU PLUS UNE carte du sac, en plus de son action (attaquer / charger / changer).
+ * Chaque joueur a un deck de 10 cartes Dresseur / Énergie au plus (v2.80 : système de pioche) :
+ * il est mélangé, on commence avec 3 cartes en main et on en pioche 1 au début de chacun de ses tours.
+ * À chaque tour, on peut jouer AU PLUS UNE carte de sa main, en plus de son action (attaquer / charger / changer).
  * Chaque carte ne sert qu'une fois par combat. Les effets sont simplifiés :
  * on reconnaît les cartes connues par leur nom, sinon par leur texte, sinon par leur genre.
  */
@@ -93,7 +94,7 @@ App.battleCards = (() => {
   const B = () => App.battle;
   /** La carte peut-elle servir maintenant ? (sinon elle est grisée) */
   function playable(c, me, him) {
-    if (c.used) return false;
+    if (c.used || c.inHand === false) return false; // pas encore piochée
     const a = B().active(me), o = B().active(him);
     switch (c.fx.key) {
       case 'heal': case 'fullHeal': return a.hp < a.maxHp;
@@ -147,15 +148,20 @@ App.battleCards = (() => {
   // sacs de l'ordinateur et sac de prêt (cartes du Set de Base, vérifiées chez TCGdex)
   const ENERGY_OF = { fighting: 'base1-97', fire: 'base1-98', grass: 'base1-99', lightning: 'base1-100', psychic: 'base1-101', water: 'base1-102' };
   const energyFor = (type) => ENERGY_OF[type] || 'base1-96';
+  // decks de 4 à 10 cartes selon le niveau (doublons permis) ; Énergies du type du 1er Pokémon ajoutées par aiBag
   const AI_BAGS = [
-    ['base1-94'],                                                     // Potion
-    ['base1-94', 'base1-84'],                                         // + PlusPower
-    ['base1-94', 'base1-84', 'base1-80', 'base1-92'],                 // + Défenseur, Suppression d'Énergie
-    ['base1-90', 'base1-84', 'base1-80', 'base1-92', 'base1-93'],     // Super Potion, Rafale de vent
-    ['base1-90', 'base1-84', 'base1-80', 'base1-79', 'base1-93', 'base1-89'], // Double Suppression, Réanimation
+    [['base1-94', 2]],                                                          // 2 Potion
+    [['base1-94', 2], ['base1-84', 1]],                                         // + PlusPower
+    [['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-92', 1]],         // + Défenseur, Suppression d'Énergie
+    [['base1-90', 1], ['base1-94', 1], ['base1-84', 2], ['base1-80', 1], ['base1-92', 1], ['base1-93', 1]], // Super Potion, Rafale de vent
+    [['base1-90', 2], ['base1-84', 2], ['base1-80', 1], ['base1-79', 1], ['base1-93', 1], ['base1-89', 1]], // Double Suppression, Réanimation
   ];
-  const aiBag = (level, type) => [...AI_BAGS[level - 1], energyFor(type)];
-  const loanBag = (type) => ['base1-94', 'base1-84', 'base1-95', energyFor(type)];
+  const AI_ENERGY = [2, 3, 3, 3, 2];
+  const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
+  const aiBag = (level, type) => [...many(AI_BAGS[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(energyFor(type))];
+  // deck de prêt (8 cartes) : 2 Potion, PlusPower, Défenseur, Transfert, 3 Énergies
+  const loanBag = (type) => [...many([['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-95', 1]]), ...Array(3).fill(energyFor(type))];
+  const DECK_MAX = 10, HAND_START = 3;
 
   /** Effet reconstruit à partir de sa clé (cartes reçues d'un ami : on ne garde pas ses textes) */
   function fxOf(key, n, eType) {
@@ -164,5 +170,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, bagCard, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf };
+  return { effectOf, bagCard, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START };
 })();
