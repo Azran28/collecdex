@@ -1,4 +1,12 @@
 /* Petits outils partagés par tout le site */
+
+// Jamais affiché dans le cadre d'un autre site (piège à clics) : GitHub Pages ne permet pas l'en-tête
+// « frame-ancestors », donc on sort du cadre, ou on cache la page si c'est impossible.
+if (window.top !== window.self) {
+  document.documentElement.style.display = 'none';
+  try { window.top.location.replace(window.location.href); } catch (e) { /* cadre bloqué : la page reste cachée */ }
+}
+
 window.App = window.App || {};
 App.views = App.views || {};
 // numéro de version de cette mise en ligne (posé par stamp.ps1 / stamp.sh dans index.html)

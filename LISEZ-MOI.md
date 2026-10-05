@@ -162,6 +162,11 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - La page n'exécute que son propre code et celui de bibliothèques connues, dont la version est figée et vérifiée (le navigateur refuse un fichier modifié).
 - **À faire une fois** : lancer `supabase-v6.sql` dans Supabase (SQL Editor → coller → *Run*). Rien ne change à l'écran : la liste des pseudos n'est plus lisible en entier, une demande d'ami en attente ne montre plus ton nombre de cartes, et la taille des données envoyées est limitée (contre les abus).
 - Conseillé dans Supabase : *Authentication* → *Providers* → *Email* → longueur minimale du mot de passe à **8**.
+- **Audit de sécurité (v2.84, 5 oct.)** — à faire une fois, dans cet ordre :
+  1. *SQL Editor* → coller `supabase-v17.sql` → *Run*. Une photo certifiée ne peut plus être remplacée ; plafonds par compte (100 Mo et 5 000 photos, 1 Mo par photo, 25 000 cartes) ; on ne peut plus savoir si deux autres dresseurs sont amis ; tes amis ne reçoivent plus tes commentaires perso ; abonnements aux notifications limités aux vrais services des navigateurs.
+  2. *Edge Functions* → **`hyper-processor`** → onglet *Code* → tout remplacer par `supabase/functions/capsule-notify/index.ts` → *Deploy*. Elle n'accepte plus que les appels du serveur (clé secrète créée par le script).
+- Le site refuse de s'afficher à l'intérieur d'un autre site (piège à clics), et n'accepte plus que les 2 bibliothèques qu'il utilise sur jsDelivr.
+- Limites connues : la vérification de la certification se fait sur le téléphone (une personne très douée peut la contourner) ; en combat en ligne, c'est le téléphone qui annonce le gagnant. Pour éviter les inscriptions en masse par des robots : *Authentication* → *Rate Limits* (inscriptions par heure) et, plus tard, un CAPTCHA.
 
 ## L'appli sur ton téléphone
 - Ouvre le site sur ton téléphone : un bandeau **« Installe CollecDex »** apparaît sous l'accueil. Touche **Installer**, et l'icône CollecDex arrive sur ton écran d'accueil.

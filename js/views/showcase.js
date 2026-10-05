@@ -289,7 +289,7 @@ App.views.showcase = {
           <div class="row" style="gap:6px;flex-wrap:nowrap"><input type="text" id="e-pseudo" value="${esc(profile.pseudo)}" placeholder="Pseudo" maxlength="20" style="flex:1;min-width:0"><button class="btn sm primary" id="e-pseudo-ok">Valider</button></div>
           <div class="small muted" id="e-pseudo-msg" style="margin:4px 0 12px">${App.cloud.user ? 'Chaque pseudo est unique : 3 à 20 caractères.' : 'Connecte-toi pour réserver ton pseudo (il est unique).'}</div>
           <label class="v-lbl">Quelques mots</label>
-          <textarea id="e-bio" placeholder="Quelques mots sur ta collection…" style="width:100%">${esc(profile.bio)}</textarea>
+          <textarea id="e-bio" maxlength="1000" placeholder="Quelques mots sur ta collection…" style="width:100%">${esc(profile.bio)}</textarea>
           <label class="v-lbl" style="margin-top:12px">Avatar</label>
           ${App.play ? `<div class="row">${profile.avatar ? '<button class="btn sm ghost" id="e-avatar-del">Retirer mon avatar</button>' : '<span class="small muted">L’initiale de ton pseudo sert d’avatar.</span>'}</div>` : `<div class="row"><button class="btn sm" id="e-avatar-pick">${App.icons.icon('capsule', 14)} Choisir parmi mes Pokémon</button>${profile.avatar || profile.avatarPoke ? '<button class="btn sm ghost" id="e-avatar-del">Retirer</button>' : ''}</div>
           <div class="small muted" style="margin-top:4px">${App.cloud.user ? 'Tu attrapes des Pokémon en ouvrant tes <a href="#/capsules">capsules</a>.' : 'Connecte-toi pour ouvrir des capsules et attraper des Pokémon.'}</div>`}`;

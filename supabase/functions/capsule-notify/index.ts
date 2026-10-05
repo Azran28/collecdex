@@ -3,8 +3,8 @@
 // envoie « ta réserve de capsules est pleine » et « nouvelle demande d'ami »
 // aux appareils abonnés. Aucune clé à recopier : les clés d'envoi (VAPID) sont créées ici au premier passage
 // et rangées dans la table push_config, que seul le serveur peut lire.
-// À déployer avec « Verify JWT » désactivé (pg_cron l'appelle sans jeton). L'appeler n'envoie que les
-// notifications réellement dues : sans danger si quelqu'un d'autre l'appelle.
+// À déployer avec « Verify JWT » désactivé (pg_cron l'appelle sans jeton) : à la place, depuis supabase-v17.sql,
+// l'appel doit porter l'en-tête « x-cdx-key » (clé tirée au hasard, rangée dans push_config.call_key).
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -35,9 +35,14 @@ async function vapid() {
   return row;
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   try {
     const k = await vapid();
+    // clé d'appel (supabase-v17.sql) : seuls pg_cron et le déclencheur des demandes d'ami la connaissent.
+    // Tant que le script n'est pas passé (pas de colonne call_key), on accepte comme avant.
+    if (k.call_key && req.headers.get('x-cdx-key') !== k.call_key) {
+      return new Response(JSON.stringify({ ok: false, error: 'appel non autorisé' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
     webpush.setVapidDetails(k.subject, k.vapid_public, k.vapid_private);
     let sent = 0, gone = 0;
     const send = async (s: { endpoint: string; p256dh: string; auth: string }, payload: string, ttl: number) => {

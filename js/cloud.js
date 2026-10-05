@@ -151,11 +151,16 @@ App.cloud = (() => {
       // 1) photos
       for (const id of Object.keys(pend.photos)) {
         const blob = await App.db.get('photos', id);
-        if (blob) {
+        // photo déjà certifiée : elle est en ligne et le serveur refuse de la remplacer (supabase-v17.sql)
+        if (blob && !(App.certify && App.certify.photoCertified(id))) {
           // le nom reste en .jpg (le serveur s'en sert), le contenu peut être du WebP
           const type = /^image\/(jpeg|png|webp)$/.test(blob.type) ? blob.type : 'image/jpeg';
           const { error } = await sb.storage.from('photos').upload(photoPath(id), blob, { upsert: true, contentType: type });
-          if (error) throw error;
+          // refus définitif du serveur (photo certifiée figée, plafond du compte, photo trop lourde) : on ne bloque pas la synchro
+          if (error && /row-level security|maximum allowed size|too large|413/i.test(String(error.message) + ' ' + (error.statusCode || ''))) {
+            console.warn('photo refusée par le serveur', id, error.message);
+            if (!/row-level/i.test(error.message) || !App.certify.photoCertified(id)) App.util.toast('Une photo n’a pas pu être gardée dans ton compte (place du compte pleine ?)', 5000);
+          } else if (error) throw error;
         }
         delete pend.photos[id]; savePend(); emit();
       }

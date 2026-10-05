@@ -158,12 +158,12 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       ${condHTML(it)}
       <div class="cd-photos-head small muted">Mes photos <span>· touche pour en faire le visuel, ✂ pour recadrer</span></div>
       <div class="photos" id="cd-photos">
-        ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt="">${App.certify.photoCertified(p.id) ? `<span class="ph-cert" title="Photo certifiée">${App.icons.icon('shield', 12)}</span>` : ''}<button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button><button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button></div>`).join('')}
+        ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt="">${App.certify.photoCertified(p.id) ? `<span class="ph-cert" title="Photo certifiée">${App.icons.icon('shield', 12)}</span>` : ''}<button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button>${App.certify.photoCertified(p.id) ? '' : `<button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button>`}</div>`).join('')}
         <label class="ph ph-add" title="Ajouter une photo">${App.icons.icon('plus', 18)}<input type="file" accept="image/*" id="cd-file" hidden></label>
       </div>
       ${elsewhere ? `<div class="small muted" style="margin-top:6px">${elsewhere === 1 ? '1 autre photo est gardée sur l’appareil où elle a été prise' : `${elsewhere} autres photos sont gardées sur l’appareil où elles ont été prises`} (seuls le visuel et les photos certifiées vont dans ton compte).</div>` : ''}
       <details class="cd-note" ${it.note ? 'open' : ''}><summary class="small">Commentaire perso</summary>
-        <textarea id="cd-note" placeholder="Provenance, défaut particulier, prix payé…">${esc(it.note || '')}</textarea></details>
+        <textarea id="cd-note" maxlength="2000" placeholder="Provenance, défaut particulier, prix payé…">${esc(it.note || '')}</textarea></details>
       <div class="cd-foot small muted"><span>Ajoutée le ${dateFr(it.addedAt)}</span><button class="linkbtn danger" id="cd-remove" title="Tu ne l’as plus, ou erreur d’ajout">${App.icons.icon('trash', 13)} Retirer de mon Dex</button></div>`;
   };
 
@@ -234,6 +234,8 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (t.closest('[data-crop]')) {
       e.stopPropagation();
       const id = t.closest('[data-crop]').dataset.crop;
+      // photo certifiée : figée (le serveur refuse de la remplacer, supabase-v17.sql)
+      if (App.certify.photoCertified(id)) return App.util.toast('Une photo certifiée ne peut pas être modifiée');
       const it = App.col.byKey(key);
       // photo venant d'une page de classeur gardée sur cet appareil → on recadre depuis la page entière
       const src = it && it.photoSrc && it.photoSrc[id];
