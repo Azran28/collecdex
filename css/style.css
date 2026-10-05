@@ -2683,3 +2683,33 @@ a.bt-choice:active { transform: scale(.985); }
 }
 .logo-gen.logo-code { font-size: 1.35rem; letter-spacing: .02em; padding: 9px 16px; }
 .set-hero .logo-gen.logo-code { font-size: 2rem; padding: 14px 24px; }
+/* v2.86 : retours d'Arnaud sur One Piece */
+/* visuels officiels des produits One Piece (pochette, boîte de deck) : plus hauts qu'un logo */
+.set-card .logo-wrap:has(img[data-prod]) { height: 104px; }
+.set-card .logo-wrap img[data-prod] { max-height: 98px; }
+.set-hero img[data-prod] { max-height: 220px; }
+/* progression par rareté repliable : en-tête cliquable avec les pastilles en résumé */
+.rp-box > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rp-box > summary::-webkit-details-marker { display: none; }
+.rp-box > summary h3 { margin: 0; }
+.rp-box > summary::after { content: '▾'; margin-left: auto; color: var(--muted); transition: transform .2s; }
+.rp-box[open] > summary::after { transform: rotate(180deg); }
+.rp-box[open] > summary .rp-mini { display: none; }
+.rp-box[open] > summary { margin-bottom: 12px; }
+.rp-mini { flex-basis: 100%; order: 2; }
+.rp-box > summary::after { order: 1; }
+.rp-mini .rarity-list { margin: 0; }
+/* fiche d'une carte : place réservée et chargement visible pendant que l'image arrive */
+#cd-holo.cd-loading { aspect-ratio: 63 / 88; background: var(--bg2); }
+#cd-holo.cd-loading::before { content: ''; position: absolute; top: 50%; left: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid rgba(255,255,255,.15); border-top-color: var(--accent2); animation: spin .8s linear infinite; z-index: 1; }
+#cd-holo.cd-loading img { opacity: 0; }
+.cd-nav { flex-wrap: nowrap; gap: 8px; }
+@media (max-width: 760px) {
+  .bgtasks { left: 50%; right: auto; transform: translateX(-50%); min-width: 0; width: max-content; max-width: calc(100vw - 32px); }
+  .set-hero > .favset.inline, .set-hero .favset.inline { position: absolute; top: 14px; left: 14px; margin: 0; z-index: 2; }
+  .rp-box .rarity-progress { grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+  .rp-box .rp-name { font-size: .8rem; gap: 5px; }
+  .rp-box .rp-row .progress { height: 5px; }
+  .cd-nav .lbl { display: none; }
+  .cd-nav .btn { min-width: 44px; justify-content: center; }
+}

@@ -441,7 +441,18 @@
       if (!/^https:\/\/(fr|en)\.onepiece-cardgame\.com\//.test(u)) return u;
       return `https://images.weserv.nl/?url=${encodeURIComponent(u.replace(/^https:\/\//, '').replace(/\?.*$/, ''))}&w=${q === 'high' ? 720 : 360}&output=webp`;
     },
-    logo: () => '',
+    // visuel officiel du produit (pochette du booster, boîte du deck) : …/products/boosters/op09/img_item01.webp
+    // dans la langue de la série, sinon en anglais (« default » du relais) ; les produits les plus récents ont une autre adresse
+    // → introuvable : le code de la série en gros (setLogo)
+    logo: (s) => {
+      if (!s || !s.id || s.id === 'PROMO' || s.id === 'AUTRES') return '';
+      const dir = s.id.toLowerCase().replace(/^([a-z]+)-(\d)/, '$1$2'), kind = /^ST-/.test(s.id) ? 'decks' : 'boosters';
+      const path = (h) => `${h}.onepiece-cardgame.com/renewal/images/products/${kind}/${dir}/img_item01.webp`;
+      const first = langFor(s.id) === 'en' ? 'en' : 'fr';
+      // (« default » renvoie vers cette adresse : elle doit passer elle aussi par le relais, Bandai bloquant l'affichage direct)
+      const via = (h) => `https://images.weserv.nl/?url=${encodeURIComponent(path(h))}&trim=12&h=240&output=webp`;
+      return `${via(first)}&default=${encodeURIComponent(via(first === 'fr' ? 'en' : 'fr'))}`;
+    },
     symbol: () => '',
   };
   const cm = (q) => `https://www.cardmarket.com/fr/OnePiece/Products/Search?searchString=${encodeURIComponent(q)}`;

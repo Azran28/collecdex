@@ -52,15 +52,15 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     <div class="cd">
       <div class="cd-img">
         <div class="cd-fav-wrap" id="cd-favwrap"></div>
-        <div class="holo-card tier-${holoTier}" id="cd-holo">
-          <img id="cd-img" src="${esc(ad.img.card(base, 'high'))}" alt="${esc(card.name)}" data-alt="${esc(card.name)}">
+        <div class="holo-card tier-${holoTier} cd-loading" id="cd-holo">
+          <img id="cd-img" alt="${esc(card.name)}" data-alt="${esc(card.name)}">
           ${holoTier ? '<div class="holo-shine"></div><div class="holo-glare"></div>' : ''}${holoTier >= 4 ? '<div class="holo-sparkle"></div>' : ''}
         </div>
         <div class="row imgswitch" id="cd-imgswitch"></div>
-        ${ctx.list ? `<div class="row" style="margin-top:10px;justify-content:space-between">
-          <button class="btn sm" id="cd-prev" ${prevId ? '' : 'disabled'}>‹ Précédente</button>
+        ${ctx.list ? `<div class="row cd-nav" style="margin-top:10px;justify-content:space-between">
+          <button class="btn sm" id="cd-prev" ${prevId ? '' : 'disabled'} aria-label="Carte précédente">‹<span class="lbl"> Précédente</span></button>
           <span class="muted small">${idx + 1} / ${ctx.list.length}</span>
-          <button class="btn sm" id="cd-next" ${nextId ? '' : 'disabled'}>Suivante ›</button></div>` : ''}
+          <button class="btn sm" id="cd-next" ${nextId ? '' : 'disabled'} aria-label="Carte suivante"><span class="lbl">Suivante </span>›</button></div>` : ''}
       </div>
       <div>
         <div class="muted">${esc(setInfo.name)} · n° ${esc(card.localId)}${setInfo.official && !ad.numLabel ? '/' + String(setInfo.official).padStart(String(card.localId).length, '0') : ''}</div>
@@ -99,8 +99,24 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     const sw = body.querySelector('#cd-imgswitch');
     const hasPhoto = it && it.qty > 0 && it.displayPhoto;
     showOfficial = !hasPhoto;
-    if (hasPhoto) imgEl.src = await App.col.photoURL(it.displayPhoto);
-    else imgEl.src = ad.img.card(it && it.qty > 0 ? { ...base, lang: App.col.langOf(it) } : base, 'high');
+    // l'image peut mettre quelques secondes (visuels One Piece relayés) : place réservée + rond de chargement ;
+    // la petite image (souvent déjà vue dans la série) s'affiche d'abord, la grande la remplace dès qu'elle est arrivée
+    const holo = body.querySelector('#cd-holo');
+    const show = (url, low) => {
+      if (!url) return;
+      imgEl.dataset.want = url;
+      if (imgEl.src === url) return;
+      holo.classList.add('cd-loading');
+      imgEl.onload = imgEl.onerror = () => holo.classList.remove('cd-loading');
+      if (low && low !== url) {
+        imgEl.src = low;
+        const hi = new Image();
+        hi.onload = () => { if (imgEl.dataset.want === url) imgEl.src = url; };
+        hi.src = url;
+      } else imgEl.src = url;
+    };
+    if (hasPhoto) show(await App.col.photoURL(it.displayPhoto));
+    else { const c = it && it.qty > 0 ? { ...base, lang: App.col.langOf(it) } : base; show(ad.img.card(c, 'high'), ad.img.card(c, 'low')); }
     const fw = body.querySelector('#cd-favwrap');
     fw.innerHTML = it && it.qty > 0 ? `<button class="cd-favstar ${it.favorite ? 'on' : ''}" id="cd-fav" title="${it.favorite ? 'Retirer des favorites' : 'Mettre en favorite'}">${App.icons.icon('star', 18)}</button>` : '';
     // visuel utilisé partout (Mon Dex, vitrine, séries) : ta photo ou le visuel officiel

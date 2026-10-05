@@ -16,7 +16,7 @@ App.ui = (() => {
       const span = document.createElement('span');
       span.className = el.dataset.altClass || 'noimg';
       span.textContent = el.dataset.alt;
-      if (span.className === 'logo-gen') { span.style.cssText = el.getAttribute('style') || ''; span.innerHTML = App.icons.icon('layers', 16) + '<b>' + esc(el.dataset.alt) + '</b>'; }
+      if (span.classList.contains('logo-gen')) { span.style.cssText = el.getAttribute('style') || ''; span.innerHTML = App.icons.icon(span.classList.contains('logo-code') ? 'anchor' : 'layers', 16) + '<b>' + esc(el.dataset.alt) + '</b>'; } // logo-code : code de la série One Piece
       el.replaceWith(span);
     } else {
       el.style.visibility = 'hidden';
@@ -227,7 +227,8 @@ App.ui = (() => {
     let h = 0; for (const ch of String(short ? set.id : (set.group && set.group.id) || set.id || n)) h = (h * 31 + ch.charCodeAt(0) * (short ? 67 : 1)) % 360; // codes voisins (OP-16, OP-17) : couleurs bien différentes
     const gen = `<span class="logo-gen${short ? ' logo-code' : ''}" style="--h:${h}">${App.icons.icon(ico, big ? 22 : 16)}<b>${esc(short || n)}</b></span>`;
     if (!url) return gen;
-    return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(n)}" data-alt-class="logo-gen" style="--h:${h}">`;
+    // visuel du produit (One Piece : pochette du booster, boîte du deck) : si absent, le code de la série
+    return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(short || n)}" data-alt-class="logo-gen${short ? ' logo-code' : ''}" style="--h:${h}"${short ? ' data-prod' : ''}>`;
   }
 
   return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };

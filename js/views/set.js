@@ -77,6 +77,9 @@ App.views.set = {
     });
     const grid = el.querySelector('#st-grid');
 
+    // progression par rareté dépliée ? (dernier choix ; par défaut repliée sur téléphone, dépliée sur ordinateur)
+    let rpOpen = !matchMedia('(max-width: 760px)').matches;
+    try { const v = localStorage.getItem('rpOpen'); if (v) rpOpen = v === '1'; } catch (e) { /* */ }
     const drawHead = () => {
       const p = App.col.progress(game, set);
       const value = App.col.totalValue(App.col.inSet(game, set.id));
@@ -104,7 +107,8 @@ App.views.set = {
       if (!p.byRarity || set.rarityInfoMissing) {
         rar.innerHTML = `<h3>Progression par rareté</h3><div class="muted small">Les raretés de cette série ne sont pas encore renseignées par la source de données.</div>`;
       } else {
-        rar.innerHTML = `<h3>Progression par rareté</h3><div class="rarity-progress">${p.byRarity.map((r) => {
+        // repliable (demande d'Arnaud : bloc trop grand sur téléphone) : fermé par défaut sur téléphone, avec les pastilles « 1/3 » en résumé
+        rar.innerHTML = `<details class="rp-box" ${rpOpen ? 'open' : ''}><summary><h3>Progression par rareté</h3><span class="rp-mini">${App.ui.rarityRow(game, p.byRarity)}</span></summary><div class="rarity-progress">${p.byRarity.map((r) => {
           const rp = { have: r.have, total: r.total, pct: App.util.pct(r.have, r.total), complete: r.have >= r.total };
           const k = ad.rarity.key(r.rarity);
           const rate = pr && k && pr.rates[k];
@@ -114,7 +118,8 @@ App.views.set = {
             ${App.ui.progressBar(rp)}
             ${rate ? `<span class="muted small" style="grid-column:1/-1">≈ 1 booster sur ${rate}</span>` : ''}
           </div>`;
-        }).join('')}</div>`;
+        }).join('')}</div></details>`;
+        rar.querySelector('.rp-box').addEventListener('toggle', (e) => { rpOpen = e.target.open; try { localStorage.setItem('rpOpen', rpOpen ? '1' : '0'); } catch (err) { /* */ } });
       }
 
       const rf = el.querySelector('#st-rfilter');
