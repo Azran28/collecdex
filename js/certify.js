@@ -726,6 +726,7 @@ App.certify = (() => {
     try {
       // bande-preuve du retournement : envoyée avec la photo, le serveur vérifie qu'elle existe
       if (res.strip) { await App.db.set('photos', 'cert_' + res.id, res.strip); App.cloud.markPhoto('cert_' + res.id); }
+      App.cloud.markPhoto(photoId); // le serveur vérifie que la photo est dans le compte, même si ce n'est pas le visuel
       await App.cloud.flushNow();
       if (res.strip) App.db.del('photos', 'cert_' + res.id).catch(() => {}); // plus besoin de la garder sur l'appareil
       const d = await App.cloud.rpc('cert_finish', { p_id: res.id, p_key: key, p_photo: photoId, p_dhash: res.dhash, p_scores: { ...res.scores, recognized: true, ident } });

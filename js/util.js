@@ -143,8 +143,8 @@ App.util = (() => {
   });
 
   // ---- Images ----
-  /** Réduit une photo (Blob/File) à maxSize px et renvoie un Blob JPEG */
-  const resizeImage = (file, maxSize = 900, quality = 0.86) => new Promise((resolve, reject) => {
+  /** Réduit une photo (Blob/File) à maxSize px et renvoie un Blob JPEG (ou du type demandé) */
+  const resizeImage = (file, maxSize = 900, quality = 0.86, type = 'image/jpeg') => new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
@@ -153,11 +153,17 @@ App.util = (() => {
       c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      c.toBlob((b) => (b ? resolve(b) : reject(new Error('Conversion impossible'))), 'image/jpeg', quality);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error('Conversion impossible'))), type, quality);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
     img.src = url;
   });
+  /** Photo de carte à garder : WebP (~30 Ko, moitié moins lourd que le JPEG pour le même rendu),
+   *  JPEG si le navigateur ne sait pas écrire le WebP (Safari renvoie alors du PNG, bien plus lourd) */
+  const photoBlob = async (file, maxSize = 800) => {
+    const b = await resizeImage(file, maxSize, 0.8, 'image/webp');
+    return b.type === 'image/webp' ? b : resizeImage(file, maxSize, 0.82);
+  };
 
   const blobToDataURL = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
   const dataURLToBlob = async (d) => (await fetch(d)).blob();
@@ -198,5 +204,5 @@ App.util = (() => {
     return String(a).localeCompare(String(b), 'fr', { numeric: true });
   };
 
-  return { esc, $, $$, euro, usd, toEur, pct, dateFr, debounce, toast, ask, openModal, closeModal, resizeImage, blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
+  return { esc, $, $$, euro, usd, toEur, pct, dateFr, debounce, toast, ask, openModal, closeModal, resizeImage, photoBlob,blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
 })();

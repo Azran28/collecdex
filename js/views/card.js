@@ -137,7 +137,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         <p class="small muted" style="margin:8px 0 0">${App.wish.has(game, card.id) ? 'Elle est dans ta <a href="#/objectifs?tab=souhaits">liste de souhaits</a>.' : 'Ajoute-la à ta liste de souhaits pour la retrouver (et plus tard pour les échanges).'}</p>`;
       return;
     }
-    const photos = await Promise.all((it.photos || []).map(async (id) => ({ id, url: await App.col.photoURL(id) })));
+    // les photos qui ne sont ni le visuel ni certifiées restent sur l'appareil qui les a prises : ailleurs, on les compte seulement
+    const allPhotos = await Promise.all((it.photos || []).map(async (id) => ({ id, url: await App.col.photoURL(id) })));
+    const photos = allPhotos.filter((p) => p.url), elsewhere = allPhotos.length - photos.length;
     const certified = App.certify.isCertified(it);
     box.innerHTML = `
       <div class="cd-mine-head">
@@ -159,6 +161,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         ${photos.map((p) => `<div class="ph ${it.displayPhoto === p.id ? 'sel' : ''}" data-ph="${p.id}"><img src="${p.url}" alt="">${App.certify.photoCertified(p.id) ? `<span class="ph-cert" title="Photo certifiée">${App.icons.icon('shield', 12)}</span>` : ''}<button class="del" data-del="${p.id}" title="Supprimer cette photo">×</button><button class="crop" data-crop="${p.id}" title="Recadrer cette photo">✂</button></div>`).join('')}
         <label class="ph ph-add" title="Ajouter une photo">${App.icons.icon('plus', 18)}<input type="file" accept="image/*" id="cd-file" hidden></label>
       </div>
+      ${elsewhere ? `<div class="small muted" style="margin-top:6px">${elsewhere === 1 ? '1 autre photo est gardée sur l’appareil où elle a été prise' : `${elsewhere} autres photos sont gardées sur l’appareil où elles ont été prises`} (seuls le visuel et les photos certifiées vont dans ton compte).</div>` : ''}
       <details class="cd-note" ${it.note ? 'open' : ''}><summary class="small">Commentaire perso</summary>
         <textarea id="cd-note" placeholder="Provenance, défaut particulier, prix payé…">${esc(it.note || '')}</textarea></details>
       <div class="cd-foot small muted"><span>Ajoutée le ${dateFr(it.addedAt)}</span><button class="linkbtn danger" id="cd-remove" title="Tu ne l’as plus, ou erreur d’ajout">${App.icons.icon('trash', 13)} Retirer de mon Dex</button></div>`;

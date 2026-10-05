@@ -152,7 +152,9 @@ App.cloud = (() => {
       for (const id of Object.keys(pend.photos)) {
         const blob = await App.db.get('photos', id);
         if (blob) {
-          const { error } = await sb.storage.from('photos').upload(photoPath(id), blob, { upsert: true, contentType: 'image/jpeg' });
+          // le nom reste en .jpg (le serveur s'en sert), le contenu peut être du WebP
+          const type = /^image\/(jpeg|png|webp)$/.test(blob.type) ? blob.type : 'image/jpeg';
+          const { error } = await sb.storage.from('photos').upload(photoPath(id), blob, { upsert: true, contentType: type });
           if (error) throw error;
         }
         delete pend.photos[id]; savePend(); emit();
@@ -235,7 +237,7 @@ App.cloud = (() => {
       for (const it of App.col.all()) {
         if (!remote.has(it.key) && !pend.dels[it.key]) {
           pend.items[it.key] = 1;
-          (it.photos || []).forEach((id) => { pend.photos[id] = 1; });
+          App.col.onlinePhotos(it).forEach((id) => { pend.photos[id] = 1; });
         }
       }
       // vitrine + réglages
@@ -254,7 +256,9 @@ App.cloud = (() => {
       // elles seront retéléchargées depuis le compte à l'affichage
       if (!(await App.db.get('kv', 'photosRefreshed1').catch(() => null))) {
         const local = await App.db.all('photos').catch(() => ({}));
-        for (const id of Object.keys(local)) if (!id.startsWith('page_') && !pend.photos[id] && remote.size) await App.db.del('photos', id).catch(() => {});
+        // seulement les photos gardées dans le compte : les autres n'existent que sur cet appareil
+        const online = new Set(App.col.all().flatMap((it) => App.col.onlinePhotos(it)));
+        for (const id of Object.keys(local)) if (online.has(id) && !pend.photos[id] && remote.size) await App.db.del('photos', id).catch(() => {});
         await App.db.set('kv', 'photosRefreshed1', 1);
         changed++;
       }
@@ -312,11 +316,12 @@ App.cloud = (() => {
   }
 
   /** Photo absente de cet appareil : on la télécharge depuis le compte */
+  const noPhoto = new Set(); // photos absentes du compte (gardées sur un autre appareil) : on ne les redemande pas
   async function fetchPhoto(id) {
-    if (!user || !id) return null;
+    if (!user || !id || noPhoto.has(id)) return null;
     if (!(await waitReady()) || !user) return null;
     const { data, error } = await sb.storage.from('photos').download(photoPath(id));
-    if (error || !data) return null;
+    if (error || !data) { if (error && !isNetErr(error)) noPhoto.add(id); return null; }
     await App.db.set('photos', id, data);
     return data;
   }

@@ -56,7 +56,12 @@ App.col = (() => {
   /** Langue de la carte possédée (les cartes ajoutées avant ce réglage sont en français) */
   const langOf = (it) => (it && it.lang) || 'fr';
 
-  async function update(k, patch) { const it = items[k]; if (!it) return null; Object.assign(it, patch); return put(it); }
+  async function update(k, patch) {
+    const it = items[k]; if (!it) return null;
+    // photo choisie comme visuel : elle part dans le compte (les autres photos restent sur l'appareil)
+    if (patch.displayPhoto && patch.displayPhoto !== it.displayPhoto) cloud().markPhoto(patch.displayPhoto);
+    Object.assign(it, patch); return put(it);
+  }
 
   async function setQty(k, qty) {
     const it = items[k]; if (!it) return;
@@ -73,10 +78,12 @@ App.col = (() => {
   // ---------- Photos perso ----------
   async function addPhoto(k, fileOrBlob, { makeDisplay = true } = {}) {
     const it = items[k]; if (!it) throw new Error('Carte non possédée');
-    const blob = await App.util.resizeImage(fileOrBlob, 800, 0.82); // ~80 Ko : assez net, et léger pour le stockage en ligne
+    const blob = await App.util.photoBlob(fileOrBlob, 800); // ~30 Ko (WebP) : assez net, et léger pour le stockage en ligne
     const id = 'ph_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     await App.db.set('photos', id, blob);
-    cloud().markPhoto(id);
+    // seul le visuel part dans le compte (c'est la seule photo que voient les amis et la vitrine) ;
+    // les autres photos de la carte restent sur cet appareil (une photo certifiée est envoyée par certify.js)
+    if (makeDisplay) cloud().markPhoto(id);
     it.photos.push(id);
     if (makeDisplay) it.displayPhoto = id;
     await put(it);
@@ -94,14 +101,17 @@ App.col = (() => {
   /** Remplace le contenu d'une photo (ex. après recadrage), en gardant sa place dans la carte */
   async function replacePhoto(k, id, blob) {
     const it = items[k]; if (!it) return;
-    const small = await App.util.resizeImage(blob, 800, 0.85);
+    const small = await App.util.photoBlob(blob, 800);
     await App.db.set('photos', id, small);
     if (photoURLs[id]) { URL.revokeObjectURL(photoURLs[id]); delete photoURLs[id]; }
-    cloud().markPhoto(id);
+    if (isOnlinePhoto(it, id)) cloud().markPhoto(id);
     // numéro de version : les autres appareils sauront que leur copie de cette photo est périmée
     it.photoRev = Object.assign({}, it.photoRev, { [id]: Date.now() });
     await put(it);
   }
+  /** Photo gardée dans le compte : le visuel de la carte ou une photo certifiée (les autres restent sur l'appareil) */
+  const isOnlinePhoto = (it, id) => !!id && (it.displayPhoto === id || !!(App.certify && App.certify.photoCertified(id)));
+  const onlinePhotos = (it) => (it.photos || []).filter((id) => isOnlinePhoto(it, id));
   /** D'où vient une photo (page de classeur + zone), pour pouvoir la recadrer plus tard */
   async function setPhotoSource(k, id, src) {
     const it = items[k]; if (!it || !src || !src.page) return;
@@ -272,7 +282,7 @@ App.col = (() => {
     for (const it of data.items || []) { items[it.key] = it; await App.db.set('items', it.key, it); }
     if (data.profile) await saveProfile(data.profile);
     if (data.settings) { Object.assign(App.settings, data.settings); await saveSettings(); }
-    for (const it of data.items || []) { cloud().markItem(it.key); (it.photos || []).forEach((id) => cloud().markPhoto(id)); }
+    for (const it of data.items || []) { cloud().markItem(it.key); onlinePhotos(it).forEach((id) => cloud().markPhoto(id)); }
     if (data.profile && data.profile.avatar) cloud().markPhoto(data.profile.avatar);
     emit('*');
   }
@@ -280,7 +290,7 @@ App.col = (() => {
   return {
     langOf, load, saveSettings, keyOf, get, byKey, all, owned, inSet, add, update, setQty, remove,
     CONDITIONS, GRADERS, condMult, condLabel, condRank, valueOf, totalValue,
-    addPhoto, deletePhoto, replacePhoto, setPhotoSource, keepPage, getPage, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
+    addPhoto, deletePhoto, replacePhoto, onlinePhotos,setPhotoSource, keepPage, getPage, photoURL, displayImage, refreshPrices, refreshStalePrices, progress,
     getProfile, saveProfile, exportAll, importAll, applyRemote, applyRemoteDelete, applyRemoteProfile, wipeLocal, notify,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };
