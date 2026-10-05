@@ -1,0 +1,58 @@
+CollecDex — Licence propriétaire (tous droits réservés)
+
+Copyright (c) 2026 Arnaud (Azran28). Tous droits réservés.
+Contact : collecdex.app@gmail.com
+
+1. Ce qui est protégé
+   Le code source (HTML, CSS, JavaScript, SQL, scripts), les textes, les dessins,
+   le logo, les icônes et le nom « CollecDex » contenus dans ce dépôt (ci-après
+   « le Logiciel ») appartiennent à leur auteur.
+
+2. Ce qui est permis
+   - Utiliser gratuitement le site et l'application CollecDex tels qu'ils sont
+     publiés par leur auteur.
+   - Lire le code source tant que ce dépôt est public, sans autre droit que
+     ceux que GitHub accorde à tous ses utilisateurs (le voir, et le copier
+     dans GitHub au moyen du bouton « Fork »).
+
+3. Ce qui est interdit sans l'accord écrit de l'auteur
+   - Copier tout ou partie du Logiciel en dehors de ce que permet le point 2.
+   - Le modifier, l'adapter ou s'en servir comme base d'un autre site ou d'une
+     autre application.
+   - Le publier, le distribuer, le revendre, le louer ou le proposer sous un
+     autre nom, y compris gratuitement et y compris sur une boutique
+     d'applications.
+   - En faire un usage commercial, quel qu'il soit.
+   - Retirer ou modifier cette mention.
+
+4. Éléments qui n'appartiennent pas à l'auteur
+   Ils ne sont pas couverts par cette licence et restent soumis aux droits et
+   licences de leurs propriétaires :
+   - Pokémon, les noms, images et symboles des cartes et des Pokémon :
+     marques et droits de Nintendo, Creatures Inc., GAME FREAK inc. et
+     The Pokémon Company. CollecDex est une application non officielle,
+     sans lien avec ces sociétés.
+   - Les données et visuels des cartes fournis par TCGdex (https://tcgdex.dev)
+     et les images des Pokémon fournies par PokéAPI (https://pokeapi.co).
+   - Les images du dossier img/hors-serie : provenance indiquée dans
+     img/hors-serie/SOURCES.md.
+   - Les bibliothèques chargées depuis jsDelivr, chacune sous sa propre
+     licence : supabase-js (MIT), Tesseract.js (Apache 2.0),
+     TensorFlow.js (Apache 2.0), OpenCV.js (Apache 2.0).
+
+5. Garantie
+   Le Logiciel est fourni « tel quel », sans garantie d'aucune sorte. L'auteur
+   ne peut être tenu responsable d'aucun dommage lié à son utilisation.
+
+6. Droit applicable
+   Cette licence est soumise au droit français.
+
+Pour toute demande d'autorisation : collecdex.app@gmail.com
+
+----------------------------------------------------------------------------
+English summary: Copyright (c) 2026 Arnaud (Azran28). All rights reserved.
+This is proprietary software, not open source. You may use the published
+CollecDex website and app, and view this repository on GitHub. Copying,
+modifying, redistributing, publishing or commercial use of the code or assets
+is not permitted without written permission. Third-party trademarks, data,
+images and libraries listed above remain the property of their owners.

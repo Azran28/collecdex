@@ -57,7 +57,8 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 - ✅ Politique de confidentialité (`confidentialite.html`), page et bouton « Supprimer mon compte » (`supprimer-compte.html`, `#/supprimer-compte`, `supabase-v13.sql`), mention « application non officielle », contact collecdex.app@gmail.com.
 - ✅ Bloquer / signaler un dresseur (v2.77, `supabase-v14.sql`).
 - ✅ Version Play Store sans capsules (`?app=play`, v2.78).
-- À faire : nom de domaine + hébergement (Cloudflare Pages, dépôt privé, `assetlinks.json`), LICENSE, service d'e-mails (Brevo/Resend) puis confirmation d'e-mail, formulaire « Sécurité des données », appli Android (TWA), test fermé 12 personnes × 14 jours. Plus tard : abonnement Premium via Google Play Billing (15 %).
+- ✅ Fichier LICENSE (tous droits réservés, 5 oct.).
+- À faire : nom de domaine + hébergement (Cloudflare Pages, dépôt privé, `assetlinks.json`), service d'e-mails (Brevo/Resend) puis confirmation d'e-mail, formulaire « Sécurité des données », appli Android (TWA), test fermé 12 personnes × 14 jours. Plus tard : abonnement Premium via Google Play Billing (15 %).
 
 ## Historique des versions
 - **v2.81 (5 oct.)** : **photos plus légères dans le compte** (offre gratuite de Supabase : 1 Go) — photos en WebP (~30 Ko au lieu de ~56 à 80 Ko en JPEG, même taille d'image ; JPEG gardé sur iPhone), et seuls le visuel de chaque carte et les photos certifiées partent dans le compte (les autres restent sur l'appareil, la fiche les compte). Environ 30 000 photos tiennent dans 1 Go (avant : ~13 000 à 18 000, dont les photos des doublons). Les photos déjà en ligne ne changent pas.
