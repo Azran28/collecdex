@@ -583,10 +583,12 @@ App.certify = (() => {
       if (!r || !video || !video.videoWidth) return null;
       cg.drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, SW, SH);
       // mesure rapide du dos (3 essais) ; complète seulement si c'est « presque un dos »
-      let b = App.recognizer.backScoreOf(cv, SW, SH, true, game);
-      if (b >= 0.4 && b < BACK_T) b = Math.max(b, App.recognizer.backScoreOf(cv, SW, SH, false, game));
-      // One Piece : dos mesurés 0,56 à 0,66 (photos d'Arnaud, avec de la table autour), faces ≤ 0,27 → seuil ramené à 0,45 (décalage de 0,1)
-      if (game !== 'pokemon') b += 0.1;
+      // v2.91 : TOUS les dos connus, quelle que soit la licence choisie en haut de Capturer (Arnaud montrait un dos One Piece
+      // en mode Pokémon : « Dos pas reconnu ») — One Piece : dos mesurés 0,56 à 0,66 → seuil ramené à 0,50 (+0,05) ;
+      // faces mesurées contre le modèle One Piece : One Piece ≤ 0,31, Pokémon ≤ 0,45 (d'où +0,05 et pas +0,1)
+      const backOf = (fast) => Math.max(App.recognizer.backScoreOf(cv, SW, SH, fast, 'pokemon'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'onepiece') + 0.05);
+      let b = backOf(true);
+      if (b >= 0.4 && b < BACK_T) b = Math.max(b, backOf(false));
       const g = grayOf(cv, 0, 0, SW, SH, GW, GH), d = grayOf(cv, 0, 0, SW, SH, DW, DH);
       sinceBack = b >= BACK_T ? 0 : sinceBack + 1;
       // petites images gardées seulement autour du dos (pour la bande-preuve) : c'est léger

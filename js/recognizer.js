@@ -432,7 +432,7 @@ App.recognizer = (() => {
     const r1 = top / bottom, r2 = left / right, ar = (top + bottom) / (left + right);
     return r1 > 0.82 && r1 < 1.22 && r2 > 0.82 && r2 < 1.22 && ar > 0.6 && ar < 0.84;
   }
-  function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }, { expect = null, warp = true, sizeCheck = null } = {}) {
+  function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }, { expect = null, warp = true, sizeCheck = null, noSleeve = false } = {}) {
     const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
     // zone de recherche : la zone donnée + 8 % (la carte peut dépasser un peu du cadre jaune) ;
     // + 14 % autour d'une case de classeur (la grille, régulière, peut être décalée d'une rangée à l'autre)
@@ -449,7 +449,10 @@ App.recognizer = (() => {
     const at = (x, y) => G[y * w + x];
     // mêmes pixels en couleurs (pour reconnaître la bordure de la carte)
     let Cp = null;
-    if (expect) { const cc = document.createElement('canvas'); cc.width = w; cc.height = h; const cg = cc.getContext('2d', { willReadFrequently: true }); cg.drawImage(img, ax, ay, aw, ah, 0, 0, w, h); Cp = cg.getImageData(0, 0, w, h).data; }
+    { const cc = document.createElement('canvas'); cc.width = w; cc.height = h; const cg = cc.getContext('2d', { willReadFrequently: true }); cg.drawImage(img, ax, ay, aw, ah, 0, 0, w, h); Cp = cg.getImageData(0, 0, w, h).data; }
+    // carte seule (v2.91) : la couleur compte aussi — un dos rouge sur un fond gris a presque la même luminosité
+    // (≈ 105 contre 120 : bord de la carte invisible en gris, seul celui de la pochette ressortait → marge sur la photo)
+    if (!expect && Cp) for (let i = 0; i < G.length; i++) { const r = Cp[i * 4], gg = Cp[i * 4 + 1], bb = Cp[i * 4 + 2]; G[i] = 0.65 * G[i] + 0.35 * (Math.max(r, gg, bb) - Math.min(r, gg, bb)); }
     const col = (x, y) => { const xi = Math.min(w - 1, Math.max(0, Math.round(x))), yi = Math.min(h - 1, Math.max(0, Math.round(y))), i = (yi * w + xi) * 4; return [Cp[i], Cp[i + 1], Cp[i + 2]]; };
     /**
      * Bordure d'une carte : juste À L'INTÉRIEUR du vrai bord, une bande d'une seule couleur tout autour (jaune, argent…),
@@ -538,7 +541,7 @@ App.recognizer = (() => {
     const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     const EM = E && { L: mid(E[0], E[3]), R: mid(E[1], E[2]), T: mid(E[0], E[1]), B: mid(E[3], E[2]), w: (dist(E[0], E[1]) + dist(E[3], E[2])) / 2, h: (dist(E[0], E[3]) + dist(E[1], E[2])) / 2 };
     // la combinaison de 4 bords qui forme le mieux une carte (proportions 63 × 88, bords bien marqués, assez grande)
-    let pick = null;
+    let pick = null; const all = []; // (all : tous les cadres possibles, pour la pochette → carte)
     for (const L of Ls) for (const R of Rs) for (const T of Ts) for (const B of Bs) {
       const q = [cross(L, T), cross(R, T), cross(R, B), cross(L, B)];
       const qw = (dist(q[0], q[1]) + dist(q[3], q[2])) / 2, qh = (dist(q[0], q[3]) + dist(q[1], q[2])) / 2;
@@ -562,9 +565,52 @@ App.recognizer = (() => {
         // à forme égale, le plus GRAND rectangle : le bord extérieur de la carte, pas le cadre jaune à l'intérieur
         score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 + (qw * qh) / (w * h) * 4;
       }
-      if (!pick || score > pick.score) pick = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac) };
+      const cand = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac) };
+      all.push(cand);
+      if (!pick || score > pick.score) pick = cand;
     }
     if (!pick || pick.fit < 0.3) return null;
+    // v2.91 : carte dans une POCHETTE — le plus grand rectangle est souvent le bord de la pochette (marge de plastique
+    // autour de la carte sur la photo, vu par Arnaud en Pokémon comme en One Piece). Un rectangle presque aussi grand
+    // juste à l'intérieur, séparé par une bande qui ressemble au fond (plastique transparent), est la vraie carte.
+    // Une bande COLORÉE (bordure jaune d'une carte Pokémon, bordure d'une carte One Piece) : on garde le grand.
+    if (!EM && !noSleeve) {
+      const ctr = (p) => [(p.q[0][0] + p.q[1][0] + p.q[2][0] + p.q[3][0]) / 4, (p.q[0][1] + p.q[1][1] + p.q[2][1] + p.q[3][1]) / 4];
+      const [pcx, pcy] = ctr(pick);
+      // les bords sont pris au 1er contraste en venant de l'extérieur : celui de la carte, juste derrière celui de la
+      // pochette, n'est jamais vu → seconde recherche à l'intérieur du cadre trouvé, son bord retiré (1,2 %)
+      let inner = null;
+      try {
+        const xs = pick.q.map((p) => ax + p[0] / S), ys = pick.q.map((p) => ay + p[1] / S);
+        const bx0 = Math.min(...xs), by0 = Math.min(...ys), bw0 = Math.max(...xs) - bx0, bh0 = Math.max(...ys) - by0;
+        const ins = 0.012, cx0 = bx0 + bw0 * ins, cy0 = by0 + bh0 * ins, cw0 = bw0 * (1 - 2 * ins), ch0 = bh0 * (1 - 2 * ins);
+        const k2 = Math.min(1, 900 / Math.max(cw0, ch0)), sub = document.createElement('canvas');
+        sub.width = Math.max(40, Math.round(cw0 * k2)); sub.height = Math.max(40, Math.round(ch0 * k2));
+        sub.getContext('2d').drawImage(img, cx0, cy0, cw0, ch0, 0, 0, sub.width, sub.height);
+        const r2 = cutCard(sub, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 }, { warp: false, noSleeve: true });
+        if (r2) {
+          const q2 = r2.quad.map(([x, y]) => [((cx0 + x * cw0) - ax) * S, ((cy0 + y * ch0) - ay) * S]);
+          const qw2 = (dist(q2[0], q2[1]) + dist(q2[3], q2[2])) / 2, qh2 = (dist(q2[0], q2[3]) + dist(q2[1], q2[2])) / 2;
+          const cand = { q: q2, qw: qw2, qh: qh2, fit: r2.fit, score: pick.score };
+          if (qw2 / pick.qw >= 0.88 && qw2 / pick.qw <= 0.985 && qh2 / pick.qh >= 0.9 && qh2 / pick.qh <= 0.99 && Math.hypot(ctr(cand)[0] - pcx, ctr(cand)[1] - pcy) <= pick.qw * 0.04) inner = cand;
+        }
+      } catch (e) { /* */ }
+      if (inner) {
+        // points du milieu de chaque côté : juste à l'extérieur de la pochette, et dans la bande pochette → carte
+        const mean = (L) => [0, 1, 2].map((k) => L.reduce((a, p) => a + p[k], 0) / L.length);
+        const outside = [], band = [];
+        for (let s = 0; s < 4; s++) for (const t of [0.25, 0.5, 0.75]) {
+          const a = pick.q[s], b = pick.q[(s + 1) % 4], ia = inner.q[s], ib = inner.q[(s + 1) % 4];
+          const P = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], I = [ia[0] + (ib[0] - ia[0]) * t, ia[1] + (ib[1] - ia[1]) * t];
+          const dx = P[0] - I[0], dy = P[1] - I[1], n = Math.hypot(dx, dy) || 1, k = Math.max(2, pick.qw * 0.015);
+          outside.push(col(P[0] + dx / n * k, P[1] + dy / n * k)); band.push(col((P[0] + I[0]) / 2, (P[1] + I[1]) / 2));
+        }
+        const mo = mean(outside), mb = mean(band), d = Math.hypot(mo[0] - mb[0], mo[1] - mb[1], mo[2] - mb[2]);
+        const sat = (c) => (Math.max(...c) - Math.min(...c)) / 255;
+        cutCard.lastSleeve = { d: Math.round(d), satBand: +sat(mb).toFixed(2) };
+        if (d < 45 && sat(mb) < 0.3) pick = inner; // bande ≈ fond, peu colorée : plastique de la pochette
+      }
+    }
     const q = pick.q.map(([x, y]) => [ax + x / S, ay + y / S]);
     const qw = pick.qw / S;
     if (q.some(([x, y]) => x < -2 || y < -2 || x > NW + 2 || y > NH + 2)) return null;
