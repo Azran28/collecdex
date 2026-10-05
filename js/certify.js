@@ -558,7 +558,7 @@ App.certify = (() => {
    * Au moment de la photo, proof() donne le résultat à envoyer au serveur.
    * regionFn() : zone du cadre dans la vidéo { sx, sy, sw, sh }.
    */
-  function tracker(video, regionFn, { auto = false, lamp: useLamp = false, onLamp = null } = {}) { // v2.57 : lampe seulement si demandée (carte seule, option)
+  function tracker(video, regionFn, { auto = false, lamp: useLamp = false, onLamp = null, game = 'pokemon' } = {}) { // game : modèle de dos (One Piece, v2.88) // v2.57 : lampe seulement si demandée (carte seule, option)
     const GW = 24, GH = 33, SW = 72, SH = 100;
     const cv = Object.assign(document.createElement('canvas'), { width: SW, height: SH });
     const cg = cv.getContext('2d', { willReadFrequently: true });
@@ -583,8 +583,10 @@ App.certify = (() => {
       if (!r || !video || !video.videoWidth) return null;
       cg.drawImage(video, r.sx, r.sy, r.sw, r.sh, 0, 0, SW, SH);
       // mesure rapide du dos (3 essais) ; complète seulement si c'est « presque un dos »
-      let b = App.recognizer.backScoreOf(cv, SW, SH, true);
-      if (b >= 0.4 && b < BACK_T) b = Math.max(b, App.recognizer.backScoreOf(cv, SW, SH));
+      let b = App.recognizer.backScoreOf(cv, SW, SH, true, game);
+      if (b >= 0.4 && b < BACK_T) b = Math.max(b, App.recognizer.backScoreOf(cv, SW, SH, false, game));
+      // One Piece : dos mesurés 0,56 à 0,66 (photos d'Arnaud, avec de la table autour), faces ≤ 0,27 → seuil ramené à 0,45 (décalage de 0,1)
+      if (game !== 'pokemon') b += 0.1;
       const g = grayOf(cv, 0, 0, SW, SH, GW, GH), d = grayOf(cv, 0, 0, SW, SH, DW, DH);
       sinceBack = b >= BACK_T ? 0 : sinceBack + 1;
       // petites images gardées seulement autour du dos (pour la bande-preuve) : c'est léger
@@ -681,10 +683,13 @@ App.certify = (() => {
    * La carte choisie est-elle bien celle de la photo ? (sinon on pourrait certifier n'importe quelle carte)
    * Oui si la reconnaissance était sûre, si numéro + nom ont été lus, ou si la photo ressemble au visuel officiel.
    */
-  async function identity(blob, c) {
+  async function identity(blob, c, game = 'pokemon') {
     // numéro, total et nom bien lus sur la photo (ou reconnaissance « sûre ») : c'est bien elle,
     // inutile de comparer à toute la série (plus rapide, et une photo avec reflet n'est plus refusée)
     if (c && (c.confident || (c.numOk && c.ofOk && (c.nameScore || 0) >= 0.6))) return { ok: true, how: 'lecture', res: c.visual == null ? null : Math.round(c.visual * 100) / 100 };
+    // One Piece (v2.88) : le code imprimé (« OP10-001 ») lu sur la photo désigne la carte ; sans code lu, pas de certification
+    // (la comparaison d'images est gênée par le « SAMPLE » des visuels officiels)
+    if (game !== 'pokemon') return c && c.numOk ? { ok: true, how: 'code', res: c.visual == null ? null : Math.round(c.visual * 100) / 100 } : { ok: false, how: 'code', unrecognized: true };
     // la carte proposée est la plus ressemblante de toutes celles comparées par la reconnaissance (et ressemble bien)
     // → c'est elle (avant, on exigeait 0,10 d'avance sur toute la série : de bonnes photos étaient refusées)
     if (c && c.visual != null && c.visual >= 0.42 && c.margin != null && c.margin >= 0) return { ok: true, how: 'meilleure', res: Math.round(c.visual * 100) / 100, margin: Math.round(c.margin * 100) / 100 };

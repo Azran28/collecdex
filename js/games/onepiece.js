@@ -431,7 +431,7 @@
       const thumb = (c) => img.card(c, 'low').replace('&w=360', '&w=160');
       const vis = await R.resemblanceMany(blob, pool, thumb).catch(() => new Map());
       // code lu mais aucune illustration ne ressemble (« OP12-050 » lu sur OP12-030) : les autres cartes du même nom sont comparées aussi
-      if (codes.length && nameOk && Math.max(0, ...vis.values()) < 0.55) {
+      if (codes.length && nameOk && !agreed && Math.max(0, ...vis.values()) < 0.55) { // (pas si le nom confirme déjà le code : coûteux, visuels à télécharger)
         const extra = (await fromIndex(nameIds)).filter((x) => !seen.has(x.id))
           .sort((a, b) => { const pre = codes[0].split('-')[0], p = (x) => (x.id.split('-')[0] === pre ? 1 : 0); return (p(b) - p(a)) || String(b.set.sortKey).localeCompare(String(a.set.sortKey)); }).slice(0, 24); // même série que le code lu d'abord
         for (const x of extra) { seen.add(x.id); cands.push(x); }
@@ -449,6 +449,8 @@
     }
     // carte « sûre » : code confirmé (lu deux fois ou par le nom) et, s'il y a plusieurs versions, l'illustration nettement la plus proche
     // (jamais si une autre carte a le même dessin : réimpression « _r1 » d'une autre série)
+    // nom lu = nom de la carte : noté comme pour Pokémon (le classeur garde alors la proposition même si l'illustration diffère)
+    if (nameOk) for (const x of cands) x.nameScore = norm(x.name) === nameOk ? 1 : 0;
     const top = cands[0], second = cands[1];
     const codeSure = codes.length > 0 && (agreed || (votes[codes[0]] >= 2 && !nameOk));
     const visSure = top && (!second || (top.visual != null && top.visual >= 0.55 && top.visual - (second.visual ?? 0) >= 0.1));

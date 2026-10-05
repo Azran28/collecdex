@@ -933,6 +933,12 @@ App.recognizer = (() => {
   // 30 s et la reconnaissance se fait sur le texte seul (sinon chaque carte attendait 5 à 15 s de nouveaux essais)
   let imgFails = 0, imgPauseUntil = 0;
   async function fetchImage(url, force = false, once = false) {
+    // visuel relayé (One Piece, images.weserv.nl) : la 1re demande d'une image peut être très lente → un seul essai, 10 s au plus
+    // (sinon toute la page de classeur attendait une seule image), et le serveur de TCGdex n'est pas en cause
+    if (/^https:\/\/images\.weserv\.nl\//.test(url)) {
+      const ac = new AbortController(), t = setTimeout(() => ac.abort(), 10000);
+      try { const r = await fetch(url, { signal: ac.signal }); return r.ok ? await r.blob() : null; } catch (e) { return null; } finally { clearTimeout(t); }
+    }
     if (!force && Date.now() < imgPauseUntil) return null;
     // adresse devinée (carte sans visuel connu chez TCGdex) : une seule tentative, et un échec ne compte pas comme une panne
     // (avant : 4 tentatives de ~3 s chacune = 12 s perdues à chaque scan, et le disjoncteur sautait pour de faux)
@@ -1193,33 +1199,44 @@ App.recognizer = (() => {
     }
     return v;
   };
-  async function backScore(blob) {
+  async function backScore(blob, game = 'pokemon') {
     const bmp = await createImageBitmap(blob);
-    return backScoreOf(bmp, bmp.width, bmp.height);
+    return backScoreOf(bmp, bmp.width, bmp.height, false, game);
   }
   let backCanvas = null;
+  // modèles de dos par licence (v2.88) : One Piece = dos bleu et dos rouge (js/games/onepiece-backs.js), cadrés au ras de la
+  // carte (le Pokémon vient de pochettes : zoom 0,78 à 0,9) → zooms un peu plus larges
+  const backRefs = {};
+  const refsOf = (game) => {
+    if (backRefs[game]) return backRefs[game];
+    const list = game === 'onepiece' ? App.onePieceBacks || [] : [BACK];
+    const dec = (t) => { const bin = atob(t.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return normRGB(a, t.w * t.h); };
+    return (backRefs[game] = { refs: list.map(dec), scales: game === 'onepiece' ? [0.84, 0.92, 1] : [0.78, 0.84, 0.9] });
+  };
   /** Même mesure, directement sur une image déjà dessinée (canvas, image de la caméra) : sert à la certification en direct */
   // fast (suivi en direct de la certification, v2.48) : sans les petits décalages → 3 essais au lieu de 9 (la caméra
   // du téléphone d'Arnaud ne donnait que ~6 images par seconde au suivi)
-  function backScoreOf(src, SW, SH, fast = false) {
-    if (!backRef) { const bin = atob(BACK.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); backRef = normRGB(a, BACK.w * BACK.h); }
+  function backScoreOf(src, SW, SH, fast = false, game = 'pokemon') {
+    if (!backRef) backRef = refsOf('pokemon').refs[0];
+    const { refs, scales } = refsOf(game);
+    if (!refs.length) return -1;
     const W = BACK.w, H = BACK.h, n = W * H;
     const c = backCanvas || (backCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
     const g = c.getContext('2d', { willReadFrequently: true }); g.filter = 'blur(0.6px)';
     let best = -1;
     const offs = fast ? [0] : [-0.05, 0, 0.05];
-    for (const sc of [0.78, 0.84, 0.9]) for (const dx of offs) for (const dy of offs) {
+    for (const sc of scales) for (const dx of offs) for (const dy of offs) {
       const bw = SW * sc, bh = SH * sc;
       g.clearRect(0, 0, W, H);
       g.drawImage(src, SW * (0.5 + dx) - bw / 2, SH * (0.5 + dy) - bh / 2, bw, bh, 0, 0, W, H);
       const d = g.getImageData(0, 0, W, H).data, px = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) { px[i * 3] = d[i * 4]; px[i * 3 + 1] = d[i * 4 + 1]; px[i * 3 + 2] = d[i * 4 + 2]; }
-      const v = normRGB(px, n); let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * backRef[i];
-      s /= v.length; if (s > best) best = s;
+      const v = normRGB(px, n);
+      for (const ref of refs) { let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * ref[i]; s /= v.length; if (s > best) best = s; }
     }
     return best;
   }
-  async function looksLikeBack(blob) { return (await backScore(blob)) >= 0.6; }
+  async function looksLikeBack(blob, game = 'pokemon') { return (await backScore(blob, game)) >= 0.6; }
 
   /**
    * Ressemblance de la carte ENTIÈRE (petite image couleur 24×33, corrélation), pour les cartes hors-série :
@@ -1551,7 +1568,8 @@ App.recognizer = (() => {
   }
 
   /** Texte court « ce qui a été lu » */
-  const readSummary = (info) => [info.num ? `n° ${info.num.raw}/${info.num.of}` : 'numéro illisible', info.words.length ? `« ${info.words.slice(0, 3).join(', ')} »` : ''].filter(Boolean).join(' · ');
+  // (lecture d'une autre licence — One Piece : info.read = « code OP10-001, nom … »)
+  const readSummary = (info) => (info && typeof info.read === 'string' ? info.read : [info.num ? `n° ${info.num.raw}/${info.num.of}` : 'numéro illisible', info.words.length ? `« ${info.words.slice(0, 3).join(', ')} »` : ''].filter(Boolean).join(' · '));
 
   /**
    * Ajoute une carte scannée à la collection.

@@ -182,7 +182,7 @@ App.views.scan = {
     let ad = App.games.get(game);
     const isPk = () => game === 'pokemon';
     // la certification (dos de la carte, lampe) n'existe que pour Pokémon pour l'instant
-    const guideC = () => (isPk() ? App.views.scan.guide('carte') : `<div class="pc-block pc-off"><div class="pc-block-h">${App.icons.icon('shield', 18)} <b>Certification</b> <span class="small muted">— pas encore pour ${App.util.esc(ad.name)}</span></div><p class="small muted" style="margin:6px 0 0">Prends ta carte en photo (le code en bas à droite, ex. OP09-004, doit être lisible) : elle est reconnue et ajoutée avec ta photo, sans badge « Certifiée » pour le moment.</p></div>`);
+    const guideC = () => App.views.scan.guide('carte'); // certification : Pokémon et One Piece (dos One Piece appris en v2.88)
     const targetId = params.query.carte || null;
     let cardBlob = null, cardURL = null, target = null, pageBlob = null;
     let donCard = false; // carte DON!! de One Piece lue sur la photo (pas encore gérée)
@@ -279,13 +279,13 @@ App.views.scan = {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = guideC();
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
-        if (!isPk() || !App.certify.available() || App.settings.certCarte === false) { setStatus(''); return; } // certification désactivée : simple photo
+        if (!App.certify.available() || App.settings.certCarte === false) { setStatus(''); return; } // certification désactivée : simple photo
         setStatus(''); // les étapes de la certification sont dans l'encadré commun (certBlock), sous la caméra
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
         // lampe : option de l'encadré (Android) ; pendant le code, grande consigne au centre (ampoule, « Ne bouge pas », compte à rebours)
         const useLamp = true; // lampe dès que le téléphone le permet (Android)
-        trk = App.certify.tracker(cam.video, () => cam.region(), { lamp: useLamp, onLamp: (on) => { const b = view.querySelector('.pc-big .pc-bulb'); if (b) b.classList.toggle('on', on); } });
+        trk = App.certify.tracker(cam.video, () => cam.region(), { game, lamp: useLamp, onLamp: (on) => { const b = view.querySelector('.pc-big .pc-bulb'); if (b) b.classList.toggle('on', on); } });
         const t0 = Date.now();
         trkTimer = setInterval(() => {
           if (!cam.on || !alive()) return stopTrack();
@@ -315,7 +315,7 @@ App.views.scan = {
       shooting = true;
       // l'image est figée À L'INSTANT de l'appui (la suite peut prendre 1 à 2 s : on peut bouger)
       const shotP = cam.capture();
-      const certWanted = isPk() && App.certify.available() && App.settings.certCarte !== false;
+      const certWanted = App.certify.available() && App.settings.certCarte !== false;
       const proofP = certWanted && flipped ? trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
       const shot = el.querySelector('#sc-shot');
       shot.disabled = true; shot.textContent = '✓ Photo prise — recherche de la carte…';
@@ -376,7 +376,7 @@ App.views.scan = {
         // plusieurs cartes sur la photo ? on propose le mode « page de classeur »
         let lp = { page: false };
         try { lp = R.looksLikePage(img); } catch (e) { console.warn(e); }
-        el.querySelector('#sc-pagehint').classList.toggle('hidden', !lp.page || !isPk()); // classeur : Pokémon seulement pour l'instant
+        el.querySelector('#sc-pagehint').classList.toggle('hidden', !lp.page);
         pageBlob = blob;
         const ar = img.naturalWidth / img.naturalHeight;
         let size = initial || (Math.abs(ar - RATIO) < 0.06 ? 1 : 0.9); // photo déjà au format carte → toute l'image
@@ -519,7 +519,7 @@ App.views.scan = {
         const det = mode === 'rien' ? null : R.lastVariants;
         const verLine = det && det.list.length ? `<div class="small" style="margin-top:6px">${App.icons.icon('sparkles', 13)} Version reconnue : <b>${det.list.map((v) => VN[v] || v).join(' · ')}</b> <button class="linkbtn small" data-open-card="${esc(c.id)}">modifier</button></div>` : '';
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
-        const certLine = !isPk() ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Pas de certification pour ${esc(ad.name)} pour le moment.</div>` : !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
+        const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
           : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (certification désactivée). Active-la dans l’encadré « Certifier la carte » pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
@@ -528,9 +528,9 @@ App.views.scan = {
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
-        if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !isPk() ? `certification pas encore disponible pour ${ad.name}` : !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
+        if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
         if (myCert && myCert.passed && photoId) {
-          App.certify.identity(shotBlob, c).then((ident) => App.certify.finish(key, photoId, myCert, ident)).then((r) => {
+          App.certify.identity(shotBlob, c, game).then((ident) => App.certify.finish(key, photoId, myCert, ident)).then((r) => {
             const line = results.querySelector('#sc-cert'); if (!line) return;
             line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}${r.unrecognized ? ' — reprends une photo plus nette pour la certifier' : ''}`;
           });
@@ -547,6 +547,7 @@ App.views.scan = {
       if (!isUrl) view.querySelector('.bphoto').prepend(src);
     }
     async function analyse(blob) {
+      if (!blob) return; // recadrage vide (image pas encore affichée)
       cardBlob = blob;
       if (cardURL) URL.revokeObjectURL(cardURL);
       cardURL = URL.createObjectURL(blob);
@@ -621,8 +622,22 @@ App.views.scan = {
   async batch(el, params, alive, burst = false) {
     const { esc } = App.util;
     const R = App.recognizer, RATIO = R.RATIO;
-    const game = 'pokemon';
+    // licence (v2.88 : classeur et rafale aussi pour One Piece) : la même que dans « Une carte » (puces en haut, ?jeu=…)
+    const GAMES = App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id));
+    let game = params.query.jeu && App.games.get(params.query.jeu) ? params.query.jeu : 'pokemon';
+    if (!params.query.jeu) { try { const g = sessionStorage.getItem('scanGame'); if (g && App.games.get(g)) game = g; } catch (e) { /* */ } }
+    try { sessionStorage.setItem('scanGame', game); } catch (e) { /* */ }
     const ad = App.games.get(game);
+    const isPk = () => game === 'pokemon';
+    const modeQ = burst ? 'rafale' : 'classeur';
+    const gamePick = GAMES.length > 1 ? `<div class="chips sc-game" role="tablist" aria-label="Licence des cartes">${GAMES.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/scan?mode=${modeQ}&jeu=${g.id}" role="tab" aria-selected="${g.id === game}">${App.icons.icon(g.icon, 14)} ${esc(g.name)}</a>`).join('')}</div>` : '';
+    /** Lit une carte selon la licence : Pokémon (texte + série) ou One Piece (code imprimé + illustration) */
+    const readCard = async (blob, hint, st, orig = null) => {
+      // (original : la case elle-même, relue au ras de ses bords et en bandes glissantes si le code n'est pas où on l'attend — marge de la pochette)
+      if (!isPk()) return ad.recognize(blob, st, { setId: hint, original: orig || blob });
+      if (hint) { const info = await R.read(blob, st, { atkBand: burst }); return { info, cands: await R.inSet(blob, info, hint, st) }; }
+      return R.recognize(blob, st, { atkBand: burst });
+    };
     const FORMATS = { '3x3': [3, 3, '9 cartes (3 × 3)'], '2x2': [2, 2, '4 cartes (2 × 2)'], double: [6, 3, '18 cartes (classeur ouvert, 2 pages)'] };
     const PAGE_FORMATS = Object.fromEntries(Object.entries(FORMATS).filter(([k]) => k !== 'double'));
     let fmt = '3x3', fmtChosen = false; // fmtChosen : format choisi à la main (la détection ne le change plus)
@@ -668,7 +683,7 @@ App.views.scan = {
             <div class="row action-dock"><button class="btn primary hidden" id="b-go">▶ Lancer la reconnaissance</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
           </div>`;
     el.innerHTML = burst ? `
-      <div class="batch-wrap">
+      ${gamePick}<div class="batch-wrap">
         <div>
           ${setBox('Série des cartes')}
           <div class="scan-view" id="b-view">${App.views.scan.empty('rafale')}</div>
@@ -687,7 +702,7 @@ App.views.scan = {
           <div id="b-sv" class="sv hidden" role="dialog" aria-modal="true" aria-label="Analyse des cartes"></div>
         </div>
       </div>` : `
-      <div class="batch-wrap">
+      ${gamePick}<div class="batch-wrap">
         <div>
           <div class="sc-opts">${setBox('Série de la page')}${pageCtl}</div>
           <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur', FORMATS[fmt])}</div>
@@ -963,7 +978,7 @@ App.views.scan = {
       if (!burst) svOpen('scan'); // analyse en plein écran, carte par carte
       const tStart = performance.now();
       el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
-      const warmP = App.visual && App.settings.visualCheck !== false ? App.visual.warm() : null; // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
+      const warmP = isPk() && App.visual && App.settings.visualCheck !== false ? App.visual.warm() : null; // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
       const [cols, rows] = dims(), n = cols * rows;
       const hint = el.querySelector('#b-set').value;
       detected = null;
@@ -983,7 +998,7 @@ App.views.scan = {
         try {
           await recogOne(cell, hint, st);
           // pas sûre avec la découpe habituelle : on essaie la carte ajustée sur ses vrais bords, gardée seulement si sûre
-          if (cell.alt && cell.state !== 'sure' && !['vide', 'dos', 'autre'].includes(cell.state) && !stopped && alive()) {
+          if (cell.alt && cell.state !== 'sure' && !['vide', 'dos', 'autre', 'don'].includes(cell.state) && !stopped && alive()) {
             const test = { ...cell, blob: cell.alt.blob };
             await recogOne(test, hint, st);
             if (test.state === 'sure') {
@@ -992,7 +1007,7 @@ App.views.scan = {
             }
             cell.alt = null;
           }
-          if (!rotChecked && !['vide', 'dos', 'autre'].includes(cell.state)) {
+          if (!rotChecked && !['vide', 'dos', 'autre', 'don'].includes(cell.state)) {
             rotChecked = true;
             if (cell.state !== 'sure') {
               // l'autre sens donne-t-il une carte sûre ? si oui, toutes les cartes sont retournées
@@ -1016,9 +1031,9 @@ App.views.scan = {
       }
       // Deuxième passe : la page semble rangée par série → on recompare les cartes incertaines à cette série
       prog = { step: 'Série de la page…', done: n, total: n };
-      if (!hint && alive() && !stopped) await guessSeries();
+      if (isPk() && !hint && alive() && !stopped) await guessSeries(); // (Pokémon : One Piece a le code de la carte)
       // Troisième passe : vérification par l'image (réseau de neurones + points clés)
-      if (alive() && !stopped && App.settings.visualCheck !== false) { timing = { text: performance.now() - tStart, warm: await warmP }; await visualPass(hint); }
+      if (isPk() && alive() && !stopped && App.settings.visualCheck !== false) { timing = { text: performance.now() - tStart, warm: await warmP }; await visualPass(hint); }
       running = false; prog = null; pageDur = performance.now() - tStart;
       el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
       el.querySelector('#b-set').disabled = false;
@@ -1033,7 +1048,7 @@ App.views.scan = {
      * Il faut au moins 3 cartes (et un tiers des cartes lues) d’accord, plus que pour toute autre série, et la moitié des cartes sûres.
      */
     async function guessSeries() {
-      const read = cells.filter((c) => !c.saved && c.cands.length && !['vide', 'dos', 'autre', 'erreur'].includes(c.state));
+      const read = cells.filter((c) => !c.saved && c.cands.length && !['vide', 'dos', 'autre', 'don', 'erreur'].includes(c.state));
       if (read.length < 3) return;
       const votes = {}, names = {}; let sureN = 0; const sureBy = {};
       for (const c of read) {
@@ -1090,6 +1105,8 @@ App.views.scan = {
         if (stopped || !alive()) return;
         cell.state = 'lecture'; drawResults();
         try {
+          // One Piece : la carte est simplement relue avec cette série en tête des propositions
+          if (!isPk()) { await recogOne(cell, setId, () => {}); continue; }
           const cands = await R.inSet(cell.blob, cell.info, setId, (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Série ${esc(name)} — carte ${cell.i + 1} : ${esc(m)}</div>`); });
           let top = cands[0], sameName = false;
           const old = cell.before.cands[0];
@@ -1286,7 +1303,7 @@ App.views.scan = {
       const th = (c) => {
         const x = cardOf(c), st = c.saved ? 'saved' : c.state, done = ['sure', 'verifier'].includes(st) || c.saved;
         const src = done && x ? visOf(x) : c.url;
-        return `<span class="sv-th st-${st}${c === cur ? ' cur' : ''}${c.found && Date.now() - c.found < 1500 ? ' pop' : ''}" title="Carte ${c.i + 1}">${['vide', 'dos', 'autre'].includes(st) ? '' : `<img src="${src}" alt="">`}${st === 'sure' || c.saved ? '<b>✓</b>' : st === 'verifier' ? '<b>?</b>' : ''}</span>`;
+        return `<span class="sv-th st-${st}${c === cur ? ' cur' : ''}${c.found && Date.now() - c.found < 1500 ? ' pop' : ''}" title="Carte ${c.i + 1}">${['vide', 'dos', 'autre', 'don'].includes(st) ? '' : `<img src="${src}" alt="">`}${st === 'sure' || c.saved ? '<b>✓</b>' : st === 'verifier' ? '<b>?</b>' : ''}</span>`;
       };
       return `<div class="sv-board" style="--cols:${cols * parts.length};--rows:${rows}">${parts.map((p) => `<div style="grid-template-columns:repeat(${cols},1fr)">${p.map(th).join('')}</div>`).join('')}</div>`;
     }
@@ -1304,7 +1321,7 @@ App.views.scan = {
       const cur = cells.find((c) => c.vscan) || cells.find((c) => c.state === 'lecture');
       const p = prog, off = cur && cardOf(cur);
       const step = !p ? 0 : /^Lecture des/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
-      const steps = (burst ? ['Lecture'] : ['Lecture', 'Série', 'Image']).map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
+      const steps = (burst || !isPk() ? ['Lecture'] : ['Lecture', 'Série', 'Image']).map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
       return `
         <div class="sv-head">
           <div class="sv-steps">${steps}</div>
@@ -1386,7 +1403,7 @@ App.views.scan = {
       return `<button class="sv-vpill ${doubt ? 'doubt' : ''}" data-sv="vcycle" data-i="${c.i}" title="Touche pour passer à la version suivante">${label}${doubt && measured ? ' ?' : ''} <span aria-hidden="true">↻</span></button>`;
     }
     function svRecap() {
-      const shown = cells.filter((c) => c.choice || !['vide', 'dos', 'autre', 'erreur'].includes(c.state));
+      const shown = cells.filter((c) => c.choice || !['vide', 'dos', 'autre', 'don', 'erreur'].includes(c.state));
       const ign = cells.length - shown.length;
       const chosen = cells.filter((c) => c.choice && !c.saved && modeOf(c) !== 'rien');
       const tag = (c) => {
@@ -1486,11 +1503,10 @@ App.views.scan = {
     /** Lecture d'une pochette : vide, dos, autre jeu, ou carte Pokémon (candidats) */
     async function recogOne(cell, hint, st) {
       if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; return; }
-      if (await R.looksLikeBack(cell.blob).catch(() => false)) { cell.state = 'dos'; return; }
-      let info, cands;
-      if (hint) { info = await R.read(cell.blob, st, { atkBand: burst }); cands = await R.inSet(cell.blob, info, hint, st); }
-      else ({ info, cands } = await R.recognize(cell.blob, st, { atkBand: burst }));
+      if (await R.looksLikeBack(cell.blob, game).catch(() => false)) { cell.state = 'dos'; return; }
+      const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
       cell.info = info; cell.cands = cands;
+      if (info && info.don) { cell.state = 'don'; cell.cands = []; cell.choice = ''; cell.checked = false; return; } // carte DON!! (One Piece) : pas encore gérée
       if (info && info.otherGame && !(cands[0] && cands[0].confident)) { cell.state = 'autre'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.choice = cands[0] ? cands[0].id : '';
       cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
@@ -1507,9 +1523,7 @@ App.views.scan = {
       try {
         if (!force && await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
         else {
-          let info, cands;
-          if (hint) { info = await R.read(cell.blob, st, { atkBand: burst }); cands = await R.inSet(cell.blob, info, hint, st); }
-          else ({ info, cands } = await R.recognize(cell.blob, st, { atkBand: burst }));
+          const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
           cell.info = info; cell.cands = cands;
           cell.choice = cands[0] ? cands[0].id : '';
           cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
@@ -1519,7 +1533,7 @@ App.views.scan = {
     }
 
     const stateLabel = {
-      attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'], dos: ['Dos de carte (ignoré)', 'muted'], autre: ['Autre jeu que Pokémon (ignorée)', 'muted'],
+      attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'], dos: ['Dos de carte (ignoré)', 'muted'], autre: [`Autre jeu que ${ad.name} (ignorée)`, 'muted'], don: ['Carte DON!! (pas encore gérée)', 'muted'],
       sure: ['Reconnue ✓', 'ok'], verifier: ['À vérifier', 'warn'], inconnue: ['Non reconnue', 'bad'], erreur: ['Erreur', 'bad'],
       enregistree: ['Enregistrée ✓', 'ok'],
     };
@@ -1614,14 +1628,14 @@ App.views.scan = {
             // petit éclat quand la carte vient d'être trouvée (seulement la carte en cours : batterie)
             const scan = c.vscan ? 'scan-img' : c.state === 'lecture' ? 'scan-txt' : '';
             const found = c.found && Date.now() - c.found < 1200;
-            return `<div class="btile ${(['vide', 'dos', 'autre'].includes(c.state) && !c.choice) || (canCheck && !c.checked) ? 'dim' : ''} ${c.checked && c.choice ? 'on' : ''} ${c.state === 'attente' ? 'bwait' : ''} ${found ? 'bfound' : ''}" data-i="${c.i}">
+            return `<div class="btile ${(['vide', 'dos', 'autre', 'don'].includes(c.state) && !c.choice) || (canCheck && !c.checked) ? 'dim' : ''} ${c.checked && c.choice ? 'on' : ''} ${c.state === 'attente' ? 'bwait' : ''} ${found ? 'bfound' : ''}" data-i="${c.i}">
               ${canCheck ? `<label class="bcheck"><input type="checkbox" data-check="${c.i}" ${c.checked ? 'checked' : ''}> Ajouter</label>` : ''}
               <div class="bimgs">
                 <span class="bphoto ${scan}"><img src="${c.url}" alt="Ta carte ${c.i + 1}">${scan ? `<i class="bscan"></i>${scan === 'scan-img' ? '<i class="bdot"></i>'.repeat(7) : ''}` : ''}</span>
                 ${cur ? `<img class="bofficial" src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
               </div>
               <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.visId && c.choice === c.visId ? ' <span class="muted">· image ✓</span>' : ''}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
-              ${['attente', 'lecture', 'dos', 'autre'].includes(c.state) && !c.choice ? (['dos', 'autre'].includes(c.state) ? `<button class="btn sm" data-notback="${c.i}">${c.state === 'dos' ? 'Ce n’est pas un dos' : 'C’est une carte Pokémon'} : la reconnaître</button><button class="btn sm ghost" data-find="${c.i}">🔎 Chercher à la main</button>
+              ${['attente', 'lecture', 'dos', 'autre', 'don'].includes(c.state) && !c.choice ? (['dos', 'autre', 'don'].includes(c.state) ? `<button class="btn sm" data-notback="${c.i}">${c.state === 'dos' ? 'Ce n’est pas un dos' : 'C’est une carte Pokémon'} : la reconnaître</button><button class="btn sm ghost" data-find="${c.i}">🔎 Chercher à la main</button>
                 <div class="bsearch hidden" data-box="${c.i}"><input type="text" placeholder="Nom" data-name="${c.i}"><input type="text" placeholder="N° ex. 025/165" data-num="${c.i}"><button class="btn sm" data-dosearch="${c.i}">OK</button></div>` : '') : `
                 <select data-choice="${c.i}">
                   <option value="">— Ne pas ajouter —</option>
@@ -1651,7 +1665,7 @@ App.views.scan = {
       const sa = resultsEl.querySelector('#b-set-after'); if (sa && allSets) App.views.scan.fillSetSelect(sa, allSets);
       // brillance des cartes reconnues (ou changées) : mesurée en arrière-plan, affichée dès qu'elle est prête
       for (const c of cells) {
-        if (c.saved || !c.choice || c.state === 'lecture' || (c.det && c.det.id === c.choice)) continue;
+        if (!isPk() || c.saved || !c.choice || c.state === 'lecture' || (c.det && c.det.id === c.choice)) continue; // (versions holo / reverse : Pokémon)
         measureVers(c).then(() => { if (alive()) setTimeout(drawResults, 0); }); // (setTimeout : la page garde la main entre deux mesures)
       }
     }
@@ -1661,7 +1675,7 @@ App.views.scan = {
         const opt = e.target.selectedOptions[0];
         running = true;
         await applySeries(e.target.value, opt.textContent.replace(/\s*\(\d{4}\)$/, ''), 0, false);
-        if (!burst && alive()) await visualPass(e.target.value);
+        if (!burst && isPk() && alive()) await visualPass(e.target.value);
         running = false; setStatus(''); drawResults();
         return;
       }
@@ -1718,7 +1732,9 @@ App.views.scan = {
         const cell = cells[+d.dataset.dosearch];
         d.disabled = true; d.textContent = '…';
         try {
-          const cands = await R.manual(cell.blob, resultsEl.querySelector(`[data-name="${cell.i}"]`).value, resultsEl.querySelector(`[data-num="${cell.i}"]`).value);
+          const nameQ = resultsEl.querySelector(`[data-name="${cell.i}"]`).value, numQ = resultsEl.querySelector(`[data-num="${cell.i}"]`).value;
+          // One Piece : par le code (« OP10-001 ») s'il est donné, sinon par le nom
+          const cands = isPk() ? await R.manual(cell.blob, nameQ, numQ) : await ad.search({ name: numQ.trim() || nameQ });
           if (!cands.length) { App.util.toast('Aucune carte trouvée'); }
           else { cell.cands = cands; cell.choice = cands[0].id; cell.state = 'verifier'; cell.checked = true; }
         } catch (err) { App.util.toast(err.message); }
@@ -1755,7 +1771,7 @@ App.views.scan = {
           const cand = c.cands.find((x) => x.id === c.choice);
           if (!cand) continue;
           const picked = c.det && c.det.id === cand.id ? versOf(c) : null; // version vue (et corrigée) dans la liste
-          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode);
+          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, game);
           c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
           keys.push(key);
           const it = App.col.byKey(key);
@@ -1777,7 +1793,7 @@ App.views.scan = {
         (async () => {
           for (const { c } of todo) {
             if (c.cert !== 'encours') continue;
-            const ident = await App.certify.identity(c.blob, c.cand);
+            const ident = await App.certify.identity(c.blob, c.cand, game);
             const r = await App.certify.finish(c.key, c.photoId, c.pc, ident);
             c.cert = r.ok ? 'ok' : r.reason;
             if (alive()) drawResults();
@@ -1859,9 +1875,9 @@ App.views.scan = {
       } catch (e) { console.warn(e); }
       finally { rPrev = null; rBusy = false; }
     }
-    function addBurstCell(blob, auto, live) {
+    function addBurstCell(blob, auto, live, orig = null) { // orig : photo d'origine (One Piece : relue autrement si besoin)
       if (!cells.length) resultsEl.innerHTML = '';
-      const cell = { i: cells.length, blob, url: URL.createObjectURL(blob), auto, box: null, state: 'attente', cands: [], choice: '', info: null, mode: null, live };
+      const cell = { i: cells.length, blob, url: URL.createObjectURL(blob), auto, box: null, state: 'attente', cands: [], choice: '', info: null, mode: null, live, orig };
       urls.push(cell.url); cells.push(cell); if (prog) prog.total = cells.length;
       rPending++; running = true; drawResults();
       rQueue = rQueue.then(async () => {
@@ -1920,7 +1936,7 @@ App.views.scan = {
             const cell = found ? { x: found.x / W, y: found.y / H, w: found.w / W, h: found.h / H } : (() => { const h = Math.min(0.94, 0.94 * W / H / (63 / 88)); const w = h * H / W * (63 / 88); return { x: (1 - w) / 2, y: (1 - h) / 2, w, h }; })();
             const r = R.cellCard(img, cell);
             const blob = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9));
-            addBurstCell(blob, r.auto || !!found, undefined);
+            addBurstCell(blob, r.auto || !!found, undefined, f);
           } catch (err) { console.warn(err); }
         }
         if (files.length - pages >= 2) burstReview(); // plusieurs cartes : l'écran d'analyse

@@ -166,7 +166,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         ${certified ? (App.certify.pageOnly(it)
           ? `<span class="cert-pill page" title="Certifiée dans une page de classeur filmée en direct (carte tirée au sort). Capture-la seule et retourne-la pour la certification complète.">${App.icons.icon('shield', 14)} Certifiée (classeur)</span>`
           : `<span class="cert-pill" title="Au moins une photo de cette carte a été capturée en direct et vérifiée">${App.icons.icon('shield', 14)} Certifiée</span>`)
-          : game !== 'pokemon' ? `<span class="cert-no" title="La certification n’existe pas encore pour cette licence">${App.icons.icon('shield', 13)} Non certifiée</span>`
+
           : `<a class="cert-no" href="#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}" title="${esc(`Non certifiée${it.certNote && it.certNote.reason ? ' (' + it.certNote.reason + ')' : ''}. Capture-la avec la caméra du site${App.cloud.enabled && !App.cloud.user ? ', connecté à ton compte,' : ''} pour obtenir le badge.`)}">${App.icons.icon('shield', 13)} Non certifiée · <u>la certifier</u></a>`}
         <span class="spacer"></span>
         <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
