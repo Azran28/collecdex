@@ -5,7 +5,7 @@ App.views.showcase = {
   FRAMES: [['aucun', 'Aucun'], ['or', 'Or'], ['argent', 'Argent'], ['holo', 'Holo'], ['neon', 'Néon'], ['bois', 'Bois'], ['vitre', 'Vitrine']],
   LAYOUTS: [['vedette', 'Vedette + grille'], ['grille', 'Grille'], ['classeur', 'Page de classeur (3×3)'], ['eventail', 'Éventail']],
   // statistiques que l'on peut afficher (jusqu'à 4, dans l'ordre choisi ; la 1re est mise en avant)
-  STATS: [['cards', 'Nombre de cartes'], ['value', 'Valeur estimée'], ['sets', 'Séries complétées'], ['certs', 'Cartes certifiées'], ['copies', 'Exemplaires (doublons compris)'], ['dupes', 'Doublons'], ['started', 'Séries commencées'], ['best', 'Carte la plus chère'], ['badges', 'Badges débloqués'], ['wish', 'Cartes recherchées']],
+  STATS: [['cards', 'Nombre de cartes'], ['value', 'Valeur estimée'], ['sets', 'Séries complétées'], ['certs', 'Cartes certifiées'], ['copies', 'Exemplaires (doublons compris)'], ['dupes', 'Doublons'], ['started', 'Séries commencées'], ['best', 'Carte la plus chère'], ['badges', 'Badges débloqués']],
   DEFAULT_STATS: ['cards', 'value', 'sets', 'certs'],
 
   async render(el, params, alive) {
@@ -91,7 +91,6 @@ App.views.showcase = {
         case 'started': { const n = new Set(c.items.map((i) => i.setId)).size; return [n, n > 1 ? 'séries commencées' : 'série commencée']; }
         case 'best': { const b = c.items.reduce((m, i) => Math.max(m, val(i)), 0); return [b ? euro(b) : '—', 'carte la plus chère']; }
         case 'badges': return [c.got.length, c.got.length > 1 ? 'badges' : 'badge'];
-        case 'wish': return [c.wl.length, c.wl.length > 1 ? 'cartes recherchées' : 'carte recherchée'];
         default: return ['—', ''];
       }
     };
@@ -124,7 +123,6 @@ App.views.showcase = {
       const fresh = S.friend ? new Set() : new Set((await App.badges.check({ silent: true })).map((b) => b.id));
       const got = S.friend ? await App.badges.unlocked(owned(), S.cert) : await App.badges.unlocked();
       lastGot = got;
-      const wl = (profile.wishlist || []).filter((w) => !S.owns(w.game, w.id));
       const avatar = await S.avatar(profile);
       const featHTML = (await Promise.all(feat.map((it, i) => vcard(it, i, feat.length)))).join('');
       const topHTML = (await Promise.all(top.map(async (it) => {
@@ -141,7 +139,7 @@ App.views.showcase = {
       const isMe = S.pub && App.cloud.user && App.cloud.user.id === S.uid;
       const myPseudo = !S.friend && App.cloud.user && profile.public ? await App.cloud.myPseudo().catch(() => null) : null;
       if (!alive()) return;
-      const ctx = { items, total, got, wl };
+      const ctx = { items, total, got };
       const stats = statKeys();
       const secrets = App.badges.total - got.length;
 
@@ -197,10 +195,6 @@ App.views.showcase = {
             ${got.length ? `<div class="badge-grid compact">${[...got].sort((a, b) => b.tier - a.tier).map((b) => App.badges.medal(b, { isNew: fresh.has(b.id), size: 'sm' })).join('')}</div>
               <p class="small muted v-badge-hint">Touche un badge pour voir son nom.</p>` : '<div class="muted small">Aucun badge pour l’instant : ils se débloquent en complétant ta collection.</div>'}
             ${completedSets.length ? `<div class="v-badges">${completedSets.map((s) => `<span class="v-badge" title="Série complétée">${s.symbol ? `<img src="${esc(s.symbol)}.png" alt="">` : App.icons.icon('trophy', 14)}${esc(s.name)}</span>`).join('')}</div>` : ''}
-          </div>` : ''}
-          ${shown(profile.showWish !== false) && (wl.length || editing) ? `<div class="v-wish ${sec('wish', profile.showWish !== false)}">${pen('wish', 'Je recherche', profile.showWish === false)}
-            <div class="row" style="margin:26px 0 10px"><h2 style="margin:0">${App.icons.icon('heart', 18)} ${S.friend ? 'Recherche' : 'Je recherche'}</h2><span class="muted small">${wl.length} carte${wl.length > 1 ? 's' : ''}${S.friend && wl.some((w) => App.col.owned(w.game, w.id)) ? ` · <b style="color:var(--ok)">tu en as ${wl.filter((w) => App.col.owned(w.game, w.id)).length}</b>` : ''}</span><span class="spacer"></span>${S.friend || editing ? '' : '<a class="small" href="#/objectifs?tab=souhaits">Gérer ›</a>'}</div>
-            ${wl.length ? `<div class="v-wish-grid">${wl.slice(0, 12).map((w) => `<div class="vcard" data-card="${esc(w.id)}" data-game="${esc(w.game)}"><div class="frame-aucun"><img src="${esc(App.games.get(w.game).img.card({ image: w.image, id: w.id, setId: w.setId, localId: w.localId, serieId: w.serieId }, 'low'))}" alt="" loading="lazy" data-alt="${esc(w.name)}"></div><div class="vlabel">${esc(w.name)}<br><span class="muted" style="font-weight:500">${esc(w.setName || '')}</span>${S.friend && App.col.owned(w.game, w.id) ? '<br><span class="v-ihave">✓ Tu l’as</span>' : ''}</div></div>`).join('')}${wl.length > 12 ? `<a class="v-wish-more" href="#/objectifs?tab=souhaits">+${wl.length - 12}</a>` : ''}</div>` : '<p class="small muted">Ta liste de souhaits est vide.</p>'}
           </div>` : ''}
           ${shown(profile.showTop) && top.length ? `<div class="${sec('top', profile.showTop)}">${pen('top', 'Plus précieuses', !profile.showTop)}<h2 style="margin-top:26px">${top.length > 1 ? `Les ${top.length} plus précieuses` : 'La plus précieuse'}</h2><div class="v-featured layout-grille" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">${topHTML}</div></div>` : ''}
         </section>
@@ -281,8 +275,8 @@ App.views.showcase = {
     };
 
     // ---------- Fenêtres de choix (une par partie de la vitrine) ----------
-    const TITLES = { profil: 'Profil', stats: 'Statistiques', featured: 'Cartes à l’honneur', certs: 'Cartes certifiées', badges: 'Badges', wish: 'Je recherche', top: 'Les plus précieuses', theme: 'Thème', frame: 'Cadre des cartes', public: 'Vitrine publique' };
-    const SHOW = { stats: 'showStats', certs: 'showCerts', badges: 'showBadges', wish: 'showWish', top: 'showTop' };
+    const TITLES = { profil: 'Profil', stats: 'Statistiques', featured: 'Cartes à l’honneur', certs: 'Cartes certifiées', badges: 'Badges', top: 'Les plus précieuses', theme: 'Thème', frame: 'Cadre des cartes', public: 'Vitrine publique' };
+    const SHOW = { stats: 'showStats', certs: 'showCerts', badges: 'showBadges', top: 'showTop' };
     const isShown = (k) => (k === 'showStats' || k === 'showBadges' || k === 'showTop' ? !!profile[k] : profile[k] !== false);
     const showSwitch = (kind) => `<label class="v-switch"><input type="checkbox" data-show="${SHOW[kind]}" ${isShown(SHOW[kind]) ? 'checked' : ''}><span></span> Afficher sur ma vitrine</label>`;
     const fp = (list, cur, attr, swatch) => `<div class="frame-picker">${list.map(([k, l]) => `<div class="fp ${k === cur ? 'on' : ''}" data-${attr}="${k}">${swatch(k)}${l}</div>`).join('')}</div>`;
@@ -320,7 +314,6 @@ App.views.showcase = {
         }
         case 'certs': return `${showSwitch('certs')}<p class="small muted">Les cartes photographiées en direct et vérifiées par le serveur.</p>`;
         case 'badges': return `${showSwitch('badges')}<p class="small muted">Tes badges débloqués et tes séries complétées.</p>`;
-        case 'wish': return `${showSwitch('wish')}<p class="small muted">Les cartes de ta liste de souhaits que tu n’as pas encore.</p><a class="btn sm" href="#/objectifs?tab=souhaits">${App.icons.icon('heart', 14)} Gérer ma liste de souhaits</a>`;
         case 'top': return `${showSwitch('top')}<p class="small muted">Tes 10 cartes les plus chères.</p>`;
         case 'theme': return fp(V.THEMES, profile.theme, 'theme', (k) => `<div class="sw vitrine theme-${k}" style="padding:0"></div>`);
         case 'frame': return `<p class="small muted" style="margin-top:0">Cadre de tes cartes à l’honneur (chaque carte peut avoir le sien : crayon de « Cartes à l’honneur »).</p>${fp(V.FRAMES, profile.frame, 'frame', (k) => `<div class="sw frame-${k}" style="padding:6px"><div style="background:#556;height:100%;border-radius:4px"></div></div>`)}`;

@@ -474,7 +474,7 @@ App.views.scan = {
               <button class="btn" data-dupmode="doublon" data-card="${esc(c.id)}">Un autre exemplaire (doublon)</button>
               <button class="btn ghost" data-dupmode="annuler" data-card="${esc(c.id)}">Annuler</button>
             </div>
-            <p class="small muted" style="margin-bottom:0">Ta progression compte chaque carte une seule fois. Les doublons sont gardés à part (utiles plus tard pour les échanges).</p></div>`;
+            <p class="small muted" style="margin-bottom:0">Ta progression compte chaque carte une seule fois. Les doublons sont comptés à part.</p></div>`;
           return;
         }
         if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }

@@ -150,7 +150,7 @@ App.views.goals = {
       if (got.length) App.util.toast(`🎉 ${got.length} carte${got.length > 1 ? 's' : ''} de ta liste obtenue${got.length > 1 ? 's' : ''} : retirée${got.length > 1 ? 's' : ''} de la liste`);
       const l = await App.wish.list();
       if (!l.length) {
-        body.innerHTML = `<div class="empty panel">${App.icons.icon('heart', 20)}<br>Ta liste de souhaits est vide.<br><span class="small muted">Ouvre une carte que tu n’as pas et appuie sur « ♡ Je la cherche ». Elle servira aussi pour les échanges.</span></div>`;
+        body.innerHTML = `<div class="empty panel">${App.icons.icon('heart', 20)}<br>Ta liste de souhaits est vide.<br><span class="small muted">Ouvre une carte que tu n’as pas et appuie sur « ♡ Je la cherche ». Elle reste personnelle : personne d’autre ne la voit.</span></div>`;
         return;
       }
       const cards = l.map((w) => ({ id: w.id, name: w.name, localId: w.localId, image: w.image, rarity: w.rarity, setId: w.setId, serieId: w.serieId, setName: w.setName }));

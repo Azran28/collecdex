@@ -4,7 +4,7 @@
 - Site : https://azran28.github.io/collecdex/ (GitHub Pages, dépôt Azran28/collecdex, branche main). Claude publie les mises à jour directement.
 - **Appli installable** (PWA) : icône sur l'écran d'accueil, plein écran, hors ligne (service worker `sw.js`, manifeste `manifest.webmanifest`, icônes dans `icons/`).
 - Comptes et synchronisation : Supabase, projet zjzfwhtqrigfmqzfebzy (offre gratuite). Tables `items` et `profiles` + stockage `photos`, protégés par RLS.
-- Scripts SQL à exécuter une fois, dans l'ordre : `supabase-setup.sql`, `supabase-certif.sql`, `supabase-v2.sql`, `supabase-v3.sql` (capsules), `supabase-v4.sql` (amis), `supabase-v5.sql` (boutique des capsules), `supabase-v6.sql` (sécurité), `supabase-v7.sql` (certification par retournement, notifications), `supabase-v8.sql`, `supabase-v9.sql`, `supabase-v10.sql`, `supabase-v11.sql` (notification de demande d'ami), `supabase-v12.sql` (équipes choisies dans le salon), `supabase-v13.sql`, `supabase-v14.sql`, `supabase-v15.sql` (carte recherchée, revanche) + fonction `capsule-notify` (nommée `hyper-processor`) dans Edge Functions. Pour que d'autres puissent s'inscrire : désactiver « Confirm email » dans Supabase (l'envoi d'e-mails gratuit ne marche que pour Arnaud). `supabase-mes-certificats.sql` (certifie les cartes déjà présentes chez Arnaud) est seulement sur son PC, pas sur GitHub.
+- Scripts SQL à exécuter une fois, dans l'ordre : `supabase-setup.sql`, `supabase-certif.sql`, `supabase-v2.sql`, `supabase-v3.sql` (capsules), `supabase-v4.sql` (amis), `supabase-v5.sql` (boutique des capsules), `supabase-v6.sql` (sécurité), `supabase-v7.sql` (certification par retournement, notifications), `supabase-v8.sql`, `supabase-v9.sql`, `supabase-v10.sql`, `supabase-v11.sql` (notification de demande d'ami), `supabase-v12.sql` (équipes choisies dans le salon), `supabase-v13.sql`, `supabase-v14.sql`, `supabase-v15.sql` (revanche), `supabase-v16.sql` (liste de souhaits personnelle) (carte recherchée, revanche) + fonction `capsule-notify` (nommée `hyper-processor`) dans Edge Functions. Pour que d'autres puissent s'inscrire : désactiver « Confirm email » dans Supabase (l'envoi d'e-mails gratuit ne marche que pour Arnaud). `supabase-mes-certificats.sql` (certifie les cartes déjà présentes chez Arnaud) est seulement sur son PC, pas sur GitHub.
 - Version PC (localhost:8765 via `Lancer CollecDex.bat`) : même code, avec compte et synchronisation.
 - Contexte permanent pour Claude : `CLAUDE.md` et cette feuille de route `FEUILLE-DE-ROUTE.md` (dans le dépôt et le dossier du PC ; copie dans le projet claude.ai « Collection »).
 
@@ -12,7 +12,7 @@
 Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 
 **1. Collectionner au quotidien** ✅
-- ✅ Liste de souhaits (cartes recherchées), base des futurs échanges.
+- ✅ Liste de souhaits (cartes recherchées) : outil personnel, jamais montré aux autres (v2.82).
 - ✅ Objectifs personnels (finir une série, avec date facultative).
 - ✅ « Ce qu'il me manque » : cartes manquantes les moins chères pour avancer.
 - ✗ Historique / graphique de la collection (pas utile pour Arnaud).
@@ -28,11 +28,11 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 **Capsules (idée d'Arnaud, 25 sept.)** ✅ une capsule par heure (10 max), ouverte côté serveur, Pokémon tiré selon sa rareté (commun 50 %, peu commun 28 %, rare 15 %, très rare 4,5 %, légendaire 2 %, fabuleux 0,5 %, chromatique 1 %), animation selon la rareté, Mon Pokédex (1025 espèces par région), avatar choisi parmi ses Pokémon. ✅ Boutique : vendre ses Pokémon contre des **éclats**, acheter capsules et grandes capsules. Pistes : badges Pokédex, échanges de Pokémon, afficher son Pokédex dans la vitrine publique.
 
 **3. Social** (le cœur à terme)
-- ✅ Amis : ajout par pseudo ou lien d'invitation, demandes reçues/envoyées, vitrine d'un ami en lecture seule (avec « ✓ Tu l'as » sur ce qu'il recherche).
+- ✅ Amis : ajout par pseudo ou lien d'invitation, demandes reçues/envoyées, vitrine d'un ami en lecture seule.
 - ✅ Vitrine publique partageable (`collecdex/#/@Pseudo`, v2.59) : activée par le dresseur dans Personnaliser, visible sans compte, photos de cartes en option, section « Cartes certifiées » et bouclier sur les cartes certifiées, bouton Partager, « Ajouter en ami » pour un visiteur connecté. Pistes : aperçu joli du lien dans les messageries (impossible sans serveur de pages : GitHub Pages ne sert qu’une page), compteur de visites.
-- Échanges : doublons « disponibles », correspondances avec la liste de souhaits des autres, propositions d'échange.
+- ✗ Échanges entre collectionneurs (5 oct. : écartés par Arnaud — risques d'arnaque et de vente, contraire à l'idée de collection et de complétion ; la liste de souhaits reste personnelle).
 - Classements et défis du mois, badges exclusifs.
-- Amis : suivre des collectionneurs.
+- ✗ Suivre des collectionneurs (lié aux échanges, écarté le 5 oct.).
 
 **4. Capture**
 - ✅ Capture en rafale (caméra ouverte, cartes prises toutes seules quand elles sont immobiles, certification carte par carte ; import de plusieurs photos d'un coup).
@@ -51,7 +51,7 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 
 **6. Confort** (en cours)
 - ✅ Application installable sur le téléphone (icône, plein écran, hors ligne).
-- ✅ Notifications (réglables dans Paramètres) : réserve de capsules pleine, demande d'ami reçue (v2.62). ✅ Carte recherchée proposée (un ami l'a en double) et badge débloqué (v2.80).
+- ✅ Notifications (réglables dans Paramètres) : réserve de capsules pleine, demande d'ami reçue (v2.62). ✅ Badge débloqué (v2.80). ✗ « Carte recherchée proposée » (v2.80, retirée en v2.82 avec les échanges).
 
 **7. Play Store** (en cours)
 - ✅ Politique de confidentialité (`confidentialite.html`), page et bouton « Supprimer mon compte » (`supprimer-compte.html`, `#/supprimer-compte`, `supabase-v13.sql`), mention « application non officielle », contact collecdex.app@gmail.com.
@@ -61,6 +61,7 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 - À faire : nom de domaine + hébergement (Cloudflare Pages, dépôt privé, `assetlinks.json`), service d'e-mails (Brevo/Resend) puis confirmation d'e-mail, formulaire « Sécurité des données », appli Android (TWA), test fermé 12 personnes × 14 jours. Plus tard : abonnement Premium via Google Play Billing (15 %).
 
 ## Historique des versions
+- **v2.82 (5 oct.)** : **pas d'échanges dans CollecDex** (décision d'Arnaud : risques d'arnaque et de vente) — la liste de souhaits devient personnelle : retirée de la vitrine (la sienne, celle des amis et la publique, avec « ✓ Tu l'as » et la statistique « Cartes recherchées »), plus envoyée par le serveur (`supabase-v16.sql`) ; notification « un ami a en double une carte que je recherche » retirée (partie retirée de `supabase-v15.sql`, ménage dans v16, plus dans `hyper-processor`) ; textes « utile pour les échanges » retirés, badge « Prêt à échanger » renommé « Bien fourni ».
 - **v2.81 (5 oct.)** : **photos plus légères dans le compte** (offre gratuite de Supabase : 1 Go) — photos en WebP (~30 Ko au lieu de ~56 à 80 Ko en JPEG, même taille d'image ; JPEG gardé sur iPhone), et seuls le visuel de chaque carte et les photos certifiées partent dans le compte (les autres restent sur l'appareil, la fiche les compte). Environ 30 000 photos tiennent dans 1 Go (avant : ~13 000 à 18 000, dont les photos des doublons). Les photos déjà en ligne ne changent pas.
 - **v2.80 (5 oct.)** : **confort** — Combat : **revanche en un geste** (hors ligne « Revanche » / « Niveau suivant » ; en ligne, nouveau salon avec le même adversaire, l'autre voit « … propose une revanche », `supabase-v15.sql`) ; mode Avancé avec **pioche de 10 cartes** (mélangée, 3 en main, 1 piochée à chaque tour ; même mélange sur les deux téléphones en ligne ; decks de l'ordinateur de 4 à 10 cartes, prêt de 8). Notifications : **carte recherchée proposée** (un ami a en double une carte de ta liste de souhaits ; déclencheur serveur, `supabase-v15.sql` + nouveau code de `hyper-processor`) et **badge débloqué** (affichée par le téléphone). Import : **Pokellector** et **Dragon Shield** (ligne « sep=, », états « NearMint », « 2x Nom » dans une liste collée).
 - **v2.79 (5 oct.)** : tests complets avec le compte de test connecté (serveur v3 à v14, amis, vitrine d'ami et publique, synchro ajout / modification / suppression avec photo, import, capsules, salon de combat, version Play Store, présentation de l'appli) : tout fonctionne. Corrigé : « 1 cartes différentes / 1 exemplaires / Les 1 plus précieuses » ; « Illustration : différente » n'est plus affiché sur la bonne carte quand le numéro lu correspond (vieilles holos : les scans officiels ont un fond étoilé sombre, la vraie carte un arc-en-ciel clair). À faire : la vérification par l'image du classeur (points clés) aussi en carte seule.

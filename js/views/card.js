@@ -134,7 +134,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         <p class="muted small" style="margin-top:0">Tu n’as pas encore cette carte : capture-la en photo pour l’ajouter.</p>
         <div class="row"><a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}">${App.icons.icon('capture', 16)} Capturer cette carte</a>
         <button class="btn ${App.wish.has(game, card.id) ? 'wish-on' : ''}" id="cd-wish">${App.wish.has(game, card.id) ? '♥ Je la cherche' : '♡ Je la cherche'}</button></div>
-        <p class="small muted" style="margin:8px 0 0">${App.wish.has(game, card.id) ? 'Elle est dans ta <a href="#/objectifs?tab=souhaits">liste de souhaits</a>.' : 'Ajoute-la à ta liste de souhaits pour la retrouver (et plus tard pour les échanges).'}</p>`;
+        <p class="small muted" style="margin:8px 0 0">${App.wish.has(game, card.id) ? 'Elle est dans ta <a href="#/objectifs?tab=souhaits">liste de souhaits</a>.' : 'Ajoute-la à ta liste de souhaits pour la retrouver facilement.'}</p>`;
       return;
     }
     // les photos qui ne sont ni le visuel ni certifiées restent sur l'appareil qui les a prises : ailleurs, on les compte seulement

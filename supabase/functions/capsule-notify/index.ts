@@ -1,6 +1,6 @@
 // CollecDex — fonction d'envoi des notifications (Supabase → Edge Functions, nommée « hyper-processor » sur le serveur).
 // Appelée toutes les 5 minutes par pg_cron (supabase-v7.sql) et à chaque demande d'ami (supabase-v11.sql) :
-// envoie « ta réserve de capsules est pleine », « nouvelle demande d’ami » et « carte recherchée proposée » (v15)
+// envoie « ta réserve de capsules est pleine » et « nouvelle demande d'ami »
 // aux appareils abonnés. Aucune clé à recopier : les clés d'envoi (VAPID) sont créées ici au premier passage
 // et rangées dans la table push_config, que seul le serveur peut lire.
 // À déployer avec « Verify JWT » désactivé (pg_cron l'appelle sans jeton). L'appeler n'envoie que les
@@ -64,14 +64,7 @@ Deno.serve(async () => {
       const who = String(s.pseudo || 'Un dresseur').slice(0, 40);
       await send(s, JSON.stringify({ title: 'Nouvelle demande d’ami', body: `${who} veut devenir ton ami sur CollecDex.`, url: '#/amis', tag: 'ami-' + who }), 24 * 3600);
     }
-    // 3) un ami a en double une carte de ma liste de souhaits (supabase-v15.sql ; sinon on saute sans erreur)
-    const { data: wishes, error: e4 } = await sb.rpc('push_due_wishes');
-    if (e4) console.error('push_due_wishes : ' + e4.message);
-    for (const s of wishes ?? []) {
-      const who = String(s.pseudo || 'Un ami').slice(0, 40), card = String(s.card || 'une carte').slice(0, 60);
-      const owner = /^[0-9a-f-]{36}$/i.test(String(s.owner)) ? s.owner : '';
-      await send(s, JSON.stringify({ title: 'Carte recherchée proposée !', body: `${who} a ${card} en double : demande-lui un échange.`, url: owner ? `#/ami/${owner}` : '#/amis', tag: `souhait-${owner}-${card}` }), 2 * 24 * 3600);
-    }
+    // (v2.82 : plus de notification « un ami a en double une carte que je recherche » : pas d'échanges dans CollecDex)
     return new Response(JSON.stringify({ ok: true, sent, gone }), { headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
     console.error(e);

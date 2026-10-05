@@ -47,11 +47,9 @@ App.friends = (() => {
       bio: str(pr.bio, 1000), theme: oneOf(pr.theme, V.THEMES, 'nuit'), frame: oneOf(pr.frame, V.FRAMES, 'or'), layout: oneOf(pr.layout, V.LAYOUTS, 'vedette'),
       featured: Array.isArray(pr.featured) ? pr.featured.slice(0, 9).map((k) => str(k)) : [], frames,
       avatarPoke: avatarPoke(pr.avatarPoke), avatar: photoId(pr.avatar),
-      showStats: pr.showStats !== false, showBadges: pr.showBadges !== false, showTop: pr.showTop !== false, showWish: pr.showWish !== false, showCerts: pr.showCerts !== false,
+      showStats: pr.showStats !== false, showBadges: pr.showBadges !== false, showTop: pr.showTop !== false, showCerts: pr.showCerts !== false,
       stats: (Array.isArray(pr.stats) ? pr.stats : []).filter((k) => V.STATS.some(([x]) => x === k)).slice(0, 4),
-      wishlist: (Array.isArray(pr.wishlist) ? pr.wishlist : []).map(obj).filter((w) => game(w.game)).slice(0, 500).map((w) => ({
-        game: w.game, id: str(w.id), setId: str(w.setId), name: str(w.name), setName: str(w.setName), localId: str(w.localId, 20), serieId: str(w.serieId, 40), image: tcgImg(w.image),
-      })),
+      // la liste de souhaits reste personnelle (v2.82) : jamais montrée aux autres
     };
   }
   const cleanRow = (r) => { r = obj(r); return UUID.test(r.user_id) ? { user_id: r.user_id, pseudo: str(r.pseudo, 40) || 'Dresseur', avatar: avatarPoke(r.avatar), status: r.status === 'accepted' ? 'accepted' : 'pending', incoming: !!r.incoming, since: r.since, cards: Math.max(0, Math.floor(num(r.cards))) } : null; };

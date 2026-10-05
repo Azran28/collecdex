@@ -40,7 +40,7 @@ App.badges = (() => {
     ['k25', 'Sceau de confiance', '25 cartes certifiées', 'shield', 2, (x) => x.cert >= 25],
     ['k100', 'Incorruptible', '100 cartes certifiées', 'shield', 4, (x) => x.cert >= 100],
     // Doublons, favoris
-    ['d10', 'Prêt à échanger', '10 doublons de côté', 'gift', 1, (x) => x.dup >= 10],
+    ['d10', 'Bien fourni', '10 doublons de côté', 'gift', 1, (x) => x.dup >= 10],
     ['d50', 'Marchand ambulant', '50 doublons de côté', 'gift', 2, (x) => x.dup >= 50],
     ['f10', 'Coups de cœur', '10 cartes en favori', 'heart', 1, (x) => x.fav >= 10],
     // Pokémon

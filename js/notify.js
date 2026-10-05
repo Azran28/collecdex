@@ -6,7 +6,7 @@
  */
 App.notify = (() => {
   const KINDS = [['capsules', 'Ma réserve de capsules est pleine (10 capsules à ouvrir)'], ['friends', 'Je reçois une demande d’ami'],
-    ['wish', 'Un ami a en double une carte que je recherche'], ['badges', 'Je débloque un badge']].filter(([k]) => !(App.play && k === 'capsules'));
+    ['badges', 'Je débloque un badge']].filter(([k]) => !(App.play && k === 'capsules'));
   const listeners = new Set();
   const notify = () => listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
 
@@ -23,7 +23,7 @@ App.notify = (() => {
   async function subscription() {
     try { const reg = await navigator.serviceWorker.getRegistration(); return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; }
   }
-  const prefs = async () => Object.assign({ on: false, kinds: { capsules: true, friends: true, wish: true, badges: true } }, (await App.db.get('kv', 'notify').catch(() => null)) || {});
+  const prefs = async () => Object.assign({ on: false, kinds: { capsules: true, friends: true, badges: true } }, (await App.db.get('kv', 'notify').catch(() => null)) || {});
   const savePrefs = (p) => App.db.set('kv', 'notify', p).catch(() => {});
 
   // clé publique VAPID (texte base64url) → octets
