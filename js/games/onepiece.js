@@ -358,9 +358,13 @@
       const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
       c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
       const r = App.recognizer.cutCard(c, { x: 0.02, y: 0.02, w: 0.96, h: 0.96 }); // bords de la carte
-      if (r) out.push({ blob: await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)), zones: CODE_ZONES });
+      if (r) out.push({ blob: await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)), zones: CODE_ZONES, asPhoto: true }); // (carte au ras de ses bords : peut remplacer la photo)
       // la photo entière (carte qui la remplit presque) : on ne sait pas où est le bas de la carte → bandes qui glissent sur le bas
-      out.push({ blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9)), zones: SLIDE_ZONES });
+      // (si le code n'est lu que là, la carte remplit la photo : la photo, ramenée au format d'une carte, devient son visuel)
+      const R2 = 63 / 88, pw = Math.min(c.width, c.height * R2), ph = pw / R2;
+      const whole = document.createElement('canvas'); whole.width = Math.round(pw); whole.height = Math.round(ph);
+      whole.getContext('2d').drawImage(c, (c.width - pw) / 2, (c.height - ph) / 2, pw, ph, 0, 0, whole.width, whole.height);
+      out.push({ blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9)), zones: SLIDE_ZONES, photo: await new Promise((res) => whole.toBlob(res, 'image/jpeg', 0.9)) });
     } catch (e) { console.warn(e); }
     return out.filter((x) => x.blob);
   }
@@ -370,13 +374,13 @@
     const R = App.recognizer;
     statusFn('Lecture du code de la carte…');
     const texts = await R.readZones(blob, [...CODE_ZONES, ...NAME_ZONES]);
-    let read = texts.map(codesIn);
+    let read = texts.map(codesIn), betterCrop = null;
     // rien lu sur la carte recadrée : le code est cherché sur d'autres cadrages de la photo d'origine
     if (original && !read.some((r) => r.codes.length)) {
       statusFn('Lecture du code (autre cadrage)…');
       for (const alt of await otherCrops(original)) {
         const t = await R.readZones(alt.blob, alt.zones); texts.push(...t); read.push(...t.map(codesIn));
-        if (read.some((r) => r.codes.length)) break;
+        if (read.some((r) => r.codes.length)) { betterCrop = alt.asPhoto ? alt.blob : alt.photo || null; break; } // ce cadrage-là montre vraiment la carte : il servira de photo
       }
     }
     if (!read.some((r) => r.codes.length)) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }
@@ -461,7 +465,7 @@
     // code mal lu mais retrouvé par l'image (« OP05-004 » lu, c'est OP09-004) : on le dit
     const byImg = codes.length && code && !codes.includes(code) && top.visual >= 0.6;
     const readTxt = codes.length ? `code ${byImg ? code : codes[0]}${fixed ? ' (corrigé grâce au nom)' : byImg ? ' (corrigé grâce à l’illustration)' : ''}` : numsRead.size ? `numéro ${[...numsRead][0]}` : '';
-    return { info: { code, name: nameOk, votes, read: [readTxt, nameOk ? `nom « ${nameOk} »` : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+    return { info: { code, name: nameOk, votes, crop: betterCrop, read: [readTxt, nameOk ? `nom « ${nameOk} »` : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
   // ---------- Images ----------

@@ -380,9 +380,22 @@ App.views.scan = {
         pageBlob = blob;
         const ar = img.naturalWidth / img.naturalHeight;
         let size = initial || (Math.abs(ar - RATIO) < 0.06 ? 1 : 0.9); // photo déjà au format carte → toute l'image
-        let cx = 0.5, cy = 0.5, found = false;
-        // photo importée : le cadre se place tout seul sur la carte (bords trouvés), on peut toujours le déplacer
+        let cx = 0.5, cy = 0.5, found = false, warped = null;
+        // v2.89 : d'abord le détourage par les 4 bords (carte remise à plat, forme de carte vérifiée) — le cadre jaune
+        // automatique ci-dessous prenait parfois l'intérieur d'une carte à bordure jaune (recadrage « sans sens »)
         if (!initial && !lp.page) {
+          try {
+            const r = R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 });
+            if (r && r.fit >= 0.45) {
+              const xs = r.quad.map((p) => p[0]), ys = r.quad.map((p) => p[1]);
+              const bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
+              size = Math.min(1, Math.max(bh, (bw * ar) / RATIO)); cx = (Math.max(...xs) + Math.min(...xs)) / 2; cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+              warped = r.canvas; found = true;
+            }
+          } catch (e) { console.warn(e); }
+        }
+        // photo importée : le cadre se place tout seul sur la carte (bords trouvés), on peut toujours le déplacer
+        if (!initial && !lp.page && !found) {
           try {
             const NW = img.naturalWidth, NH = img.naturalHeight;
             const f = R.locateCard(img, { x: 0, y: 0, w: NW, h: NH }, 0.45);
@@ -393,7 +406,7 @@ App.views.scan = {
             }
           } catch (e) { console.warn(e); }
         }
-        crop = { img, url, box: view.querySelector('.crop-box'), cx, cy, size };
+        crop = { img, url, box: view.querySelector('.crop-box'), cx, cy, size, warped };
         el.querySelector('#sc-size').value = Math.round(size * 100);
         placeBox();
         // carte trouvée toute seule : pas d'étape « Valider le cadrage », la recherche part directement
@@ -402,7 +415,8 @@ App.views.scan = {
       };
     }
     function boxRect() {
-      const W = crop.img.clientWidth, H = crop.img.clientHeight;
+      // (image pas encore affichée, ou page cachée : sa taille réelle — sinon le recadrage était vide)
+      const W = crop.img.clientWidth || crop.img.naturalWidth, H = crop.img.clientHeight || crop.img.naturalHeight;
       let h = H * crop.size, w = h * RATIO;
       if (w > W) { w = W * crop.size; h = w / RATIO; }
       const x = Math.min(Math.max(0, crop.cx * W - w / 2), W - w), y = Math.min(Math.max(0, crop.cy * H - h / 2), H - h);
@@ -432,14 +446,17 @@ App.views.scan = {
     });
     el.querySelector('#sc-crop-ok').addEventListener('click', () => {
       if (!crop) return;
-      const r = boxRect(), k = crop.img.naturalWidth / r.W, sw = r.w * k, sh = r.h * k;
-      const outW = Math.min(900, Math.round(sw)), outH = Math.round(outW / RATIO);
-      const c = document.createElement('canvas'); c.width = outW; c.height = outH;
-      c.getContext('2d').drawImage(crop.img, r.x * k, r.y * k, sw, sh, 0, 0, outW, outH);
+      const auto = autoCrop; autoCrop = false;
+      let c = auto && crop.warped; // carte détourée sur ses 4 bords (cadre automatique) : remise à plat, au ras des bords
+      if (!c) {
+        const r = boxRect(), k = crop.img.naturalWidth / r.W, sw = r.w * k, sh = r.h * k;
+        const outW = Math.min(900, Math.round(sw)), outH = Math.round(outW / RATIO);
+        c = document.createElement('canvas'); c.width = outW; c.height = outH;
+        c.getContext('2d').drawImage(crop.img, r.x * k, r.y * k, sw, sh, 0, 0, outW, outH);
+      }
       URL.revokeObjectURL(crop.url); crop = null;
       el.querySelector('#sc-cropbar').classList.add('hidden');
       el.querySelector('#sc-actions').classList.remove('hidden');
-      const auto = autoCrop; autoCrop = false;
       c.toBlob(async (b) => {
         await analyse(b);
         if (auto && alive()) status.insertAdjacentHTML('afterbegin', '<div class="panel" style="margin-bottom:14px"><button class="linkbtn small" id="sc-recrop">✂ Mal cadrée ? Recadrer à la main</button></div>');
@@ -559,7 +576,10 @@ App.views.scan = {
       try {
         const setId = el.querySelector('#sc-set').value;
         let info, cands, summary, switched = false;
-        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob }) /* photo d'origine : autre cadrage si besoin */); summary = info.read; }
+        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob }) /* photo d'origine : autre cadrage si besoin */); summary = info.read;
+          // la carte n'a été lue que sur un autre cadrage : c'est lui qui montre vraiment la carte → il devient sa photo
+          if (info.crop) { cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
+        }
         else {
           if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
           else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
@@ -1506,6 +1526,7 @@ App.views.scan = {
       if (await R.looksLikeBack(cell.blob, game).catch(() => false)) { cell.state = 'dos'; return; }
       const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
       cell.info = info; cell.cands = cands;
+      if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); } // meilleur cadrage (One Piece) : photo de la case
       if (info && info.don) { cell.state = 'don'; cell.cands = []; cell.choice = ''; cell.checked = false; return; } // carte DON!! (One Piece) : pas encore gérée
       if (info && info.otherGame && !(cands[0] && cands[0].confident)) { cell.state = 'autre'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.choice = cands[0] ? cands[0].id : '';
@@ -1525,6 +1546,7 @@ App.views.scan = {
         else {
           const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
           cell.info = info; cell.cands = cands;
+          if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); }
           cell.choice = cands[0] ? cands[0].id : '';
           cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
           cell.checked = cell.state === 'sure';
@@ -1934,9 +1956,11 @@ App.views.scan = {
             // (comme pour une carte seule : le cadre trouvé n'est gardé que si la carte fait plus de 55 % de la hauteur)
             const f0 = R.locateCard(img, { x: 0, y: 0, w: W, h: H }, 0.45), found = f0 && f0.h > H * 0.55 ? f0 : null;
             const cell = found ? { x: found.x / W, y: found.y / H, w: found.w / W, h: found.h / H } : (() => { const h = Math.min(0.94, 0.94 * W / H / (63 / 88)); const w = h * H / W * (63 / 88); return { x: (1 - w) / 2, y: (1 - h) / 2, w, h }; })();
-            const r = R.cellCard(img, cell);
+            // v2.89 : d'abord le détourage sur les 4 bords (forme de carte vérifiée), le cadre ci-dessus en secours
+            let cut = null; try { cut = R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 }); if (cut && cut.fit < 0.45) cut = null; } catch (err) { /* */ }
+            const r = cut || R.cellCard(img, cell);
             const blob = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9));
-            addBurstCell(blob, r.auto || !!found, undefined, f);
+            addBurstCell(blob, !!cut || r.auto || !!found, undefined, f);
           } catch (err) { console.warn(err); }
         }
         if (files.length - pages >= 2) burstReview(); // plusieurs cartes : l'écran d'analyse

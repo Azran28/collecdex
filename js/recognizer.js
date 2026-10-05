@@ -424,6 +424,14 @@ App.recognizer = (() => {
    *   proches de lui (±12 %), le plus proche l'emporte : pas de bord de pochette voisine ni de reflet lointain.
    * warp = false : seulement les coins (quad), sans image remise à plat.
    */
+  /** Quadrilatère (pixels, coins dans l'ordre haut-gauche, haut-droit, bas-droit, bas-gauche) en forme de carte debout ? */
+  function plausibleQuad(q) {
+    const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const top = d(q[0], q[1]), right = d(q[1], q[2]), bottom = d(q[2], q[3]), left = d(q[3], q[0]);
+    if (!top || !right || !bottom || !left) return false;
+    const r1 = top / bottom, r2 = left / right, ar = (top + bottom) / (left + right);
+    return r1 > 0.82 && r1 < 1.22 && r2 > 0.82 && r2 < 1.22 && ar > 0.6 && ar < 0.84;
+  }
   function cutCard(img, rect = { x: 0, y: 0, w: 1, h: 1 }, { expect = null, warp = true, sizeCheck = null } = {}) {
     const NW = img.naturalWidth || img.width, NH = img.naturalHeight || img.height;
     // zone de recherche : la zone donnée + 8 % (la carte peut dépasser un peu du cadre jaune) ;
@@ -550,6 +558,7 @@ App.recognizer = (() => {
         if (!pick || score > pick.score) pick = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac), border: borderScore.last };
         continue;
       } else {
+        if (!plausibleQuad(q)) continue; // (côtés opposés trop différents : pas une carte, v2.89)
         // à forme égale, le plus GRAND rectangle : le bord extérieur de la carte, pas le cadre jaune à l'intérieur
         score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 + (qw * qh) / (w * h) * 4;
       }
@@ -559,6 +568,9 @@ App.recognizer = (() => {
     const q = pick.q.map(([x, y]) => [ax + x / S, ay + y / S]);
     const qw = pick.qw / S;
     if (q.some(([x, y]) => x < -2 || y < -2 || x > NW + 2 || y > NH + 2)) return null;
+    // carte seule (v2.89) : le cadre trouvé doit avoir une forme de carte (côtés opposés presque égaux, 63 × 88) ;
+    // sinon le recadrage « n'a pas de sens » (photo d'Arnaud : bord du haut 0,58, du bas 0,79 → carte coupée en biais)
+    if (!expect && !plausibleQuad(q)) return null;
     const quad = q.map(([x, y]) => [x / NW, y / NH]);
     if (!warp) return { quad, fit: pick.fit, border: pick.border };
     return { canvas: warpQuad(img, q, Math.min(900, Math.round(qw))), quad, fit: pick.fit };
@@ -1627,5 +1639,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, readZones, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, readZones, plausibleQuad, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
 })();
