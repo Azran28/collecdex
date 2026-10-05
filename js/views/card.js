@@ -17,6 +17,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   };
   const base = { id: card.id, localId: card.localId, name: card.name, image: card.image, rarity: card.rarity, setId: setInfo.id, serieId: setInfo.group ? setInfo.group.id : '' };
   const price = ad.price(card);
+  const scanJeu = game !== 'pokemon' ? '&jeu=' + game : ''; // capture d'une carte d'une autre licence
   const pr = ad.pullRates(setInfo.id);
   const rk = ad.rarity.key(card.rarity);
   const rate = pr && rk && pr.rates[rk];
@@ -62,7 +63,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
           <button class="btn sm" id="cd-next" ${nextId ? '' : 'disabled'}>Suivante ›</button></div>` : ''}
       </div>
       <div>
-        <div class="muted">${esc(setInfo.name)} · n° ${esc(card.localId)}${setInfo.official ? '/' + String(setInfo.official).padStart(String(card.localId).length, '0') : ''}</div>
+        <div class="muted">${esc(setInfo.name)} · n° ${esc(card.localId)}${setInfo.official && !ad.numLabel ? '/' + String(setInfo.official).padStart(String(card.localId).length, '0') : ''}</div>
         <h1 style="margin-top:4px">${esc(card.name)}</h1>
         <div class="row">${ad.rarity.symbol(card.rarity, 18)} <b>${esc(ad.rarity.label(card.rarity))}</b>${rate ? `<span class="pill">≈ 1 booster sur ${rate.toLocaleString('fr-FR')} pour cette rareté</span>` : ''}</div>
         <div class="cd-facts">
@@ -72,7 +73,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
           ${availVariants.length ? `<span>${availVariants.map((v) => variantNames[v]).join(', ')}</span>` : ''}
           ${card.illustrator ? `<span title="Illustrateur">✎ ${esc(card.illustrator)}</span>` : ''}
           ${setInfo.releaseDate ? `<span title="Sortie">${dateFr(setInfo.releaseDate)}</span>` : ''}
+          ${(card.facts || []).slice(1).map((f) => `<span>${esc(f)}</span>`).join('')}
         </div>
+        ${card.text ? `<p class="cd-text small">${esc(card.text).replace(/\n/g, '<br>')}</p>` : ''}
         ${card.tags && card.tags.includes('hors-serie') ? `<div class="hs-box"><span class="hs-tag big">Hors-série</span>
           <p>${esc(card.origin || '')}${card.copies ? ` · <b>${esc(card.copies)}</b>` : ''}</p>
           <p class="small muted">Carte officielle qui n’appartient à aucune série. <a href="#/jeu/pokemon/hors-serie">Toutes les cartes hors-série ›</a></p></div>` : ''}
@@ -132,7 +135,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (!it || !it.qty) {
       box.innerHTML = `<h3>Mon Dex</h3>
         <p class="muted small" style="margin-top:0">Tu n’as pas encore cette carte : capture-la en photo pour l’ajouter.</p>
-        <div class="row"><a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}">${App.icons.icon('capture', 16)} Capturer cette carte</a>
+        <div class="row"><a class="btn primary" href="#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}">${App.icons.icon('capture', 16)} Capturer cette carte</a>
         <button class="btn ${App.wish.has(game, card.id) ? 'wish-on' : ''}" id="cd-wish">${App.wish.has(game, card.id) ? '♥ Je la cherche' : '♡ Je la cherche'}</button></div>
         <p class="small muted" style="margin:8px 0 0">${App.wish.has(game, card.id) ? 'Elle est dans ta <a href="#/objectifs?tab=souhaits">liste de souhaits</a>.' : 'Ajoute-la à ta liste de souhaits pour la retrouver facilement.'}</p>`;
       return;
@@ -147,9 +150,10 @@ App.cardModal = async function (game, cardId, ctx = {}) {
         ${certified ? (App.certify.pageOnly(it)
           ? `<span class="cert-pill page" title="Certifiée dans une page de classeur filmée en direct (carte tirée au sort). Capture-la seule et retourne-la pour la certification complète.">${App.icons.icon('shield', 14)} Certifiée (classeur)</span>`
           : `<span class="cert-pill" title="Au moins une photo de cette carte a été capturée en direct et vérifiée">${App.icons.icon('shield', 14)} Certifiée</span>`)
-          : `<a class="cert-no" href="#/scan?carte=${encodeURIComponent(card.id)}" title="${esc(`Non certifiée${it.certNote && it.certNote.reason ? ' (' + it.certNote.reason + ')' : ''}. Capture-la avec la caméra du site${App.cloud.enabled && !App.cloud.user ? ', connecté à ton compte,' : ''} pour obtenir le badge.`)}">${App.icons.icon('shield', 13)} Non certifiée · <u>la certifier</u></a>`}
+          : game !== 'pokemon' ? `<span class="cert-no" title="La certification n’existe pas encore pour cette licence">${App.icons.icon('shield', 13)} Non certifiée</span>`
+          : `<a class="cert-no" href="#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}" title="${esc(`Non certifiée${it.certNote && it.certNote.reason ? ' (' + it.certNote.reason + ')' : ''}. Capture-la avec la caméra du site${App.cloud.enabled && !App.cloud.user ? ', connecté à ton compte,' : ''} pour obtenir le badge.`)}">${App.icons.icon('shield', 13)} Non certifiée · <u>la certifier</u></a>`}
         <span class="spacer"></span>
-        <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="#/scan?carte=${encodeURIComponent(card.id)}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
+        <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
       </div>
       ${certified || !(it.certNote && it.certNote.reason) ? '' : `<div class="small muted" style="margin:-4px 0 8px">Pas certifiée : ${esc(it.certNote.reason)}.</div>`}
       ${it.imported && !certified ? `<div class="small muted" style="margin:-4px 0 8px">Importée depuis ${esc((App.importer && App.importer.SOURCES[it.imported.from]) || 'un fichier')} le ${esc(new Date(it.imported.at || Date.now()).toLocaleDateString('fr-FR'))} : pas de photo, donc pas certifiée.</div>` : ''}

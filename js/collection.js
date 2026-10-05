@@ -213,7 +213,8 @@ App.col = (() => {
   function progress(game, set, items = null) {
     const mode = App.settings.completion;
     const ownedItems = items ? items.filter((i) => i.game === game && i.setId === set.id && i.qty > 0) : inSet(game, set.id);
-    const isOfficial = (localId) => { const n = parseInt(localId, 10); return !isNaN(n) && String(n) === String(localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
+    const ad = App.games.get(game);
+    const isOfficial = (localId) => { if (ad && ad.isOfficial) return ad.isOfficial(localId, set); const n = parseInt(localId, 10); return !isNaN(n) && String(n) === String(localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
     let total, have, byRarity = null;
     if (set.cards && set.cards.length) {
       const cards = mode === 'official' ? set.cards.filter((c) => isOfficial(c.localId)) : set.cards;

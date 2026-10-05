@@ -16,8 +16,9 @@ App.friends = (() => {
   const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const photoId = (v) => (typeof v === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(v) ? v : null);
-  // visuels : TCGdex, ou une carte hors-série du site (img/hors-serie/…)
-  const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+$/.test(v)) ? v : '');
+  // visuels : TCGdex, une carte hors-série du site (img/hors-serie/…), ou le site officiel One Piece
+  const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+$/.test(v)
+    || /^https:\/\/(fr|en)\.onepiece-cardgame\.com\/images\/cardlist\/card\/[A-Za-z0-9_-]+\.(webp|png)(\?\d+)?$/.test(v)) ? v : '');
   const game = (v) => (typeof v === 'string' && App.games.get(v) ? v : null);
   const oneOf = (v, list, def) => (list.some(([k]) => k === v) ? v : def);
   const avatarPoke = (a) => { a = obj(a); const id = parseInt(a.id, 10); return id >= 1 && id <= App.pokedex.TOTAL ? { id, shiny: !!a.shiny } : null; };

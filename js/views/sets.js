@@ -20,6 +20,13 @@ App.views.sets = {
       </a>`;
   },
 
+  /** Choix de la licence en haut d'Explorer (dès qu'il y en a plusieurs) */
+  gamePick(game) {
+    const on = App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id));
+    if (on.length < 2) return '';
+    return `<div class="chips game-pick" role="tablist">${on.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/jeu/${g.id}" role="tab" aria-selected="${g.id === game}">${App.icons.icon(g.icon, 14)} ${App.util.esc(g.name)}</a>`).join('')}</div>`;
+  },
+
   async render(el, { game }, alive) {
     const { esc, norm, debounce } = App.util;
     const ad = App.games.get(game);
@@ -36,17 +43,18 @@ App.views.sets = {
     ];
     const blocs = [...new Map([...sets].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '')).map((s) => [s.group.id, s.group.name]))];
     const years = [...new Set(sets.map((s) => (s.releaseDate || '').slice(0, 4)).filter(Boolean))].sort().reverse();
-    const isPromo = (s) => /promo|mcdonald|kit d/i.test(s.name);
+    const isPromo = (s) => /promo|mcdonald|kit d/i.test(s.name) || s.group.id === 'op-promo';
     const details = {}; // séries dont on connaît les cartes (pour les raretés)
 
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › ${esc(ad.name)}</div>
+      ${App.views.sets.gamePick(game)}
       <div class="row"><h1>Explorer · ${esc(ad.name)}</h1><span class="spacer"></span><span class="muted small">${sets.length} séries · données <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a></span></div>
       <div class="toolbar">
         <input type="search" id="s-q" placeholder="Rechercher une série…" style="min-width:220px">
         <select id="s-sort" title="Trier">${SORTS.map(([k, l]) => `<option value="${k}" ${k === state.sort ? 'selected' : ''}>${l}</option>`).join('')}</select>
         <select id="s-bloc"><option value="">Toutes les époques</option>${blocs.map(([id, n]) => `<option value="${esc(id)}">${esc(n)}</option>`).join('')}</select>
-        <select id="s-year"><option value="">Toutes les années</option>${years.map((y) => `<option>${y}</option>`).join('')}</select>
+        <select id="s-year" ${years.length ? '' : 'hidden'}><option value="">Toutes les années</option>${years.map((y) => `<option>${y}</option>`).join('')}</select>
       </div>
       <div class="s-filters">
         <div class="chips s-status" id="s-f">
@@ -79,7 +87,7 @@ App.views.sets = {
         rows.push({ s, p });
       }
       // 2) tri
-      const date = (r) => r.s.releaseDate || '';
+      const date = (r) => r.s.sortKey || r.s.releaseDate || ''; // One Piece : pas de date, ordre de sortie approximatif
       const sorters = {
         recentes: (a, b) => date(b).localeCompare(date(a)),
         anciennes: (a, b) => date(a).localeCompare(date(b)),

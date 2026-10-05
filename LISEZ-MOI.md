@@ -71,6 +71,17 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le logo 1ʳᵉ édition est cherché en le comparant à un vrai logo photographié : il est trouvé sur une carte seule nette et sur une page de classeur nette (9 cartes). Sur une photo floue, le site ne met pas « 1ʳᵉ édition » (il vaut mieux l'ajouter à la main que se tromper).
 - La **reverse** n'a pas encore pu être testée sur une vraie carte reverse : vérifie-la après l'ajout.
 
+## One Piece (v2.85)
+- **Explorer** : en haut, choisis **Pokémon** ou **One Piece** (l'onglet Explorer revient ensuite à la dernière licence ouverte). 60 séries One Piece : **boosters** (OP-01 → OP-17), **boosters extra et premium** (EB, PRB), **decks de démarrage** (ST), **cartes promo**. Chaque série affiche le code en gros (OP-09…).
+- **Langue** : les séries sorties en France (depuis OP-09, ST-15, EB-02…) sont en **français** ; les plus anciennes (OP-01 à OP-08, ST-01 à ST-14, EB-01) n'existent qu'en **anglais**. Bouton FR / EN en haut d'une série, et langue de chaque carte dans sa fiche, comme pour Pokémon.
+- **Raretés** : C, UC, R, L (Leader), SR, SEC, SP, TR, et **ALT** = version **parallèle** (autre illustration, « _p1 » sur le site de Bandai). Une même carte peut aussi être **réimprimée** au même dessin dans une autre série. « Cartes numérotées » = les cartes de base de la série ; les parallèles et réimpressions comptent en plus (réglage « comptées : toutes / numérotées » des Paramètres).
+- **Capturer** : en mode **Une carte**, choisis **One Piece** en haut (ou photographie-la en mode Pokémon : l'appli voit que c'est une carte One Piece et bascule toute seule). Le **code en bas à droite** (ex. **OP09-004**) doit être lisible : il est lu, vérifié avec le nom, puis l'illustration de ta photo est comparée aux versions (base, parallèles, réimpressions) pour proposer la bonne en premier. Si le code est illisible, tape-le dans « La carte n'est pas proposée ? ». Pas encore de **classeur** ni de **rafale** pour One Piece, et **pas de certification** (le dos des cartes One Piece n'est pas encore appris).
+- **Images** : celles du site officiel de Bandai, avec le mot « SAMPLE » imprimé dessus (Bandai le met sur toutes ses images ; tes propres photos le remplacent pour tes cartes). Elles passent par un relais (images.weserv.nl), car Bandai interdit de les afficher directement sur un autre site.
+- **Prix** : marché américain TCGplayer (cartes anglaises), converti en euros — il n'existe pas de prix Cardmarket gratuit pour One Piece. Le lien « Voir sur Cardmarket » cherche la carte par son code.
+- **Importer** : un fichier Cardmarket, Collectr… avec des cartes One Piece est reconnu (colonne « jeu » One Piece, ou code OP09-004 dans le numéro ou le nom). « (V.2) », « Parallel », « Alternate Art » = version parallèle, à choisir dans la liste.
+- **Mes objectifs** : choisis la licence en haut de la page.
+- Combats : pas encore pour One Piece (prévu pour toutes les licences plus tard).
+
 ## Importer ma collection (Collectr, Cardmarket, Pokellector, Dragon Shield, Excel)
 - **Mon Dex › Importer** (ou Paramètres › Sauvegarde › « Importer un fichier »).
 - Choisis d'où vient ton fichier pour voir comment l'obtenir :
@@ -203,6 +214,7 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 ## Sources des données
 
 - Cartes, raretés, images, prix : [TCGdex](https://tcgdex.dev), base libre et gratuite. Les prix Cardmarket (€) sont mis à jour chaque jour.
+- One Piece : cartes du site officiel de Bandai (copie « Punk Records » sur GitHub), images relayées par images.weserv.nl, prix TCGplayer via optcgapi.com.
 - Taux de drop : études publiques d'ouverture de boosters (Pokémon ne publie pas de chiffres officiels).
 - Notes : ta note personnelle.
 

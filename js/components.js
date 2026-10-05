@@ -46,7 +46,7 @@ App.ui = (() => {
   const countHTML = (p) => `<span class="count">${p.have}<span class="of">/${p.total}</span></span>`;
 
   // « modifier » la version reconnue d'une carte : ouvre sa fiche
-  document.addEventListener('click', (e) => { const b = e.target.closest('[data-open-card]'); if (b) { e.preventDefault(); App.cardModal('pokemon', b.dataset.openCard); } });
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-open-card]'); if (b) { e.preventDefault(); App.cardModal(b.dataset.game || 'pokemon', b.dataset.openCard); } });
 
   /** Tuile de carte dans une grille */
   function cardTile(card, { game = 'pokemon', item = null, showSet = false, showPrice = true, price: marketPrice = null } = {}) {
@@ -72,7 +72,7 @@ App.ui = (() => {
             : src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(card.name)}" data-alt="${esc(card.name)}" ${it && it.displayPhoto && App.settings.preferPhotos ? `data-photo="${esc(it.displayPhoto)}"` : ''}>` : `<span class="noimg">${esc(card.name)}</span>`}
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
           ${own && it.cond && it.cond.kind === 'graded' ? `<span class="condchip">${App.icons.icon('slab', 11)}${esc(App.col.condLabel(it.cond))}</span>` : ''}
-          ${!own ? `<a class="cap-btn" href="#/scan?carte=${encodeURIComponent(card.id)}" title="Capturer cette carte" aria-label="Capturer ${esc(card.name)}">${App.icons.icon('capture', 20)}</a>` : ''}
+          ${!own ? `<a class="cap-btn" href="#/scan?carte=${encodeURIComponent(card.id)}${game !== 'pokemon' ? '&jeu=' + game : ''}" title="Capturer cette carte" aria-label="Capturer ${esc(card.name)}">${App.icons.icon('capture', 20)}</a>` : ''}
           ${own && it.favorite ? '<span class="fav">★</span>' : ''}
           ${ad.isHorsSerie && ad.isHorsSerie(card) ? '<span class="hs-tag tile" title="Carte hors-série">Hors-série</span>' : ''}
           ${otherLang ? `<span class="langchip" title="Ta carte est en ${myLang === 'fr' ? 'français' : myLang === 'en' ? 'anglais' : myLang}">${esc(myLang.toUpperCase())}</span>` : ''}
@@ -221,9 +221,11 @@ App.ui = (() => {
     const ad = App.games.get(game);
     const url = ad && ad.img.logo(set);
     const n = String(set.name || '');
-    const ico = /promo/i.test(n) ? 'star' : /mcdonald/i.test(n) ? 'gift' : /kit|coffret|deck/i.test(n) ? 'box' : /énergie|energy/i.test(n) ? 'bolt' : 'layers';
-    let h = 0; for (const ch of String((set.group && set.group.id) || set.id || n)) h = (h * 31 + ch.charCodeAt(0)) % 360;
-    const gen = `<span class="logo-gen" style="--h:${h}">${App.icons.icon(ico, big ? 22 : 16)}<b>${esc(n)}</b></span>`;
+    // pas de logo (One Piece) : le code de la série en gros (« OP-09 »), une couleur par série
+    const short = ad && ad.logoText ? ad.logoText(set) : '';
+    const ico = /promo/i.test(n) ? 'star' : /mcdonald/i.test(n) ? 'gift' : /kit|coffret|deck/i.test(n) ? 'box' : /énergie|energy/i.test(n) ? 'bolt' : short ? 'anchor' : 'layers';
+    let h = 0; for (const ch of String(short ? set.id : (set.group && set.group.id) || set.id || n)) h = (h * 31 + ch.charCodeAt(0) * (short ? 67 : 1)) % 360; // codes voisins (OP-16, OP-17) : couleurs bien différentes
+    const gen = `<span class="logo-gen${short ? ' logo-code' : ''}" style="--h:${h}">${App.icons.icon(ico, big ? 22 : 16)}<b>${esc(short || n)}</b></span>`;
     if (!url) return gen;
     return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(n)}" data-alt-class="logo-gen" style="--h:${h}">`;
   }

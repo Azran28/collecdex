@@ -18,7 +18,7 @@ App.views.home = {
         </div>
         <div class="row hero-cta" style="margin-top:14px">
           <a class="btn primary" href="#/scan">${App.icons.icon('capture', 16)} Capturer une carte</a>
-          <a class="btn m-hide" href="#/jeu/pokemon">${App.icons.icon('explore', 16)} Explorer</a>
+          <a class="btn m-hide" href="${document.querySelector('.topbar a[data-nav="jeu"]')?.getAttribute('href') || '#/jeu/pokemon'}">${App.icons.icon('explore', 16)} Explorer</a>
           <a class="btn m-hide" href="#/compte">${App.icons.icon('trophy', 16)} Ma vitrine</a>
           <!-- téléphone : les deux autres façons de capturer, à portée de pouce -->
           <a class="btn d-hide" href="#/scan?mode=classeur">${App.icons.icon('dex', 16)} Page de classeur</a>
@@ -121,13 +121,19 @@ App.views.home = {
         // pas encore d'objectif : une simple ligne, discrète
         hg.innerHTML = `<div class="home-slim"><a class="slim-link" href="#/objectifs">${App.icons.icon('target', 14)} Fixe-toi un objectif de série</a>${wishLink}</div>`;
       }
-      const bySet = {};
-      for (const it of items.filter((i) => i.game === 'pokemon')) { bySet[it.setId] = Math.max(bySet[it.setId] || 0, it.addedAt); }
-      const started = sets.filter((s) => bySet[s.id]).map((s) => ({ s, p: App.col.progress('pokemon', s), t: bySet[s.id] }));
+      // toutes les licences où l'on a des cartes (Pokémon, One Piece…)
+      const started = [];
+      for (const game of [...new Set(items.map((i) => i.game))].filter((g) => App.games.get(g))) {
+        const bySet = {};
+        for (const it of items.filter((i) => i.game === game)) { bySet[it.setId] = Math.max(bySet[it.setId] || 0, it.addedAt); }
+        const gsets = game === 'pokemon' ? sets : await App.games.get(game).listSets().catch(() => []);
+        for (const s of gsets) if (bySet[s.id]) started.push({ game, s, p: App.col.progress(game, s), t: bySet[s.id] });
+      }
+      if (!alive()) return unsub;
       el.querySelector('#h-complete b').textContent = started.filter((x) => x.p.complete).length;
       if (started.length) {
         started.sort((a, b) => b.t - a.t);
-        el.querySelector('#h-inprogress').innerHTML = `<div class="section-title"><h2>Mes séries en cours</h2></div><div class="grid-auto hscroll">${started.slice(0, 6).map(({ s, p }) => App.views.sets.setCard('pokemon', s, p)).join('')}</div>`;
+        el.querySelector('#h-inprogress').innerHTML = `<div class="section-title"><h2>Mes séries en cours</h2></div><div class="grid-auto hscroll">${started.slice(0, 6).map(({ game, s, p }) => App.views.sets.setCard(game, s, p)).join('')}</div>`;
       }
     } catch (e) {
       el.querySelector('#h-complete b').textContent = '—';

@@ -10,13 +10,13 @@ App.views.set = {
     let pricesDone = false;
     /** Coût estimé (prix du marché) : pour finir la série, et pour la série complète */
     const costBlock = () => {
-      const official = (c) => { const n = parseInt(c.localId, 10); return !isNaN(n) && String(n) === String(c.localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
+      const official = (c) => { if (ad.isOfficial) return ad.isOfficial(c.localId, set); const n = parseInt(c.localId, 10); return !isNaN(n) && String(n) === String(c.localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
       const counted = App.settings.completion === 'official' ? set.cards.filter(official) : set.cards;
       const pv = (c) => (prices[c.id] && App.util.toEur(prices[c.id].value, prices[c.id].unit)) || 0;
       const miss = counted.filter((c) => !App.col.owned(game, c.id));
       const missCost = miss.reduce((t, c) => t + pv(c), 0), fullCost = counted.reduce((t, c) => t + pv(c), 0);
       const unknown = counted.filter((c) => !pv(c)).length;
-      const booster = `https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(set.name + ' booster')}`;
+      const booster = ad.boosterUrl ? ad.boosterUrl(set) : `https://www.cardmarket.com/fr/Pokemon/Products/Search?searchString=${encodeURIComponent(set.name + ' booster')}`;
       return `<div class="set-cost">
         ${pricesDone ? `${miss.length ? `<span>${App.icons.icon('target', 14)} Finir la série : <b>≈ ${euro(missCost)}</b> <span class="muted">(${miss.length} carte${miss.length > 1 ? 's' : ''})</span></span>` : ''}
           <span>${App.icons.icon('coins', 14)} Série complète : <b>≈ ${euro(fullCost)}</b></span>${unknown ? `<span class="muted small">${unknown} carte${unknown > 1 ? 's' : ''} sans prix</span>` : ''}`
@@ -57,7 +57,7 @@ App.views.set = {
       </div>
       <div class="chips" id="st-rfilter" style="margin-bottom:14px"></div>
       <div class="cards" id="st-grid"></div>
-      <p class="muted small" style="margin-top:22px">Données cartes : <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a>. Prix : tendance Cardmarket (€), mise à jour quotidienne.</p>
+      <p class="muted small" style="margin-top:22px">Données cartes : <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a>. ${esc(ad.priceNote || "Prix : tendance Cardmarket (€), mise à jour quotidienne.")}</p>
     `;
 
     const langBox = el.querySelector('.set-lang');
@@ -90,7 +90,7 @@ App.views.set = {
         </div>
         <div style="margin:10px 0">${App.ui.progressBar(p)}</div>
         <div class="row small muted">
-          <span>${set.official} cartes numérotées${set.total > set.official ? ` + ${set.total - set.official} secrètes` : ''}</span>
+          <span>${set.official} cartes numérotées${set.total > set.official ? ` + ${set.total - set.official} ${game === "onepiece" ? "parallèles et réimpressions" : "secrètes"}` : ''}</span>
           <span>· comptées : <a href="#/parametres">${App.settings.completion === 'official' ? 'numérotées' : 'toutes'}</a></span>
           ${value ? `<span>· Valeur : <b style="color:var(--accent2)">${euro(value)}</b></span>` : ''}
         </div>

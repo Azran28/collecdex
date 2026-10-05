@@ -264,6 +264,20 @@ App.importer = (() => {
         skip: null,
       };
       const cat = norm(get(r, 'category'));
+      // One Piece (v2.85) : jeu indiqué, ou code imprimé de la carte (« OP09-004 », « ST15-002 », « P-001 ») dans le numéro ou le nom
+      const opCode = `${get(r, 'number')} ${rawName}`.toUpperCase().match(/\b(OP|ST|EB|PRB)\s?(\d{2})\s?-\s?(\d{3})\b|\bP-\d{3}\b/);
+      if (/one ?piece/.test(cat) || (opCode && !/pok/.test(cat))) {
+        row.game = 'onepiece';
+        row.code = opCode ? (opCode[1] ? `${opCode[1]}${opCode[2]}-${opCode[3]}` : opCode[0]) : '';
+        row.name = row.name.replace(/\s*[([]?\b(OP|ST|EB|PRB)\d{2}-\d{3}\b[)\]]?/gi, '').trim() || row.name;
+        // version parallèle / illustration alternative (Cardmarket : « (V.2) », Collectr : « (Parallel) », « Alternate Art »…)
+        row.par = /parallel|parall[eè]le|alternate|alt\.? ?art|\bV\.\s?[2-9]\b|manga|wanted|\bSP\b/i.test(`${rawName} ${get(r, 'version')}`);
+        if (/japan|japon/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise (pas encore prise en charge)';
+        else if (!opCode && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
       if (cat && !/pok/.test(cat)) row.skip = 'autre jeu';
       else if (/japan|japon/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise (pas encore prise en charge)';
       else if (!num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
@@ -314,8 +328,32 @@ App.importer = (() => {
   // nom contenu comme mot entier (« Florizarre » → « Florizarre EX », « M-Florizarre EX ») : proche, mais jamais « sûr »
   const nameScore = (q, ...names) => Math.max(0, ...names.filter(Boolean).map((n) => { const a = norm(n); return a === q ? 1 : q.length >= 3 && ` ${a} `.includes(` ${q} `) ? Math.max(0.85, sim(a, q)) : sim(a, q); }));
 
+  /** Ligne One Piece : par le code imprimé (« OP09-004 »), sinon par le nom ; version parallèle si la ligne l'indique */
+  async function matchOP(row) {
+    const op = App.games.get('onepiece');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'onepiece' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    let list = row.code ? await op.byCode(row.code) : [];
+    if (!list.length && q.length >= 2) list = (await op.search({ name: row.name })).filter((c) => nameScore(q, c.name) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: row.code ? `code ${row.code} inconnu` : 'carte introuvable' };
+    if (!row.code) {
+      // série indiquée (nom anglais ou français) : ses cartes d'abord
+      const inSet = row.setName ? new Set(await op.setIdsByName(row.setName)) : null;
+      if (inSet && inSet.size) { const f = list.filter((c) => inSet.has(c.setId)); if (f.length) list = f; }
+      return { status: list.length === 1 ? 'verif' : 'choix', ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: 'code de la carte non indiqué' };
+    }
+    const isPar = (c) => /_p\d+$/.test(c.id);
+    const base = list.filter((c) => !/_[pr]\d+$/.test(c.id)), par = list.filter(isPar); // « _r1 » = réimpression d'une autre série
+    const pref = row.par ? (par.length ? par : base) : (base.length ? base : par);
+    const rest = list.filter((c) => !pref.includes(c));
+    const okName = !q || nameScore(q, pref[0].name) >= 0.6;
+    const status = pref.length === 1 ? (okName ? 'ok' : 'verif') : 'choix';
+    return { status, ...wrap(pref[0]), cands: [...pref.slice(1), ...rest].slice(0, 11).map(wrap), why: status === 'ok' ? '' : pref.length > 1 ? 'plusieurs versions parallèles : choisis la tienne' : 'le nom ne correspond pas tout à fait au code' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
+    if (row.game === 'onepiece') return matchOP(row);
     const q = norm(row.name);
     const pick = async (setId, cardId) => { const st = await getSet(setId); const c = st && st.cards.find((x) => x.id === cardId); return c ? { card: c, set: st } : null; };
     const withNames = async (st) => { const en = await getEn(st.id); const enBy = Object.fromEntries(en.map((c) => [c.id, c.name])); return st.cards.map((c) => ({ c, s: nameScore(q, c.name, enBy[c.id]) })); };
@@ -400,16 +438,17 @@ App.importer = (() => {
     const byId = new Map();
     for (const r of rows) {
       if (!r.use || !r.card) continue;
-      const g = byId.get(r.card.id) || { card: r.card, set: r.set, qty: 0, vars: new Set(), lang: r.lang, cond: r.cond };
+      const game = r.card.game || 'pokemon', id = game + ':' + r.card.id;
+      const g = byId.get(id) || { game, card: r.card, set: r.set, qty: 0, vars: new Set(), lang: r.lang, cond: r.cond };
       g.qty += Math.max(1, r.qty || 1);
-      variantFor(r, r.card).forEach((x) => g.vars.add(x));
+      if (game === 'pokemon') variantFor(r, r.card).forEach((x) => g.vars.add(x));
       if (!g.cond && r.cond) g.cond = r.cond;
-      byId.set(r.card.id, g);
+      byId.set(id, g);
     }
     const keys = [], stats = { added: 0, updated: 0, kept: 0 };
     let n = 0;
     for (const g of byId.values()) {
-      const key = App.col.keyOf('pokemon', g.card.id), cur = App.col.byKey(key);
+      const key = App.col.keyOf(g.game, g.card.id), cur = App.col.byKey(key);
       const lang = g.lang === 'fr' ? 'fr' : 'en'; // les visuels existent en français ou en anglais
       if (cur && cur.qty > 0) {
         if (mode === 'keep') { stats.kept++; }
@@ -420,7 +459,7 @@ App.importer = (() => {
         }
       } else {
         const set = { id: g.set.id, name: g.set.name, symbol: g.set.symbol, logo: g.set.logo, official: g.set.official, group: g.set.group };
-        await App.col.add('pokemon', { ...g.card, serieId: g.card.serieId || (g.set.group && g.set.group.id) || '' }, set, { qty: g.qty, lang });
+        await App.col.add(g.game, { ...g.card, serieId: g.card.serieId || (g.set.group && g.set.group.id) || '' }, set, { qty: g.qty, lang });
         await App.col.update(key, { variants: [...g.vars], ...(g.cond ? { cond: g.cond } : {}), imported: { from, at: Date.now() } });
         stats.added++; keys.push(key);
       }

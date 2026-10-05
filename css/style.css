@@ -2672,3 +2672,14 @@ a.bt-choice:active { transform: scale(.985); }
 .imp-src { flex-wrap: wrap; }
 .imp-src button { flex: 1 1 auto; }
 @media (max-width: 760px) { .imp-src button { flex: 1 1 30%; padding: 9px 4px; } }
+/* v2.85 : One Piece — choix de la licence (Explorer, Capturer), texte de la carte dans la fiche */
+.game-pick, .sc-game { margin: 0 0 12px; }
+.game-pick .chip, .sc-game .chip { text-decoration: none; color: inherit; padding: 7px 14px; font-size: .88rem; }
+.game-pick .chip.on, .sc-game .chip.on { color: #16172a; }
+.cd-text { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); line-height: 1.45; }
+@media (max-width: 760px) {
+  .game-pick, .sc-game { flex-wrap: nowrap; }
+  .game-pick .chip, .sc-game .chip { flex: 1 1 0; justify-content: center; }
+}
+.logo-gen.logo-code { font-size: 1.35rem; letter-spacing: .02em; padding: 9px 16px; }
+.set-hero .logo-gen.logo-code { font-size: 2rem; padding: 14px 24px; }

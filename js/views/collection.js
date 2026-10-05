@@ -54,8 +54,10 @@ App.views.collection = {
       el.querySelector('#c-game').innerHTML = opt('', 'Tous les jeux', state.game) + games.map((g) => opt(g, App.games.info(g).name, state.game)).join('');
       const sets = new Map(items.map((i) => [i.setId, i.snap.setName]));
       el.querySelector('#c-set').innerHTML = opt('', 'Toutes les séries', state.set) + [...sets].sort((a, b) => a[1].localeCompare(b[1], 'fr')).map(([id, n]) => opt(id, n, state.set)).join('');
-      const rars = [...new Set(items.map((i) => i.snap.rarity).filter(Boolean))].sort((a, b) => App.pokemonRarity.rank(b) - App.pokemonRarity.rank(a));
-      el.querySelector('#c-rar').innerHTML = opt('', 'Toutes les raretés', state.rarity) + rars.map((r) => opt(r, App.pokemonRarity.label(r), state.rarity)).join('');
+      // rareté → licence (noms et ordre propres à chaque jeu : « SuperRare » One Piece = « Super rare »)
+      const rarGame = new Map(items.filter((i) => i.snap.rarity).map((i) => [i.snap.rarity, (App.games.get(i.game) || App.games.get('pokemon')).rarity]));
+      const rars = [...rarGame.keys()].sort((a, b) => rarGame.get(b).rank(b) - rarGame.get(a).rank(a));
+      el.querySelector('#c-rar').innerHTML = opt('', 'Toutes les raretés', state.rarity) + rars.map((r) => opt(r, rarGame.get(r).label(r), state.rarity)).join('');
     };
 
     const filtered = () => {

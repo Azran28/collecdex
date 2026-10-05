@@ -49,6 +49,9 @@ App.views = App.views || {};
     App.util.closeModal();
 
     document.querySelectorAll('.topbar a[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === navOf[view]));
+    // onglet Explorer : revient à la dernière licence ouverte (Pokémon, One Piece…)
+    if (params.game && App.games.get(params.game)) { try { localStorage.setItem('cdx-game', params.game); } catch (e) { /* */ } }
+    { let g = 'pokemon'; try { g = localStorage.getItem('cdx-game') || g; } catch (e) { /* */ } const a = document.querySelector('.topbar a[data-nav="jeu"]'); if (a && App.games.get(g)) a.setAttribute('href', '#/jeu/' + g); }
     // téléphone : flèche « retour » en haut sur les pages qui ne sont pas des onglets de la barre du bas
     const st = history.state || {};
     if (typeof st.d !== 'number') history.replaceState({ ...st, d: lastDepth + (renderId ? 1 : 0) }, '');

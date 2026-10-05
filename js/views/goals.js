@@ -2,7 +2,11 @@
 App.views.goals = {
   async render(el, params, alive) {
     const { esc, euro } = App.util;
-    const game = 'pokemon';
+    // licence (v2.85) : choisie en haut de la page (?jeu=…), sinon la dernière ouverte dans Explorer
+    let game = 'pokemon'; try { game = localStorage.getItem('cdx-game') || game; } catch (e) { /* */ }
+    if (params.query.jeu && App.games.get(params.query.jeu)) game = params.query.jeu;
+    if (!App.games.get(game)) game = 'pokemon';
+    const mine = (x) => (x.game || 'pokemon') === game; // objectifs et souhaits de cette licence
     const ad = App.games.get(game);
     const tab = ['objectifs', 'manque', 'souhaits'].includes(params.query.tab) ? params.query.tab : 'objectifs';
     const sets = await ad.listSets();
@@ -15,6 +19,7 @@ App.views.goals = {
     // cartes qui comptent pour la complétion (même règle que la progression)
     const counted = (set) => {
       if (App.settings.completion !== 'official') return set.cards;
+      if (ad.isOfficial) return set.cards.filter((c) => ad.isOfficial(c.localId, set));
       return set.cards.filter((c) => { const n = parseInt(c.localId, 10); return !isNaN(n) && String(n) === String(c.localId).replace(/^0+(?=\d)/, '') && n <= set.official; });
     };
     const missingOf = (set) => counted(set).filter((c) => !App.col.owned(game, c.id));
@@ -38,23 +43,24 @@ App.views.goals = {
       return `≈ ${euro(sum)}${known.length < cards.length ? ` <span class="muted">(${cards.length - known.length} sans prix)</span>` : ''}`;
     };
 
-    const goals = await App.wish.goals();
-    const wl = await App.wish.list();
+    const goals = (await App.wish.goals()).filter(mine);
+    const wl = (await App.wish.list()).filter(mine);
     const started = sets.filter((s) => App.col.inSet(game, s.id).length);
 
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/collection">Mon Dex</a> › Mes objectifs</div>
       <h1 style="margin-bottom:12px">Mes objectifs</h1>
+      ${App.views.sets.gamePick(game).replace(/href="#\/jeu\/([a-z]+)"/g, (m, g) => `href="#/objectifs?tab=${tab}&jeu=${g}"`)}
       <div class="goal-tabs" role="tablist">
         ${[['objectifs', 'target', 'Objectifs', 'Objectifs', goals.length], ['manque', 'search', 'Ce qu’il me manque', 'Manquantes', ''], ['souhaits', 'heart', 'Liste de souhaits', 'Souhaits', wl.length]]
-          .map(([k, ic, l, sh, n]) => `<a class="goal-tab ${tab === k ? 'on' : ''}" href="#/objectifs?tab=${k}" role="tab">${App.icons.icon(ic, 16)}<span class="lg">${l}</span><span class="sh">${sh}</span>${n !== '' ? `<b>${n}</b>` : ''}</a>`).join('')}
+          .map(([k, ic, l, sh, n]) => `<a class="goal-tab ${tab === k ? 'on' : ''}" href="#/objectifs?tab=${k}&jeu=${game}" role="tab">${App.icons.icon(ic, 16)}<span class="lg">${l}</span><span class="sh">${sh}</span>${n !== '' ? `<b>${n}</b>` : ''}</a>`).join('')}
       </div>
       <div id="g-body" class="goals-page"></div>`;
     const body = el.querySelector('#g-body');
 
     // ================= Objectifs =================
     async function drawGoals() {
-      const gs = await App.wish.goals();
+      const gs = (await App.wish.goals()).filter(mine);
       body.innerHTML = `
         <div class="panel goal-new">
           <b class="row" style="gap:6px">${App.icons.icon('target', 16)} Nouvel objectif</b>
@@ -102,7 +108,7 @@ App.views.goals = {
     // ================= Ce qu'il me manque =================
     let sortMode = 'prix';
     async function drawMissing() {
-      const gs = await App.wish.goals();
+      const gs = (await App.wish.goals()).filter(mine);
       const goalIds = gs.map((g) => g.setId);
       const opts = [...new Set([...goalIds, ...started.map((s) => s.id)])];
       const chosen = params.query.set && setById.has(params.query.set) ? params.query.set : opts[0] || '';
@@ -148,7 +154,7 @@ App.views.goals = {
     async function drawWish() {
       const got = await App.wish.prune();
       if (got.length) App.util.toast(`🎉 ${got.length} carte${got.length > 1 ? 's' : ''} de ta liste obtenue${got.length > 1 ? 's' : ''} : retirée${got.length > 1 ? 's' : ''} de la liste`);
-      const l = await App.wish.list();
+      const l = (await App.wish.list()).filter(mine);
       if (!l.length) {
         body.innerHTML = `<div class="empty panel">${App.icons.icon('heart', 20)}<br>Ta liste de souhaits est vide.<br><span class="small muted">Ouvre une carte que tu n’as pas et appuie sur « ♡ Je la cherche ». Elle reste personnelle : personne d’autre ne la voit.</span></div>`;
         return;

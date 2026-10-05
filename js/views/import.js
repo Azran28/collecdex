@@ -12,7 +12,7 @@ App.views.import = {
     };
     let S = { step: 'source', src: 'collectr', cells: null, det: null, list: [], file: '', lang: 'en', mode: 'keep', filter: 'all', shown: 150, busy: false };
     const card = (r) => r.card;
-    const thumb = (c) => (c ? ad.img.card(c, 'low') : '');
+    const thumb = (c) => (c ? App.games.get(c.game || 'pokemon').img.card(c, 'low') : ''); // c.game : carte One Piece
     const statusTxt = { ok: 'Trouvée', verif: 'À vérifier', choix: 'À choisir', introuvable: 'Introuvable', ignoree: 'Ignorée' };
 
     const head = () => `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/collection">Mon Dex</a> › Importer</div>
@@ -82,7 +82,7 @@ App.views.import = {
 
     const counts = () => { const c = { ok: 0, verif: 0, choix: 0, introuvable: 0, ignoree: 0 }; S.list.forEach((r) => { c[r.status] = (c[r.status] || 0) + 1; }); return c; };
     const rowHtml = (r, i) => {
-      const c = card(r), owned = c && App.col.owned('pokemon', c.id);
+      const c = card(r), owned = c && App.col.owned(c.game || 'pokemon', c.id);
       const alt = (r.cands || []).slice(0, 11);
       return `<div class="imp-row st-${r.status} ${r.use ? 'use' : ''}" data-i="${i}">
         <label class="imp-chk" title="Importer cette carte"><input type="checkbox" data-use="${i}" ${r.use ? 'checked' : ''} ${c ? '' : 'disabled'}></label>

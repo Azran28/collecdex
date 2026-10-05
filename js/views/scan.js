@@ -11,7 +11,7 @@ App.views.scan = {
   fillSetSelect(sel, sets, selected = '') {
     const { esc } = App.util;
     const groups = new Map();
-    for (const st of [...sets].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))) {
+    for (const st of [...sets].sort((a, b) => (b.sortKey || b.releaseDate || '').localeCompare(a.sortKey || a.releaseDate || ''))) {
       if (!groups.has(st.group.id)) groups.set(st.group.id, { name: st.group.name, sets: [] });
       groups.get(st.group.id).sets.push(st);
     }
@@ -174,13 +174,21 @@ App.views.scan = {
   async single(el, params, alive) {
     const { esc } = App.util;
     const R = App.recognizer, RATIO = R.RATIO;
-    const game = 'pokemon';
-    const ad = App.games.get(game);
+    // licence de la carte (v2.85) : choisie en haut (gardée pour les scans suivants), ou celle de la carte visée (?jeu=…)
+    const GAMES = App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id));
+    let game = params.query.jeu && App.games.get(params.query.jeu) ? params.query.jeu : 'pokemon';
+    if (!params.query.jeu) { try { const g = sessionStorage.getItem('scanGame'); if (g && App.games.get(g)) game = g; } catch (e) { /* */ } }
+    try { sessionStorage.setItem('scanGame', game); } catch (e) { /* */ }
+    let ad = App.games.get(game);
+    const isPk = () => game === 'pokemon';
+    // la certification (dos de la carte, lampe) n'existe que pour Pokémon pour l'instant
+    const guideC = () => (isPk() ? App.views.scan.guide('carte') : `<div class="pc-block pc-off"><div class="pc-block-h">${App.icons.icon('shield', 18)} <b>Certification</b> <span class="small muted">— pas encore pour ${App.util.esc(ad.name)}</span></div><p class="small muted" style="margin:6px 0 0">Prends ta carte en photo (le code en bas à droite, ex. OP09-004, doit être lisible) : elle est reconnue et ajoutée avec ta photo, sans badge « Certifiée » pour le moment.</p></div>`);
     const targetId = params.query.carte || null;
     let cardBlob = null, cardURL = null, target = null, pageBlob = null;
     let cert = null; // résultat de la vérification en direct de la dernière photo (null = photo importée)
 
     el.innerHTML = `
+      ${GAMES.length > 1 ? `<div class="chips sc-game" role="tablist" aria-label="Licence de la carte">${GAMES.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/scan?jeu=${g.id}" data-game="${g.id}" role="tab" aria-selected="${g.id === game}">${App.icons.icon(g.icon, 14)} ${esc(g.name)}</a>`).join('')}</div>` : ''}
       <div id="sc-target"></div>
       <div class="set-first" style="max-width:640px">
         <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
@@ -207,19 +215,28 @@ App.views.scan = {
         </div>
         <div>
           <div id="sc-status"></div>
-          <div id="sc-results">${App.views.scan.guide('carte')}</div>
+          <div id="sc-results">${guideC()}</div>
           <div class="panel section hidden" id="sc-manual">
             <h3>La carte n’est pas proposée ?</h3>
             <p class="small muted">Cherche-la par son nom et/ou son numéro. Ta photo sera utilisée.</p>
             <div class="row">
-              <input type="text" id="sc-name" placeholder="Nom (ex. Dracaufeu)" style="flex:1;min-width:160px">
-              <input type="text" id="sc-num" placeholder="N° (ex. 025/165)" style="width:130px">
+              <input type="text" id="sc-name" placeholder="Nom (ex. ${isPk() ? "Dracaufeu" : "Monkey D. Luffy"})" style="flex:1;min-width:160px">
+              <input type="text" id="sc-num" placeholder="${isPk() ? "N° (ex. 025/165)" : "Code (ex. OP09-004)"}" style="width:130px">
               <button class="btn" id="sc-search">Chercher</button>
             </div>
           </div>
         </div>
       </div>`;
 
+    /** Change de licence sans quitter la page (carte d'une autre licence reconnue sur la photo) */
+    function switchGame(g) {
+      game = g; ad = App.games.get(g);
+      try { sessionStorage.setItem('scanGame', g); } catch (e) { /* */ }
+      el.querySelectorAll('.sc-game [data-game]').forEach((a) => { a.classList.toggle('on', a.dataset.game === g); a.setAttribute('aria-selected', a.dataset.game === g); });
+      fillSets();
+      el.querySelector('#sc-name').placeholder = `Nom (ex. ${isPk() ? 'Dracaufeu' : 'Monkey D. Luffy'})`;
+      el.querySelector('#sc-num').placeholder = isPk() ? 'N° (ex. 025/165)' : 'Code (ex. OP09-004)';
+    }
     const view = el.querySelector('#sc-view');
     const status = el.querySelector('#sc-status');
     const results = el.querySelector('#sc-results');
@@ -227,9 +244,15 @@ App.views.scan = {
     const spin = (msg) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${esc(msg)}</div>`); };
     const cam = App.views.scan.camera(view, { guide: true });
     // série choisie : gardée pour les scans suivants (on scanne souvent une série d'affilée)
-    let savedSet = ''; try { savedSet = sessionStorage.getItem('scanSet') || ''; } catch (e) { /* */ }
-    ad.listSets().then((sets) => { const sel = el.querySelector('#sc-set'); App.views.scan.fillSetSelect(sel, sets, savedSet); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }).catch(() => {});
-    el.querySelector('#sc-set').addEventListener('change', (e) => { try { sessionStorage.setItem('scanSet', e.target.value); } catch (err) { /* */ } e.target.closest('.set-first').classList.toggle('chosen', !!e.target.value); });
+    function fillSets() {
+      let savedSet = ''; try { savedSet = sessionStorage.getItem(isPk() ? 'scanSet' : 'scanSet:' + game) || ''; } catch (e) { /* */ }
+      const sel = el.querySelector('#sc-set'), g = game;
+      sel.innerHTML = '<option value="">Série : je ne sais pas (chercher partout)</option>';
+      sel.closest('.set-first').classList.remove('chosen');
+      ad.listSets().then((sets) => { if (g !== game) return; App.views.scan.fillSetSelect(sel, sets, savedSet); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }).catch(() => {});
+    }
+    fillSets();
+    el.querySelector('#sc-set').addEventListener('change', (e) => { try { sessionStorage.setItem(isPk() ? 'scanSet' : 'scanSet:' + game, e.target.value); } catch (err) { /* */ } e.target.closest('.set-first').classList.toggle('chosen', !!e.target.value); });
 
     // Carte visée (bouton « Scanner cette carte » d'une fiche)
     if (targetId) {
@@ -252,10 +275,10 @@ App.views.scan = {
     // pendant la capture, seul « Prendre la photo » reste (demande d'Arnaud) : « Caméra » et « Choisir une photo » reviennent après
     const camButtons = (show) => { el.querySelector('#sc-cam').classList.toggle('hidden', !show); el.querySelector('#sc-file').closest('label').classList.toggle('hidden', !show); };
       try {
-        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = App.views.scan.guide('carte');
+        await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = guideC();
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
-        if (!App.certify.available() || App.settings.certCarte === false) { setStatus(''); return; } // certification désactivée : simple photo
+        if (!isPk() || !App.certify.available() || App.settings.certCarte === false) { setStatus(''); return; } // certification désactivée : simple photo
         setStatus(''); // les étapes de la certification sont dans l'encadré commun (certBlock), sous la caméra
         App.certify.prepare();
         view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
@@ -291,7 +314,7 @@ App.views.scan = {
       shooting = true;
       // l'image est figée À L'INSTANT de l'appui (la suite peut prendre 1 à 2 s : on peut bouger)
       const shotP = cam.capture();
-      const certWanted = App.certify.available() && App.settings.certCarte !== false;
+      const certWanted = isPk() && App.certify.available() && App.settings.certCarte !== false;
       const proofP = certWanted && flipped ? trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
       const shot = el.querySelector('#sc-shot');
       shot.disabled = true; shot.textContent = '✓ Photo prise — recherche de la carte…';
@@ -340,7 +363,7 @@ App.views.scan = {
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
     let crop = null, autoCrop = false; // autoCrop : cadre placé tout seul sur une photo importée (validé d'office)
     function startCrop(blob, initial = null) {
-      results.innerHTML = App.views.scan.guide('carte'); setStatus('');
+      results.innerHTML = guideC(); setStatus('');
       if (initial === null) cert = null;
       el.querySelector('#sc-manual').classList.add('hidden');
       const url = URL.createObjectURL(blob);
@@ -352,7 +375,7 @@ App.views.scan = {
         // plusieurs cartes sur la photo ? on propose le mode « page de classeur »
         let lp = { page: false };
         try { lp = R.looksLikePage(img); } catch (e) { console.warn(e); }
-        el.querySelector('#sc-pagehint').classList.toggle('hidden', !lp.page);
+        el.querySelector('#sc-pagehint').classList.toggle('hidden', !lp.page || !isPk()); // classeur : Pokémon seulement pour l'instant
         pageBlob = blob;
         const ar = img.naturalWidth / img.naturalHeight;
         let size = initial || (Math.abs(ar - RATIO) < 0.06 ? 1 : 0.9); // photo déjà au format carte → toute l'image
@@ -404,7 +427,7 @@ App.views.scan = {
       el.querySelector('#sc-cropbar').classList.add('hidden');
       el.querySelector('#sc-actions').classList.remove('hidden');
       view.innerHTML = App.views.scan.empty('carte');
-      if (!results.innerHTML.trim()) results.innerHTML = App.views.scan.guide('carte');
+      if (!results.innerHTML.trim()) results.innerHTML = guideC();
     });
     el.querySelector('#sc-crop-ok').addEventListener('click', () => {
       if (!crop) return;
@@ -441,12 +464,14 @@ App.views.scan = {
           return `<div class="cand">
             <img src="${esc(ad.img.card(c, 'low'))}" alt="" data-alt="${esc(c.name)}">
             <div><b>${esc(c.name)}</b> ${ad.rarity.symbol(c.rarity, 12)}<br>
-              <span class="muted small">${esc(App.views.scan.setLabel(c))} · n° ${esc(c.localId)}${c.set && c.set.cardCount ? '/' + c.set.cardCount.official : ''}</span>
+              <span class="muted small">${esc(App.views.scan.setLabel(c))} · n° ${esc(c.localId)}${c.set && c.set.cardCount && !ad.numLabel ? '/' + c.set.cardCount.official : ''}</span>
+              ${!isPk() && /_p\d+$/.test(c.id) ? '<br><span class="small muted">Version parallèle (autre illustration) : compare avec ta carte</span>' : ''}
+              ${!isPk() && /_r\d+$/.test(c.id) ? '<br><span class="small muted">Réimpression au même dessin, dans une autre série : vérifie la série</span>' : ''}
               ${i === 0 && c.twin ? '<br><span class="pill small" style="background:#7a4a00">Existe aussi dans une autre série : vérifie la série</span>' : ''}
               ${own ? `<br><span class="pill small">Déjà ×${own.qty} — ce sera un exemplaire de plus</span>` : ''}
               ${c.isTarget && !c.notRead ? '<br><span class="pill small" style="background:var(--ok);color:#063">Carte attendue ✓</span>' : ''}
               ${c.notRead ? '<br><span class="pill small" style="background:#7a4a00">Carte attendue, mais pas reconnue sur la photo</span>' : ''}
-              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.numOk && c.ofOk ? `<br><span class="small muted">Numéro lu sur ta carte ✓</span>` : ''}${c.visual != null && !(c.numOk && c.ofOk && c.visual < 0.42) ? `<br><span class="small muted">Illustration : ${c.visual >= 0.7 ? 'identique' : c.visual >= 0.55 ? 'très proche' : c.visual >= 0.42 ? 'proche' : 'différente'}</span>` : ''}</div>
+              ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.numOk && c.ofOk ? `<br><span class="small muted">${isPk() ? 'Numéro' : 'Code'} lu sur ta carte ✓</span>` : ''}${c.visual != null && !(c.numOk && c.ofOk && c.visual < 0.42) ? `<br><span class="small muted">Illustration : ${c.visual >= 0.7 ? 'identique' : c.visual >= 0.55 ? 'très proche' : c.visual >= 0.42 ? 'proche' : 'différente'}</span>` : ''}</div>
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
         }).join('')}
@@ -480,7 +505,7 @@ App.views.scan = {
         if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
-        const key = await R.addScanned(c, cardBlob, mode);
+        const key = await R.addScanned(c, cardBlob, mode, game);
         App.col.refreshPrices([key], 'Prix');
         const it = App.col.byKey(key);
         const photoId = mode === 'rien' ? null : it.photos[it.photos.length - 1];
@@ -490,7 +515,7 @@ App.views.scan = {
         const det = mode === 'rien' ? null : R.lastVariants;
         const verLine = det && det.list.length ? `<div class="small" style="margin-top:6px">${App.icons.icon('sparkles', 13)} Version reconnue : <b>${det.list.map((v) => VN[v] || v).join(' · ')}</b> <button class="linkbtn small" data-open-card="${esc(c.id)}">modifier</button></div>` : '';
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
-        const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
+        const certLine = !isPk() ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Pas de certification pour ${esc(ad.name)} pour le moment.</div>` : !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
           : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (certification désactivée). Active-la dans l’encadré « Certifier la carte » pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
@@ -499,14 +524,14 @@ App.views.scan = {
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
-        if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
+        if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !isPk() ? `certification pas encore disponible pour ${ad.name}` : !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
         if (myCert && myCert.passed && photoId) {
           App.certify.identity(shotBlob, c).then((ident) => App.certify.finish(key, photoId, myCert, ident)).then((r) => {
             const line = results.querySelector('#sc-cert'); if (!line) return;
             line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}${r.unrecognized ? ' — reprends une photo plus nette pour la certifier' : ''}`;
           });
         }
-        results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = App.views.scan.guide('carte'); setStatus(''); el.querySelector('#sc-cam').click(); } };
+        results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = guideC(); setStatus(''); el.querySelector('#sc-cam').click(); } };
       };
     }
 
@@ -528,13 +553,24 @@ App.views.scan = {
       const st = (m) => { const s = view.querySelector('.sc-scanlbl span'); if (s && alive()) s.textContent = m; };
       try {
         const setId = el.querySelector('#sc-set').value;
-        let info, cands;
-        if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
-        else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
+        let info, cands, summary, switched = false;
+        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId })); summary = info.read; }
+        else {
+          if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
+          else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
+          summary = R.readSummary(info);
+          // pas une carte Pokémon : c'est peut-être une carte One Piece (code « OP09-004 » lu) → on bascule tout seul
+          const op = App.games.get('onepiece');
+          if (info.otherGame && op && op.recognize) {
+            const r = await op.recognize(blob, st).catch(() => null);
+            if (r && r.cands.length) { switchGame('onepiece'); ({ info, cands } = r); summary = info.read; switched = true; }
+          }
+        }
         if (!alive()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
-        setStatus(info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte Pokémon</b> (autre jeu ?). CollecDex ne reconnaît que les cartes Pokémon pour l’instant : les autres jeux arriveront plus tard.</span>` : '');
-        showCandidates(cands, R.readSummary(info));
+        setStatus(switched ? `<span class="small">${App.icons.icon('anchor', 14)} <b>Carte One Piece reconnue</b> : passage en One Piece.</span>`
+          : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre jeu ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '');
+        showCandidates(cands, summary);
         // les propositions sont sous la photo sur téléphone : on y descend
         requestAnimationFrame(() => { const r = results.getBoundingClientRect(); if (r.top > window.innerHeight * 0.55) window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 70), behavior: 'smooth' }); });
       } catch (e) {
@@ -549,7 +585,13 @@ App.views.scan = {
       if (!cardBlob) return App.util.toast('Prends d’abord la carte en photo');
       spin('Recherche…');
       try {
-        const cands = await R.manual(cardBlob, el.querySelector('#sc-name').value, el.querySelector('#sc-num').value, spin);
+        const nameQ = el.querySelector('#sc-name').value, numQ = el.querySelector('#sc-num').value;
+        let cands;
+        if (isPk()) cands = await R.manual(cardBlob, nameQ, numQ, spin);
+        else { // One Piece : par le code (« OP09-004 ») s'il est donné, sinon par le nom
+          cands = await ad.search({ name: numQ.trim() || nameQ });
+          if (numQ.trim() && nameQ.trim()) { const n = App.util.norm(nameQ); const f = cands.filter((c) => App.util.norm(c.name).includes(n)); if (f.length) cands = f; }
+        }
         setStatus(''); showCandidates(cands, '');
       } catch (e) { setStatus(''); App.util.toast(e.message); }
     });

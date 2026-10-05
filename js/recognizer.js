@@ -1559,7 +1559,13 @@ App.recognizer = (() => {
    *        'photo' (même carte : sa photo devient le visuel, sans changer la quantité), 'rien'.
    */
   let lastVariants = null;
-  async function addScanned(c, blob, mode = null) {
+  /** Lit des zones d'une carte : [y0, y1, échelle, mode, x0, x1, psm] ou 'full' (carte entière) → textes (autres jeux : One Piece) */
+  async function readZones(blob, zones) {
+    const w = await getWorker(), img = await loadImg(blob);
+    return Promise.all(zones.map((z) => (z === 'full' ? w.recognize(blob) : w.recognize(band(img, z[0], z[1], z[2], z[3] || 'sharp', z[4] ?? 0, z[5] ?? 1), z[6])).then((r) => r.data.text || '', () => '')));
+  }
+
+  async function addScanned(c, blob, mode = null, game = c.game || 'pokemon') {
     const before = App.col.get(game, c.id);
     if (!mode) mode = before && before.qty > 0 ? 'photo' : 'nouvelle';
     const key = App.col.keyOf(game, c.id);
@@ -1590,11 +1596,11 @@ App.recognizer = (() => {
     return ref ? vis01(artMatch(mine, ref)) : null;
   }
   /** Ressemblance de la photo avec plusieurs cartes (la photo n'est analysée qu'une fois) */
-  async function resemblanceMany(blob, cards) {
+  async function resemblanceMany(blob, cards, urlOf = (c) => ad().img.card(c, 'low')) { // urlOf : visuel d'un autre jeu (One Piece)
     const mine = await artVariants(blob);
     const out = new Map();
     await App.util.pool(cards, 6, async (c) => {
-      const src = ad().img.card(c, 'low'); if (!src) return;
+      const src = urlOf(c); if (!src) return;
       const ref = await officialThumb(src);
       if (ref) out.set(c.id, vis01(artMatch(mine, ref)));
     });
@@ -1603,5 +1609,5 @@ App.recognizer = (() => {
 
   function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
 
-  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, readZones, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
 })();

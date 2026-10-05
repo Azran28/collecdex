@@ -14,7 +14,7 @@
 App.games = (() => {
   const list = [
     { id: 'pokemon', name: 'Pokémon', icon: 'bolt', status: 'actif', desc: 'Toutes les séries en français, prix Cardmarket.' },
-    { id: 'onepiece', name: 'One Piece', icon: 'anchor', status: 'bientôt', desc: 'OP01 → OP14 et plus.' },
+    { id: 'onepiece', name: 'One Piece', icon: 'anchor', status: 'actif', desc: 'Boosters, decks et promos, en français depuis OP-09.' },
     { id: 'magic', name: 'Magic: The Gathering', icon: 'sparkles', status: 'bientôt', desc: 'Toutes les extensions, prix inclus.' },
     { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: 'pyramid', status: 'bientôt', desc: 'Toutes les boîtes, prix inclus.' },
     { id: 'lorcana', name: 'Disney Lorcana', icon: 'star', status: 'bientôt', desc: 'Chapitres 1 et suivants.' },
