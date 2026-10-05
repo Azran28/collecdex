@@ -311,7 +311,9 @@
   // sur une carte One Piece, le code (« OP09-004 ») est imprimé en bas à droite, et le nom en gros au-dessus des types
   // lecture tolérante (« OPO9-0O4 », « 0P09—004 ») puis chiffres corrigés : O → 0, I/L → 1, S → 5…
   const D = '[0-9OILSDQZBG|]';
-  const CODE_RE = new RegExp(`(OP|0P|ST|5T|EB|PRB)\s?[-–—_.]?\s?(${D}{2})\s?[-–—_.]\s?(${D}{3})(?![0-9])|(?<![A-Z0-9])P\s?[-–—]\s?(${D}{3})(?![0-9])`, 'g');
+  // (String.raw : les « \s » doivent arriver tels quels dans l'expression ; avant, ils devenaient « s » et un code lu avec un espace était ignoré)
+  // préfixe : « O » souvent lu « 0 », « © », « ( », « C »… ; un chiffre collé après le code = le badge de rareté (« OP10-1198 » → OP10-119)
+  const CODE_RE = new RegExp(String.raw`(OP|[0©(CQGD]P|ST|5T|EB|E8|PRB|PR8)\s?[-–—_.]?\s?(${D}{2})\s?[-–—_.]\s?(${D}{3})|(?<![A-Z0-9])P\s?[-–—]\s?(${D}{3})(?![0-9])`, 'g');
   // lettres lues à la place d'un chiffre : toutes les possibilités (le petit « 9 » est souvent lu « g » ou « s »)
   const ALT = { O: ['0'], D: ['0'], Q: ['9', '0'], I: ['1'], L: ['1'], '|': ['1'], S: ['5', '9'], G: ['9', '6'], Z: ['2'], B: ['8'] };
   /** Chiffres possibles d'un groupe lu (« OS » → 05, 09) avec un poids : 1 si lu tel quel, moins s'il a fallu deviner */
@@ -330,7 +332,7 @@
     const T = String(text || '').toUpperCase();
     for (const m of T.matchAll(CODE_RE)) {
       if (!m[1]) { for (const [n, w] of digitsOf(m[4])) codes.push([`P-${n}`, w]); continue; }
-      const pre = m[1].replace('0P', 'OP').replace('5T', 'ST');
+      const pre = m[1].replace(/^[0©(CQGD]P$/, 'OP').replace('5T', 'ST').replace('E8', 'EB').replace('PR8', 'PRB');
       for (const [a, wa] of digitsOf(m[2])) for (const [b, wb] of digitsOf(m[3])) codes.push([`${pre}${a}-${b}`, wa * wb]);
     }
     for (const m of T.matchAll(new RegExp(`[-–—](${D}{3})(?![0-9A-Z])`, 'g'))) for (const [n] of digitsOf(m[1]).slice(0, 1)) if (n !== '000') nums.push(n);
@@ -343,13 +345,40 @@
    * classées par ressemblance de l'illustration (visuels relayés par images.weserv.nl, qui autorise la comparaison).
    * Renvoie { info: { code, name, read }, cands }.
    */
-  async function recognize(blob, statusFn = () => {}, { setId = '' } = {}) {
+  // zones de lecture (fractions de la carte) : le code, tout petit, en bas à droite (vraies photos d'Arnaud : il n'est lu
+  // qu'en bande serrée et très agrandie) ; puis le bas de la carte et le nom
+  // (deux bandes serrées décalées : le code n'est pas au même endroit sur un Leader, qui a la case « VIE » à droite)
+  const CODE_ZONES = [[0.94, 0.97, 8, 'sharp', 0.74, 0.9], [0.94, 0.97, 8, 'otsu', 0.74, 0.9], [0.94, 0.975, 8, 'sharp', 0.62, 0.86], [0.935, 0.985, 7, 'sharp', 0.6, 0.95]];
+  const NAME_ZONES = [[0.9, 1, 4, 'sharp', 0.5, 1], [0.86, 1, 3, 'sharp', 0, 1], [0.72, 0.9, 2.5, 'sharp', 0.08, 0.92], [0.72, 0.9, 2.5, 'invert', 0.08, 0.92]];
+  /** Autres cadrages d'une photo (carte mal recadrée : le cadre jaune a pris l'intérieur d'une carte à bordure jaune) */
+  async function otherCrops(orig) {
+    const out = [];
+    try {
+      const bmp = await createImageBitmap(orig), k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const r = App.recognizer.cutCard(c, { x: 0.02, y: 0.02, w: 0.96, h: 0.96 }); // bords de la carte
+      if (r) out.push({ blob: await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)), zones: CODE_ZONES });
+      // la photo entière (carte qui la remplit presque) : on ne sait pas où est le bas de la carte → bandes qui glissent sur le bas
+      out.push({ blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9)), zones: SLIDE_ZONES });
+    } catch (e) { console.warn(e); }
+    return out.filter((x) => x.blob);
+  }
+  // (bandes serrées et très agrandies : une bande large, avec le texte voisin, ne lit pas le code)
+  const SLIDE_ZONES = [0.8, 0.83, 0.86, 0.89, 0.92, 0.95].map((y) => [y, y + 0.035, 8, 'sharp', 0.72, 0.92]);
+  async function recognize(blob, statusFn = () => {}, { setId = '', original = null } = {}) {
     const R = App.recognizer;
     statusFn('Lecture du code de la carte…');
-    // bas de la carte (code + nom), coin bas droit agrandi, en normal, inversé (texte blanc) et noir/blanc
-    const zones = [[0.9, 1, 4, 'sharp', 0.5, 1], [0.9, 1, 4, 'invert', 0.5, 1], [0.88, 1, 3, 'otsu', 0.45, 1], [0.86, 1, 3, 'sharp', 0, 1], [0.86, 1, 3, 'invert', 0, 1], [0.72, 0.9, 2.5, 'sharp', 0.08, 0.92], [0.72, 0.9, 2.5, 'invert', 0.08, 0.92]];
-    const texts = await R.readZones(blob, zones);
+    const texts = await R.readZones(blob, [...CODE_ZONES, ...NAME_ZONES]);
     let read = texts.map(codesIn);
+    // rien lu sur la carte recadrée : le code est cherché sur d'autres cadrages de la photo d'origine
+    if (original && !read.some((r) => r.codes.length)) {
+      statusFn('Lecture du code (autre cadrage)…');
+      for (const alt of await otherCrops(original)) {
+        const t = await R.readZones(alt.blob, alt.zones); texts.push(...t); read.push(...t.map(codesIn));
+        if (read.some((r) => r.codes.length)) break;
+      }
+    }
     if (!read.some((r) => r.codes.length)) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }
     const votes = {}, numsRead = new Set();
     for (const r of read) { for (const [c, w] of r.codes) votes[c] = (votes[c] || 0) + w; for (const n of r.nums) numsRead.add(n); }
@@ -357,6 +386,11 @@
     const exists = (c) => idx.fr.cards[c] || idx.en.cards[c];
     let codes = Object.keys(votes).filter(exists).sort((a, b) => votes[b] - votes[a]);
     if (codes.length) codes = codes.filter((c) => votes[c] >= votes[codes[0]] * 0.5); // les lectures nettement moins probables sont écartées
+    // carte DON!! (« CARTE DON!! », « Votre tour +1000 ») : pas de code, absente des listes de Bandai → on le dit au lieu de proposer n'importe quoi
+    // (pas « DON!! » seul : le texte de beaucoup de cartes parle de « cartes DON!! »)
+    if (!codes.length && /CARTE\s*D[O0]N\s*!|votre\s+tour\s*\+\s*1\s*[0O]\s*[0O]\s*[0O]/i.test(texts.join('\n'))) {
+      return { info: { code: '', name: '', don: true, read: 'carte DON!!' }, cands: [] };
+    }
     // nom : chaque ligne lue comparée aux noms connus
     statusFn('Recherche de la carte…');
     const nm = await names(), lines = texts.join('\n').split('\n').map((l) => norm(l)).filter((l) => l.length >= 3);
@@ -425,7 +459,7 @@
     // code mal lu mais retrouvé par l'image (« OP05-004 » lu, c'est OP09-004) : on le dit
     const byImg = codes.length && code && !codes.includes(code) && top.visual >= 0.6;
     const readTxt = codes.length ? `code ${byImg ? code : codes[0]}${fixed ? ' (corrigé grâce au nom)' : byImg ? ' (corrigé grâce à l’illustration)' : ''}` : numsRead.size ? `numéro ${[...numsRead][0]}` : '';
-    return { info: { code, name: nameOk, read: [readTxt, nameOk ? `nom « ${nameOk} »` : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+    return { info: { code, name: nameOk, votes, read: [readTxt, nameOk ? `nom « ${nameOk} »` : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
   // ---------- Images ----------

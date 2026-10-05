@@ -185,6 +185,7 @@ App.views.scan = {
     const guideC = () => (isPk() ? App.views.scan.guide('carte') : `<div class="pc-block pc-off"><div class="pc-block-h">${App.icons.icon('shield', 18)} <b>Certification</b> <span class="small muted">— pas encore pour ${App.util.esc(ad.name)}</span></div><p class="small muted" style="margin:6px 0 0">Prends ta carte en photo (le code en bas à droite, ex. OP09-004, doit être lisible) : elle est reconnue et ajoutée avec ta photo, sans badge « Certifiée » pour le moment.</p></div>`);
     const targetId = params.query.carte || null;
     let cardBlob = null, cardURL = null, target = null, pageBlob = null;
+    let donCard = false; // carte DON!! de One Piece lue sur la photo (pas encore gérée)
     let cert = null; // résultat de la vérification en direct de la dernière photo (null = photo importée)
 
     el.innerHTML = `
@@ -327,7 +328,7 @@ App.views.scan = {
       try {
         cert = null;
         const b = await shotP; if (!b) return;
-        lastShot = b; cam.stop();
+        lastShot = b; pageBlob = b; cam.stop(); // (pageBlob : photo d'origine, relue autrement si la carte recadrée ne donne rien)
         await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 80); }); // qu'elle s'affiche avant les calculs (80 ms au plus : onglet caché)
         if (certWanted) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
         stopTrack();
@@ -452,8 +453,10 @@ App.views.scan = {
         else cands.push({ ...target, isTarget: true, notRead: true });
       }
       el.querySelector('#sc-manual').classList.remove('hidden');
+      // scan raté ou mauvaise carte : reprendre une photo (ou recadrer celle-ci) en un geste (demande d'Arnaud)
+      const retry = `<div class="row sc-retry"><button class="btn primary" data-retry="photo">${App.icons.icon('camera', 16)} Réessayer</button>${lastShot ? '<button class="btn" data-retry="crop">✂ Recadrer cette photo</button>' : ''}</div>`;
       if (!cands.length) {
-        results.innerHTML = `<div class="panel">Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (le numéro en bas doit être lisible) ou cherche-la ci-dessous.</span></div>`;
+        results.innerHTML = `<div class="panel">${donCard ? `<b>C’est une carte DON!!</b><br><span class="small muted">Les cartes DON!! ne sont pas encore dans CollecDex : elles n’ont pas de numéro et Bandai ne les liste pas avec les autres cartes.</span>` : `Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (${isPk() ? 'le numéro en bas doit être lisible' : 'le code en bas à droite, ex. OP10-001, doit être lisible'}) ou cherche-la ci-dessous.</span>`}${retry}</div>`;
         return;
       }
       results.innerHTML = `
@@ -475,7 +478,8 @@ App.views.scan = {
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
         }).join('')}
-        ${[...new Set(cands.slice(0, 3).map((c) => c.name))].slice(0, 2).map((n) => `<button class="btn sm" data-versions="${esc(n)}" style="margin:4px 6px 0 0">Toutes les versions de « ${esc(n)} »</button>`).join('')}`;
+        ${[...new Set(cands.slice(0, 3).map((c) => c.name))].slice(0, 2).map((n) => `<button class="btn sm" data-versions="${esc(n)}" style="margin:4px 6px 0 0">Toutes les versions de « ${esc(n)} »</button>`).join('')}
+        <div class="sc-retry-box"><span class="small muted">Aucune ne correspond ?</span>${retry}</div>`;
       results.onclick = async (e) => {
         if (!cardBlob) return;
         const vb = e.target.closest('[data-versions]');
@@ -554,7 +558,7 @@ App.views.scan = {
       try {
         const setId = el.querySelector('#sc-set').value;
         let info, cands, summary, switched = false;
-        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId })); summary = info.read; }
+        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob }) /* photo d'origine : autre cadrage si besoin */); summary = info.read; }
         else {
           if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
           else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
@@ -570,6 +574,7 @@ App.views.scan = {
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         setStatus(switched ? `<span class="small">${App.icons.icon('anchor', 14)} <b>Carte One Piece reconnue</b> : passage en One Piece.</span>`
           : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre jeu ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '');
+        donCard = !!info.don;
         showCandidates(cands, summary);
         // les propositions sont sous la photo sur téléphone : on y descend
         requestAnimationFrame(() => { const r = results.getBoundingClientRect(); if (r.top > window.innerHeight * 0.55) window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 70), behavior: 'smooth' }); });
@@ -581,6 +586,18 @@ App.views.scan = {
       }
     }
 
+    // « Réessayer » : on repart d'une nouvelle photo (caméra du site) ; « Recadrer » : même photo, cadre à la main
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-retry]'); if (!b) return;
+      e.stopPropagation();
+      if (b.dataset.retry === 'crop' && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; return; }
+      cardBlob = null; cert = null; donCard = false; setStatus('');
+      el.querySelector('#sc-manual').classList.add('hidden');
+      view.innerHTML = App.views.scan.empty('carte');
+      results.innerHTML = guideC();
+      window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 66), behavior: 'smooth' });
+      el.querySelector('#sc-cam').click();
+    });
     el.querySelector('#sc-search').addEventListener('click', async () => {
       if (!cardBlob) return App.util.toast('Prends d’abord la carte en photo');
       spin('Recherche…');
