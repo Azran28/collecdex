@@ -73,6 +73,20 @@ App.views.scan = {
     </div>`;
   },
 
+  /**
+   * Cadre trouvé par le détourage sur une photo de la caméra (v2.90) : refusé s'il touche un bord de la photo d'un côté
+   * en laissant une grande marge du côté opposé — c'est que la carte dépassait (tenue trop près) et qu'on a pris un
+   * rectangle à l'intérieur (cadre de l'illustration, zone de texte). Mesuré sur des cartes qui tiennent dans la photo :
+   * marges presque égales des deux côtés ; qui dépassent : 0,01 contre 0,08.
+   */
+  sane(r) {
+    if (!r || !r.quad) return r || null;
+    const xs = r.quad.map((p) => p[0]), ys = r.quad.map((p) => p[1]);
+    const m = { l: Math.min(...xs), r: 1 - Math.max(...xs), t: Math.min(...ys), b: 1 - Math.max(...ys) };
+    const cut = (a, b) => (a < 0.025 && b > 0.06) || (b < 0.025 && a > 0.06);
+    return cut(m.l, m.r) || cut(m.t, m.b) ? null : r;
+  },
+
   /** « Set de Base (1999) » */
   setLabel(c) { return c.set ? `${c.set.name}${c.set.releaseDate ? ' (' + c.set.releaseDate.slice(0, 4) + ')' : ''}` : (c.setId || ''); },
 
@@ -309,13 +323,14 @@ App.views.scan = {
     });
     // photo certifiable si le dos a été vu (dans les 15 dernières secondes) et la carte retournée depuis
     el.querySelector('#sc-shot').addEventListener('click', () => shoot(!!(trk && trkTimer && trk.phase !== 'attente')));
-    let shooting = false, lastShot = null;
+    let shooting = false, lastShot = null, tooClose = false;
     async function shoot(flipped) {
       if (shooting) return; // un seul appui compte (le défi de certification ne sert qu'une fois)
       shooting = true;
       // l'image est figée À L'INSTANT de l'appui (la suite peut prendre 1 à 2 s : on peut bouger)
       const shotP = cam.capture();
       const certWanted = App.certify.available() && App.settings.certCarte !== false;
+      if (certWanted && flipped) { try { trk.step(); } catch (e) { /* */ } } // image fraîche au moment de l'appui (sinon la dernière, jusqu'à 90 ms plus tôt, montrait parfois encore le dos)
       const proofP = certWanted && flipped ? trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
       const shot = el.querySelector('#sc-shot');
       shot.disabled = true; shot.textContent = '✓ Photo prise — recherche de la carte…';
@@ -336,7 +351,12 @@ App.views.scan = {
         let card = b;
         try {
           const img = await createImageBitmap(b), GM = 0.06 / 1.12, zone = { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM };
-          const r = R.cutCard(img, zone) || R.cellCard(img, zone);
+          // v2.90 : carte plus grande que le cadre (tenue trop près) → ses bords sont cherchés dans toute la photo, et sinon
+          // on garde toute la photo (avant : la zone du cadre, donc un zoom sur le haut de la carte, code coupé)
+          const all = { x: 0.01, y: 0.01, w: 0.98, h: 0.98 };
+          const cz = App.views.scan.sane(R.cutCard(img, zone)), ca = cz ? null : App.views.scan.sane(R.cutCard(img, all));
+          tooClose = !cz && !ca; // bords introuvables : souvent une carte tenue trop près (elle dépasse du cadre)
+          const r = cz || ca || R.cellCard(img, { x: 0, y: 0, w: 1, h: 1 });
           card = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)) || b;
         } catch (e) { console.warn(e); }
         el.querySelector('#sc-actions').classList.remove('hidden');
@@ -346,7 +366,8 @@ App.views.scan = {
           : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`;
         // lampe en mode essai : note + petit graphique (mesures à transmettre pour le réglage)
         const lampHtml = cert && cert.flashTrace ? `${cert.lampNote ? `<div class="small" style="margin-top:6px">${App.util.esc(cert.lampNote)}</div>` : ''}${App.certify.lampChart(cert.flashTrace, cert.lampFit)}` : '';
-        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${lampHtml}${certLine ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
+        const closeTip = tooClose ? `<div class="small" style="margin:6px 0">${App.icons.icon('capture', 13)} <b>Bords de la carte pas trouvés</b> : éloigne un peu la carte, elle doit tenir <b>entière</b> dans le cadre jaune (avec un peu de marge).</div>` : '';
+        status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${lampHtml}${closeTip}${certLine && !closeTip ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
       } finally {
         shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
         shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`; camButtons(true);
@@ -1889,8 +1910,8 @@ App.views.scan = {
         rLast = F;
         const img = await createImageBitmap(b);
         const zone = { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM };
-        const cut = R.cutCard(img, zone); // détourée au ras des bords, sinon recadrée au plus près
-        const r = cut ? { ...cut, auto: true } : R.cellCard(img, zone);
+        const cut = App.views.scan.sane(R.cutCard(img, zone)) || App.views.scan.sane(R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 })); // détourée au ras des bords (dans le cadre, sinon dans toute la photo)
+        const r = cut ? { ...cut, auto: true } : R.cellCard(img, { x: 0, y: 0, w: 1, h: 1 }); // (sinon toute la photo : la carte dépasse peut-être du cadre)
         const blob = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9));
         addBurstCell(blob, r.auto, live);
         if (flipped) rHint(live && live.passed ? `${App.icons.icon('shield', 13)} Carte ${cells.length} vérifiée — suivante !` : `Carte ${cells.length} prise (non certifiable) — suivante !`, live && live.passed ? 'ok' : '');
