@@ -442,6 +442,7 @@ App.importer = (() => {
       const g = byId.get(id) || { game, card: r.card, set: r.set, qty: 0, vars: new Set(), lang: r.lang, cond: r.cond };
       g.qty += Math.max(1, r.qty || 1);
       if (game === 'pokemon') variantFor(r, r.card).forEach((x) => g.vars.add(x));
+      else if (r.card.variants) Object.keys(r.card.variants).filter((k) => r.card.variants[k]).forEach((x) => g.vars.add(x)); // One Piece : holo selon la rareté
       if (!g.cond && r.cond) g.cond = r.cond;
       byId.set(id, g);
     }

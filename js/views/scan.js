@@ -139,26 +139,31 @@ App.views.scan = {
       },
       get video() { return view.querySelector('video'); },
       /** Zone du cadre jaune (+ marge) dans la vidéo, en pixels de la vidéo */
-      region() {
+      // m : marge autour du cadre jaune (6 % pour le suivi de la certification, réglé ainsi pour les dos)
+      region(m = 0.06) {
         const v = view.querySelector('video'); if (!v || !v.videoWidth) return null;
-        let sx = 0, sy = 0, sw = v.videoWidth, sh = v.videoHeight;
+        let sx = 0, sy = 0, sw = v.videoWidth, sh = v.videoHeight, g = null;
         if (guide) {
           const vr = v.getBoundingClientRect(), gr = view.querySelector('.scan-guide').getBoundingClientRect();
           const scale = (view.classList.contains('live-cover') ? Math.max : Math.min)(vr.width / v.videoWidth, vr.height / v.videoHeight);
           const ox = vr.left + (vr.width - v.videoWidth * scale) / 2, oy = vr.top + (vr.height - v.videoHeight * scale) / 2;
-          const m = 0.06;
           sx = Math.max(0, (gr.left - ox) / scale - gr.width / scale * m); sy = Math.max(0, (gr.top - oy) / scale - gr.height / scale * m);
           sw = Math.min(v.videoWidth - sx, gr.width / scale * (1 + 2 * m)); sh = Math.min(v.videoHeight - sy, gr.height / scale * (1 + 2 * m));
+          g = { x: (gr.left - ox) / scale, y: (gr.top - oy) / scale, w: gr.width / scale, h: gr.height / scale };
         }
-        return { sx, sy, sw, sh };
+        return { sx, sy, sw, sh, g };
       },
-      /** Image du flux vidéo ; avec guide, seulement la zone du cadre jaune (+ marge) */
-      capture() {
-        const v = view.querySelector('video'), r = this.region(); if (!r) return null;
-        const { sx, sy, sw, sh } = r;
+      /**
+       * Image du flux vidéo ; avec guide, la zone du cadre jaune + 15 % de marge (v2.92, demande d'Arnaud : une carte
+       * un peu trop grande ou décalée n'est plus coupée). this.zone = position du cadre jaune dans l'image (fractions).
+       */
+      capture(m = 0.15) {
+        const v = view.querySelector('video'), r = this.region(m); if (!r) return null;
+        const { sx, sy, sw, sh, g } = r;
         const c = document.createElement('canvas'); c.width = sw; c.height = sh;
         c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
         this.lastCanvas = c; // (affichable tout de suite, avant l'encodage JPEG qui prend jusqu'à 1 s)
+        this.zone = g ? { x: (g.x - sx) / sw, y: (g.y - sy) / sh, w: g.w / sw, h: g.h / sh } : { x: 0, y: 0, w: 1, h: 1 };
         return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
       },
       /**
@@ -350,14 +355,14 @@ App.views.scan = {
         // la carte est détourée toute seule, au ras de ses bords et remise à plat (sinon recadrée au plus près)
         let card = b;
         try {
-          const img = await createImageBitmap(b), GM = 0.06 / 1.12, zone = { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM };
-          // v2.90 : carte plus grande que le cadre (tenue trop près) → ses bords sont cherchés dans toute la photo, et sinon
-          // on garde toute la photo (avant : la zone du cadre, donc un zoom sur le haut de la carte, code coupé)
-          const all = { x: 0.01, y: 0.01, w: 0.98, h: 0.98 };
-          const cz = App.views.scan.sane(R.cutCard(img, zone)), ca = cz ? null : App.views.scan.sane(R.cutCard(img, all));
-          tooClose = !cz && !ca; // bords introuvables : souvent une carte tenue trop près (elle dépasse du cadre)
-          const r = cz || ca || R.cellCard(img, { x: 0, y: 0, w: 1, h: 1 });
-          card = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)) || b;
+          // v2.92 (demande d'Arnaud) : la photo comprend le cadre jaune + 15 % de marge ; on ne recadre au ras de la carte
+          // que si ses 4 bords sont trouvés avec assurance (dans le cadre, sinon dans toute la photo) — sinon on garde la
+          // photo entière, marge comprise : toutes les infos de la carte restent visibles, rien n'est coupé
+          const img = await createImageBitmap(b), zone = cam.zone || { x: 0.115, y: 0.115, w: 0.77, h: 0.77 }, all = { x: 0.01, y: 0.01, w: 0.98, h: 0.98 };
+          const sure = (r) => (r && r.fit >= 0.45 ? App.views.scan.sane(r) : null);
+          const cz = sure(R.cutCard(img, zone)), ca = cz ? null : sure(R.cutCard(img, all));
+          tooClose = !cz && !ca; // bords pas trouvés avec assurance : photo entière (et conseil d'éloigner un peu la carte)
+          if (cz || ca) card = await new Promise((res) => (cz || ca).canvas.toBlob(res, 'image/jpeg', 0.92)) || b;
         } catch (e) { console.warn(e); }
         el.querySelector('#sc-actions').classList.remove('hidden');
         await analyse(card);
@@ -421,7 +426,7 @@ App.views.scan = {
             const NW = img.naturalWidth, NH = img.naturalHeight;
             const f = R.locateCard(img, { x: 0, y: 0, w: NW, h: NH }, 0.45);
             if (f && f.h / NH > 0.55) {
-              const m = 1.03; // un poil plus grand que la carte : bords compris
+              const m = 1.12; // nettement plus grand que la carte (v2.92) : bords compris, rien de coupé si le cadre est un peu faux
               size = Math.min(1, f.h * m / NH); if (f.w * m > NW) size = Math.min(1, f.w * m / NW);
               cx = (f.x + f.w / 2) / NW; cy = (f.y + f.h / 2) / NH; found = true;
             }
@@ -506,6 +511,7 @@ App.views.scan = {
             <img src="${esc(ad.img.card(c, 'low'))}" alt="" data-alt="${esc(c.name)}">
             <div><b>${esc(c.name)}</b> ${ad.rarity.symbol(c.rarity, 12)}<br>
               <span class="muted small">${esc(App.views.scan.setLabel(c))} · n° ${esc(c.localId)}${c.set && c.set.cardCount && !ad.numLabel ? '/' + c.set.cardCount.official : ''}</span>
+              ${!isPk() && c.variants ? `<br><span class="small muted">${c.variants.holo ? '✨ Holo' : 'Non holo'}</span>` : ''}
               ${!isPk() && /_p\d+$/.test(c.id) ? '<br><span class="small muted">Version parallèle (autre illustration) : compare avec ta carte</span>' : ''}
               ${!isPk() && /_r\d+$/.test(c.id) ? '<br><span class="small muted">Réimpression au même dessin, dans une autre série : vérifie la série</span>' : ''}
               ${i === 0 && c.twin ? '<br><span class="pill small" style="background:#7a4a00">Existe aussi dans une autre série : vérifie la série</span>' : ''}
@@ -1909,11 +1915,13 @@ App.views.scan = {
         }
         rLast = F;
         const img = await createImageBitmap(b);
-        const zone = { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM };
-        const cut = App.views.scan.sane(R.cutCard(img, zone)) || App.views.scan.sane(R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 })); // détourée au ras des bords (dans le cadre, sinon dans toute la photo)
-        const r = cut ? { ...cut, auto: true } : R.cellCard(img, { x: 0, y: 0, w: 1, h: 1 }); // (sinon toute la photo : la carte dépasse peut-être du cadre)
-        const blob = await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.9));
-        addBurstCell(blob, r.auto, live);
+        // v2.92 : photo = cadre jaune + 15 % de marge ; recadrée au ras de la carte seulement si ses bords sont sûrs, sinon
+        // la photo entière (marge comprise : rien de coupé)
+        const zone = cam.zone || { x: GM, y: GM, w: 1 - 2 * GM, h: 1 - 2 * GM };
+        const sure = (x) => (x && x.fit >= 0.45 ? App.views.scan.sane(x) : null);
+        const cut = sure(R.cutCard(img, zone)) || sure(R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 }));
+        const blob = cut ? await new Promise((res) => cut.canvas.toBlob(res, 'image/jpeg', 0.9)) : b;
+        addBurstCell(blob, !!cut, live);
         if (flipped) rHint(live && live.passed ? `${App.icons.icon('shield', 13)} Carte ${cells.length} vérifiée — suivante !` : `Carte ${cells.length} prise (non certifiable) — suivante !`, live && live.passed ? 'ok' : '');
       } catch (e) { console.warn(e); }
       finally { rPrev = null; rBusy = false; }

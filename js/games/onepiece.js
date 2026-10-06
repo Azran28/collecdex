@@ -72,6 +72,10 @@
   };
   // carte parallèle (« _p1 », illustration alternative) : rareté à part, sauf les SP / TR / promos qui gardent la leur
   const rarOf = (id, r) => (/_p\d+$/.test(id) && !['Special', 'TreasureRare', 'Promo'].includes(r) ? 'Parallel' : r || '');
+  // holo (v2.92) : décidé par la rareté, pas mesuré sur la photo — Super rare, Secrète rare, Spéciale, Trésor rare et
+  // versions parallèles brillent ; Commune, Peu commune, Rare et Leader de base non (réponses d'Arnaud : Leader « Non », SEC « Holo »)
+  const FOIL = ['SuperRare', 'SecretRare', 'Special', 'TreasureRare', 'Parallel'];
+  const variantsOf = (rar) => (FOIL.includes(rar) ? { holo: true } : { normal: true });
 
   // ---------- Séries ----------
   const unent = (s) => String(s || '').replace(/&amp;/g, '&').replace(/&apos;/g, '\'').replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&apos;/g, '\'');
@@ -184,7 +188,7 @@
     const facts = [CAT[c.category] || c.category, (c.colors || []).map((x) => COL[x] || x).join(' / '), c.cost != null && c.category !== 'Leader' ? `Coût ${c.cost}` : '', c.category === 'Leader' && c.cost != null ? `${c.cost} vies` : '',
       c.power ? `${nb(c.power)} de puissance` : '', c.counter ? `Contre +${nb(c.counter)}` : '', (c.types || []).map(unent).join(' · ')].filter(Boolean);
     return {
-      id, localId: pretty(id), name: unent(c.name), image: c.img_full_url || c.img_url || '', rarity: rarOf(id, c.rarity), baseRarity: c.rarity || '',
+      id, localId: pretty(id), name: unent(c.name), image: c.img_full_url || c.img_url || '', rarity: rarOf(id, c.rarity), baseRarity: c.rarity || '', variants: variantsOf(rarOf(id, c.rarity)),
       category: CAT[c.category] || c.category || '', types: [], facts,
       text: [unent(c.effect || ''), c.trigger ? '[Déclenchement] ' + unent(c.trigger) : ''].filter((x) => x && x !== '-').join('\n'),
       colors: c.colors || [], cost: c.cost ?? null, power: c.power ?? null, counter: c.counter ?? null,
@@ -197,7 +201,7 @@
     const s = list.find((x) => x.id === id);
     if (!s) throw new Error('Série inconnue : ' + id);
     const L = s.packs[langFor(id)] ? langFor(id) : s.packs.fr ? 'fr' : 'en';
-    return cached(`op1:${L}:set:${id}`, 7 * DAY, async () => {
+    return cached(`op2:${L}:set:${id}`, 7 * DAY, async () => {
       const raw = await getJSON(`${DATA}/${FOLDER[L]}/data/${s.packs[L]}.json`);
       const set = { ...shapeOf(s, L), cardCount: { total: raw.length, official: 0 } };
       // série d'abord dans l'ordre des numéros, puis ses versions parallèles, réimpressions à la fin
@@ -239,7 +243,7 @@
     let c = set.cards.find((x) => x.id === id);
     if (!c) {
       const s = (await sets()).find((x) => x.id === where.setId), L = where.L;
-      const raw = await cached(`op1:${L}:raw:${s.packs[L]}`, 7 * DAY, () => getJSON(`${DATA}/${FOLDER[L]}/data/${s.packs[L]}.json`));
+      const raw = await cached(`op2:${L}:raw:${s.packs[L]}`, 7 * DAY, () => getJSON(`${DATA}/${FOLDER[L]}/data/${s.packs[L]}.json`));
       const r = raw.find((x) => x && x.id === id); if (!r) throw new Error('Carte inconnue : ' + id);
       c = normCard(r, set, L);
     }
@@ -267,7 +271,7 @@
       const g = await setOfCard(id, null); if (!g) continue;
       const s = list.find((x) => x.id === g.setId); if (!s) continue;
       const L = idx[langFor(s.id)].cards[id] ? langFor(s.id) : g.L, c = idx[L].cards[id];
-      out.push({ id, localId: pretty(id), name: c[1], image: c[3], rarity: rarOf(id, c[2]), setId: s.id, serieId: s.group.id, set: setShape(shapeOf(s)) });
+      out.push({ id, localId: pretty(id), name: c[1], image: c[3], rarity: rarOf(id, c[2]), variants: variantsOf(rarOf(id, c[2])), setId: s.id, serieId: s.group.id, set: setShape(shapeOf(s)) });
     }
     return out;
   }

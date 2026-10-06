@@ -1654,7 +1654,9 @@ App.recognizer = (() => {
     // versions reconnues sur la photo (holo / reverse / 1re édition), parmi celles qui existent pour cette carte
     // (déjà mesurées et vérifiées dans la liste du classeur : c.pickedVariants)
     try {
-      const det = c.pickedVariants ? { list: c.pickedVariants } : c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
+      // autre licence (One Piece) : la version vient de la carte elle-même (holo selon la rareté), rien à mesurer
+      const det = c.pickedVariants ? { list: c.pickedVariants } : game !== 'pokemon' ? (c.variants ? { list: Object.keys(c.variants).filter((k) => c.variants[k]) } : null)
+        : c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
       if (det && det.list.length) {
         const it = App.col.byKey(key);
         const vars = [...new Set([...((it && it.variants) || []), ...det.list])];
