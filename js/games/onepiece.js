@@ -373,11 +373,80 @@
   }
   // (bandes serrées et très agrandies : une bande large, avec le texte voisin, ne lit pas le code)
   const SLIDE_ZONES = [0.8, 0.83, 0.86, 0.89, 0.92, 0.95].map((y) => [y, y + 0.035, 8, 'sharp', 0.72, 0.92]);
+  // ---------- Vérification par l'image (v2.94, comme le classeur Pokémon) ----------
+  // réseau de neurones sur l'index de toutes les cartes One Piece (data/op-index.*, fait avec l'outil de js/labo-index.js),
+  // puis points clés (ORB) sur ces cartes et celles trouvées par le texte : score ≥ 25 = la même image, même sur une photo
+  // avec la main, la pochette et le fond autour. Les points clés donnent aussi les 4 coins de la carte sur la photo.
+  const OP_INDEX = 'data/op-index', OP_INDEX_V = 1;
+  const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
+  async function quadCrop(blob, quad) {
+    // (un coin hors de la photo : carte coupée, on ne recadre pas, sinon les pixels du bord sont étirés)
+    if (!quad || quad.some(([x, y]) => x < -0.005 || x > 1.005 || y < -0.005 || y > 1.005)) return null;
+    const bmp = await createImageBitmap(blob), q = quad.map(([x, y]) => [x * bmp.width, y * bmp.height]);
+    const w = Math.round(Math.min(900, Math.max(240, Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]))));
+    const cvs = App.recognizer.warpQuad(bmp, q, w, 0);
+    return new Promise((res) => cvs.toBlob(res, 'image/jpeg', 0.92));
+  }
+  /** Le centre de la photo (k = part gardée) → { blob, k } */
+  async function centerOf(blob, k) {
+    const bmp = await createImageBitmap(blob), w = bmp.width * k, h = bmp.height * k;
+    const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h);
+    c.getContext('2d').drawImage(bmp, (bmp.width - w) / 2, (bmp.height - h) / 2, w, h, 0, 0, c.width, c.height);
+    return { blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.92)), k };
+  }
+  /** cands (trouvées par le texte) + cartes proches à l'image → { cands (classées), best, crop } ou null */
+  async function visualPass(blob, cands, codes) {
+    const V = App.visual, tag = `op:${Date.now()}:${Math.random()}`;
+    // photo entière, marge comprise (main, pochette, boîte autour) : le réseau s'y perd ; son centre (≈ le cadre jaune de la
+    // caméra) le trouve bien mieux (photos d'Arnaud : Monet hors des 40 premières → 1ʳᵉ). Carte déjà au ras de ses bords
+    // (format d'une carte) : la photo telle quelle d'abord.
+    const bmp = await createImageBitmap(blob), tight = Math.abs(bmp.width / bmp.height - 63 / 88) < 0.04;
+    const center = await centerOf(blob, 0.77), queries = tight ? [{ blob, k: 1 }, center] : [center, { blob, k: 1 }];
+    const sc = new Map(), have = new Set(cands.map((c) => c.id)), pool = [...cands.slice(0, 40)];
+    let best = 0;
+    for (const [n, q] of queries.entries()) {
+      const qid = `${tag}:${n}`;
+      try {
+        let near = [];
+        try { near = await V.global(qid, q.blob, 40, { index: OP_INDEX, v: OP_INDEX_V }); } catch (e) { console.warn('index One Piece', e); }
+        for (const x of await fromIndex(near.map((x) => x.id).filter((id) => !have.has(id)))) { have.add(x.id); pool.push(x); }
+        if (!pool.length) return null;
+        const refs = pool.map((c) => ({ id: c.id, url: img.card(c, 'low'), set: c.setId }));
+        const r = await V.rank(qid, q.blob, refs, { must: cands.slice(0, 12).map((c) => c.id) });
+        // coins de la carte reportés sur la photo entière
+        const o = (1 - q.k) / 2, full = (quad) => quad && quad.map(([x, y]) => [o + x * q.k, o + y * q.k]);
+        for (const x of r.res) if (!sc.has(x.id) || sc.get(x.id).s < x.s) sc.set(x.id, { s: x.s, quad: full(x.quad) });
+        best = Math.max(best, r.best);
+      } finally { V.forget(qid); }
+      if (best >= V.SURE) break; // (2ᵉ essai seulement si l'image n'a rien donné de sûr)
+    }
+    for (const c of pool) c.orb = sc.has(c.id) ? sc.get(c.id).s : null;
+    const textPos = new Map(cands.map((c, i) => [c.id, i]));
+    // même image à 10 % près (réimpression au même dessin) : la carte du code lu, puis la carte de base
+    const tie = (a, b) => ((codes.includes(baseOf(b.id)) - codes.includes(baseOf(a.id))) || ((textPos.get(a.id) ?? 99) - (textPos.get(b.id) ?? 99)) || (SUFFIX.test(a.id) - SUFFIX.test(b.id)));
+    const ranked = pool.filter((c) => c.orb >= 15).sort((a, b) => (Math.abs(a.orb - b.orb) < 0.1 * Math.max(a.orb, b.orb) ? tie(a, b) : b.orb - a.orb));
+    if (!ranked.length) return { cands, best };
+    const top = ranked[0], second = ranked.find((c) => c !== top && c.orb >= 0.8 * top.orb);
+    const out = [...ranked, ...cands.filter((c) => !ranked.includes(c))];
+    for (const c of out) delete c.confident;
+    // sûre : image nettement reconnue, aucune autre carte aussi proche (sinon même dessin : la personne choisit)
+    if (top.orb >= V.SURE && !second) top.confident = true;
+    const q = top.orb >= V.SURE && sc.get(top.id) && sc.get(top.id).quad;
+    return { cands: out, best: top.orb, crop: q ? await quadCrop(blob, q).catch(() => null) : null };
+  }
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null } = {}) {
     const R = App.recognizer;
+    // vérification par l'image lancée tout de suite, en même temps que la lecture du texte (v2.94) : si elle est sûre et que
+    // le code n'est pas lisible, on ne relit pas d'autres cadrages (≈ 4 à 8 s gagnées)
+    const early = useVisual() ? visualPass(blob, [], []).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
     const texts = await R.readZones(blob, [...CODE_ZONES, ...NAME_ZONES]);
     let read = texts.map(codesIn), betterCrop = null;
+    if (early && !read.some((r) => r.codes.length)) {
+      statusFn('Vérification par l’image…');
+      const e = await early;
+      if (e && e.cands[0] && e.cands[0].confident) return { info: { code: baseOf(e.cands[0].id), name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
+    }
     // rien lu sur la carte recadrée : le code est cherché sur d'autres cadrages de la photo d'origine
     if (original && !read.some((r) => r.codes.length)) {
       statusFn('Lecture du code (autre cadrage)…');
@@ -458,17 +527,35 @@
     // (jamais si une autre carte a le même dessin : réimpression « _r1 » d'une autre série)
     // nom lu = nom de la carte : noté comme pour Pokémon (le classeur garde alors la proposition même si l'illustration diffère)
     if (nameOk) for (const x of cands) x.nameScore = norm(x.name) === nameOk ? 1 : 0;
-    const top = cands[0], second = cands[1];
+    let top = cands[0];
+    const second = cands[1];
     const codeSure = codes.length > 0 && (agreed || (votes[codes[0]] >= 2 && !nameOk));
     const visSure = top && (!second || (top.visual != null && top.visual >= 0.55 && top.visual - (second.visual ?? 0) >= 0.1));
     // (carte retrouvée par l'image alors que le code lu en désignait une autre : sûre seulement si l'illustration ne laisse aucun doute)
     const viaCode = codes.includes(top ? baseOf(top.id) : '');
     if (top && ((codeSure && viaCode && visSure) || ((!codes.length || !viaCode) && top.visual >= (viaCode ? 0.7 : 0.75) && (!second || top.visual - (second.visual ?? 0) >= (viaCode ? 0.12 : 0.15))))) top.confident = true;
+    // pas sûre par le texte (code illisible, photo avec la main et le fond…) : vérification par l'image
+    // (v2.94 : sans elle, une photo sans code lisible n'était pas reconnue ; avec elle, la carte est aussi recadrée sur ses vrais bords)
+    let orb = null;
+    if (!(top && top.confident && codeSure) && useVisual()) {
+      statusFn('Vérification par l’image…');
+      // (celle lancée au début suffit si elle est sûre et que le code lu, s'il est sûr, désigne la même carte ; sinon on refait
+      // la comparaison avec les cartes trouvées par le texte)
+      const e = early && await early, t = e && e.cands[0];
+      if (t && t.confident && !(codeSure && !codes.includes(baseOf(t.id)))) orb = { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] };
+      else orb = await visualPass(blob, cands, codes).catch((e) => { console.warn('vérification par l’image', e); return null; });
+      if (orb) { cands = orb.cands; top = cands[0]; }
+    }
+    if (orb && orb.crop) betterCrop = orb.crop;
+    else if (!orb && early && top) { // (carte sûre par le texte : la vérification lancée au début donne quand même ses vrais bords)
+      const e = await early;
+      if (e && e.crop && e.cands[0] && e.cands[0].id === top.id) betterCrop = e.crop;
+    }
     const code = top ? baseOf(top.id) : '';
     // code mal lu mais retrouvé par l'image (« OP05-004 » lu, c'est OP09-004) : on le dit
-    const byImg = codes.length && code && !codes.includes(code) && top.visual >= 0.6;
+    const byImg = codes.length && code && !codes.includes(code) && (top.visual >= 0.6 || top.orb >= 25);
     const readTxt = codes.length ? `code ${byImg ? code : codes[0]}${fixed ? ' (corrigé grâce au nom)' : byImg ? ' (corrigé grâce à l’illustration)' : ''}` : numsRead.size ? `numéro ${[...numsRead][0]}` : '';
-    return { info: { code, name: nameOk, votes, crop: betterCrop, read: [readTxt, nameOk ? `nom « ${nameOk} »` : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+    return { info: { code, name: nameOk, votes, crop: betterCrop, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
   // ---------- Images ----------

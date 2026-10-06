@@ -48,9 +48,10 @@ App.visual = (() => {
   }
   // empreintes de toute la base, préparées d'avance (v2.83) : data/vis-index.json + .bin
   const INDEX = 'data/vis-index';
-  /** Les k cartes de toute la base les plus proches pour le réseau de neurones → [{ id, set, img, s }] (img = adresse du visuel sans « /low.webp ») */
+  /** Les k cartes de toute la base les plus proches pour le réseau de neurones → [{ id, set, img, s }] (img = adresse du visuel sans « /low.webp ») ;
+   *  index = autre licence (One Piece : data/op-index, v2.94) */
   const INDEX_V = 1; // à changer quand l'index est refait (le service worker garde le fichier tant que le numéro ne change pas)
-  const global = (qid, blob, k = 40) => ask('global', { qid, blob, k, base: new URL(INDEX, location.href).href, qs: '?v=' + INDEX_V }).then((r) => r.res);
+  const global = (qid, blob, k = 40, { index = INDEX, v = INDEX_V } = {}) => ask('global', { qid, blob, k, base: new URL(index, location.href).href, qs: '?v=' + v }).then((r) => r.res);
   /** (outil de préparation de l'index) empreintes du réseau pour des visuels / une photo */
   const embed = (urls) => ask('embed', { urls }).then((r) => r.vecs);
   const embedBlob = (blob) => ask('embedBlob', { blob });

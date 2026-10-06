@@ -244,9 +244,10 @@ async function rank({ rid, qid, blob, refs, must = [], bonusSet = null, bonus = 
 // Fichier .json : { n, d, base, imgs: [chemin du visuel sans « /low.webp »], ids, sets } ; fichier .bin (petit-boutiste) :
 // Pf, Pa (1280 × d float32 : projections du réseau, carte entière / illustration), sc (n × 2 float32 : échelles),
 // v (n × 2d int8 : empreintes réduites et normées). Score ≈ cosinus du réseau, comme la présélection habituelle.
-let idxP = null;
+const idxP = new Map(); // un index par licence (Pokémon, One Piece)
 function loadIndex(base, qs = '') {
-  return idxP || (idxP = (async () => {
+  if (idxP.has(base)) return idxP.get(base);
+  const p = (async () => {
     const [meta, buf] = await Promise.all([
       fetch(base + '.json' + qs).then((r) => { if (!r.ok) throw new Error('index ' + r.status); return r.json(); }),
       fetch(base + '.bin' + qs).then((r) => { if (!r.ok) throw new Error('index ' + r.status); return r.arrayBuffer(); }),
@@ -258,7 +259,9 @@ function loadIndex(base, qs = '') {
     const sc = new Float32Array(buf, o, n * 2); o += n * 8;
     const v = new Int8Array(buf, o, n * 2 * d);
     return { ...meta, Pf, Pa, sc, v };
-  })().catch((e) => { idxP = null; throw e; }));
+  })().catch((e) => { idxP.delete(base); throw e; });
+  idxP.set(base, p);
+  return p;
 }
 function project(x, P, d) {
   const y = new Float32Array(d);

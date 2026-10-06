@@ -605,7 +605,7 @@ App.views.scan = {
         let info, cands, summary, switched = false;
         if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob }) /* photo d'origine : autre cadrage si besoin */); summary = info.read;
           // la carte n'a été lue que sur un autre cadrage : c'est lui qui montre vraiment la carte → il devient sa photo
-          if (info.crop) { cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
+          if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
         }
         else {
           if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
