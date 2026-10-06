@@ -49,23 +49,34 @@ App.badges = (() => {
     ['pk-dracau', 'Dresseur de dragons', 'Un Dracaufeu dans ton Dex', 'flame', 2, (x) => has(x, 'dracaufeu')],
     ['pk-evoli', 'Évolimaniac', '5 membres de la famille Évoli', 'sparkles', 3, (x) => ['evoli', 'aquali', 'voltali', 'pyroli', 'mentali', 'noctali', 'phyllali', 'givrali', 'nymphali'].filter((n) => has(x, n)).length >= 5],
     ['pk-mew', 'Code génétique', 'Mew et Mewtwo', 'sparkles', 3, (x) => has(x, 'mew') && has(x, 'mewtwo')],
+    // One Piece (v2.94 : mêmes idées que les badges Pokémon)
+    ['op-luffy', 'Chapeau de paille', '5 cartes Luffy différentes', 'anchor', 2, (x) => x.items.filter((i) => i.game === 'onepiece' && N(i.snap.name).includes('luffy')).length >= 5],
+    ['op-crew', 'Équipage au complet', '5 membres de l’équipage de Luffy', 'anchor', 3, (x) => ['zoro', 'nami', 'usopp', 'sanji', 'chopper', 'robin', 'franky', 'brook', 'jinbe'].filter((n) => has(x, n)).length >= 5],
+    ['op-yonko', 'Les Quatre Empereurs', 'Shanks, Big Mom, Kaido et Barbe Noire', 'crown', 3, (x) => has(x, 'shanks') && has(x, 'linlin') && has(x, 'kaido') && has(x, 'teach')],
+    ['op-lead', 'Capitaine', '10 cartes Leader différentes', 'anchor', 2, (x) => x.items.filter((i) => i.game === 'onepiece' && /leader/i.test(i.snap.rarity || '')).length >= 10],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
-  let setsCache = null;
+  const setsCache = {}; // séries de chaque licence
   async function context(list = null, isCert = null) {
     const items = (list || App.col.all()).filter((i) => i.qty > 0);
     const certOf = isCert || ((i) => App.certify && App.certify.isCertified(i));
-    const ad = App.games.get('pokemon');
-    if (!setsCache) setsCache = await ad.listSets().catch(() => []);
-    const byId = new Map(setsCache.map((s) => [s.id, s]));
-    const setIds = new Set(items.map((i) => i.setId));
-    const eras = new Set(items.map((i) => (byId.get(i.setId) || {}).group).filter(Boolean).map((g) => g.id));
-    const vintage = items.filter((i) => { const s = byId.get(i.setId); return s && s.releaseDate && s.releaseDate < '2004'; }).length;
-    const complete = [...setIds].map((id) => byId.get(id)).filter((s) => s && App.col.progress('pokemon', s, list ? items : null).complete).length;
+    // toutes les licences (Pokémon, One Piece…) : séries, époques, séries complètes, rareté selon chaque jeu
+    const games = [...new Set(items.map((i) => i.game || 'pokemon'))].filter((g) => App.games.get(g));
+    const byId = new Map();
+    for (const g of games) {
+      if (!setsCache[g]) setsCache[g] = await App.games.get(g).listSets().catch(() => []);
+      for (const s of setsCache[g]) byId.set(`${g}:${s.id}`, s);
+    }
+    const setOf = (i) => byId.get(`${i.game || 'pokemon'}:${i.setId}`);
+    const setKeys = new Set(items.map((i) => `${i.game || 'pokemon'}:${i.setId}`));
+    const eras = new Set(items.map((i) => (setOf(i) || {}).group).filter(Boolean).map((g) => g.id));
+    const vintage = items.filter((i) => { const s = setOf(i); return s && s.releaseDate && s.releaseDate < '2004'; }).length;
+    const complete = [...setKeys].filter((k) => { const s = byId.get(k); return s && App.col.progress(k.split(':')[0], s, list ? items : null).complete; }).length;
+    const rankOf = (i) => { const ad = App.games.get(i.game || 'pokemon'); return ad && ad.rarity ? ad.rarity.rank(i.snap.rarity) : 0; };
     const price = (i) => App.col.valueOf(i);
     return {
-      items, n: items.length, sets: setIds.size, eras: eras.size, vintage, complete,
-      maxRank: Math.max(0, ...items.map((i) => Math.max(ad.rarity.rank(i.snap.rarity), i.snap.holo ? 4 : 0))),
+      items, n: items.length, sets: setKeys.size, eras: eras.size, vintage, complete,
+      maxRank: Math.max(0, ...items.map((i) => Math.max(rankOf(i), i.snap.holo ? 4 : 0))),
       value: items.reduce((s, i) => s + price(i) * i.qty, 0), maxPrice: Math.max(0, ...items.map(price)),
       cert: items.filter(certOf).length,
       dup: items.reduce((s, i) => s + Math.max(0, i.qty - 1), 0), fav: items.filter((i) => i.favorite).length,

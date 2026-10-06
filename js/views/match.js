@@ -6,6 +6,9 @@
   let FAST = false;
   const sleep = (ms) => (FAST ? Promise.resolve() : new Promise((r) => setTimeout(r, ms)));
   const ad = () => App.games.get('pokemon');
+  // (v2.94 : les combats sont les mêmes pour toutes les licences — Pokémon et One Piece se battent ensemble)
+  const adOf = (it) => App.games.get((it && it.game) || 'pokemon') || ad();
+  const FIGHT_GAMES = ['pokemon', 'onepiece'];
   const TEAMS = 3, BAG_MAX = App.battleCards.DECK_MAX; // pioche du mode Avancé : 10 cartes (v2.80)
   const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -44,17 +47,23 @@
     return out.sort((a, b) => (a.snap.name || '').localeCompare(b.snap.name || '', 'fr'));
   }
 
-  /** Tes cartes Pokémon (d'après les listes des séries, gardées en cache) */
+  /** Tes cartes qui peuvent combattre (Pokémon, et Personnages / Leaders One Piece), d'après les listes des séries */
   async function myPokemon() {
-    const items = App.col.all().filter((i) => i.qty > 0 && i.game === 'pokemon');
+    const items = App.col.all().filter((i) => i.qty > 0 && FIGHT_GAMES.includes(i.game));
     const bySet = {};
-    for (const it of items) (bySet[it.setId] = bySet[it.setId] || []).push(it);
+    for (const it of items) (bySet[`${it.game}|${it.setId}`] = bySet[`${it.game}|${it.setId}`] || []).push(it);
     const out = [];
-    await App.util.pool(Object.keys(bySet), 4, async (sid) => {
-      const set = await ad().getSet(sid).catch(() => null);
+    await App.util.pool(Object.keys(bySet), 4, async (k) => {
+      const [game, sid] = k.split('|'), op = game === 'onepiece';
+      const set = await App.games.get(game).getSet(sid).catch(() => null);
       const cat = new Map((set ? set.cards : []).map((c) => [c.id, c]));
-      for (const it of bySet[sid]) {
+      for (const it of bySet[k]) {
         const c = cat.get(it.id);
+        if (op) { // (liste One Piece : catégorie seulement ; PV et type viennent de la fiche, en arrière-plan)
+          if (c && c.category && !/^(Personnage|Leader)$/i.test(c.category)) continue;
+          out.push(Object.assign(Object.create(it), { _hp: null, _type: null }));
+          continue;
+        }
         if (c && c.category && !/pok/i.test(c.category)) continue; // catégorie inconnue : on tente
         out.push(Object.assign(Object.create(it), { _hp: c && c.hp ? +c.hp : null, _type: c && c.types && c.types[0] ? B().typeKey(c.types[0]) : null }));
       }
@@ -62,11 +71,12 @@
     return out.sort((a, b) => App.col.valueOf(b) - App.col.valueOf(a));
   }
 
+  /** Combattant d'une carte de la collection (toutes licences) ; null si elle ne peut pas combattre */
   async function fromItem(it) {
-    const card = await ad().getCard(it.id);
-    if (!/pok/i.test(card.category || 'Pokémon') || !card.hp) return null;
-    const img = await App.col.displayImage(it, ad(), 'high');
-    return B().fighter(card, { img: img.src, imgOff: App.battleCards.offImg(card), mine: true });
+    const game = it.game || 'pokemon', card = await adOf(it).getCard(it.id);
+    if (game === 'onepiece' ? !B().isOpFighter(card) : (!/pok/i.test(card.category || 'Pokémon') || !card.hp)) return null;
+    const img = await App.col.displayImage(it, adOf(it), 'high');
+    return B().fighterOf(card, game, { img: img.src, imgOff: App.battleCards.offImg(card), mine: true });
   }
   async function fromId(id, extra = {}) {
     const card = await ad().getCard(id);
@@ -118,7 +128,7 @@
       // pioches : la tienne (ou une pioche de prêt) et celle de l'ordinateur
       const load = (id, extra) => ad().getCard(id).then((c) => BC.bagCard(c, extra)).catch(() => null);
       P.bag = (await Promise.all((opts.bag || []).map(async (it) => {
-        try { const card = await ad().getCard(it.id); const img = await App.col.displayImage(it, ad(), 'high'); return BC.bagCard(card, { img: img.src }); } catch (e) { return null; }
+        try { const card = await ad().getCard(it.id); const img = await App.col.displayImage(it, adOf(it), 'high'); return BC.bagCard(card, { img: img.src }); } catch (e) { return null; }
       }))).filter(Boolean);
       if (!P.bag.length) P.bag = (await Promise.all(BC.loanBag(mine[0].type).map((id) => load(id, { loan: true })))).filter(Boolean);
       C.bag = (await Promise.all(BC.aiBag(L.n, foe[0].type).map((id) => load(id)))).filter(Boolean);
@@ -802,9 +812,9 @@
   // ---------- Choix des Pokémon d'une équipe ----------
   /** Statistiques de combat d'une carte (d'après la fiche détaillée TCGdex, gardée en cache) */
   async function combatStats(it) {
-    const card = await ad().getCard(it.id);
-    if (!/pok/i.test(card.category || 'Pokémon') || !card.hp) return { invalid: true };
-    const f = B().fighter(card);
+    const game = it.game || 'pokemon', card = await adOf(it).getCard(it.id);
+    if (game === 'onepiece' ? !B().isOpFighter(card) : (!/pok/i.test(card.category || 'Pokémon') || !card.hp)) return { invalid: true };
+    const f = B().fighterOf(card, game);
     const dmg = (a) => (a.noDamage ? 10 : a.mode === 'x' ? a.base * 2 : a.base);
     return {
       hp: f.hp, type: f.type,
@@ -821,9 +831,9 @@
   const HP_MIN = [0, 60, 80, 100, 120, 150, 200];
 
   async function pickTeam(current, name) {
-    let body = App.util.openModal(App.ui.loading('Recherche de tes Pokémon…'));
+    let body = App.util.openModal(App.ui.loading('Recherche de tes combattants…'));
     const items = await myPokemon();
-    const imgs = await Promise.all(items.map((it) => App.col.displayImage(it, ad())));
+    const imgs = await Promise.all(items.map((it) => App.col.displayImage(it, adOf(it))));
     // statistiques : d'abord celles de la liste de la série (PV, type), puis la fiche complète (attaques)
     const rows = items.map((it, i) => ({ it, img: imgs[i].src, name: it.snap.name || '', hp: it._hp || null, type: it._type || null, maxDmg: null, minCost: null, power: null, weak: [], full: false }));
     const sel = current.filter((k) => rows.some((r) => r.it.key === k)).slice(0, 3);
@@ -834,7 +844,7 @@
       const end = (v) => { if (done) return; done = true; resolve(v); };
       body = App.util.openModal('', () => end(null));
       if (!rows.length) {
-        body.innerHTML = `<div class="bt-pick"><h2>${esc(name)}</h2><p class="muted">Tu n’as pas encore de carte Pokémon dans ton Dex : tu joueras avec des Pokémon de prêt. Capture tes cartes pour jouer avec elles !</p>
+        body.innerHTML = `<div class="bt-pick"><h2>${esc(name)}</h2><p class="muted">Tu n’as pas encore de carte qui combat dans ton Dex (Pokémon, Personnage ou Leader One Piece) : tu joueras avec des Pokémon de prêt. Capture tes cartes pour jouer avec elles !</p>
           <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" id="bt-ok">OK</button></div></div>`;
         body.querySelector('#bt-ok').addEventListener('click', () => { end([...current]); App.util.closeModal(); });
         return;
@@ -927,7 +937,7 @@
         const tc = e.target.closest('[data-t]');
         if (tc) { const t = tc.dataset.t; if (!t) F.types.clear(); else if (F.types.has(t)) F.types.delete(t); else F.types.add(t); drawTypes(); apply(); return; }
         const k = e.target.closest('.bt-pk');
-        if (k) { const kk = k.dataset.k; const i = sel.indexOf(kk); if (i >= 0) sel.splice(i, 1); else if (sel.length < 3) sel.push(kk); else App.util.toast('3 Pokémon maximum : retire-en un d’abord'); apply(); return; }
+        if (k) { const kk = k.dataset.k; const i = sel.indexOf(kk); if (i >= 0) sel.splice(i, 1); else if (sel.length < 3) sel.push(kk); else App.util.toast('3 cartes maximum : retire-en un d’abord'); apply(); return; }
         if (e.target.closest('#bt-clear')) { sel.length = 0; apply(); return; }
         if (e.target.closest('#bt-ok')) { end([...sel]); App.util.closeModal(); }
       });
@@ -946,7 +956,7 @@
   async function pickBag(current, name) {
     let body = App.util.openModal(App.ui.loading('Recherche de tes cartes Dresseur et Énergie…'));
     const list = await myTrainers();
-    const imgs = await Promise.all(list.map((it) => App.col.displayImage(it, ad())));
+    const imgs = await Promise.all(list.map((it) => App.col.displayImage(it, adOf(it))));
     const sel = bagItems(current).map((i) => i.key).slice(0, BAG_MAX);
     const fx = {};
     return new Promise((resolve) => {
@@ -1019,7 +1029,7 @@
 
   /** Avant un combat : avec quelle équipe ? */
   async function chooseTeam(m, o = {}) {
-    const imgs = await Promise.all(m.teams.map((t) => Promise.all(teamItems(t.keys).map((it) => App.col.displayImage(it, ad())))));
+    const imgs = await Promise.all(m.teams.map((t) => Promise.all(teamItems(t.keys).map((it) => App.col.displayImage(it, adOf(it))))));
     return new Promise((resolve) => {
       let done = false;
       const end = (v) => { if (done) return; done = true; resolve(v); };
@@ -1053,8 +1063,8 @@
     if (!mine.length || !foe.length) throw new Error('équipe vide');
     // mes photos à la place des visuels officiels (après un rafraîchissement : retrouvées dans ma collection)
     if (!imgs || !imgs.length) imgs = await Promise.all(mine.map((f) => {
-      const it = !f.loan && App.col.all().find((x) => x.game === 'pokemon' && x.id === f.id && x.qty > 0);
-      return it ? App.col.displayImage(it, ad(), 'high').then((x) => x.src, () => '') : '';
+      const it = !f.loan && App.col.all().find((x) => FIGHT_GAMES.includes(x.game) && x.id === f.id && x.qty > 0);
+      return it ? App.col.displayImage(it, adOf(it), 'high').then((x) => x.src, () => '') : '';
     }));
     mine.forEach((f, i) => { if (imgs[i]) f.img = imgs[i]; });
     const link = D.link(s.code);
@@ -1245,7 +1255,8 @@
 
   // règles du combat (dépliables en bas des écrans Combat)
   const RULES = `<ul class="small">
-  <li>3 Pokémon par équipe : un qui combat, deux sur le banc. Une case vide est remplie par un Pokémon de prêt.</li>
+  <li>3 cartes par équipe : un Pokémon ou un Personnage / Leader One Piece (les deux licences se battent ensemble), un qui combat, deux sur le banc. Une case vide est remplie par un Pokémon de prêt.</li>
+  <li>One Piece : PV = puissance ÷ 50 (+ contre, + vies du Leader), attaque = puissance ÷ 100, « Riposte » si la carte a un contre, couleur = type (rouge = Feu, vert = Plante, bleu = Eau, violet = Psy, noir = Obscurité, jaune = Électrique), [Double attaque] = 2 pièces, [Initiative] = 1 énergie dès le départ.</li>
   <li>À ton tour, ton Pokémon gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> de Pokémon.</li>
   <li>Une attaque coûte 1 énergie par symbole de la carte ; les énergies en plus restent pour la suite.</li>
   <li>Dégâts, <b>faiblesse</b> (×2) et <b>résistance</b> de la vraie carte. « 30× » : 30 par face sur 2 pièces ; « 20+ » : bonus si face ; attaque sans dégâts : 10.</li>
@@ -1275,8 +1286,8 @@
         const teams = m.teams.map((t) => teamItems(t.keys));
         const bags = m.teams.map((t) => bagItems(t.bag));
         const [imgs, bagImgs] = await Promise.all([
-          Promise.all(teams.map((l) => Promise.all(l.map((it) => App.col.displayImage(it, ad()))))),
-          Promise.all(bags.map((l) => Promise.all(l.map((it) => App.col.displayImage(it, ad()))))),
+          Promise.all(teams.map((l) => Promise.all(l.map((it) => App.col.displayImage(it, adOf(it)))))),
+          Promise.all(bags.map((l) => Promise.all(l.map((it) => App.col.displayImage(it, adOf(it)))))),
         ]);
         if (!alive()) return;
         view = { teams, bags, imgs, bagImgs };
@@ -1302,7 +1313,7 @@
             <button class="${adv ? '' : 'on'}" data-mode="classic" role="tab">Basique</button>
             <button class="${adv ? 'on' : ''}" data-mode="adv" role="tab">Avancé</button>
           </div>
-          <p class="bt-hint small muted">${adv ? 'Avec une pioche de 10 cartes Dresseur et Énergie : 3 en main, 1 piochée par tour, une jouée par tour.' : 'Tes Pokémon seulement, sans pioche.'}</p>`;
+          <p class="bt-hint small muted">${adv ? 'Avec une pioche de 10 cartes Dresseur et Énergie : 3 en main, 1 piochée par tour, une jouée par tour.' : 'Tes cartes seulement (Pokémon et One Piece), sans pioche.'}</p>`;
         const rules = `<details class="bt-rules panel"><summary><b>Règles</b></summary>
 ${RULES}`;
         const beatenN = B().LEVELS.filter((L) => beaten[L.n]).length;
@@ -1315,7 +1326,7 @@ ${RULES}`;
               <h2 style="margin:0">Mes decks</h2>
               ${teamsHtml()}
             </section>
-            <p class="small muted">3 Pokémon par deck${adv ? ', plus une pioche de 10 cartes Dresseur / Énergie au plus' : ''}. Une case vide est remplie par un Pokémon de prêt.</p>`;
+            <p class="small muted">3 cartes par deck (Pokémon ou One Piece)${adv ? ', plus une pioche de 10 cartes Dresseur / Énergie au plus' : ''}. Une case vide est remplie par un Pokémon de prêt.</p>`;
         } else if (screen === 'ordi') {
           const deckBtn = (i) => {
             const on = i === ti, adv2 = adv && view.bags[i].length;

@@ -82,6 +82,7 @@ App.battleCards = (() => {
   function offImg(card) {
     if (!card) return '';
     if (App.pokemonHorsSerie && App.pokemonHorsSerie.isLocalImage(card.image)) return `${card.image}.jpg`; // carte hors-série : visuel du site
+    if (/onepiece-cardgame\.com\//.test(card.image || '')) return App.games.get('onepiece').img.card(card, 'high'); // One Piece : visuel relayé (Bandai bloque l'affichage direct)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
     return m && card.localId ? `https://assets.tcgdex.net/en/${m[1]}/${m[2]}/${encodeURIComponent(card.localId)}/high.webp` : '';

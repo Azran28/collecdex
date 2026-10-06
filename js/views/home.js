@@ -107,11 +107,14 @@ App.views.home = {
       const hg = el.querySelector('#h-goals');
       const wishLink = wl.length ? `<a class="slim-link" href="#/objectifs?tab=souhaits">${App.icons.icon('heart', 14)} ${wl.length} carte${wl.length > 1 ? 's' : ''} recherchée${wl.length > 1 ? 's' : ''}</a>` : '';
       if (gs.length) {
-        const rows = gs.map((g) => ({ g, s: sets.find((x) => x.id === g.setId) })).filter((x) => x.s).slice(0, 3);
+        // séries de chaque licence (objectifs Pokémon, One Piece…)
+        const setsOf = {};
+        for (const game of new Set(gs.map((g) => g.game || 'pokemon'))) setsOf[game] = game === 'pokemon' ? sets : App.games.get(game) ? await App.games.get(game).listSets().catch(() => []) : [];
+        const rows = gs.map((g) => ({ g, game: g.game || 'pokemon', s: (setsOf[g.game || 'pokemon'] || []).find((x) => x.id === g.setId) })).filter((x) => x.s).slice(0, 3);
         hg.innerHTML = `<div class="section-title"><h2>Mes objectifs</h2><span class="spacer"></span>${wishLink}<a href="#/objectifs">Tout voir ›</a></div>
-          <div class="home-goals">${rows.map(({ g, s }) => {
-            const p = App.col.progress('pokemon', s), left = App.wish.daysLeft(g.deadline);
-            return `<a class="home-goal ${p.complete ? 'done' : ''}" href="#/objectifs?tab=manque&set=${encodeURIComponent(s.id)}">
+          <div class="home-goals">${rows.map(({ g, game, s }) => {
+            const p = App.col.progress(game, s), left = App.wish.daysLeft(g.deadline);
+            return `<a class="home-goal ${p.complete ? 'done' : ''}" href="#/objectifs?tab=manque&jeu=${game}&set=${encodeURIComponent(s.id)}">
               <div class="row" style="gap:8px"><b>${esc(s.name)}</b><span class="spacer"></span>${p.complete ? App.icons.icon('trophy', 15) : g.deadline ? `<span class="small ${left < 0 ? 'late' : ''}">${left < 0 ? 'dépassé' : 'J-' + left}</span>` : ''}</div>
               <div class="row small muted" style="gap:6px;margin:4px 0">${p.have}/${p.total} · ${p.pct.toLocaleString('fr-FR')} %${p.complete ? '' : ` · ${p.missing} à trouver`}</div>
               ${App.ui.progressBar(p)}

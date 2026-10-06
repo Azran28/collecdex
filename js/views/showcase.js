@@ -67,12 +67,16 @@ App.views.showcase = {
 
     let completedSets = [];
     const loadBadges = async () => {
-      try {
-        const ad = App.games.get('pokemon');
-        const sets = await ad.listSets();
-        const its = S.friend ? owned() : null;
-        completedSets = sets.filter((s) => (its ? its.some((i) => i.setId === s.id) : App.col.inSet('pokemon', s.id).length) && App.col.progress('pokemon', s, its).complete);
-      } catch (e) { completedSets = []; }
+      // séries complétées de toutes les licences (Pokémon, One Piece…)
+      const its = S.friend ? owned() : null, out = [];
+      for (const game of App.games.list.filter((g) => App.games.get(g.id)).map((g) => g.id)) {
+        try {
+          const sets = await App.games.get(game).listSets();
+          const mine = (s) => (its ? its.some((i) => i.game === game && i.setId === s.id) : App.col.inSet(game, s.id).length);
+          out.push(...sets.filter((s) => mine(s) && App.col.progress(game, s, its).complete));
+        } catch (e) { /* licence indisponible */ }
+      }
+      completedSets = out;
     };
 
     /** Statistiques choisies (dans l'ordre ; la 1re est mise en avant) */

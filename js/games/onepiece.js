@@ -373,67 +373,16 @@
   }
   // (bandes serrées et très agrandies : une bande large, avec le texte voisin, ne lit pas le code)
   const SLIDE_ZONES = [0.8, 0.83, 0.86, 0.89, 0.92, 0.95].map((y) => [y, y + 0.035, 8, 'sharp', 0.72, 0.92]);
-  // ---------- Vérification par l'image (v2.94, comme le classeur Pokémon) ----------
-  // réseau de neurones sur l'index de toutes les cartes One Piece (data/op-index.*, fait avec l'outil de js/labo-index.js),
-  // puis points clés (ORB) sur ces cartes et celles trouvées par le texte : score ≥ 25 = la même image, même sur une photo
-  // avec la main, la pochette et le fond autour. Les points clés donnent aussi les 4 coins de la carte sur la photo.
-  const OP_INDEX = 'data/op-index', OP_INDEX_V = 1;
+  // ---------- Vérification par l'image (v2.94) : réseau de neurones + points clés, pour toutes les licences ----------
+  // (code commun dans js/visual.js › check ; index de toutes les cartes One Piece : data/op-index, fait avec js/labo-index-op.js)
+  const OP_INDEX_V = 1;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
-  async function quadCrop(blob, quad) {
-    // (un coin hors de la photo : carte coupée, on ne recadre pas, sinon les pixels du bord sont étirés)
-    if (!quad || quad.some(([x, y]) => x < -0.005 || x > 1.005 || y < -0.005 || y > 1.005)) return null;
-    const bmp = await createImageBitmap(blob), q = quad.map(([x, y]) => [x * bmp.width, y * bmp.height]);
-    const w = Math.round(Math.min(900, Math.max(240, Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]))));
-    const cvs = App.recognizer.warpQuad(bmp, q, w, 0);
-    return new Promise((res) => cvs.toBlob(res, 'image/jpeg', 0.92));
-  }
-  /** Le centre de la photo (k = part gardée) → { blob, k } */
-  async function centerOf(blob, k) {
-    const bmp = await createImageBitmap(blob), w = bmp.width * k, h = bmp.height * k;
-    const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h);
-    c.getContext('2d').drawImage(bmp, (bmp.width - w) / 2, (bmp.height - h) / 2, w, h, 0, 0, c.width, c.height);
-    return { blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.92)), k };
-  }
-  /** cands (trouvées par le texte) + cartes proches à l'image → { cands (classées), best, crop } ou null */
-  async function visualPass(blob, cands, codes) {
-    const V = App.visual, tag = `op:${Date.now()}:${Math.random()}`;
-    // photo entière, marge comprise (main, pochette, boîte autour) : le réseau s'y perd ; son centre (≈ le cadre jaune de la
-    // caméra) le trouve bien mieux (photos d'Arnaud : Monet hors des 40 premières → 1ʳᵉ). Carte déjà au ras de ses bords
-    // (format d'une carte) : la photo telle quelle d'abord.
-    const bmp = await createImageBitmap(blob), tight = Math.abs(bmp.width / bmp.height - 63 / 88) < 0.04;
-    const center = await centerOf(blob, 0.77), queries = tight ? [{ blob, k: 1 }, center] : [center, { blob, k: 1 }];
-    const sc = new Map(), have = new Set(cands.map((c) => c.id)), pool = [...cands.slice(0, 40)];
-    let best = 0;
-    for (const [n, q] of queries.entries()) {
-      const qid = `${tag}:${n}`;
-      try {
-        let near = [];
-        try { near = await V.global(qid, q.blob, 40, { index: OP_INDEX, v: OP_INDEX_V }); } catch (e) { console.warn('index One Piece', e); }
-        for (const x of await fromIndex(near.map((x) => x.id).filter((id) => !have.has(id)))) { have.add(x.id); pool.push(x); }
-        if (!pool.length) return null;
-        const refs = pool.map((c) => ({ id: c.id, url: img.card(c, 'low'), set: c.setId }));
-        const r = await V.rank(qid, q.blob, refs, { must: cands.slice(0, 12).map((c) => c.id) });
-        // coins de la carte reportés sur la photo entière
-        const o = (1 - q.k) / 2, full = (quad) => quad && quad.map(([x, y]) => [o + x * q.k, o + y * q.k]);
-        for (const x of r.res) if (!sc.has(x.id) || sc.get(x.id).s < x.s) sc.set(x.id, { s: x.s, quad: full(x.quad) });
-        best = Math.max(best, r.best);
-      } finally { V.forget(qid); }
-      if (best >= V.SURE) break; // (2ᵉ essai seulement si l'image n'a rien donné de sûr)
-    }
-    for (const c of pool) c.orb = sc.has(c.id) ? sc.get(c.id).s : null;
-    const textPos = new Map(cands.map((c, i) => [c.id, i]));
-    // même image à 10 % près (réimpression au même dessin) : la carte du code lu, puis la carte de base
-    const tie = (a, b) => ((codes.includes(baseOf(b.id)) - codes.includes(baseOf(a.id))) || ((textPos.get(a.id) ?? 99) - (textPos.get(b.id) ?? 99)) || (SUFFIX.test(a.id) - SUFFIX.test(b.id)));
-    const ranked = pool.filter((c) => c.orb >= 15).sort((a, b) => (Math.abs(a.orb - b.orb) < 0.1 * Math.max(a.orb, b.orb) ? tie(a, b) : b.orb - a.orb));
-    if (!ranked.length) return { cands, best };
-    const top = ranked[0], second = ranked.find((c) => c !== top && c.orb >= 0.8 * top.orb);
-    const out = [...ranked, ...cands.filter((c) => !ranked.includes(c))];
-    for (const c of out) delete c.confident;
-    // sûre : image nettement reconnue, aucune autre carte aussi proche (sinon même dessin : la personne choisit)
-    if (top.orb >= V.SURE && !second) top.confident = true;
-    const q = top.orb >= V.SURE && sc.get(top.id) && sc.get(top.id).quad;
-    return { cands: out, best: top.orb, crop: q ? await quadCrop(blob, q).catch(() => null) : null };
-  }
+  const visualOpts = (codes) => ({
+    index: 'data/op-index', v: OP_INDEX_V, cardsOf: (near) => fromIndex(near.map((x) => x.id)), urlOf: (c) => img.card(c, 'low'),
+    // même image (réimpression au même dessin) : la carte du code lu, puis la carte de base
+    tie: (a, b) => (codes.includes(baseOf(b.id)) - codes.includes(baseOf(a.id))) || (SUFFIX.test(a.id) - SUFFIX.test(b.id)),
+  });
+  const visualPass = (blob, cands, codes) => App.visual.check(blob, cands, visualOpts(codes));
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null } = {}) {
     const R = App.recognizer;
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte (v2.94) : si elle est sûre et que
@@ -442,20 +391,22 @@
     statusFn('Lecture du code de la carte…');
     const texts = await R.readZones(blob, [...CODE_ZONES, ...NAME_ZONES]);
     let read = texts.map(codesIn), betterCrop = null;
-    if (early && !read.some((r) => r.codes.length)) {
+    const DON_RE = /CARTE\s*D[O0]N\s*!|votre\s+tour\s*\+\s*1\s*[0O]\s*[0O]\s*[0O]/i;
+    const donOnly = () => !read.some((r) => r.codes.length) && DON_RE.test(texts.join('\n')); // (carte DON!! repérée au 1er passage : inutile d’attendre l’image)
+    if (early && !read.some((r) => r.codes.length) && !donOnly()) {
       statusFn('Vérification par l’image…');
       const e = await early;
       if (e && e.cands[0] && e.cands[0].confident) return { info: { code: baseOf(e.cands[0].id), name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
     }
     // rien lu sur la carte recadrée : le code est cherché sur d'autres cadrages de la photo d'origine
-    if (original && !read.some((r) => r.codes.length)) {
+    if (original && !read.some((r) => r.codes.length) && !donOnly()) {
       statusFn('Lecture du code (autre cadrage)…');
       for (const alt of await otherCrops(original)) {
         const t = await R.readZones(alt.blob, alt.zones); texts.push(...t); read.push(...t.map(codesIn));
         if (read.some((r) => r.codes.length)) { betterCrop = alt.asPhoto ? alt.blob : null; break; } // carte détourée sûrement : elle servira de photo
       }
     }
-    if (!read.some((r) => r.codes.length)) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }
+    if (!read.some((r) => r.codes.length) && !donOnly()) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }
     const votes = {}, numsRead = new Set();
     for (const r of read) { for (const [c, w] of r.codes) votes[c] = (votes[c] || 0) + w; for (const n of r.nums) numsRead.add(n); }
     const idx = await index();
@@ -464,7 +415,7 @@
     if (codes.length) codes = codes.filter((c) => votes[c] >= votes[codes[0]] * 0.5); // les lectures nettement moins probables sont écartées
     // carte DON!! (« CARTE DON!! », « Votre tour +1000 ») : pas de code, absente des listes de Bandai → on le dit au lieu de proposer n'importe quoi
     // (pas « DON!! » seul : le texte de beaucoup de cartes parle de « cartes DON!! »)
-    if (!codes.length && /CARTE\s*D[O0]N\s*!|votre\s+tour\s*\+\s*1\s*[0O]\s*[0O]\s*[0O]/i.test(texts.join('\n'))) {
+    if (!codes.length && DON_RE.test(texts.join('\n'))) {
       return { info: { code: '', name: '', don: true, read: 'carte DON!!' }, cands: [] };
     }
     // nom : chaque ligne lue comparée aux noms connus
@@ -542,13 +493,13 @@
       // (celle lancée au début suffit si elle est sûre et que le code lu, s'il est sûr, désigne la même carte ; sinon on refait
       // la comparaison avec les cartes trouvées par le texte)
       const e = early && await early, t = e && e.cands[0];
-      if (t && t.confident && !(codeSure && !codes.includes(baseOf(t.id)))) orb = { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] };
+      if (t && t.confident && !cands.some((c) => c.numOk && c.ofOk && baseOf(c.id) !== baseOf(t.id))) orb = { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] };
       else orb = await visualPass(blob, cands, codes).catch((e) => { console.warn('vérification par l’image', e); return null; });
       if (orb) { cands = orb.cands; top = cands[0]; }
     }
     if (orb && orb.crop) betterCrop = orb.crop;
-    else if (!orb && early && top) { // (carte sûre par le texte : la vérification lancée au début donne quand même ses vrais bords)
-      const e = await early;
+    else if (!orb && early && top) { // (carte sûre par le texte : la vérification lancée au début donne quand même ses vrais bords, si elle a fini à temps)
+      const e = await Promise.race([early, new Promise((res) => setTimeout(res, 1500))]);
       if (e && e.crop && e.cands[0] && e.cands[0].id === top.id) betterCrop = e.crop;
     }
     const code = top ? baseOf(top.id) : '';
@@ -587,10 +538,26 @@
   };
   const cm = (q) => `https://www.cardmarket.com/fr/OnePiece/Products/Search?searchString=${encodeURIComponent(q)}`;
 
+  /**
+   * Recherche à la main (code « OP09-004 » ou nom), comme Pokémon (`recognizer.manual`) : les cartes trouvées sont classées
+   * par ressemblance avec la photo (versions parallèles, même personnage dans plusieurs séries).
+   */
+  async function manual(blob, nameTxt, numTxt) {
+    const name = (nameTxt || '').trim(), num = (numTxt || '').trim();
+    if (!name && !num) throw new Error('Indique un nom, ou un code (ex. OP09-004)');
+    let cands = await search({ name: num || name });
+    if (num && name) { const n = norm(name), f = cands.filter((c) => norm(c.name).includes(n)); if (f.length) cands = f; }
+    if (blob && cands.length > 1) {
+      const pool = cands.slice(0, 24), vis = await App.recognizer.resemblanceMany(blob, pool, (c) => img.card(c, 'low').replace('&w=360', '&w=160')).catch(() => new Map());
+      for (const c of pool) c.visual = vis.has(c.id) ? vis.get(c.id) : null;
+      cands = [...pool.sort((a, b) => (b.visual ?? -1) - (a.visual ?? -1)), ...cands.slice(24)];
+    }
+    return cands;
+  }
   App.games.register('onepiece', {
     id: 'onepiece',
     name: 'One Piece',
-    listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize,
+    listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize, manual,
     cardmarketUrl: (card) => cm(String(card.id || '').replace(SUFFIX, '') || card.name),
     boosterUrl: (set) => cm(set.name.replace(/^.*·\s*/, '') + ' booster'),
     isOfficial: (localId, set) => isOfficialIn(String(localId).replace(/ ([PR])(\d+)$/, (m, k, n) => `_${k.toLowerCase()}${n}`), set.id),

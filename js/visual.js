@@ -52,6 +52,86 @@ App.visual = (() => {
    *  index = autre licence (One Piece : data/op-index, v2.94) */
   const INDEX_V = 1; // à changer quand l'index est refait (le service worker garde le fichier tant que le numéro ne change pas)
   const global = (qid, blob, k = 40, { index = INDEX, v = INDEX_V } = {}) => ask('global', { qid, blob, k, base: new URL(index, location.href).href, qs: '?v=' + v }).then((r) => r.res);
+  // ---------- Une carte seule, toutes licences (v2.94) ----------
+  /** Coins de la carte (fractions de la photo) → la carte remise à plat, pile sur ses bords ; null si un coin sort de la photo */
+  async function quadCrop(blob, quad) {
+    // (un coin hors de la photo : carte coupée, on ne recadre pas, sinon les pixels du bord sont étirés)
+    if (!quad || quad.some(([x, y]) => x < -0.005 || x > 1.005 || y < -0.005 || y > 1.005)) return null;
+    const bmp = await createImageBitmap(blob), q = quad.map(([x, y]) => [x * bmp.width, y * bmp.height]);
+    const w = Math.round(Math.min(900, Math.max(240, Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]))));
+    const cvs = App.recognizer.warpQuad(bmp, q, w, 0);
+    return new Promise((res) => cvs.toBlob(res, 'image/jpeg', 0.92));
+  }
+  /** Le centre de la photo (k = part gardée) → { blob, k } */
+  async function centerOf(blob, k) {
+    const bmp = await createImageBitmap(blob), w = bmp.width * k, h = bmp.height * k;
+    const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h);
+    c.getContext('2d').drawImage(bmp, (bmp.width - w) / 2, (bmp.height - h) / 2, w, h, 0, 0, c.width, c.height);
+    return { blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.92)), k };
+  }
+  /** Cartes de l'index Pokémon retrouvées dans leur série (mêmes informations que les propositions du texte) */
+  async function pokemonCards(near) {
+    const ad = App.games.get('pokemon'), out = [], sets = new Map();
+    for (const t of near) {
+      try {
+        if (!sets.has(t.set)) sets.set(t.set, await ad.getSet(t.set));
+        const s = sets.get(t.set), x = s && s.cards.find((y) => y.id === t.id);
+        if (x) out.push({ ...x, set: { id: s.id, name: s.name, logo: s.logo, symbol: s.symbol, releaseDate: s.releaseDate, cardCount: { total: s.total, official: s.official }, serie: s.group } });
+      } catch (e) { /* série indisponible */ }
+    }
+    return out;
+  }
+  /**
+   * Vérification par l'image d'une carte seule (même méthode que le classeur Pokémon) :
+   * cands = cartes trouvées par le texte (peut être vide) ; + les 24 cartes de toute la base les plus proches pour le réseau ;
+   * puis points clés. → { cands (classées, la 1re `confident` si sûre), best, crop (carte recadrée sur ses bords) } ou null.
+   * opts : index / v (index de la licence, Pokémon par défaut), cardsOf(near) (cartes de l’index → propositions), urlOf(carte) (visuel),
+   *        tie(a, b) (même image à 10 % près : laquelle d'abord).
+   * Photo entière, marge comprise (main, pochette, boîte autour) : le réseau s'y perd ; son centre (≈ le cadre jaune de la
+   * caméra) le trouve bien mieux (photos d'Arnaud : Monet hors des 40 premières → 1ʳᵉ). Carte déjà au ras de ses bords
+   * (format d'une carte) : la photo telle quelle d'abord.
+   */
+  const NEAR = 24; // cartes de toute la base vérifiées par photo (la bonne était dans les 4 premières sur les photos de test ; chaque visuel jamais vu est à télécharger)
+  async function check(blob, cands, { index = INDEX, v = INDEX_V, cardsOf = pokemonCards, tie = () => 0, urlOf = null } = {}) {
+    const tag = `one:${Date.now()}:${Math.random()}`;
+    const bmp = await createImageBitmap(blob), tight = Math.abs(bmp.width / bmp.height - 63 / 88) < 0.04;
+    const center = await centerOf(blob, 0.77), queries = tight ? [{ blob, k: 1 }, center] : [center, { blob, k: 1 }];
+    const sc = new Map(), have = new Set(cands.map((c) => c.id)), pool = [...cands.slice(0, 40)], urls = new Map();
+    const url = (c) => urls.get(c.id) || (urlOf ? urlOf(c) : App.games.get('pokemon').img.card(c, 'low'));
+    let best = 0;
+    for (const [n, q] of queries.entries()) {
+      const qid = `${tag}:${n}`;
+      try {
+        let near = [];
+        try { near = (await global(qid, q.blob, NEAR, { index, v })).filter((x) => !have.has(x.id)); } catch (e) { console.warn('index', index, e.message); }
+        for (const t of near) if (t.img) urls.set(t.id, t.img + '/low.webp'); // (visuel de l'index : même empreinte gardée qu'en classeur)
+        for (const x of await cardsOf(near)) if (!have.has(x.id)) { have.add(x.id); pool.push(x); }
+        if (!pool.length) return null;
+        const r = await rank(qid, q.blob, pool.map((c) => ({ id: c.id, url: url(c), set: (c.set && c.set.id) || c.setId })), { must: cands.slice(0, 12).map((c) => c.id) });
+        // coins de la carte reportés sur la photo entière
+        const o = (1 - q.k) / 2, full = (quad) => quad && quad.map(([x, y]) => [o + x * q.k, o + y * q.k]);
+        for (const x of r.res) if (!sc.has(x.id) || sc.get(x.id).s < x.s) sc.set(x.id, { s: x.s, quad: full(x.quad) });
+        best = Math.max(best, r.best);
+      } finally { forget(qid); }
+      if (best >= SURE) break; // (2ᵉ essai seulement si l'image n'a rien donné de sûr)
+    }
+    for (const c of pool) c.orb = sc.has(c.id) ? sc.get(c.id).s : null;
+    const textPos = new Map(cands.map((c, i) => [c.id, i]));
+    const same = (a, b) => tie(a, b) || ((textPos.get(a.id) ?? 99) - (textPos.get(b.id) ?? 99));
+    const ranked = pool.filter((c) => c.orb >= 15).sort((a, b) => (Math.abs(a.orb - b.orb) < 0.1 * Math.max(a.orb, b.orb) ? same(a, b) : b.orb - a.orb));
+    if (!ranked.length) return { cands, best };
+    // numéro complet lu sur la carte (« 101/100 », code « OP10-119 ») et image compatible : cette carte reste devant, pas « sûre »
+    // si l'image en préfère une autre (Salamèche 101 ↔ Reptincel 102, dessins proches : l'image seule se trompait)
+    const read = cands.find((c) => c.numOk && c.ofOk && c.orb >= 15);
+    if (read && ranked[0] !== read) { ranked.splice(ranked.indexOf(read), 1); ranked.unshift(read); }
+    const top = ranked[0], second = ranked.find((c) => c !== top && c.orb >= 0.8 * top.orb);
+    const out = [...ranked, ...cands.filter((c) => !ranked.includes(c))];
+    for (const c of out) delete c.confident;
+    // sûre : image nettement reconnue, aucune autre carte aussi proche (sinon même dessin : la personne choisit)
+    if (top.orb >= SURE && !second && !(read && top.orb < Math.max(...ranked.map((c) => c.orb)))) top.confident = true;
+    const q = top.orb >= SURE && sc.get(top.id) && sc.get(top.id).quad;
+    return { cands: out, best: top.orb, crop: q ? await quadCrop(blob, q).catch(() => null) : null };
+  }
   /** (outil de préparation de l'index) empreintes du réseau pour des visuels / une photo */
   const embed = (urls) => ask('embed', { urls }).then((r) => r.vecs);
   const embedBlob = (blob) => ask('embedBlob', { blob });
@@ -61,5 +141,5 @@ App.visual = (() => {
     for (const p of pend.values()) p.reject(new Error('arrêté'));
     pend.clear();
   }
-  return { SURE, supported, rank, warm, global, embed, embedBlob, forget, stop };
+  return { SURE, supported, rank, warm, global, check, quadCrop, embed, embedBlob, forget, stop };
 })();

@@ -44,6 +44,30 @@ App.battle = (() => {
     };
   }
 
+  /**
+   * Combattant One Piece (v2.94 : les combats sont les mêmes pour toutes les licences, adaptés légèrement).
+   * Personnage ou Leader : PV = puissance ÷ 50 (+ contre, + vies du Leader) ; type = couleur (rouge → Feu…) ;
+   * attaque principale = puissance ÷ 100, coût selon le coût de la carte ; « Riposte » (1 énergie) si la carte a un contre ;
+   * [Double attaque] = 2 pièces ; [Initiative] = commence avec 1 énergie. Pas de faiblesse ni de résistance (One Piece n'en a pas).
+   */
+  const OP_COLOR = { Red: 'fire', Green: 'grass', Blue: 'water', Purple: 'psychic', Black: 'darkness', Yellow: 'lightning' };
+  const r10 = (v) => Math.round(v / 10) * 10;
+  const isOpFighter = (card) => /^(Personnage|Leader|Character)$/i.test(card.category || '') && card.power != null;
+  function fighterOP(card, extra = {}) {
+    const leader = /leader/i.test(card.category || ''), power = +card.power || 0, counter = +card.counter || 0, cost = +card.cost || 0;
+    const text = String(card.text || ''), dbl = /\[Double attaque\]|\[Double Attack\]/i.test(text), rush = /\[Initiative\]|\[Rush\]/i.test(text);
+    const hp = Math.min(260, Math.max(30, r10(power / 50 + counter / 50 + (leader ? cost * 10 : 0))));
+    const base = Math.max(10, r10(power / 100));
+    const attacks = [{ name: leader ? 'Ordre du capitaine' : 'Attaque', cost: leader ? 2 : Math.min(3, 1 + Math.floor(cost / 3)), base: dbl ? Math.max(10, r10(base / 2) + 10) : base, mode: dbl ? 'x' : '', noDamage: false, text: dbl ? 'Double attaque : 2 pièces' : '' }];
+    if (counter) attacks.unshift({ name: 'Riposte', cost: 1, base: Math.max(10, r10(counter / 50)), mode: '', noDamage: false, text: '' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'onepiece',
+      type: OP_COLOR[(card.colors || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: rush ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** Combattant de n'importe quelle licence */
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : fighter(card, extra));
+
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
     let dmg = att.base, coins = null;
@@ -130,5 +154,5 @@ App.battle = (() => {
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS };
+  return { power, fighter, fighterOP, fighterOf, isOpFighter, OP_COLOR, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS };
 })();

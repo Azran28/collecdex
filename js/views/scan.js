@@ -608,6 +608,9 @@ App.views.scan = {
           if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
         }
         else {
+          // vérification par l'image (v2.94, comme One Piece et le classeur) lancée en même temps que la lecture du texte
+          const V = App.visual, early = V && V.supported() && App.settings.visualCheck !== false ? V.check(blob, []).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+          const tie = (a, b) => (((b.set && b.set.id) === setId) - ((a.set && a.set.id) === setId)); // (série choisie d'abord)
           if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
           else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
           summary = R.readSummary(info);
@@ -617,6 +620,24 @@ App.views.scan = {
             const r = await op.recognize(blob, st).catch(() => null);
             if (r && r.cands.length) { switchGame('onepiece'); ({ info, cands } = r); summary = info.read; switched = true; }
           }
+          if (early && !switched && !info.otherGame) {
+            const top = cands[0];
+            let o = null;
+            if (!(top && top.confident)) {
+              // pas sûre par le texte : celle lancée au début suffit si elle est sûre, sinon on compare aussi les cartes du texte
+              st('Vérification par l’image…');
+              const e = await early, t = e && e.cands[0];
+              o = t && t.confident && !cands.some((c) => c.numOk && c.ofOk && c.id !== t.id) ? { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] }
+                : await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
+              if (o && o.cands[0] && o.cands[0].orb >= V.SURE) summary = [summary, 'reconnue à l’image ✓'].filter(Boolean).join(' · ');
+            } else {
+              // sûre par le texte : la vérification par l'image donne seulement ses vrais bords (si elle a fini à temps)
+              const e = await Promise.race([early, new Promise((res) => setTimeout(res, 1500))]);
+              if (e && e.cands[0] && e.cands[0].id === top.id) o = { cands, crop: e.crop };
+            }
+            if (o) { cands = o.cands; if (o.crop) info.crop = o.crop; }
+          }
+          if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
         }
         if (!alive()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
@@ -652,11 +673,9 @@ App.views.scan = {
       try {
         const nameQ = el.querySelector('#sc-name').value, numQ = el.querySelector('#sc-num').value;
         let cands;
+        // (même logique pour toutes les licences : nom / numéro, puis classées par ressemblance avec la photo)
         if (isPk()) cands = await R.manual(cardBlob, nameQ, numQ, spin);
-        else { // One Piece : par le code (« OP09-004 ») s'il est donné, sinon par le nom
-          cands = await ad.search({ name: numQ.trim() || nameQ });
-          if (numQ.trim() && nameQ.trim()) { const n = App.util.norm(nameQ); const f = cands.filter((c) => App.util.norm(c.name).includes(n)); if (f.length) cands = f; }
-        }
+        else cands = await ad.manual(cardBlob, nameQ, numQ);
         setStatus(''); showCandidates(cands, '');
       } catch (e) { setStatus(''); App.util.toast(e.message); }
     });
@@ -1078,7 +1097,7 @@ App.views.scan = {
       }
       // Deuxième passe : la page semble rangée par série → on recompare les cartes incertaines à cette série
       prog = { step: 'Série de la page…', done: n, total: n };
-      if (isPk() && !hint && alive() && !stopped) await guessSeries(); // (Pokémon : One Piece a le code de la carte)
+      if (!hint && alive() && !stopped) await guessSeries(); // (toutes les licences, v2.94 : One Piece aussi)
       // Troisième passe : vérification par l'image (réseau de neurones + points clés)
       if (isPk() && alive() && !stopped && App.settings.visualCheck !== false) { timing = { text: performance.now() - tStart, warm: await warmP }; await visualPass(hint); }
       running = false; prog = null; pageDur = performance.now() - tStart;
@@ -1105,7 +1124,7 @@ App.views.scan = {
           if (!x.set || seen.has(x.set.id)) continue;
           if (/promo/i.test(x.set.name || '') || /^[a-z]+p$/i.test(x.set.id)) continue; // une page rangée par série n'est pas une page de promos
           // la meilleure candidate compte si elle ressemble vraiment à la photo ; une autre, si elle la talonne
-          const close = x === top ? (c.state === 'sure' || (top.visual != null && top.visual >= 0.45) || (top.nameScore || 0) >= 0.8)
+          const close = x === top ? (c.state === 'sure' || (top.visual != null && top.visual >= 0.45) || (top.orb || 0) >= 25 || (top.nameScore || 0) >= 0.8)
             : (c.state !== 'sure' && x.visual != null && top.visual != null && x.visual >= 0.5 && top.visual - x.visual <= 0.12);
           if (!close) continue;
           seen.add(x.set.id); votes[x.set.id] = (votes[x.set.id] || 0) + 1; names[x.set.id] = x.set.name;
@@ -1118,6 +1137,7 @@ App.views.scan = {
       // (sans risque : une carte n'est remplacée que si elle est reconnue avec certitude dans la série, et tout s'annule)
       if (!best || nb < 3 || nb < read.length * 0.34 || (sureN && (sureBy[best] || 0) < sureN * 0.5)) return;
       if (nb === second) {
+        if (!isPk()) return; // (One Piece : pas de lecture « dans une série », la page reste telle quelle)
         // égalité (ex. Set de Base et sa réimpression Évolutions) : on essaie les deux séries, la meilleure l'emporte
         const tied = ranked.filter((r) => r[1] === nb).slice(0, 2).map((r) => r[0]);
         const sureIn = {};
@@ -1783,7 +1803,7 @@ App.views.scan = {
         try {
           const nameQ = resultsEl.querySelector(`[data-name="${cell.i}"]`).value, numQ = resultsEl.querySelector(`[data-num="${cell.i}"]`).value;
           // One Piece : par le code (« OP10-001 ») s'il est donné, sinon par le nom
-          const cands = isPk() ? await R.manual(cell.blob, nameQ, numQ) : await ad.search({ name: numQ.trim() || nameQ });
+          const cands = isPk() ? await R.manual(cell.blob, nameQ, numQ) : await ad.manual(cell.blob, nameQ, numQ);
           if (!cands.length) { App.util.toast('Aucune carte trouvée'); }
           else { cell.cands = cands; cell.choice = cands[0].id; cell.state = 'verifier'; cell.checked = true; }
         } catch (err) { App.util.toast(err.message); }
