@@ -72,9 +72,9 @@
   };
   // carte parallèle (« _p1 », illustration alternative) : rareté à part, sauf les SP / TR / promos qui gardent la leur
   const rarOf = (id, r) => (/_p\d+$/.test(id) && !['Special', 'TreasureRare', 'Promo'].includes(r) ? 'Parallel' : r || '');
-  // holo (v2.92) : décidé par la rareté, pas mesuré sur la photo — Super rare, Secrète rare, Spéciale, Trésor rare et
-  // versions parallèles brillent ; Commune, Peu commune, Rare et Leader de base non (réponses d'Arnaud : Leader « Non », SEC « Holo »)
-  const FOIL = ['SuperRare', 'SecretRare', 'Special', 'TreasureRare', 'Parallel'];
+  // holo (v2.92) : décidé par la rareté, pas mesuré sur la photo — Rare, Super rare, Secrète rare, Spéciale, Trésor rare et
+  // versions parallèles brillent (Rare ajoutée en v2.93 : Señor Pink OP10-067 d’Arnaud) ; Commune, Peu commune et Leader de base non (réponses d’Arnaud : Leader « Non », SEC « Holo »)
+  const FOIL = ['Rare', 'SuperRare', 'SecretRare', 'Special', 'TreasureRare', 'Parallel'];
   const variantsOf = (rar) => (FOIL.includes(rar) ? { holo: true } : { normal: true });
 
   // ---------- Séries ----------
@@ -201,7 +201,7 @@
     const s = list.find((x) => x.id === id);
     if (!s) throw new Error('Série inconnue : ' + id);
     const L = s.packs[langFor(id)] ? langFor(id) : s.packs.fr ? 'fr' : 'en';
-    return cached(`op2:${L}:set:${id}`, 7 * DAY, async () => {
+    return cached(`op3:${L}:set:${id}`, 7 * DAY, async () => {
       const raw = await getJSON(`${DATA}/${FOLDER[L]}/data/${s.packs[L]}.json`);
       const set = { ...shapeOf(s, L), cardCount: { total: raw.length, official: 0 } };
       // série d'abord dans l'ordre des numéros, puis ses versions parallèles, réimpressions à la fin
@@ -362,13 +362,12 @@
       const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
       c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
       const r = App.recognizer.cutCard(c, { x: 0.02, y: 0.02, w: 0.96, h: 0.96 }); // bords de la carte
-      if (r) out.push({ blob: await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)), zones: CODE_ZONES, asPhoto: true }); // (carte au ras de ses bords : peut remplacer la photo)
+      const sane = App.views && App.views.scan && App.views.scan.sane;
+      if (r && r.fit >= 0.45 && (!sane || sane(r))) out.push({ blob: await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92)), zones: CODE_ZONES, asPhoto: true }); // (carte au ras de ses bords : peut remplacer la photo)
       // la photo entière (carte qui la remplit presque) : on ne sait pas où est le bas de la carte → bandes qui glissent sur le bas
-      // (si le code n'est lu que là, la carte remplit la photo : la photo, ramenée au format d'une carte, devient son visuel)
-      const R2 = 63 / 88, pw = Math.min(c.width, c.height * R2), ph = pw / R2;
-      const whole = document.createElement('canvas'); whole.width = Math.round(pw); whole.height = Math.round(ph);
-      whole.getContext('2d').drawImage(c, (c.width - pw) / 2, (c.height - ph) / 2, pw, ph, 0, 0, whole.width, whole.height);
-      out.push({ blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9)), zones: SLIDE_ZONES, photo: await new Promise((res) => whole.toBlob(res, 'image/jpeg', 0.9)) });
+      // (v2.93 : plus de recadrage « milieu de la photo au format carte » : il coupait la carte quand elle n'était pas centrée,
+      // ex. Señor Pink d'Arnaud ; la photo garde alors sa marge)
+      out.push({ blob: await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9)), zones: SLIDE_ZONES });
     } catch (e) { console.warn(e); }
     return out.filter((x) => x.blob);
   }
@@ -384,7 +383,7 @@
       statusFn('Lecture du code (autre cadrage)…');
       for (const alt of await otherCrops(original)) {
         const t = await R.readZones(alt.blob, alt.zones); texts.push(...t); read.push(...t.map(codesIn));
-        if (read.some((r) => r.codes.length)) { betterCrop = alt.asPhoto ? alt.blob : alt.photo || null; break; } // ce cadrage-là montre vraiment la carte : il servira de photo
+        if (read.some((r) => r.codes.length)) { betterCrop = alt.asPhoto ? alt.blob : null; break; } // carte détourée sûrement : elle servira de photo
       }
     }
     if (!read.some((r) => r.codes.length)) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }
