@@ -371,7 +371,7 @@ App.views.scan = {
           : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`;
         // lampe en mode essai : note + petit graphique (mesures à transmettre pour le réglage)
         const lampHtml = cert && cert.flashTrace ? `${cert.lampNote ? `<div class="small" style="margin-top:6px">${App.util.esc(cert.lampNote)}</div>` : ''}${App.certify.lampChart(cert.flashTrace, cert.lampFit)}` : '';
-        const closeTip = tooClose ? `<div class="small" style="margin:6px 0">${App.icons.icon('capture', 13)} <b>Bords de la carte pas trouvés</b> : éloigne un peu la carte, elle doit tenir <b>entière</b> dans le cadre jaune (avec un peu de marge).</div>` : '';
+        const closeTip = tooClose ? `<div class="small close-tip" style="margin:6px 0">${App.icons.icon('capture', 13)} <b>Bords de la carte pas trouvés</b> : éloigne un peu la carte, elle doit tenir <b>entière</b> dans le cadre jaune (avec un peu de marge).</div>` : '';
         status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${lampHtml}${closeTip}${certLine && !closeTip ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
       } finally {
         shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
@@ -608,8 +608,9 @@ App.views.scan = {
           if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
         }
         else {
-          // vérification par l'image (v2.94, comme One Piece et le classeur) lancée en même temps que la lecture du texte
-          const V = App.visual, early = V && V.supported() && App.settings.visualCheck !== false ? V.check(blob, []).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+          // vérification par l'image (comme One Piece et le classeur) — seulement si le texte n'est pas sûr (v2.96 : lancée en même
+          // temps que le texte, elle lui prenait le processeur du téléphone même quand le texte suffisait)
+          const V = App.visual, useV = V && V.supported() && App.settings.visualCheck !== false;
           const tie = (a, b) => (((b.set && b.set.id) === setId) - ((a.set && a.set.id) === setId)); // (série choisie d'abord)
           if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
           else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
@@ -620,22 +621,18 @@ App.views.scan = {
             const r = await op.recognize(blob, st).catch(() => null);
             if (r && r.cands.length) { switchGame('onepiece'); ({ info, cands } = r); summary = info.read; switched = true; }
           }
-          if (early && !switched && !info.otherGame) {
+          if (useV && !switched && !info.otherGame) {
             const top = cands[0];
-            let o = null;
             if (!(top && top.confident)) {
-              // pas sûre par le texte : celle lancée au début suffit si elle est sûre, sinon on compare aussi les cartes du texte
+              // (avec les cartes du texte : Sulfura 27 ↔ 12, la jumelle au même dessin ne doit pas manquer)
               st('Vérification par l’image…');
-              const e = await early, t = e && e.cands[0];
-              o = t && t.confident && !cands.some((c) => c.numOk && c.ofOk && c.id !== t.id) ? { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] }
-                : await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
+              const o = await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
               if (o && o.cands[0] && o.cands[0].orb >= V.SURE) summary = [summary, 'reconnue à l’image ✓'].filter(Boolean).join(' · ');
+              if (o) { cands = o.cands; if (o.crop) info.crop = o.crop; }
             } else {
-              // sûre par le texte : la vérification par l'image donne seulement ses vrais bords (si elle a fini à temps)
-              const e = await Promise.race([early, new Promise((res) => setTimeout(res, 1500))]);
-              if (e && e.cands[0] && e.cands[0].id === top.id) o = { cands, crop: e.crop };
+              // sûre par le texte : les propositions s'affichent tout de suite ; la carte est recadrée sur ses vrais bords ensuite
+              info.cropLater = V.check(blob, cands.slice(0, 6), { tie }).then((o) => (o && o.crop && o.cands[0] && o.cands[0].id === top.id ? o.crop : null), () => null);
             }
-            if (o) { cands = o.cands; if (o.crop) info.crop = o.crop; }
           }
           if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
         }
@@ -645,6 +642,16 @@ App.views.scan = {
           : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre jeu ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '');
         donCard = !!info.don;
         showCandidates(cands, summary);
+        // carte recadrée sur ses vrais bords en arrière-plan (texte sûr : on n'a pas attendu) — seulement si rien n'a changé entre-temps
+        if (info.cropLater) {
+          const shown = cardBlob;
+          info.cropLater.then((c) => {
+            if (!c || !alive() || cardBlob !== shown) return;
+            tooClose = false; cardBlob = c; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(c);
+            const im = view.querySelector('img'); if (im) im.src = cardURL;
+            const tip = status.querySelector('.close-tip'); if (tip) tip.remove();
+          });
+        }
         // les propositions sont sous la photo sur téléphone : on y descend
         requestAnimationFrame(() => { const r = results.getBoundingClientRect(); if (r.top > window.innerHeight * 0.55) window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 70), behavior: 'smooth' }); });
       } catch (e) {
@@ -701,8 +708,17 @@ App.views.scan = {
     const readCard = async (blob, hint, st, orig = null) => {
       // (original : la case elle-même, relue au ras de ses bords et en bandes glissantes si le code n'est pas où on l'attend — marge de la pochette)
       if (!isPk()) return ad.recognize(blob, st, { setId: hint, original: orig || blob });
-      if (hint) { const info = await R.read(blob, st, { atkBand: burst }); return { info, cands: await R.inSet(blob, info, hint, st) }; }
-      return R.recognize(blob, st, { atkBand: burst });
+      const r = hint ? await (async () => { const info = await R.read(blob, st, { atkBand: burst }); return { info, cands: await R.inSet(blob, info, hint, st) }; })()
+        : await R.recognize(blob, st, { atkBand: burst });
+      // rafale (cartes seules) : même vérification par l'image qu'en carte seule, seulement si le texte n'est pas sûr (v2.96)
+      // (en classeur, c'est visualPass, sur toute la page, qui s'en charge)
+      const V = App.visual;
+      if (burst && r.cands && !(r.cands[0] && r.cands[0].confident) && !r.info.otherGame && V && V.supported() && App.settings.visualCheck !== false) {
+        const tie = (a, b) => (((b.set && b.set.id) === hint) - ((a.set && a.set.id) === hint));
+        const o = await V.check(blob, r.cands, { tie }).catch(() => null);
+        if (o) { r.cands = o.cands; if (o.crop) r.info.crop = o.crop; }
+      }
+      return r;
     };
     const FORMATS = { '3x3': [3, 3, '9 cartes (3 × 3)'], '2x2': [2, 2, '4 cartes (2 × 2)'], double: [6, 3, '18 cartes (classeur ouvert, 2 pages)'] };
     const PAGE_FORMATS = Object.fromEntries(Object.entries(FORMATS).filter(([k]) => k !== 'double'));
@@ -1574,6 +1590,7 @@ App.views.scan = {
       const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
       cell.info = info; cell.cands = cands;
       if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); } // meilleur cadrage (One Piece) : photo de la case
+      if (info && info.cropLater) { const shown = cell.blob; info.cropLater.then((c) => { if (!c || cell.saved || cell.blob !== shown || !alive()) return; cell.blob = c; cell.url = URL.createObjectURL(c); urls.push(cell.url); drawResults(); }); } // (vrais bords, trouvés après coup)
       if (info && info.don) { cell.state = 'don'; cell.cands = []; cell.choice = ''; cell.checked = false; return; } // carte DON!! (One Piece) : pas encore gérée
       if (info && info.otherGame && !(cands[0] && cands[0].confident)) { cell.state = 'autre'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.choice = cands[0] ? cands[0].id : '';
@@ -1594,6 +1611,7 @@ App.views.scan = {
           const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
           cell.info = info; cell.cands = cands;
           if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); }
+      if (info && info.cropLater) { const shown = cell.blob; info.cropLater.then((c) => { if (!c || cell.saved || cell.blob !== shown || !alive()) return; cell.blob = c; cell.url = URL.createObjectURL(c); urls.push(cell.url); drawResults(); }); } // (vrais bords, trouvés après coup)
           cell.choice = cands[0] ? cands[0].id : '';
           cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
           cell.checked = cell.state === 'sure';

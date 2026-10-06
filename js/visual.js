@@ -81,22 +81,29 @@ App.visual = (() => {
     }
     return out;
   }
+  /** Jumelles d'une carte Pokémon : même nom dans la même série (holo / non holo au même dessin : Sulfura 12 et 27) */
+  async function pokemonTwins(top) {
+    const sid = (top.set && top.set.id) || top.setId; if (!sid) return [];
+    const s = await App.games.get('pokemon').getSet(sid), n = App.util.norm(top.name);
+    return pokemonCards(s.cards.filter((c) => c.id !== top.id && App.util.norm(c.name) === n).map((c) => ({ id: c.id, set: sid })));
+  }
   /**
    * Vérification par l'image d'une carte seule (même méthode que le classeur Pokémon) :
    * cands = cartes trouvées par le texte (peut être vide) ; + les 24 cartes de toute la base les plus proches pour le réseau ;
    * puis points clés. → { cands (classées, la 1re `confident` si sûre), best, crop (carte recadrée sur ses bords) } ou null.
    * opts : index / v (index de la licence, Pokémon par défaut), cardsOf(near) (cartes de l’index → propositions), urlOf(carte) (visuel),
-   *        tie(a, b) (même image à 10 % près : laquelle d'abord).
+   *        tie(a, b) (même image à 10 % près : laquelle d’abord), twinsOf(carte) (jumelles toujours comparées avant « sûre »).
    * Photo entière, marge comprise (main, pochette, boîte autour) : le réseau s'y perd ; son centre (≈ le cadre jaune de la
    * caméra) le trouve bien mieux (photos d'Arnaud : Monet hors des 40 premières → 1ʳᵉ). Carte déjà au ras de ses bords
    * (format d'une carte) : la photo telle quelle d'abord.
    */
   const NEAR = 24; // cartes de toute la base vérifiées par photo (la bonne était dans les 4 premières sur les photos de test ; chaque visuel jamais vu est à télécharger)
-  async function check(blob, cands, { index = INDEX, v = INDEX_V, cardsOf = pokemonCards, tie = () => 0, urlOf = null } = {}) {
+  async function check(blob, cands, { index = INDEX, v = INDEX_V, cardsOf = pokemonCards, tie = () => 0, urlOf = null, twinsOf = pokemonTwins, twinKey = null, extra = [] } = {}) {
     const tag = `one:${Date.now()}:${Math.random()}`;
     const bmp = await createImageBitmap(blob), tight = Math.abs(bmp.width / bmp.height - 63 / 88) < 0.04;
     const center = await centerOf(blob, 0.77), queries = tight ? [{ blob, k: 1 }, center] : [center, { blob, k: 1 }];
-    const sc = new Map(), have = new Set(cands.map((c) => c.id)), pool = [...cands.slice(0, 40)], urls = new Map();
+    // extra : cartes comparées en plus (jumelles), sans compter comme trouvées par le texte
+    const sc = new Map(), pool = [...cands.slice(0, 40), ...extra.filter((x) => !cands.slice(0, 40).some((c) => c.id === x.id))], have = new Set([...cands.map((c) => c.id), ...pool.map((c) => c.id)]), urls = new Map();
     const url = (c) => urls.get(c.id) || (urlOf ? urlOf(c) : App.games.get('pokemon').img.card(c, 'low'));
     let best = 0;
     for (const [n, q] of queries.entries()) {
@@ -107,7 +114,7 @@ App.visual = (() => {
         for (const t of near) if (t.img) urls.set(t.id, t.img + '/low.webp'); // (visuel de l'index : même empreinte gardée qu'en classeur)
         for (const x of await cardsOf(near)) if (!have.has(x.id)) { have.add(x.id); pool.push(x); }
         if (!pool.length) return null;
-        const r = await rank(qid, q.blob, pool.map((c) => ({ id: c.id, url: url(c), set: (c.set && c.set.id) || c.setId })), { must: cands.slice(0, 12).map((c) => c.id) });
+        const r = await rank(qid, q.blob, pool.map((c) => ({ id: c.id, url: url(c), set: (c.set && c.set.id) || c.setId })), { must: [...cands.slice(0, 12), ...extra].map((c) => c.id) });
         // coins de la carte reportés sur la photo entière
         const o = (1 - q.k) / 2, full = (quad) => quad && quad.map(([x, y]) => [o + x * q.k, o + y * q.k]);
         for (const x of r.res) if (!sc.has(x.id) || sc.get(x.id).s < x.s) sc.set(x.id, { s: x.s, quad: full(x.quad) });
@@ -124,9 +131,18 @@ App.visual = (() => {
     // si l'image en préfère une autre (Salamèche 101 ↔ Reptincel 102, dessins proches : l'image seule se trompait)
     const read = cands.find((c) => c.numOk && c.ofOk && c.orb >= 15);
     if (read && ranked[0] !== read) { ranked.splice(ranked.indexOf(read), 1); ranked.unshift(read); }
-    const top = ranked[0], second = ranked.find((c) => c !== top && c.orb >= 0.8 * top.orb);
+    // même dessin (holo / non holo de la même série, réimpression) : l'image ne les sépare pas vraiment (Sulfura 27 ↔ 12 :
+    // 110 contre 79 selon le cadrage) → une jumelle à plus de la moitié du score suffit pour ne pas dire « sûre »
+    const sameArt = (a, b) => (twinKey ? twinKey(a) === twinKey(b) : App.util.norm(a.name) === App.util.norm(b.name) && ((a.set && a.set.id) || a.setId) === ((b.set && b.set.id) || b.setId));
+    const top = ranked[0], second = ranked.find((c) => c !== top && (c.orb >= 0.8 * top.orb || (sameArt(c, top) && c.orb >= 0.5 * top.orb)));
     const out = [...ranked, ...cands.filter((c) => !ranked.includes(c))];
     for (const c of out) delete c.confident;
+    // jumelles de la meilleure (même nom dans la même série, autres versions du même code) : toujours comparées avant de dire
+    // « sûre » — sans elles, Sulfura 27 passait sûre alors que c'était la 12 (même dessin, holo / non holo)
+    if (twinsOf && top.orb >= SURE && !second) {
+      const tw = (await twinsOf(top).catch(() => [])).filter((x) => !pool.some((c) => c.id === x.id && c.orb != null));
+      if (tw.length) return check(blob, cands, { index, v, cardsOf, tie, urlOf, twinsOf: null, twinKey, extra: [...extra, ...ranked.filter((c) => !cands.includes(c)).slice(0, 12), ...tw] });
+    }
     // sûre : image nettement reconnue, aucune autre carte aussi proche (sinon même dessin : la personne choisit)
     if (top.orb >= SURE && !second && !(read && top.orb < Math.max(...ranked.map((c) => c.orb)))) top.confident = true;
     const q = top.orb >= SURE && sc.get(top.id) && sc.get(top.id).quad;

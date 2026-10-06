@@ -379,6 +379,8 @@
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   const visualOpts = (codes) => ({
     index: 'data/op-index', v: OP_INDEX_V, cardsOf: (near) => fromIndex(near.map((x) => x.id)), urlOf: (c) => img.card(c, 'low'),
+    twinsOf: (top) => byCode(baseOf(top.id)), // (toutes les versions du même code : réimpression au même dessin, parallèles)
+    twinKey: (c) => (/_p\d+$/.test(c.id) ? c.id : baseOf(c.id)), // même dessin = même code sans parallèle (réimpression « _r1 »)
     // même image (réimpression au même dessin) : la carte du code lu, puis la carte de base
     tie: (a, b) => (codes.includes(baseOf(b.id)) - codes.includes(baseOf(a.id))) || (SUFFIX.test(a.id) - SUFFIX.test(b.id)),
   });
@@ -395,7 +397,7 @@
     const donOnly = () => !read.some((r) => r.codes.length) && DON_RE.test(texts.join('\n')); // (carte DON!! repérée au 1er passage : inutile d’attendre l’image)
     if (early && !read.some((r) => r.codes.length) && !donOnly()) {
       statusFn('Vérification par l’image…');
-      const e = await early;
+      const e = await early; // (toutes les versions du même code y sont comparées avant « sûre » : twinsOf)
       if (e && e.cands[0] && e.cands[0].confident) return { info: { code: baseOf(e.cands[0].id), name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
     }
     // rien lu sur la carte recadrée : le code est cherché sur d'autres cadrages de la photo d'origine
@@ -490,23 +492,21 @@
     let orb = null;
     if (!(top && top.confident && codeSure) && useVisual()) {
       statusFn('Vérification par l’image…');
-      // (celle lancée au début suffit si elle est sûre et que le code lu, s'il est sûr, désigne la même carte ; sinon on refait
-      // la comparaison avec les cartes trouvées par le texte)
-      const e = early && await early, t = e && e.cands[0];
-      if (t && t.confident && !cands.some((c) => c.numOk && c.ofOk && baseOf(c.id) !== baseOf(t.id))) orb = { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] };
+      // (celle lancée au début suffit si le texte n'a rien trouvé ; sinon on refait la comparaison avec les cartes du texte, pour
+      // ne pas manquer une jumelle au même dessin — visuels déjà prêts : rapide)
+      const e = early && !cands.length ? await early : null, t = e && e.cands[0];
+      if (t && t.confident && !cands.length) orb = { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] };
       else orb = await visualPass(blob, cands, codes).catch((e) => { console.warn('vérification par l’image', e); return null; });
       if (orb) { cands = orb.cands; top = cands[0]; }
     }
     if (orb && orb.crop) betterCrop = orb.crop;
-    else if (!orb && early && top) { // (carte sûre par le texte : la vérification lancée au début donne quand même ses vrais bords, si elle a fini à temps)
-      const e = await Promise.race([early, new Promise((res) => setTimeout(res, 1500))]);
-      if (e && e.crop && e.cands[0] && e.cands[0].id === top.id) betterCrop = e.crop;
-    }
+    // carte sûre par le texte : la vérification lancée au début donnera ses vrais bords, sans la faire attendre (appliqué par scan.js)
+    const cropLater = !orb && early && top ? early.then((e) => (e && e.crop && e.cands[0] && e.cands[0].id === top.id ? e.crop : null), () => null) : null;
     const code = top ? baseOf(top.id) : '';
     // code mal lu mais retrouvé par l'image (« OP05-004 » lu, c'est OP09-004) : on le dit
     const byImg = codes.length && code && !codes.includes(code) && (top.visual >= 0.6 || top.orb >= 25);
     const readTxt = codes.length ? `code ${byImg ? code : codes[0]}${fixed ? ' (corrigé grâce au nom)' : byImg ? ' (corrigé grâce à l’illustration)' : ''}` : numsRead.size ? `numéro ${[...numsRead][0]}` : '';
-    return { info: { code, name: nameOk, votes, crop: betterCrop, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+    return { info: { code, name: nameOk, votes, crop: betterCrop, cropLater, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
   // ---------- Images ----------
