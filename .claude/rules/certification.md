@@ -1,0 +1,31 @@
+---
+paths:
+  - "js/certify.js"
+  - "js/labo-certif.js"
+  - "labo-certif.html"
+  - "supabase-certif.sql"
+  - "supabase-v7.sql"
+  - "supabase-v8.sql"
+---
+# Certification (`js/certify.js`)
+
+## État actuel
+- **Carte seule** : certification **optionnelle** (`App.settings.certCarte`, interrupteur `#sc-certon`, encadré `.pc-off` si désactivée ; `certWanted` dans `shoot`) ; lampe toujours utilisée (`useLamp = true`, `tracker(…, { lamp, onLamp })`, grande consigne `.pc-big` pendant la phase `lampe`, `trk.lampStart` / `trk.LAMP_MS`). `LAMP_BLOCKS = true` (depuis v2.56).
+- **Rafale** : sans certification (`RAFALE_CERT = false`), sans lampe. **Page de classeur** : retirée (`PAGE_CERT = false` dans `batch`, le code reste ; `live(…, 'page')` refuse).
+- Encadré commun `App.views.scan.certBlock(mode, extra)` (`.pc-block`, ids `sc-cert-help` / `b-cert-help` / `r-cert-help`) ; `certSwitch(id, on, label)` = interrupteur vert/rouge ; `.action-dock` vide caché.
+- One Piece : `App.onePieceBacks` (dos bleu + rouge) → `backScoreOf(…, game)` / `looksLikeBack(blob, game)`, `tracker(…, { game })` (+0,1 = seuil 0,45), `identity(blob, c, game)` = code lu. Suivi : tous les dos connus (Pokémon, One Piece + 0,05).
+
+## Geste « dos d'abord » (v2.17)
+Défi serveur unique `retourne`. `tracker(video, regionFn, {auto})` suit le cadre toutes les ~90 ms (`step()` → attente / dos / lampe / retourne / pret) : dos = `recognizer.backScoreOf` ≥ 0,55 deux fois de suite (`fast` : 3 essais, complet si 0,4 ≤ b < 0,55) ; ensuite **15 s** (`WINDOW`). Arnaud appuie sur « Prendre la photo » (bouton `.cert-ready` vert 🛡 une fois le dos vu ; certifiable si `phase !== 'attente'`). **La photo est figée à l'instant de l'appui** (`cam.capture()` et `trk.proof()` avant tout `await` dans `shoot`). Photo du dos refusée.
+- `proof()` utilise **`judgeE`** : preuve = silhouette de biais (`silhouette`, netteté ≥ 1,8, largeur 0,15–0,7) OU carte écrasée entre ses bords (`bandCorr`, avance ≥ 0,03) sur les images 48×66 (`f.d`). Continuité : ressemblance ±4 px OU `motion` (rel < 0,52, fit < 0,7) avec la photo ET les 2 images juste avant l'appui ; `refs` = photo + 2 images d'avant ayant au moins la moitié des détails (`minSd`) ; sinon chaîne image par image (`linked`, 2 images floues sautables) jusqu'à la 1re image « à plat » après le dos (`ev.chain`). Pas de zoom (il laissait passer la table). Si `flash.ok`, chemin « lampe+A » = `judgeFlip` gap ≥ 1 + continuité de `judgeE` (`screenScore` ne bloque plus). Messages de refus avec `ev {sil, sq, n, fps, chain}`. `judgeFlip` (ancien) gardé pour le labo.
+- **Lampe** : `torchOf(video)` (capacité `torch`, Chrome Android ; iPhone = rien), `playCode` (6 × 350 ms, 2 à 4 allumées en ≥ 2 éclairs, `ev.t` = instant de la demande car la lumière arrive avant la fin de `applyConstraints`), joué dès que le dos est vu (phase `lampe`, consigne `HINTS.lampe`, 0,65 s de plus après). `flashFit` (médiane de luminosité du cadre, retard −0,3 à +1 s, fenêtre jusqu'à fin + 1,1 s ; niveau = corrélation ≥ 0,75 et hausse ≥ 6 %, OU changements : 3 sur 4 suffisent, saut moyen ≥ 3 %) ; images < 40 % ou > 2,5 × la médiane écartées, sauts bornés à ±50 %. Exposition auto = pic à l'allumage puis creux à l'extinction. `flashTxt` met les mesures dans le refus ; `lampNote` + `lampChart(flashTrace, lampFit)` = graphique SVG. `applyConstraints` échoue → on se passe de la lampe. Téléphone d'Arnaud : ~5,6 images/s, lampe reconnue 4/4.
+- Bande-preuve 3 images (216×100 JPEG : dos, entre deux, face) en `photos/<uid>/cert_<défi>.jpg`, exigée par `cert_finish` (v7). Scores `flip {states, gap, back, ms, algo, ev}`, `flash {corr, amp, lag, n}`. `certify.doFinish` envoie la photo à certifier avant `cert_finish`.
+- **Identité** (`certify.identity`, v2.19) : acceptée si la candidate est `confident`, ou numéro + total + nom lus, ou la plus ressemblante des candidates (`visual ≥ 0,42`, `margin ≥ 0`) ; sinon règle relative sur la série (≥ 0,35 et ≥ 0,05 d'avance). Pas de seuil absolu (refusait de bonnes cartes). Raison d'un échec dans `item.certNote`, affichée dans la fiche.
+- Limites : une copie imprimée recto-verso passerait ; tout est vérifié côté téléphone (le serveur ne revoit pas le film). Ancien mouvement (`motion`) gardé pour la rafale (`sameCard`).
+- Tests : fausse caméra (`getUserMedia` remplacé par un canvas `captureStream`, dos du modèle `BACK` puis `test/voltorbe.png` ; piste avec `getCapabilities` / `applyConstraints` remplacés pour imiter la lampe). Historique écarté : v2.15 (retourner APRÈS la photo, trop long, échouait avec un étui), v2.16 (auto-déclenchement pendant le retournement).
+
+## Page de classeur (code gardé, désactivé)
+`supabase-v8.sql` : `cert_start(p_kind, p_n)` tire `case-N` (`max_uses = p_n`) ; `cert_finish` accepte `retourne` ou `case-N`, même image (dHash) pour toutes les cartes du défi. Dernière version (v2.53–v2.54) : **lampe seule** (`livePage(video, host, cells, uses)`), code de la lampe d'abord puis photo HD (`cam.photo()`), 9 zones uniformes, ≥ 55 % des zones qui suivent le code (`flashFit(…, 0.03)` + `flashOk(…, 0.04, 0.05)`), téléphone immobile (corrélation médiane ≥ 0,6 sur 75 % des images), bande-preuve = page éteinte / la plus éclairée / après ; pas de lampe (iPhone) → pas de badge. Résultat dans `#b-certline` + `svCert()`. Badge « Certifiée (classeur) » (`certify.pageOnly(it)`, `certifications.challenge` lu par `loadCerts`). Ancienne méthode du doigt (v2.26) jugée « imbuvable ». Caméra du classeur sur téléphone : `--vr`, `.batch-view.live-fit`, hauteur `100dvh − 330px` (min 300), vidéo en `cover`.
+
+## Labo (`labo-certif.html` + `js/labo-certif.js`, outil de test)
+Fausses vidéos 360×480 (cartes de `_tests-scanner`, dos = photo 04), vrais gestes + tricheries, algorithmes A…H, V/W (= code du site, lampe en essai / bloquante). Banc du 30 sept. soir : **W 91,5 % de vrais gestes certifiés / 84,3 % de triches refusées** (écran sans moiré 98 %) ; A 80,2/59,9 ; E 85,5/72,9. Restent : papiers imprimés 0 % (« lampe+A » les accepte), autre carte 49 %, carte petite 19 %. Page de classeur : plein jour 17 % seulement (lampe invisible). Dans le navigateur caché, `setTimeout` est freiné : le labo rend la main par `MessageChannel`.

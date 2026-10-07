@@ -1,0 +1,29 @@
+---
+paths:
+  - "js/battle.js"
+  - "js/battle-cards.js"
+  - "js/duel.js"
+  - "js/views/match.js"
+  - "supabase-v10.sql"
+  - "supabase-v12.sql"
+  - "supabase-v15.sql"
+---
+# Combats (`#/combat`, `views/match.js` — le code garde le nom « match »)
+**Toutes les licences** (One Piece depuis v2.94 : `battle.fighterOP` / `fighterOf`, `match.js › adOf`, `FIGHT_GAMES`).
+
+## Contre l'ordinateur
+- Moteur `js/battle.js` (`App.battle` : `fighter(card)` depuis `getCard`, types FR/EN normalisés, `damage` avec faiblesse/résistance et pièces pour « × » / « + », `aiMove`/`aiReplace` par niveau, `LEVELS` 1-5 : communes / évolutions / holos du Set de Base, Maître = meilleures holos + 1 énergie, Légende = ex de 151). Une attaque dépense seulement son coût en énergie.
+- 3 équipes (`profile.match = {teams:[{name, keys}]×3, teamIdx, team (compat), beaten, wins, losses}`, synchronisé ; `normMatch` migre l'ancien `team`) ; « Avec quelle équipe ? » si ≥ 2 remplies. `pickTeam` : PV et type tirés de la liste de la série (`myPokemon` → `_hp`, `_type`), fiche complète en arrière-plan (`combatStats`) ; filtres et tris ; la grille n'est pas redessinée (tuiles réordonnées) pour garder le défilement. Pokémon de prêt si besoin.
+- Écran plein écran (PC ≥ 761 px : grille `minmax(0,1fr) auto minmax(0,1fr)`, banc en colonne, taille selon `100vh`) ; `.bt-ov` en `overflow: clip` ; effets Web Animations dans `.bt-fx` (`lunge`, `projectile`, `bolt`, `burst`, `ring`, `flash`, `shake`, `koAnim`, `enterAnim`, `confetti`), `updateHp` ; `prefers-reduced-motion` coupe les effets ; sons `App.sfx.whoosh/charge/swap`.
+- **Mode « Avancé »** (`m.mode` 'classic'|'adv', `m.beatenAdv`, `m.stats[mode]`) : `js/battle-cards.js` (`App.battleCards` : `effectOf(card)` = `BY_NAME`, puis texte FR par regex (regen, charge, armor, soin, sans faiblesse, shield, gust, switch, strip, revive), sinon genre (Outil +20 PV, Stade +10 dégâts 3 tours, Supporter +1 énergie, Objet soin 30) ; `playable`, `aiCard`, `aiBag(level, type)`, `loanBag(type)`). Sac par équipe `teams[i].bag` (6 max, `bagItems`), `pickBag`, `myTrainers`. En combat : `playCard` (`.bt-played`, 1 carte par tour avant l'action), `startTurn` efface les boucliers, `endTurn`, `tagsHtml` (🛡 ⚔ 🏟 🔧).
+- **Pioche (v2.80)** : `DECK_MAX = 10`, `HAND_START = 3` ; `inHand` (faux = dans `side.pile`), `drawCard(side)` dans `startTurn`, `hand(side)` ; `playable` refuse `inHand === false`. Decks de l'ordinateur 4/6/8/10/10 (`AI_BAGS`, `AI_ENERGY`), prêt 8. Interface : « Pioche ».
+- Téléphone : `.bt-modes`, onglets `.bt-mteam` (`.bt-team-panel` caché ≤ 760 px ; **les boutons `data-edit`/`data-bag` existent en double dans le DOM**), bouton « Choisir ».
+- Simulations : holos ≈ 55 % contre Champion, 0 % contre Légende ; ex ≈ 43 % contre Légende.
+
+## Contre un ami (v2.60, `supabase-v10.sql`, v12, v15)
+- Tables `battle_rooms` (code 6 caractères sans I/O/0/1, `host`/`guest`, `mode`, `seed`, `host_team`/`guest_team`, `status` waiting/lobby/playing/done, `winner`, `rematch`) et `battle_moves` (clé `code, by_user, n`), aucun accès direct ; `battle_create(mode, team)`, `battle_peek(code)`, `battle_join(code, team)` (tout dresseur connecté), `battle_team`, `battle_state(code, after)`, `battle_move(code, n, move)` (`quit` par l'hôte en attente = salon supprimé ; `quit`/`over` → `done`), `battle_rematch(code)`.
+- `js/duel.js` (`App.duel`) : `rng(seed)` (mulberry32), `wireFighter`/`wireBag` (visuel officiel `imgOff`) et `cleanTeam` (filtre tout ce qui vient de l'ami, effets reconstruits par `App.battleCards.fxOf`), `create/peek/join/state/cancel`, `waitJoin` (1,5 s), `link(code)` (`send` avec file + réessais, `next()`, `onQuit`, `onStatus`, sondage 1,2 s, 4 s en arrière-plan), `pickCode(texte)`, `rematch(code)`.
+- **Les deux téléphones rejouent les mêmes coups dans le même ordre** (`battle(…, { online })` : `turnP`/`turnC`, qui commence = `App.duel.hostFirst(seed)` (pile ou face `coinToss` : `.bt-coin` vers `--end` 1800° / 1980°, attente par `sleep`), `remote()` remplace l'IA, coups invalides → « +1 énergie », pièces avec `rnd` partagé). Pioche mélangée par `rng(seed ^ 0x2545f491)` (celui qui commence) puis `seed ^ 0x68e31da4`. Coups : `{kind:'card', i, to?}`, `{kind:'act', type, i, to}`, `{kind:'replace', to}`, `{kind:'quit'|'over', win}`. Stats `m.stats.online`. Lien `#/combat?salon=CODE` ; code copiable (`#bt-room-code`, `#bt-room-copy`, `.copied`). Pas de vérification serveur des coups.
+- **Reprise (v2.66)** : `localStorage['collecdex:duel']` = `{ code, phase, moves, uid, t }` (`duelSave`/`duelSaved`/`duelClear`, 1 jour) ; `runDuel('resume')` → `duelResume` : `waiting` → `duelCreate`, `lobby` → `duelLobby(…, { ready })`, `playing` → `startDuel(s, null, moves)` qui rejoue mes coups (`rp`, `fromRp`, `pendingTo`) en mode `FAST` (sleep immédiat, `App.sfx.quiet`, `.bt-replay`) ; renvoyer les mêmes coups est sans effet (`on conflict do nothing`) ; `caughtUp` quand mes coups sont épuisés et la file de l'ami vide. Visuels envoyés : `App.battleCards.offImg(card)`.
+- **Revanche (v2.80)** : `data-again` (hors ligne : même niveau ; `data-next` = suivant) ; en ligne `battle_rematch` crée un salon `lobby` host = moi ; l'écran de fin sonde `state(code, 1e6)` → « Accepter la revanche » ; `runDuel` enchaîne `duelLobby(r.rematch, …)`.
+- Test : `App._duelTest.startDuel` avec deux faux `link` dans la même page + « réduire les animations » simulé (l'aperçu caché ne termine pas les animations).
