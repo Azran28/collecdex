@@ -1586,8 +1586,12 @@ App.views.scan = {
     /** Lecture d'une pochette : vide, dos, autre jeu, ou carte Pokémon (candidats) */
     async function recogOne(cell, hint, st) {
       if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; return; }
-      if (await R.looksLikeBack(cell.blob, game).catch(() => false)) { cell.state = 'dos'; return; }
+      // dos : sûr pour Pokémon (dos 0,71–0,80, faces ≤ 0,47) ; pour One Piece le dos uni bleu ressemble à des faces ternes
+      // (Événement en pochette : 0,61, vrais dos 0,53–0,58) → la carte est quand même lue, « dos » seulement si rien n’est reconnu
+      const back = await R.looksLikeBack(cell.blob, game).catch(() => false);
+      if (back && isPk()) { cell.state = 'dos'; return; }
       const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
+      if (back && !(cands[0] && (cands[0].confident || cands[0].numOk || (cands[0].orb || 0) >= 25))) { cell.state = 'dos'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.info = info; cell.cands = cands;
       if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); } // meilleur cadrage (One Piece) : photo de la case
       if (info && info.cropLater) { const shown = cell.blob; info.cropLater.then((c) => { if (!c || cell.saved || cell.blob !== shown || !alive()) return; cell.blob = c; cell.url = URL.createObjectURL(c); urls.push(cell.url); drawResults(); }); } // (vrais bords, trouvés après coup)
