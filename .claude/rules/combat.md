@@ -4,9 +4,9 @@ paths:
   - "js/battle-cards.js"
   - "js/duel.js"
   - "js/views/match.js"
-  - "supabase-v10.sql"
-  - "supabase-v12.sql"
-  - "supabase-v15.sql"
+  - "supabase/sql/supabase-v10.sql"
+  - "supabase/sql/supabase-v12.sql"
+  - "supabase/sql/supabase-v15.sql"
 ---
 # Combats (`#/combat`, `views/match.js` — le code garde le nom « match »)
 **Toutes les licences** (One Piece depuis v2.94 : `battle.fighterOP` / `fighterOf`, `match.js › adOf`, `FIGHT_GAMES`).

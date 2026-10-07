@@ -3,10 +3,10 @@ paths:
   - "js/friends.js"
   - "js/views/friends.js"
   - "js/views/showcase.js"
-  - "supabase-v4.sql"
-  - "supabase-v9.sql"
-  - "supabase-v14.sql"
-  - "supabase-v16.sql"
+  - "supabase/sql/supabase-v4.sql"
+  - "supabase/sql/supabase-v9.sql"
+  - "supabase/sql/supabase-v14.sql"
+  - "supabase/sql/supabase-v16.sql"
 ---
 # Amis et vitrine
 **Rappel** : la liste de souhaits n'est jamais montrée aux autres ; pas d'échanges ni de ventes.

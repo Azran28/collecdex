@@ -3,8 +3,8 @@ paths:
   - "js/capsules.js"
   - "js/views/capsules.js"
   - "js/pokedex.js"
-  - "supabase-v3.sql"
-  - "supabase-v5.sql"
+  - "supabase/sql/supabase-v3.sql"
+  - "supabase/sql/supabase-v5.sql"
 ---
 # Capsules (Pokémon seulement ; absentes de la version Play Store, voir `appli-mobile.md`)
 - `supabase-v3.sql` : tables `dex_species` (rareté des 1025 Pokémon), `capsule_state`, `caught` en lecture seule ; `capsule_status`, `capsule_open` (tirage), `capsule_dex`.

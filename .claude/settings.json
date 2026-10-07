@@ -10,10 +10,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push origin main)",
-      "Bash(sh stamp.sh)",
-      "Bash(bash stamp.sh)",
-      "Bash(./stamp.sh)",
-      "Bash(powershell -ExecutionPolicy Bypass -File stamp.ps1)",
+      "Bash(sh outils/stamp.sh)",
+      "Bash(bash outils/stamp.sh)",
+      "Bash(./outils/stamp.sh)",
+      "Bash(powershell -ExecutionPolicy Bypass -File outils/stamp.ps1)",
       "Bash(node --check:*)"
     ],
     "deny": [

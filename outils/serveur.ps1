@@ -1,12 +1,13 @@
 # Petit serveur web local pour CollecDex (aucune installation necessaire).
-# Il sert les fichiers de ce dossier sur http://localhost:8765/ et ouvre le navigateur.
+# Il sert les fichiers du dossier du site (parent de outils/) sur http://localhost:8765/ et ouvre le navigateur.
 # Fermer cette fenetre arrete le site.
 # -NoBrowser : ne pas ouvrir le navigateur (utilise par Claude pour tester).
 # -Port 8766 : autre port (copie de travail de Claude, pour ne pas gener le site d'Arnaud).
 param([switch]$NoBrowser, [int]$Port = 8765)
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+# ce script est dans outils/ : le site est le dossier parent
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $port = $Port
 $url = "http://localhost:$port/"
 

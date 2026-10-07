@@ -73,7 +73,7 @@
       await tick();
     }
     for (const f of ['voltorbe', 'magmar']) {
-      try { const img = await loadBmp(`test/${f}.png`); onCard({ id: f, label: `${f} (photo test)`, src: 'photo', img: toCard(img, 0, 0, img.width, img.height) }); } catch (e) { /* */ }
+      try { const img = await loadBmp(`_tests-scanner/test/${f}.png`); onCard({ id: f, label: `${f} (photo test)`, src: 'photo', img: toCard(img, 0, 0, img.width, img.height) }); } catch (e) { /* */ }
     }
     return true;
   }

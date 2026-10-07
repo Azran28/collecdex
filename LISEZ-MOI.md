@@ -10,11 +10,18 @@
 
 Il faut une connexion internet : les cartes, images et prix sont téléchargés depuis TCGdex puis gardés en mémoire.
 
+## Où sont les fichiers
+- **`supabase\sql\`** : tous les scripts à coller dans Supabase (`supabase-v….sql`). Quand ce mode d'emploi te dit « coller `supabase-v14.sql` », c'est dans ce dossier.
+- **`outils\`** : le petit serveur et le numéro de version (tu n'as rien à y faire : `Lancer CollecDex.bat` s'en occupe).
+- **`docs\`** : la feuille de route du projet.
+- **`_tests-scanner\`** : tes photos de test (elles restent sur ton PC).
+- Le reste (`js`, `css`, `index.html`…) : le site lui-même.
+
 
 ## Travailler avec Claude Code
 1. Ouvre l'application Claude sur ton PC, onglet **Code**.
 2. Démarre une session **locale** en choisissant le dossier `C:\Users\Arnaud\Documents\Collection`.
-3. Premier message conseillé : « Lis CLAUDE.md et FEUILLE-DE-ROUTE.md, puis prépare Git dans ce dossier comme expliqué dans CLAUDE.md. »
+3. Premier message conseillé : « Lis CLAUDE.md et docs/FEUILLE-DE-ROUTE.md, puis prépare Git dans ce dossier comme expliqué dans CLAUDE.md. »
 4. La première fois, Claude aura peut-être besoin que tu installes **Git pour Windows** (https://git-scm.com/download/win, garder les options par défaut). Au premier envoi sur GitHub, une fenêtre de connexion GitHub s'ouvre : connecte-toi toi-même.
 5. Ensuite, demande ce que tu veux comme d'habitude : Claude modifie directement les fichiers du dossier, teste sur `localhost:8765` (pense à lancer `Lancer CollecDex.bat`) et met en ligne.
 
@@ -204,7 +211,7 @@ Je remplace directement les fichiers dans ce dossier. De ton côté :
 1. **Recharge la page** dans le navigateur : touche **F5** (ou **Ctrl + F5** si rien ne change).
 2. C'est tout. Pas besoin de fermer la fenêtre noire, ni de relancer le `.bat`.
 
-Exception : si je te dis que j'ai modifié `serveur.ps1` ou `Lancer CollecDex.bat`, ferme la fenêtre noire puis relance `Lancer CollecDex.bat`.
+Exception : si je te dis que j'ai modifié `outils/serveur.ps1` ou `Lancer CollecDex.bat`, ferme la fenêtre noire puis relance `Lancer CollecDex.bat`.
 
 Ta collection, tes photos et ta vitrine ne sont **jamais** touchées par une mise à jour.
 

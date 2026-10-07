@@ -3,9 +3,9 @@ paths:
   - "js/certify.js"
   - "js/labo-certif.js"
   - "labo-certif.html"
-  - "supabase-certif.sql"
-  - "supabase-v7.sql"
-  - "supabase-v8.sql"
+  - "supabase/sql/supabase-certif.sql"
+  - "supabase/sql/supabase-v7.sql"
+  - "supabase/sql/supabase-v8.sql"
 ---
 # Certification (`js/certify.js`)
 
@@ -22,7 +22,7 @@ Défi serveur unique `retourne`. `tracker(video, regionFn, {auto})` suit le cadr
 - Bande-preuve 3 images (216×100 JPEG : dos, entre deux, face) en `photos/<uid>/cert_<défi>.jpg`, exigée par `cert_finish` (v7). Scores `flip {states, gap, back, ms, algo, ev}`, `flash {corr, amp, lag, n}`. `certify.doFinish` envoie la photo à certifier avant `cert_finish`.
 - **Identité** (`certify.identity`, v2.19) : acceptée si la candidate est `confident`, ou numéro + total + nom lus, ou la plus ressemblante des candidates (`visual ≥ 0,42`, `margin ≥ 0`) ; sinon règle relative sur la série (≥ 0,35 et ≥ 0,05 d'avance). Pas de seuil absolu (refusait de bonnes cartes). Raison d'un échec dans `item.certNote`, affichée dans la fiche.
 - Limites : une copie imprimée recto-verso passerait ; tout est vérifié côté téléphone (le serveur ne revoit pas le film). Ancien mouvement (`motion`) gardé pour la rafale (`sameCard`).
-- Tests : fausse caméra (`getUserMedia` remplacé par un canvas `captureStream`, dos du modèle `BACK` puis `test/voltorbe.png` ; piste avec `getCapabilities` / `applyConstraints` remplacés pour imiter la lampe). Historique écarté : v2.15 (retourner APRÈS la photo, trop long, échouait avec un étui), v2.16 (auto-déclenchement pendant le retournement).
+- Tests : fausse caméra (`getUserMedia` remplacé par un canvas `captureStream`, dos du modèle `BACK` puis `_tests-scanner/test/voltorbe.png` ; piste avec `getCapabilities` / `applyConstraints` remplacés pour imiter la lampe). Historique écarté : v2.15 (retourner APRÈS la photo, trop long, échouait avec un étui), v2.16 (auto-déclenchement pendant le retournement).
 
 ## Page de classeur (code gardé, désactivé)
 `supabase-v8.sql` : `cert_start(p_kind, p_n)` tire `case-N` (`max_uses = p_n`) ; `cert_finish` accepte `retourne` ou `case-N`, même image (dHash) pour toutes les cartes du défi. Dernière version (v2.53–v2.54) : **lampe seule** (`livePage(video, host, cells, uses)`), code de la lampe d'abord puis photo HD (`cam.photo()`), 9 zones uniformes, ≥ 55 % des zones qui suivent le code (`flashFit(…, 0.03)` + `flashOk(…, 0.04, 0.05)`), téléphone immobile (corrélation médiane ≥ 0,6 sur 75 % des images), bande-preuve = page éteinte / la plus éclairée / après ; pas de lampe (iPhone) → pas de badge. Résultat dans `#b-certline` + `svCert()`. Badge « Certifiée (classeur) » (`certify.pageOnly(it)`, `certifications.challenge` lu par `loadCerts`). Ancienne méthode du doigt (v2.26) jugée « imbuvable ». Caméra du classeur sur téléphone : `--vr`, `.batch-view.live-fit`, hauteur `100dvh − 330px` (min 300), vidéo en `cover`.

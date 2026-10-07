@@ -3,6 +3,7 @@ _tests-scanner/
 test/
 test-classeur.png
 supabase-mes-certificats.sql
+supabase/sql/supabase-mes-certificats.sql
 # Réglages personnels de Claude Code
 .claude/settings.local.json
 CLAUDE.local.md

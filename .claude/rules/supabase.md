@@ -1,6 +1,6 @@
 ---
 paths:
-  - "supabase-*.sql"
+  - "supabase/sql/*.sql"
   - "supabase/**"
   - "js/cloud.js"
   - "js/notify.js"
@@ -10,7 +10,7 @@ paths:
 ---
 # Supabase, notifications, compte
 
-## Scripts SQL (à exécuter une fois, dans l'ordre, dans *SQL Editor*)
+## Scripts SQL (dossier `supabase/sql/`, à exécuter une fois, dans l'ordre, dans *SQL Editor*)
 `supabase-setup.sql` → `supabase-certif.sql` → `supabase-v2.sql` → `supabase-v3.sql` (capsules) → `supabase-v4.sql` (amis) → `supabase-v5.sql` (boutique des capsules) → `supabase-v6.sql` (sécurité : pseudos lisibles seulement par leur propriétaire, nombre de cartes caché pour les demandes en attente, taille max des données) → `supabase-v7.sql` (certification par retournement, notifications push, message boutique corrigé ; + `grant … to service_role` sur push_config/push_subs) → `supabase-v8.sql` (certification d'une page de classeur) → `supabase-v9.sql` (vitrine publique) → `supabase-v10.sql` (combats entre amis) → `supabase-v11.sql` (notification « demande d'ami » : colonne `friendships.notified`, `push_due_friends()` pour service_role, déclencheur `friend_notify_now` qui appelle la fonction tout de suite via pg_net ; préférence `kinds.friends`) → `supabase-v12.sql` (salon : équipes choisies après l'entrée de l'adversaire, statut `lobby`, `battle_team`, équipes cachées tant que le combat n'a pas commencé ; `battle_create`/`battle_join` acceptent une équipe nulle) → `supabase-v13.sql` (suppression de son compte, `delete_my_account(p_check)`) → `supabase-v14.sql` (bloquer / signaler : tables `blocks`, `reports`, vue `reports_a_traiter`, déclencheurs sur `friendships` et `battle_rooms`) → `supabase-v15.sql` (revanche : colonne `battle_rooms.rematch`, `battle_rematch(code)`, `battle_state` renvoie `rematch` / `rematch_by`) → `supabase-v16.sql` (liste de souhaits personnelle : `friend_showcase` et `public_showcase` retirent `wishlist`/`showWish` ; supprime `wish_alerts`, `wish_check`, `push_due_wishes` de l'ancienne v15) → `supabase-v17.sql` (audit de sécurité : `photo_locked` = photo certifiée et bande-preuve non remplaçables, `photo_quota_ok` = 100 Mo / 5 000 photos par compte, photos ≤ 1 Mo, cartes ≤ 16 Ko et 25 000 par compte (`items_quota`), vitrine + réglages ≤ 256 Ko, `are_friends` seulement pour soi, `friend_showcase` sans `note`/`certNote`, clé d'appel `push_config.call_key` envoyée par `_notify_headers()` en en-tête `x-cdx-key`, `push_endpoint_ok` = seulement FCM / Mozilla / Apple / Windows ; le site efface d'abord les photos par l'API de stockage).
 
 - Dans ce projet, `service_role` n'a PAS de droits par défaut sur les nouvelles tables : les donner explicitement (`grant … to service_role`, fait pour `push_config` et `push_subs`).
