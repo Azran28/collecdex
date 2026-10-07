@@ -722,7 +722,9 @@ App.views.scan = {
     };
     const FORMATS = { '3x3': [3, 3, '9 cartes (3 × 3)'], '2x2': [2, 2, '4 cartes (2 × 2)'], double: [6, 3, '18 cartes (classeur ouvert, 2 pages)'] };
     const PAGE_FORMATS = Object.fromEntries(Object.entries(FORMATS).filter(([k]) => k !== 'double'));
-    let fmt = '3x3', fmtChosen = false; // fmtChosen : format choisi à la main (la détection ne le change plus)
+    // format de la page = celui affiché dans la liste, toujours respecté (v2.98 : la détection automatique passait parfois en
+    // « classeur ouvert, 18 cartes » alors qu'Arnaud avait laissé 9 cartes) ; gardé d'une fois sur l'autre
+    let fmt = (() => { try { const v = localStorage.getItem('pageFmt'); return FORMATS[v] ? v : '3x3'; } catch (e) { return '3x3'; } })(), fmtChosen = true;
     let photo = null;          // { img, url }
     let grid = null;           // { x, y, w, h } en fraction de l'image affichée
     let cells = [];            // résultats par pochette
@@ -749,7 +751,7 @@ App.views.scan = {
     // commandes du mode page (gardées cachées en rafale : le code commun s'en sert)
     const pageCtl = `<div class="row" style="margin-bottom:10px">
             <label class="small"><span class="m-hide">Format de la page</span>
-              <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join('')}</select></label>
+              <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}"${k === fmt ? ' selected' : ''}>${v[2]}</option>`).join('')}</select></label>
           </div>`;
     // page de classeur (pas de certification) : l'appareil photo du téléphone d'abord — plein écran, pleine qualité
     const pageBtns = `<div class="row action-dock scan-dock" style="margin-top:14px" id="b-actions">
@@ -835,7 +837,7 @@ App.views.scan = {
       const sel = el.querySelector('#b-set'); if (sel) { App.views.scan.fillSetSelect(sel, sets, saved); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }
     }).catch(() => {});
     el.querySelector('#b-fmt').addEventListener('change', (e) => {
-      fmt = e.target.value; fmtChosen = true; cancelAuto(); autoCells = null; autoRot = 0; dimsOv = null; autoGrid = false; grid = defaultGrid();
+      fmt = e.target.value; fmtChosen = true; try { localStorage.setItem('pageFmt', fmt); } catch (err) { /* */ } cancelAuto(); autoCells = null; autoRot = 0; dimsOv = null; autoGrid = false; grid = defaultGrid();
       if (photo && !running) {
         let gd = null;
         try { gd = fmt === 'double' ? R.detectDouble(photo.img) : R.detectGrid(photo.img, ...FORMATS[fmt].slice(0, 2)); } catch (err) { console.warn(err); }
