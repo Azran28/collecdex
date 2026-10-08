@@ -2713,3 +2713,131 @@ a.bt-choice:active { transform: scale(.985); }
   .cd-nav .lbl { display: none; }
   .cd-nav .btn { min-width: 44px; justify-content: center; }
 }
+
+/* ===== Combat par licence (v2.99) : choix de la licence, décor et habillage propres à chaque licence ===== */
+/* choix de la licence */
+.bt-lead { margin: 4px 0 14px; color: var(--muted); }
+.bt-lics { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.bt-lic-tile { position: relative; display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: 1fr auto; align-items: center; gap: 10px 14px; min-height: 170px; padding: 16px; border-radius: 22px; overflow: hidden; text-decoration: none; color: #fff;
+  border: 1px solid rgba(255,255,255,.14); box-shadow: 0 10px 30px rgba(0,0,0,.35); background: #10142a center / cover no-repeat; transition: transform .15s, box-shadow .15s; }
+.bt-lic-tile.g-pokemon { background-image: linear-gradient(100deg, rgba(10,14,40,.92) 15%, rgba(10,14,40,.45) 60%, rgba(10,14,40,.2)), url(../img/combat/terrain-pokemon.svg); }
+.bt-lic-tile.g-onepiece { background-image: linear-gradient(100deg, rgba(14,10,24,.92) 15%, rgba(14,10,24,.45) 60%, rgba(14,10,24,.2)), url(../img/combat/mer-onepiece.svg); }
+.bt-lic-tile:active { transform: scale(.985); }
+@media (hover: hover) and (pointer: fine) { .bt-lic-tile:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,.45); } }
+.bt-lic-ic { grid-row: 1; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; align-self: start; }
+.g-pokemon .bt-lic-ic, .bt-hero.g-pokemon .bt-hero-ic { background: linear-gradient(180deg, #ff4a2b 0 50%, #fff 50%); color: #1a1a2e; box-shadow: 0 0 0 3px #1a1a2e inset, 0 6px 18px rgba(227,53,13,.45); }
+.g-onepiece .bt-lic-ic, .bt-hero.g-onepiece .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #ffe7a0, #e8b04a 55%, #9a5c12); color: #3b230f; box-shadow: 0 6px 18px rgba(232,176,74,.45); }
+.bt-lic-ic .ic { display: block; }
+.bt-lic-t { grid-row: 1; display: flex; flex-direction: column; gap: 3px; align-self: start; min-width: 0; }
+.bt-lic-t b { font-family: var(--display); font-size: 1.6rem; line-height: 1.1; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+.g-onepiece .bt-lic-t b { color: #ffd479; font-family: Georgia, "Times New Roman", serif; }
+.g-pokemon .bt-lic-t b { color: #ffcb05; text-shadow: 0 2px 0 #2a5cb8, 0 2px 12px rgba(0,0,0,.5); }
+.bt-lic-t span { font-size: .9rem; color: rgba(255,255,255,.9); }
+.bt-lic-t small { font-size: .76rem; color: rgba(255,255,255,.72); }
+.bt-lic-go { grid-row: 1; font-size: 2rem; color: rgba(255,255,255,.75); align-self: center; }
+.bt-lic-cards { grid-row: 2; grid-column: 1 / -1; display: flex; gap: 6px; }
+.bt-lic-cards img, .bt-lic-cards i { width: 46px; aspect-ratio: 63/88; border-radius: 5px; object-fit: cover; display: block; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.bt-lic-cards i { border: 1px dashed rgba(255,255,255,.35); background: rgba(0,0,0,.25); }
+.bt-soon { margin-top: 14px; }
+
+/* accueil d'une licence : bandeau et couleurs */
+.bt-page.g-pokemon { --acc: #e3350d; --acc2: #ffcb05; }
+.bt-page.g-onepiece { --acc: #c0392b; --acc2: #e8b04a; }
+.bt-hero { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 16px; margin: 4px 0 6px; border-radius: 20px; overflow: hidden; color: #fff;
+  border: 1px solid rgba(255,255,255,.12); background: #10142a center 62% / cover no-repeat; }
+.bt-hero.g-pokemon { background-image: linear-gradient(100deg, rgba(10,14,40,.9) 25%, rgba(10,14,40,.35)), url(../img/combat/terrain-pokemon.svg); }
+.bt-hero.g-onepiece { background-image: linear-gradient(100deg, rgba(14,10,24,.9) 25%, rgba(14,10,24,.35)), url(../img/combat/mer-onepiece.svg); background-position: center 40%; }
+.bt-hero-ic { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; }
+.bt-hero-ic .ic { display: block; }
+.bt-hero-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bt-hero-t h1 { margin: 0; font-size: 1.6rem; line-height: 1.15; text-shadow: 0 2px 10px rgba(0,0,0,.45); }
+.bt-hero-t .small { color: rgba(255,255,255,.82); }
+.bt-hero-sw { align-self: start; display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px; font-size: .78rem; font-weight: 700; color: #fff; text-decoration: none; background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.25); white-space: nowrap; }
+.bt-hero-sw .ic { display: block; }
+.bt-sub { margin: 2px 0 0; }
+.bt-page .bt-modes button.on { background: linear-gradient(135deg, var(--acc), color-mix(in srgb, var(--acc2) 70%, var(--acc))); color: #fff; }
+.bt-page .bt-step span { background: linear-gradient(120deg, var(--acc), var(--acc2)); }
+.bt-page .bt-deck.on { border-color: color-mix(in srgb, var(--acc2) 75%, transparent); background: color-mix(in srgb, var(--acc2) 12%, transparent); }
+.bt-page .bt-deck.on .bt-deck-ok { background: var(--acc); border-color: var(--acc); }
+.bt-page .bt-tm.on { border-color: var(--acc2); box-shadow: 0 0 0 1px var(--acc2), 0 8px 26px color-mix(in srgb, var(--acc2) 22%, transparent); }
+.bt-page .bt-tm-on { background: var(--acc); }
+.bt-page.g-onepiece .bt-hero-t h1, .bt-page.g-onepiece .bt-step { font-family: Georgia, "Times New Roman", serif; letter-spacing: .3px; }
+.bt-page.g-onepiece .bt-hero-t h1 { color: #ffd479; }
+@media (max-width: 760px) {
+  .bt-lics { grid-template-columns: 1fr; gap: 12px; }
+  .bt-lic-tile { min-height: 150px; padding: 14px; border-radius: 20px; }
+  .bt-lic-t b { font-size: 1.4rem; }
+  .bt-hero { padding: 12px; gap: 10px; border-radius: 18px; }
+  .bt-hero-t h1 { font-size: 1.3rem; }
+  .bt-hero-ic { width: 40px; height: 40px; border-radius: 12px; }
+}
+
+/* écran de combat : décor de la licence */
+.bt-ov > .bt-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: #0b0d1c center / cover no-repeat; }
+.bt-ov.g-pokemon::before, .bt-ov.g-pokemon::after, .bt-ov.g-onepiece::before, .bt-ov.g-onepiece::after { display: none; }
+.bt-ov.g-pokemon > .bt-bg { background-image: linear-gradient(180deg, rgba(6,10,30,.62), rgba(6,10,30,.12) 22%, rgba(6,10,30,.06) 55%, rgba(6,10,30,.72) 92%), url(../img/combat/terrain-pokemon.svg); }
+.bt-ov.g-onepiece > .bt-bg { background-image: linear-gradient(180deg, rgba(10,8,24,.6), rgba(10,8,24,.1) 22%, rgba(10,8,24,.08) 55%, rgba(10,8,24,.7) 92%), url(../img/combat/mer-onepiece.svg); }
+/* dernier niveau : ciel d'orage */
+.bt-ov.g-pokemon.boss > .bt-bg { filter: brightness(.62) saturate(.8) hue-rotate(200deg); }
+.bt-ov.g-onepiece.boss > .bt-bg { filter: brightness(.6) saturate(.7) hue-rotate(-25deg); }
+/* mouvement léger : nuages (Pokémon), reflets sur la mer (One Piece) */
+.bt-ov > .bt-bg::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+.bt-ov.g-pokemon > .bt-bg::after { background: radial-gradient(ellipse 120px 22px at 20% 9%, rgba(255,255,255,.16), transparent 70%), radial-gradient(ellipse 160px 26px at 70% 14%, rgba(255,255,255,.13), transparent 70%); animation: btClouds 40s linear infinite alternate; }
+.bt-ov.g-onepiece > .bt-bg::after { background: repeating-linear-gradient(176deg, transparent 0 22px, rgba(191,230,255,.08) 22px 24px); top: 36%; bottom: 10%; animation: btSea 7s ease-in-out infinite alternate; }
+@keyframes btClouds { to { transform: translateX(14vw); } }
+@keyframes btSea { to { transform: translate(-30px, 6px); } }
+@media (prefers-reduced-motion: reduce) { .bt-ov > .bt-bg::after { animation: none !important; } }
+.bt-ov.g-pokemon .bt-top, .bt-ov.g-onepiece .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-lic { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; flex: none; }
+.bt-lic .ic { display: block; }
+.bt-ov.g-pokemon .bt-lic { background: linear-gradient(180deg, #ff4a2b 0 50%, #fff 50%); color: #1a1a2e; box-shadow: 0 0 0 2px #1a1a2e inset; }
+.bt-ov.g-onepiece .bt-lic { background: radial-gradient(circle at 35% 30%, #ffe7a0, #e8b04a 55%, #9a5c12); color: #3b230f; }
+.bt-ov.g-pokemon .bt-lvl, .bt-ov.g-onepiece .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(8,10,24,.6); }
+
+/* Pokémon : boîtes claires façon jeu vidéo (nom, PV) et boîte de dialogue */
+.bt-ov.g-pokemon .bt-info { background: linear-gradient(180deg, #fbfbf4, #ecebdc); color: #1b1d2a; border: 2px solid #2b2f45; box-shadow: 0 4px 0 #2b2f45, 0 10px 24px rgba(0,0,0,.35); }
+.bt-ov.g-pokemon .bt-side.me .bt-info { border-radius: 14px 14px 4px 14px; }
+.bt-ov.g-pokemon .bt-side.foe .bt-info { border-radius: 14px 14px 14px 4px; }
+.bt-ov.g-pokemon .bt-stats { color: #4b5068; }
+.bt-ov.g-pokemon .bt-stats b { color: #1b1d2a; }
+.bt-ov.g-pokemon .bt-hp { background: #3b3f55; border: 2px solid #2b2f45; }
+.bt-ov.g-pokemon .bt-loan { background: #dcdccb; color: #4b5068; }
+.bt-ov.g-pokemon .bt-tag { background: #e2e1d0; color: #1b1d2a; }
+.bt-ov.g-pokemon .bt-tag.sh { background: #cfe4ff; color: #123d7a; }
+.bt-ov.g-pokemon .bt-tag.pw { background: #ffd3d6; color: #8a1020; }
+.bt-ov.g-pokemon .bt-tag.st { background: #ffeab0; color: #6a4800; }
+.bt-ov.g-pokemon .bt-log { background: #fbfbf4; color: #1b1d2a; border: 3px solid #2b2f45; border-radius: 10px; box-shadow: inset 0 0 0 3px #7fb3e8, 0 6px 18px rgba(0,0,0,.35); text-align: left; font-weight: 500; }
+.bt-ov.g-pokemon .bt-log .bt-eff { color: #c2410c; }
+.bt-ov.g-pokemon .bt-log .muted, .bt-ov.g-pokemon .bt-log .bt-coins { color: #5b6074; }
+.bt-ov.g-pokemon .bt-banner.me { background: linear-gradient(180deg, #ff4a2b 0 50%, #f2f2f2 50%); color: #1a1a2e; border: 3px solid #1a1a2e; box-shadow: 0 10px 30px rgba(227,53,13,.45); text-shadow: 0 1px 0 #fff; }
+.bt-ov.g-pokemon .bt-end.win .bt-end-box { border-color: #ffcb05; box-shadow: 0 0 40px rgba(255,203,5,.35); }
+
+/* One Piece : avis de recherche (papier jauni), DON!! dorés, journal de bord */
+.bt-ov.g-onepiece .bt-info { background: linear-gradient(180deg, #f4e6c4, #e3cc98); color: #3b230f; border: 2px solid #6b4423; box-shadow: 0 0 0 3px rgba(107,68,35,.25) inset, 0 10px 24px rgba(0,0,0,.4); border-radius: 6px; }
+.bt-ov.g-onepiece .bt-name b { font-family: Georgia, "Times New Roman", serif; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+.bt-ov.g-onepiece .bt-stats { color: #6b4a2a; }
+.bt-ov.g-onepiece .bt-stats b { color: #3b230f; }
+.bt-ov.g-onepiece .bt-hp { background: #5b3a1e; border: 1px solid #3b230f; }
+.bt-ov.g-onepiece .bt-loan { background: #d8bf86; color: #5b3a1e; }
+.bt-ov.g-onepiece .bt-tag { background: #dcc490; color: #3b230f; }
+.bt-ov.g-onepiece .bt-tag.sh { background: #c9dcef; color: #123d7a; }
+.bt-ov.g-onepiece .bt-tag.pw { background: #f2c4b8; color: #7a1a10; }
+.bt-ov.g-onepiece .bt-pips i { border-radius: 3px; background: linear-gradient(135deg, #fff1b8, #f2b33d 55%, #a8600e); box-shadow: 0 0 0 1px #5a2a00, 0 0 6px rgba(242,179,61,.6); }
+.bt-ov.g-onepiece .bt-pips b { color: #8a4b0c; }
+.bt-ov.g-onepiece .bt-cost i { border-radius: 2px; background: #f2b33d; }
+.bt-ov.g-onepiece .bt-log { background: linear-gradient(180deg, rgba(58,34,16,.94), rgba(40,22,10,.94)); color: #fbe9c4; border: 2px solid #c48a52; border-radius: 10px; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-onepiece .bt-log .bt-eff { color: #ffd479; }
+.bt-ov.g-onepiece .bt-banner.me { background: linear-gradient(135deg, #ffe7a0, #e8b04a 55%, #b5701c); color: #3b1d05; border: 3px solid #5a2a00; font-family: Georgia, "Times New Roman", serif; font-weight: 800; box-shadow: 0 10px 30px rgba(232,176,74,.5); }
+.bt-ov.g-onepiece .bt-banner.foe { background: #2a1a0e; border-color: #c48a52; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-onepiece .bt-end-t { font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-onepiece .bt-end.win .bt-end-box { border-color: #e8b04a; box-shadow: 0 0 40px rgba(232,176,74,.4); }
+.bt-ov.g-onepiece .bt-bc { border-color: rgba(232,176,74,.6); background: linear-gradient(135deg, rgba(232,176,74,.22), rgba(192,57,43,.14)); }
+.bt-ov.g-onepiece .bt-bc small { color: #ffd479; }
+.bt-ov.g-onepiece .bt-played div { border-color: rgba(232,176,74,.6); }
+.bt-ov.g-onepiece .bt-played small { color: #ffe7a0; }
+
+.bt-lic-tile.g-onepiece { background-position: center 30%; }
+@media (min-width: 761px) { .bt-hero { max-width: 760px; } }
+
+/* mode Avancé : cartes encore cachées sur le banc adverse */
+.bt-mini.hid b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 1.1rem; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); pointer-events: none; }

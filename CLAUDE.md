@@ -36,7 +36,7 @@ Documents non chargés automatiquement (à lire seulement si besoin) : `.claude/
 ## Où vit le site
 - **En ligne** : https://azran28.github.io/collecdex/ (GitHub Pages, dépôt `Azran28/collecdex`, branche `main`, fichier `.nojekyll`).
 - **Sur le PC d'Arnaud** : `C:\Users\Arnaud\Documents\Collection`, lancé par `Lancer CollecDex.bat` (petit serveur `outils/serveur.ps1` sur le port 8765). Même code que le dépôt.
-- **Comptes et synchro** : Supabase, projet `zjzfwhtqrigfmqzfebzy` (offre gratuite), clé publique dans `js/config.js`. Détails (scripts SQL v1…v17, Edge Function `hyper-processor`, e-mails) : `.claude/rules/supabase.md`.
+- **Comptes et synchro** : Supabase, projet `zjzfwhtqrigfmqzfebzy` (offre gratuite), clé publique dans `js/config.js`. Détails (scripts SQL v1…v18, Edge Function `hyper-processor`, e-mails) : `.claude/rules/supabase.md`.
 
 ## Mettre une version en ligne
 1. Numéro de version : `sh outils/stamp.sh` (Linux / Git Bash) ou `powershell -ExecutionPolicy Bypass -File outils/stamp.ps1` (Windows). Il met `?v=AAAAMMJJ-HHMMSS` sur tous les scripts/styles de `index.html`, dans `<meta name="app-version">` (lu par `util.js` → `window.APP_VERSION`) et dans `version.json`. GitHub Pages garde les pages en cache ~10 min : le site compare sa version à `version.json` et se recharge tout seul.

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Carte DON!! (dessinée pour les combats One Piece de CollecDex) -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".42" r=".75">
+      <stop offset="0" stop-color="#ffe9a8"/><stop offset=".35" stop-color="#f2b33d"/><stop offset="1" stop-color="#8a4b0c"/>
+    </radialGradient>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6d0"/><stop offset="1" stop-color="#ffc94a"/></linearGradient>
+  </defs>
+  <rect width="630" height="880" rx="30" fill="#1b1206"/>
+  <rect x="18" y="18" width="594" height="844" rx="20" fill="url(#f)"/>
+  <g transform="translate(315 400)" fill="#fff3c4" opacity=".35">
+    <path d="M0 -300 L30 -40 L0 0 L-30 -40Z"/><path d="M0 300 L30 40 L0 0 L-30 40Z"/><path d="M300 0 L40 30 L0 0 L40 -30Z"/><path d="M-300 0 L-40 30 L0 0 L-40 -30Z"/>
+    <path d="M212 -212 L50 -20 L0 0 L20 -50Z"/><path d="M-212 212 L-50 20 L0 0 L-20 50Z"/><path d="M212 212 L20 50 L0 0 L50 20Z"/><path d="M-212 -212 L-20 -50 L0 0 L-50 -20Z"/>
+  </g>
+  <text x="315" y="460" text-anchor="middle" font-family="Impact, 'Arial Black', sans-serif" font-size="190" font-weight="900" fill="url(#t)" stroke="#5a2a00" stroke-width="12" paint-order="stroke" transform="rotate(-8 315 420)">DON!!</text>
+  <rect x="70" y="700" width="490" height="90" rx="16" fill="#1b1206" opacity=".55"/>
+  <text x="315" y="760" text-anchor="middle" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#ffe9a8">+1 DON!!</text>
+</svg>

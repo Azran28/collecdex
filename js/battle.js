@@ -151,8 +151,19 @@ App.battle = (() => {
     { n: 5, name: 'Légende', desc: 'Pokémon-ex modernes · sors tes meilleures cartes', pool: ['sv03.5-003', 'sv03.5-006', 'sv03.5-009', 'sv03.5-024', 'sv03.5-038', 'sv03.5-065', 'sv03.5-076', 'sv03.5-124', 'sv03.5-145', 'sv03.5-040', 'sv03.5-115'], bonus: 1, color: '#ffc83d' },
   ];
 
+  // Équipes de l'ordinateur One Piece (v2.99 : chaque licence a ses adversaires ; cartes vérifiées chez Punk Records)
+  const LEVELS_OP = [
+    { n: 1, name: 'Mousse', desc: 'Petits personnages des decks de démarrage · il joue un peu au hasard', pool: ['ST01-003', 'ST01-002', 'ST01-009', 'ST01-011', 'ST02-012', 'ST03-011', 'ST03-006', 'ST03-010', 'ST02-007', 'ST01-007'], bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Pirate', desc: 'Équipages confirmés · il attaque toujours au plus fort', pool: ['ST01-005', 'ST01-008', 'ST01-010', 'ST02-002', 'ST02-006', 'ST02-014', 'ST03-002', 'ST03-004', 'ST03-012', 'OP01-018', 'OP01-045', 'OP01-023'], bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Supernova', desc: 'La Pire Génération · il connaît tes points faibles', pool: ['ST01-012', 'ST01-013', 'ST02-009', 'ST02-013', 'ST02-010', 'OP01-025', 'OP01-047', 'OP01-054', 'OP01-051', 'OP05-074'], bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Grand Corsaire', desc: 'Les Sept Grands Corsaires · un DON!! d’avance', pool: ['ST03-003', 'ST03-009', 'OP01-067', 'OP01-070', 'OP01-078', 'OP01-074', 'ST03-005', 'OP01-073'], bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Empereur', desc: 'Les Empereurs des mers · sors tes meilleures cartes', pool: ['OP01-120', 'OP01-094', 'OP02-004', 'OP11-073', 'OP09-093', 'OP01-070'], bonus: 1, color: '#ffc83d' },
+  ];
+  /** Niveaux de l'ordinateur pour une licence */
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : LEVELS);
+
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterOf, isOpFighter, OP_COLOR, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS };
+  return { power, fighter, fighterOP, fighterOf, isOpFighter, OP_COLOR, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

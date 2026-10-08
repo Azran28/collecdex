@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Dos de carte (carte cachée en combat Avancé) -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".45" r=".75">
+      <stop offset="0" stop-color="#3b7be0"/><stop offset=".6" stop-color="#1d4fa8"/><stop offset="1" stop-color="#102c66"/>
+    </radialGradient>
+  </defs>
+  <rect width="630" height="880" rx="34" fill="#f2c94c"/>
+  <rect x="22" y="22" width="586" height="836" rx="22" fill="url(#f)"/>
+  <g fill="none" stroke="#5f9bff" stroke-width="10" opacity=".35">
+    <path d="M60 760 Q180 560 315 440 T570 120"/><path d="M60 640 Q200 520 315 440 T570 240"/>
+  </g>
+  <g transform="translate(315 440)">
+    <circle r="150" fill="#fff"/>
+    <path d="M-150 0 A150 150 0 0 1 150 0 Z" fill="#e3350d"/>
+    <rect x="-150" y="-12" width="300" height="24" fill="#1a1a2e"/>
+    <circle r="150" fill="none" stroke="#1a1a2e" stroke-width="14"/>
+    <circle r="48" fill="#fff" stroke="#1a1a2e" stroke-width="14"/>
+    <circle r="22" fill="#fff" stroke="#c8cfdc" stroke-width="6"/>
+  </g>
+</svg>

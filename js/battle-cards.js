@@ -42,8 +42,32 @@ App.battleCards = (() => {
     'double energie incolore': ['energy', 2], 'double colorless energy': ['energy', 2],
   };
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex) */
+  /**
+   * Effet simplifié d'une carte One Piece (Événement, Lieu, DON!!) d'après son texte (français ou anglais) :
+   * [Contre] +X000 → protection ; +X000 de puissance → dégâts en plus ; KO → gros coup ; −X000 / épuiser → DON!! adverse en moins ;
+   * renvoyer à la main / sous le deck → Rafale ; piocher / regarder des cartes → +1 DON!! ; Lieu → Stade.
+   */
+  const isOpCard = (card) => /^(evenement|lieu|event|stage|don!!)$/.test(norm(card && card.category));
+  function effectOfOP(card) {
+    const text = norm(card.text || ''), cat = norm(card.category);
+    const mk = (key, n) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc }; };
+    const k = (v) => Math.min(40, Math.max(10, Math.round(+v / 100))); // 3000 de puissance → 30
+    const gain = /(?:gagne\w*|gains?)\s+\+\s?(\d000)/;
+    let m;
+    if (/^don/.test(cat)) return mk('energy', 1);
+    if (/^(lieu|stage)$/.test(cat)) return mk('stadium', (m = text.match(/\+\s?(\d)000/)) ? Math.min(20, +m[1] * 10) : 10);
+    if (/\[(contre|counter)\]/.test(text) && (m = text.match(gain))) return mk('shield', k(m[1]));
+    if (/mettez ko|k\.o\. up to/.test(text)) return mk('power', 30);
+    if ((m = text.match(gain))) return mk('power', k(m[1]));
+    if (/perd\w*\s+-\s?\d000|[-−]\s?\d000 power|epuise\w* jusqu'a \d+ personnage adverse|rest up to \d+ of your opponent/.test(text)) return mk('strip', 1);
+    if (/(renvoy\w*|return\w*).{0,60}(main|hand)|au-dessous du deck de son proprietaire|bottom of the owner/.test(text)) return mk('gust');
+    if (/piochez|draw \d|regardez \d+ cartes|look at \d+ cards|don!!/.test(text)) return mk('charge');
+    return mk('heal', 30);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece */
   function effectOf(card) {
+    if (isOpCard(card)) return effectOfOP(card);
     const name = norm(card.name), text = norm(card.effect || card.description || '');
     const cat = norm(card.category);
     const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
@@ -89,8 +113,14 @@ App.battleCards = (() => {
   }
   /** Carte du sac prête pour le combat (img peut être ta photo ; imgOff = visuel officiel, envoyé à l'adversaire) */
   function bagCard(card, extra = {}) {
-    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
+    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
   }
+  // carte DON!! One Piece : absente des listes de Bandai, on la dessine (img/combat/don.svg)
+  const DON_IMG = 'img/combat/don.svg';
+  const donCard = (extra = {}) => bagCard({ id: 'DON', name: 'DON!!', category: 'DON!!', image: '' }, { img: DON_IMG, imgOff: DON_IMG, ...extra });
+  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!! */
+  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra))
+    : App.games.get(game || 'pokemon').getCard(id).then((c) => bagCard(c, extra)).catch(() => null)))).then((l) => l.filter(Boolean));
 
   const B = () => App.battle;
   /** La carte peut-elle servir maintenant ? (sinon elle est grisée) */
@@ -158,10 +188,24 @@ App.battleCards = (() => {
     [['base1-90', 2], ['base1-84', 2], ['base1-80', 1], ['base1-79', 1], ['base1-93', 1], ['base1-89', 1]], // Double Suppression, Réanimation
   ];
   const AI_ENERGY = [2, 3, 3, 3, 2];
+  // One Piece : Guard Point / Repel (protection), Four Thousand-Brick Fist / Hound Blaze (puissance), Straw Sword (DON!! adverse en moins),
+  // Thousand Sunny (Lieu), Sables (Rafale), Gum-Gum Jet Pistol (gros coup), You Can Be My Samurai!! (+1 DON!!), puis des DON!!
+  const AI_BAGS_OP = [
+    [['ST01-014', 2]],
+    [['ST01-014', 2], ['OP05-020', 1]],
+    [['ST01-014', 2], ['OP05-020', 1], ['ST02-017', 1], ['ST01-017', 1]],
+    [['ST02-016', 1], ['ST01-014', 1], ['OP05-057', 2], ['ST02-017', 1], ['ST03-015', 1], ['ST01-017', 1]],
+    [['ST02-016', 2], ['OP05-057', 2], ['ST01-015', 1], ['ST02-017', 1], ['ST03-015', 1], ['OP01-055', 1]],
+  ];
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
-  const aiBag = (level, type) => [...many(AI_BAGS[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(energyFor(type))];
+  const aiBag = (level, type, game) => (game === 'onepiece'
+    ? [...many(AI_BAGS_OP[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('DON')]
+    : [...many(AI_BAGS[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(energyFor(type))]);
   // deck de prêt (8 cartes) : 2 Potion, PlusPower, Défenseur, Transfert, 3 Énergies
-  const loanBag = (type) => [...many([['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-95', 1]]), ...Array(3).fill(energyFor(type))];
+  // (One Piece : 2 Guard Point, Four Thousand-Brick Fist, You Can Be My Samurai!!, Sables, 3 DON!!)
+  const loanBag = (type, game) => (game === 'onepiece'
+    ? [...many([['ST01-014', 2], ['OP05-020', 1], ['OP01-055', 1], ['ST03-015', 1]]), 'DON', 'DON', 'DON']
+    : [...many([['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-95', 1]]), ...Array(3).fill(energyFor(type))]);
   const DECK_MAX = 10, HAND_START = 3;
 
   /** Effet reconstruit à partir de sa clé (cartes reçues d'un ami : on ne garde pas ses textes) */
@@ -171,5 +215,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, bagCard, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START };
+  return { effectOf, isOpCard, bagCard, donCard, loadBag, DON_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START };
 })();

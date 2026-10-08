@@ -25,8 +25,10 @@ App.duel = (() => {
   // Ce qui vient de l'ami n'est jamais fiable : on ne garde que des valeurs attendues, bornées.
   const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
   const int = (v, lo, hi, def = lo) => { const n = Math.round(+v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
-  const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+\.jpg$/.test(v)
+  const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+\.jpg$/.test(v) || v === App.battleCards.DON_IMG
     || /^https:\/\/images\.weserv\.nl\/\?url=(fr|en)\.onepiece-cardgame\.com%2Fimages%2Fcardlist%2Fcard%2F[A-Za-z0-9_-]+\.(webp|png)(%3F\d+)?&w=\d{3}&output=webp$/.test(v)) ? v : ''); // hors-série : visuel du site ; One Piece : visuel relayé
+  // licence du salon (supabase-v18.sql) ; null = serveur pas encore à jour
+  const gameOf = (g) => (typeof g === 'string' && /^[a-z]{2,20}$/.test(g) && App.games.get(g) ? g : null);
   const type = (t) => (typeof t === 'string' && App.battle.TYPE_INFO[t] ? t : 'colorless');
 
   const wireFighter = (f) => ({
@@ -70,15 +72,17 @@ App.duel = (() => {
   // Salon sans équipe (supabase-v12.sql) : chacun choisit son équipe une fois l'adversaire arrivé.
   // Serveur pas encore mis à jour : il refuse un salon sans équipe → message clair.
   const oldServer = (r, team) => (!team && r && r.reason === 'Équipe invalide' ? 'Il reste une étape côté serveur pour les salons (supabase-v12.sql).' : null);
-  async function create(mode, team = null) {
+  async function create(mode, team = null, game = 'pokemon') {
     const r = await rpc('battle_create', { p_mode: mode, p_team: team });
     if (!r || !r.ok || !CODE.test(r.code)) throw new Error(oldServer(r, team) || (r && r.reason) || 'Création du salon impossible');
+    // licence du salon (v2.99) : celui qui rejoint choisit son équipe dans la même licence (sans supabase-v18.sql : ignoré)
+    await App.cloud.rpc('battle_set_game', { p_code: r.code, p_game: game }).catch(() => null);
     return r.code;
   }
   async function peek(code) {
     const r = await rpc('battle_peek', { p_code: normCode(code) });
     if (!r || !r.ok) throw new Error((r && r.reason) || 'Salon introuvable');
-    return { mode: r.mode === 'adv' ? 'adv' : 'classic', host: str(r.host_pseudo, 40) || 'Dresseur' };
+    return { mode: r.mode === 'adv' ? 'adv' : 'classic', host: str(r.host_pseudo, 40) || 'Dresseur', game: gameOf(r.game) };
   }
   async function join(code, team = null) {
     const r = await rpc('battle_join', { p_code: normCode(code), p_team: team });
@@ -96,7 +100,7 @@ App.duel = (() => {
     if (r.guest && !UUID.test(r.guest)) throw new Error('Salon invalide');
     const meHost = !!r.me_host;
     return {
-      code: r.code, status: ['waiting', 'lobby', 'playing', 'done'].includes(r.status) ? r.status : 'done', mode: r.mode === 'adv' ? 'adv' : 'classic',
+      code: r.code, status: ['waiting', 'lobby', 'playing', 'done'].includes(r.status) ? r.status : 'done', mode: r.mode === 'adv' ? 'adv' : 'classic', game: gameOf(r.game),
       seed: int(r.seed, 0, 2147483647), meHost, foeReady: !!(meHost ? r.guest_ready : r.host_ready), myReady: !!(meHost ? r.host_ready : r.guest_ready),
       foeName: str(meHost ? r.guest_pseudo : r.host_pseudo, 40) || 'Dresseur',
       myTeam: after < 0 ? cleanTeam(meHost ? r.host_team : r.guest_team) : null,
