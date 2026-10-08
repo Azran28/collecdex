@@ -118,7 +118,7 @@ App.views.account = {
       try {
         if (tab === 'inscription') {
           const r = await C.signUp(email, pw);
-          if (r.needsConfirm) { msg('Compte créé ! Ouvre l’e-mail reçu et clique sur le lien de confirmation, puis connecte-toi ici.', true); btn.disabled = false; return; }
+          if (r.needsConfirm) { msg('Compte créé ! Ouvre l’e-mail reçu et touche le lien de confirmation : tu seras connecté tout de suite. (Pas d’e-mail ? Regarde dans les indésirables.)', true); btn.disabled = false; return; }
         } else {
           await C.signIn(email, pw);
         }

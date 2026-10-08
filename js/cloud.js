@@ -83,13 +83,15 @@ App.cloud = (() => {
       if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
       if (recovery && user) location.hash = '#/connexion?reset=1';
       if (otp) {
-        // vérifié par le serveur → connexion + événement PASSWORD_RECOVERY → page « Nouveau mot de passe »
-        const before = uid(), r = await sb.auth.verifyOtp(otp);
+        // vérifié par le serveur → connexion ; « recovery » → page « Nouveau mot de passe », « email » = confirmation de l'inscription
+        const before = uid(), r = await sb.auth.verifyOtp(otp), reset = otp.type === 'recovery';
         if (r.error) {
           location.hash = '#/connexion';
-          setTimeout(() => App.util.toast('Ce lien n’est plus valable (déjà utilisé ou trop ancien) : redemande un e-mail avec « Mot de passe oublié ».', 7000), 400);
+          setTimeout(() => App.util.toast(reset ? 'Ce lien n’est plus valable (déjà utilisé ou trop ancien) : redemande un e-mail avec « Mot de passe oublié ».'
+            : 'Ce lien de confirmation n’est plus valable (déjà utilisé ou trop ancien). Si ton adresse est déjà confirmée, connecte-toi simplement.', 7000), 400);
         } else {
-          if (otp.type === 'recovery') location.hash = '#/connexion?reset=1';
+          if (reset) location.hash = '#/connexion?reset=1';
+          else setTimeout(() => App.util.toast('Adresse e-mail confirmée ✓ Bienvenue sur CollecDex !', 5000), 400);
           if (uid() !== before) return; // autre compte : l'écouteur ci-dessus a déjà lancé la synchro
         }
       }
