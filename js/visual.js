@@ -146,7 +146,37 @@ App.visual = (() => {
     // sûre : image nettement reconnue, aucune autre carte aussi proche (sinon même dessin : la personne choisit)
     if (top.orb >= SURE && !second && !(read && top.orb < Math.max(...ranked.map((c) => c.orb)))) top.confident = true;
     const q = top.orb >= SURE && sc.get(top.id) && sc.get(top.id).quad;
-    return { cands: out, best: top.orb, crop: q ? await quadCrop(blob, q).catch(() => null) : null };
+    return { cands: out, best: top.orb, crop: q ? await quadCrop(blob, q).catch(() => null) : null, url: url(top) };
+  }
+  /**
+   * Carte déjà reconnue : ses vrais bords cherchés dans une autre image (classeur : la case et ses alentours, où la carte est
+   * entière même si la grille l'a coupée) → la carte pile sur ses bords, ou null
+   */
+  async function cropOn(blob, c, url) {
+    const ref = [{ id: c.id, url, set: (c.set && c.set.id) || c.setId }];
+    const quadIn = async (b) => {
+      const qid = `crop:${Date.now()}:${Math.random()}`;
+      try { const r = await rank(qid, b, ref, { must: [c.id] }), x = r.res.find((y) => y.id === c.id); return x && x.s >= SURE && x.quad ? x.quad : null; } finally { forget(qid); }
+    };
+    let q1 = await quadIn(blob);
+    if (!q1) {
+      // pas assez de points (carte sombre, petite dans l'image) : 2ᵉ essai sur le centre de l'image, la carte y est plus grande
+      const k = 0.8, o = (1 - k) / 2, mid = await centerOf(blob, k), q = await quadIn(mid.blob);
+      q1 = q && q.map(([x, y]) => [o + x * k, o + y * k]);
+    }
+    if (!q1) return null;
+    // la carte est petite dans cette image (peu de points, bords approximatifs) : on recommence au plus près d'elle
+    try {
+      const bmp = await createImageBitmap(blob), W = bmp.width, H = bmp.height;
+      const xs = q1.map((p) => p[0]), ys = q1.map((p) => p[1]), mx = (Math.max(...xs) - Math.min(...xs)) * 0.06, my = (Math.max(...ys) - Math.min(...ys)) * 0.06;
+      const x0 = Math.max(0, Math.min(...xs) - mx), y0 = Math.max(0, Math.min(...ys) - my), x1 = Math.min(1, Math.max(...xs) + mx), y1 = Math.min(1, Math.max(...ys) + my);
+      const cv = document.createElement('canvas'); cv.width = Math.round((x1 - x0) * W); cv.height = Math.round((y1 - y0) * H);
+      cv.getContext('2d').drawImage(bmp, x0 * W, y0 * H, cv.width, cv.height, 0, 0, cv.width, cv.height);
+      const tight = await new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.92));
+      const q2 = tight && await quadIn(tight);
+      if (q2) { const crop = await quadCrop(tight, q2).catch(() => null); if (crop) return crop; }
+    } catch (e) { /* bords de la 1re passe */ }
+    return quadCrop(blob, q1);
   }
   /** (outil de préparation de l'index) empreintes du réseau pour des visuels / une photo */
   const embed = (urls) => ask('embed', { urls }).then((r) => r.vecs);
@@ -157,5 +187,5 @@ App.visual = (() => {
     for (const p of pend.values()) p.reject(new Error('arrêté'));
     pend.clear();
   }
-  return { SURE, supported, rank, warm, global, check, quadCrop, embed, embedBlob, forget, stop };
+  return { SURE, supported, rank, warm, global, check, cropOn, quadCrop, embed, embedBlob, forget, stop };
 })();

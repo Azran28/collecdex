@@ -705,9 +705,10 @@ App.views.scan = {
     const modeQ = burst ? 'rafale' : 'classeur';
     const gamePick = GAMES.length > 1 ? `<div class="chips sc-game" role="tablist" aria-label="Licence des cartes">${GAMES.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/scan?mode=${modeQ}&jeu=${g.id}" role="tab" aria-selected="${g.id === game}">${App.icons.icon(g.icon, 14)} ${esc(g.name)}</a>`).join('')}</div>` : '';
     /** Lit une carte selon la licence : Pokémon (texte + série) ou One Piece (code imprimé + illustration) */
-    const readCard = async (blob, hint, st, orig = null) => {
+    const readCard = async (blob, hint, st, orig = null, ctx = null) => {
       // (original : la case elle-même, relue au ras de ses bords et en bandes glissantes si le code n'est pas où on l'attend — marge de la pochette)
-      if (!isPk()) return ad.recognize(blob, st, { setId: hint, original: orig || blob });
+      // (ctx : la case et ses alentours, pour la vérification par l'image en classeur)
+      if (!isPk()) return ad.recognize(blob, st, { setId: hint, original: orig || blob, context: ctx });
       const r = hint ? await (async () => { const info = await R.read(blob, st, { atkBand: burst }); return { info, cands: await R.inSet(blob, info, hint, st) }; })()
         : await R.recognize(blob, st, { atkBand: burst });
       // rafale (cartes seules) : même vérification par l'image qu'en carte seule, seulement si le texte n'est pas sûr (v2.96)
@@ -1011,6 +1012,25 @@ App.views.scan = {
      * Découpe la pochette n° i : on cherche les bords de la carte dans la case
      * (marges entre pochettes, carte décalée…) ; si on ne les trouve pas, on prend le centre de la case.
      */
+    /**
+     * La case et ses alentours (20 % de chaque côté), sans redressement : la vérification par l'image y retrouve la carte
+     * même quand la grille tombe un peu à côté (v3.02 : rangée décalée sur une page d'Arnaud → carte coupée, non reconnue),
+     * et ses coins donnent la carte pile sur ses bords
+     */
+    async function ctxBlob(i) {
+      const [cols, rows] = dims();
+      const img = photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
+      let x0, y0, x1, y1;
+      const ac = autoGrid && autoCells && autoCells[i];
+      if (ac) { const q = ac.gridQuad || ac.quad; x0 = Math.min(...q.map((p) => p[0])); x1 = Math.max(...q.map((p) => p[0])); y0 = Math.min(...q.map((p) => p[1])); y1 = Math.max(...q.map((p) => p[1])); }
+      else { const cw = grid.w / cols, ch = grid.h / rows; x0 = grid.x + (i % cols) * cw; y0 = grid.y + Math.floor(i / cols) * ch; x1 = x0 + cw; y1 = y0 + ch; }
+      const mx = (x1 - x0) * 0.2, my = (y1 - y0) * 0.2;
+      x0 = Math.max(0, x0 - mx) * NW; x1 = Math.min(1, x1 + mx) * NW; y0 = Math.max(0, y0 - my) * NH; y1 = Math.min(1, y1 + my) * NH;
+      const k = Math.min(1, 1100 / Math.max(x1 - x0, y1 - y0));
+      const c = document.createElement('canvas'); c.width = Math.round((x1 - x0) * k); c.height = Math.round((y1 - y0) * k);
+      c.getContext('2d').drawImage(img, x0, y0, x1 - x0, y1 - y0, 0, 0, c.width, c.height);
+      return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+    }
     async function cellBlob(i, rot = autoRot) {
       const [cols, rows] = dims();
       const img = photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
@@ -1070,7 +1090,9 @@ App.views.scan = {
       for (let i = 0; i < n; i++) {
         const { blob, auto, box, alt } = await cellBlob(i);
         const url = URL.createObjectURL(blob); urls.push(url);
-        cells.push({ i, blob, url, auto, box, alt, state: 'attente', cands: [], choice: '', info: null, mode: null });
+        // (la case et ses alentours, pour la vérification par l'image : vrais bords d'une carte coupée ; pas en classeur ouvert couché)
+        const ctx = !autoRot ? await ctxBlob(i).catch(() => null) : null;
+        cells.push({ i, blob, url, auto, box, alt, ctx, state: 'attente', cands: [], choice: '', info: null, mode: null });
       }
       drawResults();
       let rotChecked = !autoRot; // cartes couchées : on vérifie le sens (haut de la carte à droite ou à gauche) sur la 1re carte lue
@@ -1082,7 +1104,9 @@ App.views.scan = {
         try {
           await recogOne(cell, hint, st);
           // pas sûre avec la découpe habituelle : on essaie la carte ajustée sur ses vrais bords, gardée seulement si sûre
-          if (cell.alt && cell.state !== 'sure' && !['vide', 'dos', 'autre', 'don'].includes(cell.state) && !stopped && alive()) {
+          // (pas si l'image a déjà nettement reconnu la carte : le doute vient alors d'une jumelle au même dessin, la relire n'y change rien)
+          const imgSure = cell.cands[0] && (cell.cands[0].orb || 0) >= 25;
+          if (cell.alt && cell.state !== 'sure' && !imgSure && !['vide', 'dos', 'autre', 'don'].includes(cell.state) && !stopped && alive()) {
             const test = { ...cell, blob: cell.alt.blob };
             await recogOne(test, hint, st);
             if (test.state === 'sure') {
@@ -1183,7 +1207,9 @@ App.views.scan = {
      */
     async function applySeries(setId, name, nb, auto) {
       detected = { id: setId, name, nb, auto };
-      const todo = cells.filter((c) => !c.saved && ['verifier', 'inconnue'].includes(c.state) && c.info);
+      // (One Piece : une carte déjà de cette série n'est pas relue — elle ne changerait pas, ~15 s de gagnées par carte)
+      const inSetAlready = (c) => !isPk() && c.cands[0] && ((c.cands[0].set && c.cands[0].set.id) || c.cands[0].setId) === setId;
+      const todo = cells.filter((c) => !c.saved && ['verifier', 'inconnue'].includes(c.state) && c.info && !inSetAlready(c));
       for (const cell of todo) cell.before = cell.before || { cands: cell.cands, choice: cell.choice, state: cell.state, checked: cell.checked };
       drawResults();
       for (const cell of todo) {
@@ -1336,7 +1362,8 @@ App.views.scan = {
         // (photo enregistrée bien cadrée, et relecture du numéro plus facile)
         if (a.quad && !c.cropped) {
           try {
-            const blob = await cropToQuad(c.blob, a.quad);
+            // (carte coupée par la grille : ses vrais bords sont cherchés dans la case et ses alentours, v3.02)
+            const blob = await cropToQuad(c.blob, a.quad) || (c.ctx && card ? await V.cropOn(c.ctx, card, ad.img.card(card, 'low')).catch(() => null) : null);
             if (blob) { c.gridBlob = c.blob; c.blob = blob; c.url = URL.createObjectURL(blob); urls.push(c.url); c.cropped = true; c.det = null; }
           } catch (e) { console.warn('recadrage', e); }
         }
@@ -1406,7 +1433,7 @@ App.views.scan = {
       const cur = cells.find((c) => c.vscan) || cells.find((c) => c.state === 'lecture');
       const p = prog, off = cur && cardOf(cur);
       const step = !p ? 0 : /^Lecture des/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
-      const steps = (burst || !isPk() ? ['Lecture'] : ['Lecture', 'Série', 'Image']).map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
+      const steps = (burst ? ['Lecture'] : !isPk() ? ['Lecture + image', 'Série'] : ['Lecture', 'Série', 'Image']).map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
       return `
         <div class="sv-head">
           <div class="sv-steps">${steps}</div>
@@ -1592,7 +1619,7 @@ App.views.scan = {
       // (Événement en pochette : 0,61, vrais dos 0,53–0,58) → la carte est quand même lue, « dos » seulement si rien n’est reconnu
       const back = await R.looksLikeBack(cell.blob, game).catch(() => false);
       if (back && isPk()) { cell.state = 'dos'; return; }
-      const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
+      const { info, cands } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
       if (back && !(cands[0] && (cands[0].confident || cands[0].numOk || (cands[0].orb || 0) >= 25))) { cell.state = 'dos'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.info = info; cell.cands = cands;
       if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); } // meilleur cadrage (One Piece) : photo de la case
@@ -1614,7 +1641,7 @@ App.views.scan = {
       try {
         if (!force && await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
         else {
-          const { info, cands } = await readCard(cell.blob, hint, st, cell.orig);
+          const { info, cands } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
           cell.info = info; cell.cands = cands;
           if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); }
       if (info && info.cropLater) { const shown = cell.blob; info.cropLater.then((c) => { if (!c || cell.saved || cell.blob !== shown || !alive()) return; cell.blob = c; cell.url = URL.createObjectURL(c); urls.push(cell.url); drawResults(); }); } // (vrais bords, trouvés après coup)

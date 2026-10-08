@@ -384,21 +384,45 @@
     // même image (réimpression au même dessin) : la carte du code lu, puis la carte de base
     tie: (a, b) => (codes.includes(baseOf(b.id)) - codes.includes(baseOf(a.id))) || (SUFFIX.test(a.id) - SUFFIX.test(b.id)),
   });
-  const visualPass = (blob, cands, codes) => App.visual.check(blob, cands, visualOpts(codes));
-  async function recognize(blob, statusFn = () => {}, { setId = '', original = null } = {}) {
+  // context (classeur, v3.02) : la case et ses alentours. La carte est reconnue sur la case (comme avant : plus large, les cartes
+  // voisines gênent le réseau de neurones) ; ses vrais bords sont pris dans les alentours, où elle est entière même si la grille l'a
+  // coupée ; et si la case ne donne rien de sûr, on cherche dans les alentours (grille très décalée)
+  async function visualPass(blob, cands, codes, context = null) {
+    const V = App.visual, o = await V.check(blob, cands, visualOpts(codes));
+    if (!context || !o) return o;
+    const top = o.cands[0];
+    if (top && top.orb >= V.SURE) {
+      const crop = o.url ? await V.cropOn(context, top, o.url).catch(() => null) : null;
+      return crop ? { ...o, crop } : o;
+    }
+    const w = await V.check(context, cands, visualOpts(codes)).catch(() => null);
+    return w && w.cands[0] && w.cands[0].confident ? w : o;
+  }
+  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
     const R = App.recognizer;
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte (v2.94) : si elle est sûre et que
     // le code n'est pas lisible, on ne relit pas d'autres cadrages (≈ 4 à 8 s gagnées)
-    const early = useVisual() ? visualPass(blob, [], []).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+    const early = useVisual() ? visualPass(blob, [], [], context).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
     const texts = await R.readZones(blob, [...CODE_ZONES, ...NAME_ZONES]);
     let read = texts.map(codesIn), betterCrop = null;
     const DON_RE = /CARTE\s*D[O0]N\s*!|votre\s+tour\s*\+\s*1\s*[0O]\s*[0O]\s*[0O]/i;
-    const donOnly = () => !read.some((r) => r.codes.length) && DON_RE.test(texts.join('\n')); // (carte DON!! repérée au 1er passage : inutile d’attendre l’image)
+    // (« 1 carte DON!! redressée… » est écrit sur beaucoup d'Événements : God Thread et Little Black Bears d'Arnaud passaient pour des DON!!
+    //  → pas de DON!! si le texte a les mots d'une carte à effet)
+    const NOT_DON = /d[ée]clenchement|principale|[ée]v[ée]nement|ajoutez|piochez|d[ée]fausse|redress|bloqueur|personnage\s+adverse/i;
+    const isDon = (t) => DON_RE.test(t) && !NOT_DON.test(t);
+    const donOnly = () => !read.some((r) => r.codes.length) && isDon(texts.join('\n')); // (carte DON!! repérée au 1er passage : inutile d’attendre l’image)
     if (early && !read.some((r) => r.codes.length) && !donOnly()) {
       statusFn('Vérification par l’image…');
       const e = await early; // (toutes les versions du même code y sont comparées avant « sûre » : twinsOf)
       if (e && e.cands[0] && e.cands[0].confident) return { info: { code: baseOf(e.cands[0].id), name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
+      // pas sûre (jumelle au même dessin…) mais l'image a trouvé les vrais bords : le code est relu sur la carte pile sur ses bords
+      // (v3.02 : bien plus sûr et plus rapide que les autres cadrages, ~7 s par carte gagnées en classeur)
+      if (e && e.crop) {
+        statusFn('Lecture du code (carte recadrée)…');
+        const t = await R.readZones(e.crop, CODE_ZONES); texts.push(...t); read.push(...t.map(codesIn));
+        if (read.some((r) => r.codes.length)) betterCrop = e.crop;
+      }
     }
     // rien lu sur la carte recadrée : le code est cherché sur d'autres cadrages de la photo d'origine
     if (original && !read.some((r) => r.codes.length) && !donOnly()) {
@@ -417,7 +441,7 @@
     if (codes.length) codes = codes.filter((c) => votes[c] >= votes[codes[0]] * 0.5); // les lectures nettement moins probables sont écartées
     // carte DON!! (« CARTE DON!! », « Votre tour +1000 ») : pas de code, absente des listes de Bandai → on le dit au lieu de proposer n'importe quoi
     // (pas « DON!! » seul : le texte de beaucoup de cartes parle de « cartes DON!! »)
-    if (!codes.length && DON_RE.test(texts.join('\n'))) {
+    if (!codes.length && isDon(texts.join('\n'))) {
       return { info: { code: '', name: '', don: true, read: 'carte DON!!' }, cands: [] };
     }
     // nom : chaque ligne lue comparée aux noms connus
@@ -496,7 +520,7 @@
       // ne pas manquer une jumelle au même dessin — visuels déjà prêts : rapide)
       const e = early && !cands.length ? await early : null, t = e && e.cands[0];
       if (t && t.confident && !cands.length) orb = { ...e, cands: [...e.cands, ...cands.filter((c) => !e.cands.some((x) => x.id === c.id))] };
-      else orb = await visualPass(blob, cands, codes).catch((e) => { console.warn('vérification par l’image', e); return null; });
+      else orb = await visualPass(blob, cands, codes, context).catch((e) => { console.warn('vérification par l’image', e); return null; });
       if (orb) { cands = orb.cands; top = cands[0]; }
     }
     if (orb && orb.crop) betterCrop = orb.crop;
