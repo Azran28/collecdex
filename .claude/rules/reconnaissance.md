@@ -33,6 +33,7 @@ Chaque carte vote pour la série de sa meilleure candidate (ressemblance ≥ 0,4
 
 ## Détourage (`recognizer.cutCard(img, zone)`, carte seule et rafale)
 Par côté, maxima de contraste dans le tiers extérieur → jusqu'à 4 droites (RANSAC, pente ≤ 0,25) → combinaison en forme de carte (63/88 ± 10 %, chaque bord soutenu ≥ 30 %) en préférant le PLUS GRAND rectangle (sinon cadre jaune intérieur) → coins → homographie (`squareToQuad`), liseré de 0,4 % retiré. Null si pas sûr → `cellCard` en secours. ~17 ms. v2.89 : sans `expect`, chaque cadre doit passer `plausibleQuad` (côtés opposés ±22 %, proportions 0,6–0,84). v2.91 : sans `expect`, carte de luminosité + 0,35 × saturation (bords colorés) ; recherche de la carte dans sa pochette (2ᵉ `cutCard(…, { noSleeve })`, gardée si la bande entre les deux ressemble au fond, `cutCard.lastSleeve`). **Pas en classeur** (page 09, reflets : bien pire → abandonné).
+v3.04 : sans `expect`, la note ajoute aussi `borderScore` ×3 (`cutCard.bw` pour tester) : sinon le bord de la pochette ou une ligne du dessin passait pour le bord. Banc : `_tests-scanner/cutbench.js` (`__cutbench()`, chaque photo = « la capture », cadre dessiné).
 
 ## Versions (holo / reverse / 1ʳᵉ éd.)
 - `recognizer.detectVariants(blob, card.variants, urlVisuelOfficiel)` dans `addScanned` → `item.variants` + `item.variantsAuto` ; `R.lastVariants` pour l'affichage. Une seule version existante → déduite. Les anciennes holos sont notées « Rare » par TCGdex : une carte qui n'existe qu'en holo est traitée comme holo.

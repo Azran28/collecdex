@@ -564,6 +564,9 @@ App.recognizer = (() => {
         if (!plausibleQuad(q)) continue; // (côtés opposés trop différents : pas une carte, v2.89)
         // à forme égale, le plus GRAND rectangle : le bord extérieur de la carte, pas le cadre jaune à l'intérieur
         score = (L.frac + R.frac + T.frac + B.frac) * 0.5 - Math.abs(Math.log(ratio)) * 6 + (qw * qh) / (w * h) * 4;
+        // v3.04 : bordure de la carte (bande d'une seule couleur juste à l'intérieur du bord) — sans elle, le bord de la pochette
+        // ou une ligne dans le dessin passait pour le bord (photo d'Arnaud : Fujitora coupé à gauche, pochette en haut et à droite)
+        score += borderScore(q) * (cutCard.bw ?? 3);
       }
       const cand = { q, score, qw, qh, fit: Math.min(L.frac, R.frac, T.frac, B.frac) };
       all.push(cand);

@@ -603,7 +603,10 @@ App.views.scan = {
       try {
         const setId = el.querySelector('#sc-set').value;
         let info, cands, summary, switched = false;
-        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob }) /* photo d'origine : autre cadrage si besoin */); summary = info.read;
+        // photo d'origine (cadre jaune + marge) : la carte y est entière même si le détourage l'a mal coupée (bord de la pochette,
+        // ligne dans le dessin) → une fois la carte reconnue à l'image, ses vrais bords y sont repris (comme le classeur, v3.02)
+        const ctx = pageBlob && pageBlob !== blob ? pageBlob : null;
+        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob, context: ctx }) /* photo d'origine : autre cadrage si besoin */); summary = info.read;
           // la carte n'a été lue que sur un autre cadrage : c'est lui qui montre vraiment la carte → il devient sa photo
           if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
         }
@@ -612,6 +615,12 @@ App.views.scan = {
           // temps que le texte, elle lui prenait le processeur du téléphone même quand le texte suffisait)
           const V = App.visual, useV = V && V.supported() && App.settings.visualCheck !== false;
           const tie = (a, b) => (((b.set && b.set.id) === setId) - ((a.set && a.set.id) === setId)); // (série choisie d'abord)
+          // carte reconnue à l'image : ses vrais bords, pris de préférence sur la photo d'origine (la carte y est entière)
+          const edgesOf = async (o) => {
+            const t = o && o.cands[0];
+            if (!t || !(t.orb >= V.SURE)) return null;
+            return (ctx && o.url ? await V.cropOn(ctx, t, o.url).catch(() => null) : null) || o.crop || null;
+          };
           if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
           else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
           summary = R.readSummary(info);
@@ -626,12 +635,17 @@ App.views.scan = {
             if (!(top && top.confident)) {
               // (avec les cartes du texte : Sulfura 27 ↔ 12, la jumelle au même dessin ne doit pas manquer)
               st('Vérification par l’image…');
-              const o = await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
+              let o = await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
+              // rien de sûr sur la carte détourée (mal coupée ?) : on cherche sur la photo d'origine
+              if (ctx && !(o && o.cands[0] && o.cands[0].confident)) {
+                const w = await V.check(ctx, cands, { tie }).catch(() => null);
+                if (w && w.cands[0] && w.cands[0].confident) o = w;
+              }
               if (o && o.cands[0] && o.cands[0].orb >= V.SURE) summary = [summary, 'reconnue à l’image ✓'].filter(Boolean).join(' · ');
-              if (o) { cands = o.cands; if (o.crop) info.crop = o.crop; }
+              if (o) { cands = o.cands; const c = await edgesOf(o); if (c) info.crop = c; }
             } else {
               // sûre par le texte : les propositions s'affichent tout de suite ; la carte est recadrée sur ses vrais bords ensuite
-              info.cropLater = V.check(blob, cands.slice(0, 6), { tie }).then((o) => (o && o.crop && o.cands[0] && o.cands[0].id === top.id ? o.crop : null), () => null);
+              info.cropLater = V.check(blob, cands.slice(0, 6), { tie }).then((o) => (o && o.cands[0] && o.cands[0].id === top.id ? edgesOf(o) : null), () => null);
             }
           }
           if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
