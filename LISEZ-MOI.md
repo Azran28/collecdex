@@ -157,7 +157,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 1. *SQL Editor* → coller `supabase-v4.sql` → *Run* (active les amis).
 2. *Authentication* → *Sign In / Providers* → *Email* → désactiver **« Confirm email »** → *Save*. Sans ça, tes amis ne reçoivent pas l'e-mail de confirmation : l'envoi d'e-mails gratuit de Supabase ne marche que pour toi (et 2 e-mails par heure au maximum). Ils pourront ainsi créer leur compte et se connecter tout de suite.
 3. *Authentication* → *URL Configuration* → *Site URL* : `https://azran28.github.io/collecdex/`.
-- Limite qui reste : « Mot de passe oublié » n'envoie d'e-mail qu'à toi. Pour tes amis, il faudra brancher un service d'e-mails gratuit (Brevo, Resend…) plus tard.
+- E-mails (depuis le 8 oct.) : envoyés par **Brevo** (compte collecdex.app@gmail.com, gratuit, 300 par jour), branché dans *Authentication* → *Emails* → *SMTP Settings*. « Mot de passe oublié » marche pour tout le monde. Dans *Emails* → *Templates* → *Reset Password*, le lien doit être `<a href="{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=recovery">Choisir un nouveau mot de passe</a>` : il ouvre directement « Nouveau mot de passe », même sur un autre appareil. Si un e-mail n'arrive pas : Brevo → *Transactionnel* → *Logs*.
 
 ## Capsules et Pokédex
 - **Une capsule arrive toutes les heures** (10 au maximum en réserve). Ouvre-la dans **Capsules** (la petite capsule en haut de l'écran, avec le nombre à ouvrir, ou la carte sur l'accueil) : tu attrapes un Pokémon.

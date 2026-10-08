@@ -56,9 +56,17 @@ App.cloud = (() => {
     const p = await App.db.get('kv', 'cloudPending').catch(() => null);
     if (p) pend = Object.assign(pend, p);
     try {
+      // lien d'un e-mail « {{ .SiteURL }}?token_hash=…&type=recovery » : marche même ouvert sur un autre appareil
+      // (le lien « ?code=… » de Supabase ne marche que dans le navigateur qui a demandé l'e-mail)
+      const q = new URLSearchParams(location.search), otp = q.get('token_hash') && { token_hash: q.get('token_hash'), type: q.get('type') || 'recovery' };
+      if (otp) { q.delete('token_hash'); q.delete('type'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
       const lib = await getLib();
       sb = lib.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
+      // l'échange du « ?code=… » a lieu pendant getSession : on écoute tout de suite pour ne pas rater « mot de passe oublié »
+      let recovery = false;
+      const early = sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') recovery = true; });
       const { data, error } = await sb.auth.getSession();
+      early.data.subscription.unsubscribe();
       // hors ligne au lancement (jeton à renouveler, pas de réseau) : on garde le compte de l'appareil
       const hadUser = !!user, offline = !data.session && error && isNetErr(error) && user;
       if (!offline) user = data.session ? data.session.user : null;
@@ -73,6 +81,18 @@ App.cloud = (() => {
       });
       // retire le « ?code=… » laissé par le lien de confirmation
       if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
+      if (recovery && user) location.hash = '#/connexion?reset=1';
+      if (otp) {
+        // vérifié par le serveur → connexion + événement PASSWORD_RECOVERY → page « Nouveau mot de passe »
+        const before = uid(), r = await sb.auth.verifyOtp(otp);
+        if (r.error) {
+          location.hash = '#/connexion';
+          setTimeout(() => App.util.toast('Ce lien n’est plus valable (déjà utilisé ou trop ancien) : redemande un e-mail avec « Mot de passe oublié ».', 7000), 400);
+        } else {
+          if (otp.type === 'recovery') location.hash = '#/connexion?reset=1';
+          if (uid() !== before) return; // autre compte : l'écouteur ci-dessus a déjà lancé la synchro
+        }
+      }
       if (offline) setState('erreur', 'Hors ligne : synchronisation au retour du réseau');
       else if (user) sync(); else setState('deconnecte');
     } catch (e) {
