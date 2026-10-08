@@ -17,18 +17,24 @@
   const LIC = {
     pokemon: {
       name: 'Pokémon', icon: 'bolt', myTurn: 'À toi !', champion: 'Tu es une vraie Légende !', back: 'img/combat/dos-pokemon.svg',
-      bagKinds: 'Dresseur / Énergie', search: 'Rechercher un Pokémon…', place: 'Sur le terrain',
+      bagKinds: 'Dresseur / Énergie', bagName: 'Sac', bagTitle: 'Ton sac', search: 'Rechercher un Pokémon…', place: 'Sur le terrain',
       tag: 'Combats de dresseurs sur le terrain', foeTag: 'Du Set de Base aux Pokémon-ex',
     },
     onepiece: {
       name: 'One Piece', icon: 'anchor', myTurn: 'À l’abordage !', champion: 'Tu es le Roi des pirates !', back: 'img/combat/dos-onepiece.svg',
-      bagKinds: 'Événement / Lieu / DON!!', search: 'Rechercher un personnage…', place: 'En haute mer',
+      bagKinds: 'Événement / Lieu / DON!!', bagName: 'Coffre', bagTitle: 'Ton coffre', search: 'Rechercher un personnage…', place: 'En haute mer',
       tag: 'Abordages en haute mer', foeTag: 'Des mousses aux Empereurs',
     },
   };
   const lic = (game) => LIC[game] || LIC.pokemon;
+  // icônes du sac (Pokémon : sac à dos) et du coffre (One Piece : coffre au trésor)
+  const BAG_ICON = {
+    pokemon: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M11 8a5 5 0 0 1 10 0" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="6" y="8" width="20" height="20" rx="6" fill="#e3350d" stroke="#1a1a2e" stroke-width="2"/><path d="M6 15h20" stroke="#1a1a2e" stroke-width="2"/><rect x="10" y="18" width="12" height="7" rx="2" fill="#ffcb05" stroke="#1a1a2e" stroke-width="1.6"/><circle cx="16" cy="15" r="2.4" fill="#fff" stroke="#1a1a2e" stroke-width="1.6"/></svg>',
+    onepiece: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M5 14a11 7 0 0 1 22 0v2H5z" fill="#8a5a32" stroke="#3b230f" stroke-width="1.8"/><rect x="5" y="15" width="22" height="12" rx="2" fill="#6b4423" stroke="#3b230f" stroke-width="1.8"/><path d="M5 19h22M10 9v18M22 9v18" stroke="#e8b04a" stroke-width="2"/><rect x="13.5" y="16" width="5" height="6" rx="1" fill="#ffd479" stroke="#3b230f" stroke-width="1.2"/></svg>',
+  };
   /** Vocabulaire de la licence : en One Piece, on parle de personnages et de DON!! (pas de Pokémon ni d'énergie) */
   const say = (game, s) => (game !== 'onepiece' ? String(s) : String(s)
+    .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'le DON!!').replace(/d’énergie/g, 'de DON!!')
     .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 personnages').replace(/Pokémon/g, 'personnage')
     .replace(/[ÉéE]nergies?/g, 'DON!!'));
   const LAST = 'cdx-combat-game';
@@ -469,7 +475,7 @@
         shake(Math.round(r.dmg / 8) + (r.weak ? 6 : 0));
         if (r.weak) banner('Super efficace !', 'eff');
       } else dodge(d);
-      floatTxt(d, r.dmg ? `−${r.dmg}` : r.shield ? 'Bloqué !' : 'Raté !', r.weak ? 'weak' : r.dmg ? (strong ? 'big' : '') : 'miss');
+      floatTxt(d, r.dmg ? `−${r.dmg} PV` : r.shield ? 'Bloqué !' : 'Raté !', r.weak ? 'weak' : r.dmg ? (strong ? 'big' : '') : 'miss');
       const coinTxt = r.coins ? ` <span class="bt-coins">${r.coins.map((c) => (c ? '🟡 face' : '⚪ pile')).join(' · ')}</span>` : '';
       log(`<b>${esc(a.name)}</b> utilise <b>${esc(att.name)}</b> : ${r.dmg} dégâts${r.weak ? ' <span class="bt-eff">Super efficace !</span>' : ''}${r.resist ? ' <span class="muted">(résistance)</span>' : ''}${r.bonus ? ` <span class="bt-eff">(+${r.bonus} bonus)</span>` : ''}${r.shield ? ` <span class="muted">(−${r.shield} bouclier)</span>` : ''}${coinTxt}`);
       await sleep(260);
@@ -500,36 +506,82 @@
     }
 
     /** Mon sac (mode Avancé), visible dès le début et pendant le tour de l'adversaire : cartes en gris, les toucher montre leur effet */
-    const idleBag = () => {
+    // ----- Sac (Pokémon) / Coffre (One Piece) : les cartes en main, toutes visibles d'un coup (v3.00) -----
+    /** bouton du sac ; mode : 'play' (mon tour), 'used' (carte déjà jouée ce tour), 'idle' (tour de l'adversaire) */
+    const bagBtn = (mode) => {
       if (!ADV) return '';
-      const left = hand(P);
-      return left.length ? T(`<div class="bt-bag idle"><span class="bt-bag-h">Ta main${pileTxt(P)}</span>${left.map(({ c, i }) =>
-        `<button type="button" class="bt-bc off" data-peek="${i}" title="${esc(c.name)} : ${esc(c.fx.desc)}"><img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.fx.short)}</small></span></button>`).join('')}</div>`) : '';
+      const left = hand(P), n = left.length, pile = (P.pile || []).length;
+      const okN = mode === 'play' ? left.filter(({ c }) => BC.playable(c, P, C)).length : 0;
+      const sub = !n ? 'Vide pour l’instant' : mode === 'used' ? 'Carte jouée ✓' : mode === 'play' ? (okN ? `${okN} jouable${okN > 1 ? 's' : ''} · 1 par tour` : 'Rien d’utile maintenant') : 'Touche pour regarder';
+      return T(`<button type="button" class="bt-bagbtn ${mode} ${okN ? 'has' : ''}" data-bagopen="${mode}" ${n ? '' : 'disabled'}>
+        <span class="bt-bagic">${BAG_ICON[GAME] || BAG_ICON.pokemon}</span>
+        <span class="bt-bagtx"><b>${esc(LC.bagName)}${n ? ` · ${n}` : ''}</b><small>${sub}${pile ? ` · pioche : ${pile}` : ''}</small></span>
+        <span class="bt-bagfan">${left.slice(0, 4).map(({ c }) => `<img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}">`).join('')}</span></button>`);
     };
+    const closeBag = () => { const s = ov.querySelector('.bt-sheet'); if (s) s.remove(); };
+    function openBag(mode) {
+      closeBag();
+      const left = hand(P); if (!left.length) return;
+      const d = document.createElement('div');
+      d.className = 'bt-sheet';
+      d.innerHTML = T(`<div class="bt-sheet-box" role="dialog" aria-label="${esc(LC.bagTitle)}">
+        <div class="bt-sheet-h"><span class="bt-bagic">${BAG_ICON[GAME] || BAG_ICON.pokemon}</span><div><b>${esc(LC.bagTitle)}</b><small>${left.length} carte${left.length > 1 ? 's' : ''} en main${(P.pile || []).length ? ` · ${(P.pile || []).length} dans la pioche` : ''}</small></div>
+          <button type="button" class="bt-sheet-x" data-bagclose aria-label="Fermer">×</button></div>
+        <div class="bt-sheet-grid">${left.map(({ c, i }) => {
+          const ok = mode === 'play' && BC.playable(c, P, C);
+          return `<button type="button" class="bt-sc ${ok ? 'ok' : 'off'}" ${ok ? `data-card="${i}"` : `data-peek="${i}"`}><img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><b>${esc(c.name)}</b><em>${esc(c.fx.short)}</em><small>${esc(c.fx.desc)}</small></button>`;
+        }).join('')}</div>
+        <p class="bt-sheet-f">${mode === 'play' ? 'Touche une carte pour la jouer (une par tour, avant ton action). Les cartes grises ne servent à rien pour l’instant.' : mode === 'used' ? 'Tu as déjà joué une carte ce tour : les autres attendront.' : 'Ce n’est pas ton tour : tu peux seulement regarder.'}</p></div>`);
+      ov.appendChild(d);
+      if (!RM()) d.querySelector('.bt-sheet-box').animate([{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 220, easing: 'ease-out' });
+    }
+    const idleBag = () => bagBtn('idle');
     const showIdle = () => { if (!over) $('.bt-actions').innerHTML = idleBag(); };
     ov.addEventListener('click', (e) => {
+      const bo = e.target.closest('[data-bagopen]'); if (bo && !bo.disabled) { App.sfx.click(); openBag(bo.dataset.bagopen); return; }
+      if (e.target.closest('[data-bagclose]') || e.target.classList.contains('bt-sheet')) { closeBag(); return; }
       const p = e.target.closest('[data-peek]'); if (!p) return;
       const c = P.bag[+p.dataset.peek]; if (c) App.util.toast(T(`${c.name} : ${c.fx.desc}`), 3500);
     });
+
+    /**
+     * Dégâts réels d'une attaque contre le combattant d'en face (v3.00) : faiblesse, résistance,
+     * et en Avancé bonus (PlusPower, Stade) et protections adverses — comme dans doAttack. lo / hi = pile ou face.
+     */
+    function realDmg(att, a, d, side) {
+      const w = d.weak.find((x) => x.type === a.type), r = d.res.find((x) => x.type === a.type);
+      const bonus = ADV ? (side.power || 0) + (side.stadium && side.stadium.turns > 0 ? side.stadium.n : 0) : 0;
+      const guard = ADV ? (d.shield || 0) + (d.armor || 0) : 0;
+      const one = (v) => {
+        if (v <= 0) return 0;
+        if (w) v = w.add ? v + w.add : v * w.mult;
+        if (r) v = Math.max(0, v - r.sub);
+        return v > 0 ? Math.max(0, v + bonus - guard) : 0;
+      };
+      const b = att.base, plus = 10 * Math.max(1, Math.round(b / 30));
+      const [lo, hi] = att.mode === 'x' ? [one(0), one(b * 2)] : att.mode === '+' ? [one(b), one(b + plus)] : [one(b), one(b)];
+      const tags = [w ? ['Faiblesse', 'up'] : null, r ? [`Résistance −${r.sub}`, 'down'] : null, bonus ? [`Bonus +${bonus}`, 'up'] : null, guard ? [`Protégé −${guard}`, 'down'] : null].filter(Boolean);
+      const cls = tags.length ? (hi > (att.mode === 'x' ? b * 2 : att.mode === '+' ? b + plus : b) ? 'up' : 'down') : '';
+      return { lo, hi, mod: tags.length > 0, tag: tags.map((t) => t[0]).join(' · '), cls };
+    }
 
     /** Actions du joueur : on attend son choix */
     const playerChoice =(cardUsed = false) => new Promise((resolve) => {
       const a = B().active(P), foeA = B().active(C);
       const canSwitch = B().bench(P).length > 0;
-      const left = hand(P);
-      const bagHtml = ADV && left.length ? `<div class="bt-bag"><span class="bt-bag-h">${cardUsed ? 'Carte jouée ✓' : 'Ta main · 1 par tour'}${pileTxt(P)}</span>${left.map(({ c, i }) => {
-        const ok = !cardUsed && BC.playable(c, P, C);
-        return `<button class="bt-bc ${ok ? '' : 'off'}" data-card="${i}" ${ok ? '' : 'disabled'} title="${esc(c.name)} : ${esc(c.fx.desc)}"><img src="${esc(c.img)}" alt="" data-alt="${esc(c.name)}"><span><b>${esc(c.name)}</b><small>${esc(c.fx.short)}</small></span></button>`;
-      }).join('')}</div>` : '';
+      closeBag();
+      const bagHtml = ADV ? bagBtn(cardUsed ? 'used' : 'play') : '';
       $('.bt-actions').innerHTML = T(bagHtml + `<div class="bt-atks">${a.attacks.map((x, i) => {
-        const ok = x.cost <= a.energy, exp = Math.round(B().expected(x, a, foeA));
+        const ok = x.cost <= a.energy, rd = realDmg(x, a, foeA, P);
+        const raw = x.noDamage ? '10' : x.base + (x.mode === 'x' ? '×' : x.mode === '+' ? '+' : '');
+        const val = !rd.mod ? raw : rd.lo === rd.hi ? `${rd.hi}` : `${rd.lo}–${rd.hi}`;
         return `<button class="bt-atk ${ok ? '' : 'off'}" data-atk="${i}" ${ok ? '' : 'disabled'} title="${esc(x.text)}" style="--tc:${typeColor(a.type)}">
-          <span class="bt-cost">${costPips(x.cost)}</span><b>${esc(x.name)}</b><span class="bt-dmg">${x.noDamage ? '10' : x.base + (x.mode === 'x' ? '×' : x.mode === '+' ? '+' : '')}${exp > x.base * 1.4 ? ' <em>×2</em>' : ''}</span></button>`;
+          <span class="bt-cost">${costPips(x.cost)}</span><b>${esc(x.name)}${rd.tag ? `<small class="bt-dtag ${rd.cls}">${rd.tag}</small>` : ''}</b><span class="bt-dmg ${rd.cls}">${rd.mod ? `<s>${raw}</s> ` : ''}${val}</span></button>`;
       }).join('')}</div>
         <div class="bt-more"><button class="btn" data-charge>${App.icons.icon('bolt', 16)} +1 énergie</button>
           <button class="btn ghost" data-switch ${canSwitch ? '' : 'disabled'}>${App.icons.icon('swap', 16)} Changer</button></div>`);
       $('.bt-actions').classList.remove('in'); void $('.bt-actions').offsetWidth; $('.bt-actions').classList.add('in');
-      const done = (v) => { ov.removeEventListener('click', h); $('.bt-actions').innerHTML = idleBag(); ov.classList.remove('pick-bench'); resolve(v); };
+      const done = (v) => { ov.removeEventListener('click', h); closeBag(); $('.bt-actions').innerHTML = idleBag(); ov.classList.remove('pick-bench'); resolve(v); };
       const h = (e) => {
         if (over) return;
         const at2 = e.target.closest('[data-atk]'); if (at2 && !at2.disabled) { done({ type: 'attack', i: +at2.dataset.atk }); return; }
@@ -664,8 +716,9 @@
       if (!ADV) return;
       side.team.forEach((f) => { f.shield = 0; });
       refreshTags(side);
-      // pioche d'une carte
-      const c = drawCard(side);
+      // pioche (v3.00, plus lente) : 1 carte tous les 2 tours (2e, 4e, 6e…), main de 4 cartes au plus
+      side.turns = (side.turns || 0) + 1;
+      const c = side.turns % BC.DRAW_EVERY === 0 && hand(side).length < BC.HAND_MAX ? drawCard(side) : null;
       if (side === C) drawFoeBag();
       else if (c) { App.sfx.swap(); log(`Tu pioches <b>${esc(c.name)}</b> (${esc(c.fx.short)}).`); }
     }

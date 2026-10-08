@@ -206,7 +206,8 @@ App.battleCards = (() => {
   const loanBag = (type, game) => (game === 'onepiece'
     ? [...many([['ST01-014', 2], ['OP05-020', 1], ['OP01-055', 1], ['ST03-015', 1]]), 'DON', 'DON', 'DON']
     : [...many([['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-95', 1]]), ...Array(3).fill(energyFor(type))]);
-  const DECK_MAX = 10, HAND_START = 3;
+  // v3.00 : pioche plus lente (2 cartes au départ, 1 tous les 2 tours, 4 en main au plus)
+  const DECK_MAX = 10, HAND_START = 2, DRAW_EVERY = 2, HAND_MAX = 4;
 
   /** Effet reconstruit à partir de sa clé (cartes reçues d'un ami : on ne garde pas ses textes) */
   function fxOf(key, n, eType) {
@@ -215,5 +216,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, bagCard, donCard, loadBag, DON_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START };
+  return { effectOf, isOpCard, bagCard, donCard, loadBag, DON_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

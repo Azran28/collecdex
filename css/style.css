@@ -2841,3 +2841,72 @@ a.bt-choice:active { transform: scale(.985); }
 
 /* mode Avancé : cartes encore cachées sur le banc adverse */
 .bt-mini.hid b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 1.1rem; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); pointer-events: none; }
+
+/* ===== Combat v3.00 : vrais dégâts sur les attaques, sac (Pokémon) / coffre (One Piece) ===== */
+.bt-atk b { display: flex; flex-direction: column; gap: 1px; }
+.bt-dtag { font-size: .66rem; font-weight: 800; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-dtag.up { color: #ffe27a; }
+.bt-dtag.down { color: #9fb4d8; }
+.bt-dmg s { font-size: .72rem; font-weight: 600; opacity: .55; margin-right: 2px; }
+.bt-dmg.up { color: #ffe27a; text-shadow: 0 0 10px rgba(255,200,61,.55); }
+.bt-dmg.down { color: #b8c6e0; }
+
+/* bouton du sac / coffre (à la place de la rangée qui défilait) */
+.bt-bagbtn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 14px; font: inherit; color: var(--text); text-align: left; cursor: pointer; transition: transform .15s;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(12,14,30,.72); }
+.bt-bagbtn:active { transform: scale(.98); }
+.bt-bagbtn:disabled { opacity: .5; cursor: default; }
+.bt-bagbtn.idle { opacity: .8; }
+.bt-bagbtn.has { box-shadow: 0 0 0 2px rgba(255,203,5,.55), 0 0 18px rgba(255,203,5,.25); }
+.bt-bagic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,.1); }
+.bt-bagic svg { display: block; }
+.bt-bagtx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bt-bagtx b { font-size: .95rem; }
+.bt-bagtx small { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-bagfan { flex: none; display: flex; padding-right: 6px; }
+.bt-bagfan img { width: 26px; aspect-ratio: 63/88; object-fit: cover; border-radius: 3px; box-shadow: 0 2px 6px rgba(0,0,0,.5); margin-right: -10px; border: 1px solid rgba(255,255,255,.4); }
+.bt-bagfan img:nth-child(odd) { transform: rotate(-6deg); } .bt-bagfan img:nth-child(even) { transform: rotate(5deg) translateY(-2px); }
+.bt-ov.g-pokemon .bt-bagbtn { background: linear-gradient(180deg, #d9442f, #a8291a); border: 2px solid #1a1a2e; color: #fff; }
+.bt-ov.g-pokemon .bt-bagbtn .bt-bagic { background: #fbfbf4; }
+.bt-ov.g-pokemon .bt-bagbtn small { color: #ffe0d8; }
+.bt-ov.g-onepiece .bt-bagbtn { background: linear-gradient(180deg, #7a4a22, #4e2c12); border: 2px solid #e8b04a; color: #fbe9c4; }
+.bt-ov.g-onepiece .bt-bagbtn .bt-bagic { background: #2a1a0e; }
+.bt-ov.g-onepiece .bt-bagbtn small { color: #e8cf9a; }
+
+/* le sac ouvert : toutes les cartes en main d'un coup */
+.bt-ov > .bt-sheet { position: absolute; inset: 0; z-index: 22; display: flex; align-items: flex-end; justify-content: center; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); background: rgba(6,8,18,.6); }
+.bt-sheet-box { width: 100%; max-width: 620px; max-height: 82%; overflow: auto; border-radius: 22px; padding: 12px 12px 14px; background: #161a33; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+.bt-sheet-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bt-sheet-h > div { flex: 1; display: flex; flex-direction: column; }
+.bt-sheet-h b { font-family: var(--display); font-size: 1.2rem; }
+.bt-sheet-h small { font-size: .76rem; opacity: .8; }
+.bt-sheet-x { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; font-size: 1.5rem; line-height: 1; cursor: pointer; background: rgba(0,0,0,.25); color: inherit; }
+.bt-sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+.bt-sc { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 8px 10px; border-radius: 14px; font: inherit; color: inherit; text-align: center; cursor: pointer; transition: transform .15s;
+  border: 2px solid transparent; background: rgba(255,255,255,.06); }
+.bt-sc img { width: 78%; aspect-ratio: 63/88; object-fit: cover; border-radius: 7px; box-shadow: 0 6px 14px rgba(0,0,0,.45); margin-bottom: 4px; }
+.bt-sc b { font-size: .8rem; line-height: 1.15; }
+.bt-sc em { font-style: normal; font-weight: 800; font-size: .78rem; color: #ffcb05; }
+.bt-sc small { font-size: .68rem; line-height: 1.25; opacity: .8; }
+.bt-sc.ok { border-color: #3ddc97; box-shadow: 0 0 16px rgba(61,220,151,.3); }
+.bt-sc.ok:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .bt-sc.ok:hover { transform: translateY(-3px); } }
+.bt-sc.off { opacity: .5; filter: grayscale(.5); cursor: help; }
+.bt-sheet-f { margin: 10px 2px 0; font-size: .76rem; opacity: .85; text-align: center; }
+/* Pokémon : un sac en toile rouge, poche claire à l'intérieur */
+.bt-ov.g-pokemon .bt-sheet-box { background: linear-gradient(180deg, #d9442f, #a8291a); border: 3px solid #1a1a2e; color: #fff; outline: 2px dashed rgba(255,255,255,.35); outline-offset: -9px; }
+.bt-ov.g-pokemon .bt-sheet-h .bt-bagic { background: #fbfbf4; }
+.bt-ov.g-pokemon .bt-sheet-grid { padding: 10px; border-radius: 14px; background: #fbfbf4; color: #1b1d2a; }
+.bt-ov.g-pokemon .bt-sc { background: #ecebdc; }
+.bt-ov.g-pokemon .bt-sc em { color: #c2410c; }
+.bt-ov.g-pokemon .bt-sc.ok { border-color: #1f9e5a; }
+/* One Piece : un coffre au trésor en bois cerclé d'or, velours rouge à l'intérieur */
+.bt-ov.g-onepiece .bt-sheet-box { background: linear-gradient(180deg, #7a4a22, #4e2c12); border: 3px solid #e8b04a; color: #fbe9c4; box-shadow: inset 0 0 0 4px #3b230f, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-onepiece .bt-sheet-h b { font-family: Georgia, "Times New Roman", serif; color: #ffd479; }
+.bt-ov.g-onepiece .bt-sheet-h .bt-bagic { background: #2a1a0e; }
+.bt-ov.g-onepiece .bt-sheet-grid { padding: 10px; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, #8a1c1c, #4a0d10); border: 2px solid #c48a52; }
+.bt-ov.g-onepiece .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-onepiece .bt-sc em { color: #ffd479; }
+.bt-ov.g-onepiece .bt-sc.ok { border-color: #ffd479; box-shadow: 0 0 16px rgba(255,212,121,.35); }
+@media (min-width: 761px) { .bt-ov > .bt-sheet { align-items: center; } .bt-sheet-box { max-width: 760px; padding: 16px; } .bt-sheet-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+@media (max-width: 760px) { .bt-sheet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
