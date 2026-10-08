@@ -155,7 +155,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 ### À faire une fois dans Supabase (pour les amis et les nouveaux comptes)
 1. *SQL Editor* → coller `supabase-v4.sql` → *Run* (active les amis).
-2. *Authentication* → *Sign In / Providers* → *Email* → désactiver **« Confirm email »** → *Save*. Sans ça, tes amis ne reçoivent pas l'e-mail de confirmation : l'envoi d'e-mails gratuit de Supabase ne marche que pour toi (et 2 e-mails par heure au maximum). Ils pourront ainsi créer leur compte et se connecter tout de suite.
+2. *Authentication* → *Sign In / Providers* → *Email* → **« Confirm email » activé** (réactivé le 8 oct., quand Brevo a été branché) : à l’inscription, chacun reçoit un e-mail ; toucher le lien confirme l’adresse et connecte directement. Le modèle *Confirm signup* (dans *Emails* → *Templates*) doit garder le lien `{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=email`.
 3. *Authentication* → *URL Configuration* → *Site URL* : `https://azran28.github.io/collecdex/`.
 - E-mails (depuis le 8 oct.) : envoyés par **Brevo** (compte collecdex.app@gmail.com, gratuit, 300 par jour), branché dans *Authentication* → *Emails* → *SMTP Settings*. « Mot de passe oublié » marche pour tout le monde. Dans *Emails* → *Templates* → *Reset Password*, le lien doit être `<a href="{{ .SiteURL }}?token_hash={{ .TokenHash }}&type=recovery">Choisir un nouveau mot de passe</a>` : il ouvre directement « Nouveau mot de passe », même sur un autre appareil. Si un e-mail n'arrive pas : Brevo → *Transactionnel* → *Logs*.
 
