@@ -50,7 +50,7 @@ App.visual = (() => {
   const INDEX = 'data/vis-index';
   /** Les k cartes de toute la base les plus proches pour le réseau de neurones → [{ id, set, img, s }] (img = adresse du visuel sans « /low.webp ») ;
    *  index = autre licence (One Piece : data/op-index, v2.94) */
-  const INDEX_V = 1; // à changer quand l'index est refait (le service worker garde le fichier tant que le numéro ne change pas)
+  const INDEX_V = 2; // à changer quand l'index est refait (le service worker garde le fichier tant que le numéro ne change pas)
   const global = (qid, blob, k = 40, { index = INDEX, v = INDEX_V } = {}) => ask('global', { qid, blob, k, base: new URL(index, location.href).href, qs: '?v=' + v }).then((r) => r.res);
   // ---------- Une carte seule, toutes licences (v2.94) ----------
   /** Coins de la carte (fractions de la photo) → la carte remise à plat, pile sur ses bords ; null si un coin sort de la photo */
