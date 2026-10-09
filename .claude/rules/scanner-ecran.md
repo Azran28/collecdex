@@ -1,9 +1,13 @@
 ---
 paths:
-  - "js/views/scan.js"
+  - "js/views/scan*.js"
 ---
 # Écran Capturer (`js/views/scan.js`)
 Voir aussi `reconnaissance.md` (lecture), `visuel.md` (image), `certification.md`, `onepiece.md` (scan par licence).
+
+## Fichiers (découpage v3.06)
+- `scan.js` = partie commune de `App.views.scan` (render, caméra, `guide`, `empty`…), `scan-single.js` = `single` (carte seule), `scan-batch.js` = `batch` (classeur et rafale) ; ajoutés par `Object.assign(App.views.scan, {…})`.
+- `batch` est découpé en morceaux (`App.scanBatchParts`) : `scan-batch-series.js` (série devinée, vérification par l'image : `guessSeries`, `applySeries`, `visualPass`), `scan-batch-screen.js` (écran plein écran `sv*`), `scan-batch-list.js` (`drawResults`, versions, `recogOne/recogCell`, `timingHtml`…), `scan-batch-burst.js` (rafale `r*`). **Toutes les variables `let` de `batch` sont dans `S`** (`S.cells`, `S.running`, `S.game`…, état partagé) ; une fonction d'un morceau s'appelle `X.nom(…)` depuis ailleurs ; chaque morceau reçoit en paramètre les constantes de `batch` dont il a besoin (`(X, { esc, R, ad, … })`) et renvoie ses fonctions. Nouvelle variable d'état → `S.nom` ; nouvelle fonction utilisée par un autre morceau → l'ajouter au `return` de son morceau et l'appeler `X.nom`. Fait automatiquement (outil d'analyse de portée eslint-scope, `_tests-scanner/analyse.html` › `__codemod`, sur le PC seulement) puis vérifié : noms manquants (`__splitCheck`), tests, bancs 02/09/13/17 + 6 cartes seules + rafale identiques.
 
 ## Carte seule
 - **v2.38** : `shoot` → `showScan(cam.lastCanvas, …)` AVANT tout `await` (`capture()` garde `this.lastCanvas` = l'image figée, dessinée tout de suite ; l'encodage JPEG prend ~1 s) : animation 20 ms après l'appui. Sans risque pour la certification : `trk.proof()` lit la vidéo de façon synchrone au moment de l'appui. Attente d'une image affichée avant le détourage = `requestAnimationFrame` OU 80 ms (l'aperçu en arrière-plan ne produit pas d'image : sans secours, tout restait bloqué sur « détourage »).

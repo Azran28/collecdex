@@ -2,7 +2,7 @@
 paths:
   - "js/games/onepiece*.js"
   - "js/games/registry.js"
-  - "js/views/scan.js"
+  - "js/views/scan*.js"
   - "js/views/sets.js"
   - "js/views/set.js"
 ---

@@ -1,0 +1,56 @@
+# Chaque lundi : ajoute les nouvelles cartes (nouvelles séries) à la base de référence des images (data/*-index),
+# publie, puis lance « Tests et mise en ligne » (le site n'est mis en ligne que si les tests réussissent).
+# Aussi lançable à la main : onglet Actions › Base de référence des images › Run workflow.
+name: Base de référence des images
+
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+  push: # aussi quand l'outil lui-même change (pour le vérifier tout de suite)
+    branches: [main]
+    paths: ['outils/index-maj.*', 'outils/ci/index-maj.mjs', '.github/workflows/index.yml']
+
+concurrency:
+  group: index-images
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Installer Chromium (Playwright)
+        run: |
+          npm install --prefix outils/ci --no-audit --no-fund
+          outils/ci/node_modules/.bin/playwright install --with-deps chromium
+      - name: Ajouter les nouvelles cartes
+        id: maj
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 >/dev/null 2>&1 &
+          sleep 1
+          node outils/ci/index-maj.mjs http://localhost:8080/
+      - name: Publier
+        if: steps.maj.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "CollecDex (robot)"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ js/visual.js js/games/onepiece.js
+          git commit -m "Base de référence des images : nouvelles cartes (robot)"
+          # numéro de version posé après avoir récupéré les derniers envois (pas de conflit sur index.html)
+          git pull --rebase origin main
+          sh outils/stamp.sh
+          git add index.html version.json
+          git commit -m "Numéro de version (robot, base de référence des images)"
+          git push origin HEAD:main
+          # (un envoi du robot ne relance pas les autres robots : on demande « Tests et mise en ligne » nous-mêmes)
+          gh workflow run site.yml --ref main

@@ -3,12 +3,13 @@ paths:
   - "js/battle.js"
   - "js/battle-cards.js"
   - "js/duel.js"
-  - "js/views/match.js"
+  - "js/views/match*.js"
   - "supabase/sql/supabase-v10.sql"
   - "supabase/sql/supabase-v12.sql"
   - "supabase/sql/supabase-v15.sql"
 ---
 # Combats (`#/combat`, `views/match.js` — le code garde le nom « match »)
+**Fichiers (découpage v3.06, dans cet ordre dans index.html)** : `match-core.js` (licences, données, `getMatch`/`saveMatch`, `myFighters`, petits morceaux d'interface ; crée `App.matchParts`), `match-battle.js` (`battle` = écran de combat), `match-teams.js` (`pickTeam`, `pickBag`, `chooseTeam`…), `match-duel.js` (contre un ami, reprise), `match.js` (la page `App.views.match`). Chaque fichier lit ce dont il a besoin dans `App.matchParts` (déstructuré au chargement : l'ordre compte) et y ajoute ses fonctions. Mode accéléré : `isFast()` / `setFast(v)` (plus de variable `FAST` partagée). Test : `tests/combat.js` joue 3 combats complets (`App.matchParts.battle(1, [], …)`, cartes de prêt, `setFast(true)` avant chaque action).
 **Toutes les licences, chacune de son côté (v2.99, demande d'Arnaud)** : `#/combat` = choix de la licence (`drawPicker`, tuiles `.bt-lic-tile`), puis `#/combat?jeu=pokemon|onepiece` (+ `&ecran=ordi|decks` ; `ecran` sans `jeu` → dernière licence `localStorage['cdx-combat-game']`). `FIGHT_GAMES`, `LIC[game]` (nom, icône, `myTurn`, `champion`, `back` = dos de carte, `bagKinds`…), `say(game, texte)` = vocabulaire One Piece (Pokémon → personnage(s), énergie → DON!!, appliqué par `T()` dans `battle` : `log`, actions, pips…). Nouvelle licence = l'ajouter à `FIGHT_GAMES`, `LIC`, `battle.levels(game)`, `battleCards.aiBag/loanBag/effectOf`, décor CSS `.g-<licence>`.
 - **Données** : `profile.match` garde Pokémon à la racine (anciennes versions) ; autres licences dans `m.games[game]` (`teams`, `teamIdx`, `beaten`, `beatenAdv`, `stats`) ; `sideOf(m, game)`. `normMatch` : à la création de `games.onepiece`, les clés `onepiece:` des anciens decks mélangés y passent (même nom) et les decks Pokémon ne gardent que `pokemon:` (`keyGame`). `m.mode` commun.
 - **One Piece** : `battle.fighterOP` (PV = puissance ÷ 50…), `LEVELS_OP` (Mousse, Pirate, Supernova, Grand Corsaire, Empereur ; ids vérifiés), `battleCards.effectOfOP` (texte FR/EN : [Contre] +X000 → shield, KO → power 30, +X000 → power, −X000 / épuiser → strip, renvoyer → gust, piocher → charge, Lieu → stadium), carte DON!! virtuelle `donCard()` (`img/combat/don.svg`, id `DON`, acceptée par `duel.tcgImg`), `loadBag(ids, game)`, `withDon` ajoute 3 DON!! à la pioche perso (≤ 10). Couleurs = types (`OP_NAMES`, `typesOf`).

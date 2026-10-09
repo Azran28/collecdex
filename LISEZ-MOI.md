@@ -210,6 +210,10 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 Le site est aussi en ligne : **https://azran28.github.io/collecdex/** (PC, téléphone, tablette). Connecte-toi avec ton compte (bouton « Se connecter » en haut à droite, ou Paramètres › Compte) : ta collection, tes photos et ta vitrine sont synchronisées entre tous tes appareils. Les mises à jour du site en ligne sont automatiques : recharge simplement la page.
 
+### Les robots de GitHub (depuis le 9 oct.)
+- **Tests avant chaque mise en ligne** : à chaque nouvelle version, un robot de GitHub ouvre toutes les pages du site (en taille ordinateur et téléphone), joue 3 combats et vérifie les fonctions importantes (~70 vérifications, 3 minutes). **Le site n'est mis en ligne que si tout est réussi** ; sinon l'ancienne version reste en ligne et GitHub t'envoie un e-mail. Tu peux voir les passages dans l'onglet **Actions** du dépôt (https://github.com/Azran28/collecdex/actions) : coche verte = en ligne, croix rouge = bloqué. Tu peux aussi lancer les tests toi-même : **https://azran28.github.io/collecdex/tests.html** (ou `http://localhost:8765/tests.html`).
+- **Nouvelles séries reconnues toutes seules** : chaque lundi matin, un autre robot ajoute les cartes sorties depuis la semaine précédente à la base de référence des images (celle qui reconnaît une carte d'après son dessin), pour Pokémon et One Piece, puis publie (après les tests). Les cartes dont l'image n'est pas encore disponible sont réessayées la semaine suivante. Pour le lancer tout de suite (par ex. le jour d'une sortie) : onglet **Actions** › **Base de référence des images** › **Run workflow**.
+
 ## Quand je t'envoie une mise à jour
 
 Je remplace directement les fichiers dans ce dossier. De ton côté :

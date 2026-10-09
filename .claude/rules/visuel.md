@@ -8,6 +8,9 @@ paths:
   - "labo.html"
   - "css/labo.css"
   - "data/**"
+  - "outils/index-maj*"
+  - "outils/ci/index-maj.mjs"
+  - ".github/workflows/index.yml"
 ---
 # Vérification par l'image (`js/visual.js`, `js/visual-worker.js`)
 
@@ -26,7 +29,8 @@ Mesuré (`_tests-scanner/compare.js`, `__compare(['02',…])`, 9 pages sans la 0
 
 ## Index
 - `data/vis-index.json` (`{ v, n, d, base, ids, sets, imgs }`, 0,7 Mo) + `data/vis-index.bin` (Pf, Pa 1280×d float32, échelles n×2 float32, empreintes n×2d int8 ; 6,5 Mo), téléchargés au 1er besoin, gardés par le service worker (`?v=INDEX_V` dans `visual.js` : **à augmenter quand l'index est refait** ; One Piece : `OP_INDEX_V`, refait avec `js/labo-index-op.js`). Index absent → on s'arrête sans erreur.
-- **Refaire l'index** : `labo.html` + `js/visual.js` + `js/labo-index.js` (`window.__idx` : `build()` reprend où il en était, empreintes dans IndexedDB `collecdex-index` de l'origine `localhost:8768` ; `pca(128)`, `evaluate([64,96,128], { tta: true })`, `pack(128)` → `POST /__save`) servi par une copie de `outils/serveur.ps1` qui accepte `POST /__save?name=…` (à recréer dans le dossier temporaire) ; ~20 min (24 téléchargements à la fois, onglet au premier plan) ; « Kits du dresseur » `tk-…` exclus.
+- **Mise à jour automatique (v3.06)** : robot `.github/workflows/index.yml` (chaque lundi 4 h 17 UTC + bouton « Run workflow » dans l'onglet Actions) → `outils/ci/index-maj.mjs` ouvre `outils/index-maj.html` (`<base href="../">`, pas de CSP, pas mis en ligne) dans Chromium → `__maj('pokemon' | 'onepiece')` (`outils/index-maj.js`) : liste toutes les cartes (mêmes règles que `labo-index*.js`), calcule les empreintes des cartes absentes (`App.visual.embed`, fr → en), les **projette sur les axes existants** (Pf/Pa, pas d'ACP refaite) et les ajoute à la fin ; visuel introuvable = réessayé la semaine suivante. Si des cartes sont ajoutées : `INDEX_V` / `OP_INDEX_V` + 1, commit du robot, `stamp.sh`, envoi, puis `gh workflow run site.yml` (tests puis mise en ligne). Résumé lisible sur la page du passage. À la main : ouvrir `outils/index-maj.html` sur un serveur local et `await __maj('pokemon')` (renvoie `json` et `bin` en base64, rien n'est écrit). Mesuré le 9 oct. : One Piece 0 carte manquante, Pokémon 1 122 cartes listées absentes de l'index du 5 oct.
+- **Refaire l'index entièrement** (seulement si le modèle change) : `labo.html` + `js/visual.js` + `js/labo-index.js` (`window.__idx` : `build()` reprend où il en était, empreintes dans IndexedDB `collecdex-index` de l'origine `localhost:8768` ; `pca(128)`, `evaluate([64,96,128], { tta: true })`, `pack(128)` → `POST /__save`) servi par une copie de `outils/serveur.ps1` qui accepte `POST /__save?name=…` (à recréer dans le dossier temporaire) ; ~20 min (24 téléchargements à la fois, onglet au premier plan) ; « Kits du dresseur » `tk-…` exclus.
 
 ## Labo (`labo.html` + `js/labo.js` + `css/labo.css`, pas dans le menu)
 Compare les méthodes sur les 90 cartes des photos de test (`verite.json`) ; empreintes `labo1:<id>`, résultats `labo:last`. Sa CSP ajoute `storage.googleapis.com` et `'unsafe-eval'` (OpenCV.js @techstark 4.10, SRI). Pièges : le module OpenCV a une méthode `then` → l'attendre boucle sans fin (on la supprime) ; `BFMatcher.match` contre 1,1 M de points plante → paquets de 50 000 ; MobileNet : passer `getImageData` à `tf.browser.fromPixels`.

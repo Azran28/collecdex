@@ -1,11 +1,13 @@
 ---
 paths:
-  - "js/recognizer.js"
-  - "js/views/scan.js"
+  - "js/recognizer*.js"
+  - "js/views/scan*.js"
   - "_tests-scanner/**"
 ---
 # Reconnaissance (`js/recognizer.js` + parties de `scan.js`)
 Tesseract.js pour le numéro et le nom, comparaison de l'illustration, détection de carte / dos / pochette vide / page de classeur. Vérification par l'image : `visuel.md`. One Piece : `onepiece.md`.
+
+**Fichiers (découpage v3.06, dans cet ordre)** : `recognizer-text.js` (Tesseract, `band`, `fetchImage`, `ocr`, `parse`, `knownPokemon`, `readZones`, `stop` ; crée `App.recognizerParts`), `recognizer-geometry.js` (`locateCard`, grille, `cellCard`, `cutCard`, `warpQuad`, `snapCells`…), `recognizer-image.js` (empreintes, dos `BACK`, `looksEmpty`, `wholeCardScores`), `recognizer-versions.js` (`STAMP`, `firstEditionStamp`, `detectVariants`), `recognizer.js` (`rank`, `findCandidates`, `recognize`, `addScanned`… et l'objet public `App.recognizer`, inchangé). Le suivi d'une lecture : `setOnStatus(fn)` (plus d'affectation de `onStatus` hors de `recognizer-text.js`). `labo.html` et `labo-certif.html` chargent les 5 fichiers.
 
 ## Tester
 - Photos d'Arnaud : `C:\Users\Arnaud\Documents\Collection\_tests-scanner\` (01…21.jpg, 2400 px) avec `harness.js` (`__batch(['02','17'])`, `__pagetest(n, 'classeur'|'rafale')`) dans le navigateur intégré sur `localhost:8765`. Bonnes réponses : `verite.json` (ids TCGdex ; `page` = cases dans l'ordre de la grille, `cells` = cases à la main pour la 05). Ce dossier ne va pas sur GitHub.
