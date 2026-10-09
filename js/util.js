@@ -2,7 +2,9 @@
 
 // Jamais affiché dans le cadre d'un autre site (piège à clics) : GitHub Pages ne permet pas l'en-tête
 // « frame-ancestors », donc on sort du cadre, ou on cache la page si c'est impossible.
-if (window.top !== window.self) {
+// Seule exception : une page du site lui-même (même origine), comme tests.html.
+const sameTop = (() => { try { return window.top.location.origin === window.location.origin; } catch (e) { return false; } })();
+if (window.top !== window.self && !sameTop) {
   document.documentElement.style.display = 'none';
   try { window.top.location.replace(window.location.href); } catch (e) { /* cadre bloqué : la page reste cachée */ }
 }

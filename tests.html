@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <!-- page de tests : charge le vrai site dans un cadre (même origine) et le vérifie -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self'; img-src 'self' data:">
+  <title>CollecDex · Tests</title>
+  <style>
+    :root { --bg: #f6f7fb; --fg: #1d2333; --muted: #6b7280; --ok: #15803d; --ko: #b91c1c; --card: #fff; --line: #e5e7eb; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #11141c; --fg: #e8eaf0; --muted: #9aa3b2; --ok: #4ade80; --ko: #f87171; --card: #1a1f2b; --line: #2a3140; } }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    #sum { font-weight: 600; margin: 8px 0 12px; }
+    #sum.ok { color: var(--ok); } #sum.ko { color: var(--ko); }
+    ul { list-style: none; padding: 0; margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+    li { padding: 6px 10px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+    li:first-child { border-top: 0; }
+    li.ko { color: var(--ko); } li .why { display: block; font-size: 12px; white-space: pre-wrap; }
+    li .t { color: var(--muted); font-size: 12px; float: right; }
+    .muted { color: var(--muted); font-size: 12px; }
+    #frame { border: 1px solid var(--line); border-radius: 10px; margin-top: 12px; background: #fff; width: 1200px; height: 800px; max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Tests de CollecDex</h1>
+  <div class="muted">Le site est ouvert dans le cadre en bas de la page, puis chaque page et chaque fonction importante est vérifiée. Rien n’est enregistré ni envoyé.</div>
+  <div id="sum">Tests en cours…</div>
+  <ul id="list"></ul>
+  <iframe id="frame" title="CollecDex testé"></iframe>
+  <script src="tests/runner.js"></script>
+  <script src="tests/unit.js"></script>
+  <script src="tests/pages.js"></script>
+  <script src="tests/start.js"></script>
+</body>
+</html>

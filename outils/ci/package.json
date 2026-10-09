@@ -1,0 +1,9 @@
+{
+  "name": "collecdex-outils-ci",
+  "private": true,
+  "description": "Outils des robots GitHub Actions (tests, index). Le site lui-même n'a besoin de rien installer.",
+  "type": "module",
+  "dependencies": {
+    "playwright": "1.48.2"
+  }
+}

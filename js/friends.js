@@ -195,6 +195,7 @@ App.friends = (() => {
     blocked, block, unblock, report, moderate, REASONS,
     list, request, respond, remove, showcase, publicShowcase, publicLink, inviteLink, pendingIn, saveInvite, takeInvite, clearInvite,
     get missing() { return missing; },
+    _t: { cleanItem, cleanProfile, cleanRow }, // pour tests.html
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };
 })();

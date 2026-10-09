@@ -1,0 +1,57 @@
+# Tests automatiques, puis mise en ligne seulement s'ils sont tous réussis.
+# (GitHub › Settings › Pages › Source doit être « GitHub Actions ».)
+name: Tests et mise en ligne
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: # aussi lancé par le robot de l'index (index.yml) après une mise à jour
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Installer Chromium (Playwright)
+        run: |
+          npm install --prefix outils/ci --no-audit --no-fund
+          npx --prefix outils/ci playwright install --with-deps chromium
+      - name: Lancer les tests (tests.html)
+        run: |
+          python3 -m http.server 8080 --bind 127.0.0.1 >/dev/null 2>&1 &
+          sleep 1
+          node outils/ci/run-tests.mjs http://localhost:8080/tests.html
+
+  mise-en-ligne:
+    needs: tests
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Préparer les fichiers du site (sans les notes ni les outils)
+        run: |
+          mkdir -p _site
+          rsync -a --exclude '.git' --exclude '.github' --exclude '.claude' --exclude '_site' \
+            --exclude 'CLAUDE.md' --exclude 'docs' --exclude 'outils' --exclude 'supabase' \
+            --exclude 'LISEZ-MOI.md' --exclude 'README.md' --exclude 'Lancer CollecDex.bat' ./ _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

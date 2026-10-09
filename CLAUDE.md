@@ -40,9 +40,10 @@ Documents non chargés automatiquement (à lire seulement si besoin) : `.claude/
 
 ## Mettre une version en ligne
 1. Numéro de version : `sh outils/stamp.sh` (Linux / Git Bash) ou `powershell -ExecutionPolicy Bypass -File outils/stamp.ps1` (Windows). Il met `?v=AAAAMMJJ-HHMMSS` sur tous les scripts/styles de `index.html`, dans `<meta name="app-version">` (lu par `util.js` → `window.APP_VERSION`) et dans `version.json`. GitHub Pages garde les pages en cache ~10 min : le site compare sa version à `version.json` et se recharge tout seul.
-2. `git commit` (auteur `Azran28`) + `git push origin main` ; vérifier `https://azran28.github.io/collecdex/version.json` (1 à 2 min).
-3. Le dossier du PC d'Arnaud doit avoir la même version.
-4. Mettre à jour `LISEZ-MOI.md` (mode d'emploi pour Arnaud) et `docs/FEUILLE-DE-ROUTE.md` (état du projet, idées, historique des versions). Si la session a accès au projet claude.ai « Collection », y recopier aussi la feuille de route (document « CollecDex - etat et feuille de route »).
+2. **Tests** (v3.05) : ouvrir `tests.html` dans l'aperçu (après `stamp.sh`) → tout doit être vert (~20 s : chaque page en ordinateur et téléphone, fonctions clés, sécurité, index). Comportement changé exprès → mettre à jour `tests/*.js` dans le même commit. Nouvelle page ou nouvelle fonction importante → ajouter son test (`tests/pages.js`, `tests/unit.js`).
+3. `git commit` (auteur `Azran28`) + `git push origin main`. Le robot GitHub (`.github/workflows/site.yml`) relance les tests puis met en ligne **seulement s'ils réussissent** (~3 min) ; vérifier `https://azran28.github.io/collecdex/version.json`. Échec → l'ancienne version reste en ligne, GitHub envoie un e-mail à Arnaud : lire le résultat dans l'onglet Actions du dépôt.
+4. Le dossier du PC d'Arnaud doit avoir la même version.
+5. Mettre à jour `LISEZ-MOI.md` (mode d'emploi pour Arnaud) et `docs/FEUILLE-DE-ROUTE.md` (état du projet, idées, historique des versions). Si la session a accès au projet claude.ai « Collection », y recopier aussi la feuille de route (document « CollecDex - etat et feuille de route »).
 
 ## Où travaille Claude
 - **Session locale sur le PC d'Arnaud** (cas visé) : on modifie directement les fichiers ; le site local (`localhost:8765`) est à jour tout de suite. **Au début de chaque session** : `git status` puis `git pull`. (Si ce n'est pas un dépôt git : `.claude/docs/git-premiere-fois.md`.) Au premier `git push`, c'est **Arnaud** qui se connecte à GitHub, jamais Claude.
@@ -54,7 +55,8 @@ Documents non chargés automatiquement (à lire seulement si besoin) : `.claude/
 - **Racine = seulement ce qui doit y être** : `index.html`, `sw.js` (sa place fixe sa portée), `manifest.webmanifest`, `version.json`, `.nojekyll`, `confidentialite.html` et `supprimer-compte.html` (adresses données au Play Store : ne jamais les déplacer), `labo.html` / `labo-certif.html` (outils de test), `Lancer CollecDex.bat` (Arnaud double-clique dessus), `README.md`, `LICENSE`, `LISEZ-MOI.md`, `CLAUDE.md`.
 - `css/`, `js/` (+ `js/views/`, `js/games/`), `data/` (index d'images), `icons/`, `img/` : le site.
 - `supabase/sql/` : scripts SQL (`supabase-*.sql`) ; `supabase/functions/` : Edge Function.
-- `outils/` : `serveur.ps1` (serveur local, sert le dossier parent), `stamp.sh` / `stamp.ps1` (numéro de version).
+- `outils/` : `serveur.ps1` (serveur local, sert le dossier parent), `stamp.sh` / `stamp.ps1` (numéro de version), `ci/` (outils des robots GitHub Actions : `run-tests.mjs`).
+- `tests.html` + `tests/` : tests automatiques (le vrai site dans un cadre de même origine ; `util.js` n'autorise le cadre qu'à une page du site). `.github/workflows/` : robots (tests + mise en ligne). La mise en ligne exclut `.claude`, `CLAUDE.md`, `docs`, `outils`, `supabase`, `LISEZ-MOI.md`, `README.md`.
 - `docs/` : `FEUILLE-DE-ROUTE.md`. `.claude/rules/` et `.claude/docs/` : contexte de Claude.
 - Seulement sur le PC (`.gitignore`) : `_tests-scanner/` (photos de test, bancs, `test/` = images du labo de certification, `test-classeur.png`), `supabase/sql/supabase-mes-certificats.sql`.
 
