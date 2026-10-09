@@ -24,7 +24,7 @@ jobs:
       - name: Installer Chromium (Playwright)
         run: |
           npm install --prefix outils/ci --no-audit --no-fund
-          npx --prefix outils/ci playwright install --with-deps chromium
+          outils/ci/node_modules/.bin/playwright install --with-deps chromium
       - name: Lancer les tests (tests.html)
         run: |
           python3 -m http.server 8080 --bind 127.0.0.1 >/dev/null 2>&1 &
