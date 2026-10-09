@@ -19,7 +19,11 @@ try {
 }
 await browser.close();
 
-if (!T) { console.log('Aucun résultat.'); process.exit(1); }
+if (!T) { console.log('::error title=Tests::Aucun résultat (tests.html ne s’est pas chargé)'); process.exit(1); }
 for (const r of T.results) console.log(`${r.ok ? '✓' : '✗'} ${r.name} (${r.ms} ms)${r.ok ? '' : '\n    ' + r.err.replace(/\n/g, '\n    ')}`);
 console.log(`\n${T.pass} réussis, ${T.fail} en échec`);
+// échecs en « annotations » : visibles sur la page du passage sans se connecter (et lisibles par l'API publique)
+const one = (s) => String(s).replace(/%/g, '%25').replace(/\r?\n/g, '%0A').slice(0, 900);
+for (const r of T.results.filter((x) => !x.ok).slice(0, 10)) console.log(`::error title=${one(r.name).replace(/[,:]/g, ' ')}::${one(r.err)}`);
+if (!T.fail) console.log(`::notice title=Tests::${T.pass} tests réussis`);
 process.exit(T.fail ? 1 : 0);
