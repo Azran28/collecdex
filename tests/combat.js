@@ -7,7 +7,16 @@
     const MP = App.matchParts, d = W.document;
     ok(MP && MP.battle, 'écran de combat introuvable (App.matchParts.battle)');
     MP.battle(1, [], 'Test', opts);
-    await until(() => d.querySelector('.bt-ov [data-atk], .bt-ov [data-charge]'), 25000, 'début du combat');
+    // 1er combat d'une licence sur un appareil neuf : ses données sont téléchargées (One Piece : index des cartes) → jusqu'à 90 s
+    let refused = null;
+    await until(() => {
+      const t = d.getElementById('toast');
+      if (!d.querySelector('.bt-ov') && t && !t.hidden && /Combat impossible/.test(t.textContent)) { refused = t.textContent; return true; }
+      return d.querySelector('.bt-ov [data-atk], .bt-ov [data-charge]');
+    }, 90000, 'début du combat').then(() => { if (refused) throw new Error('le combat ne démarre pas : ' + refused); }, (e) => {
+      const t = d.getElementById('toast');
+      throw new Error(`${e.message}${t && !t.hidden ? ` (message : ${t.textContent})` : ''}${d.querySelector('.bt-ov') ? ' (écran de combat ouvert : ' + d.querySelector('.bt-ov').textContent.replace(/\s+/g, ' ').slice(0, 120) + ')' : ''}`);
+    });
     let n = 0;
     try {
       for (; n < 400 && !d.querySelector('.bt-ov .bt-end'); n++) {
