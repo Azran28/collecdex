@@ -16,7 +16,11 @@ async function main() {
   let T = null;
   try {
     await page.goto(url);
-    await page.waitForFunction(() => window.__tests && window.__tests.done, null, { timeout: 8 * 60 * 1000, polling: 1000 });
+    // (pas de waitForFunction : il passe par « eval », refusé par la CSP de la page, qu'on garde telle quelle)
+    for (let t0 = Date.now(); !(await page.evaluate(() => !!(window.__tests && window.__tests.done))); ) {
+      if (Date.now() - t0 > 8 * 60 * 1000) throw new Error('plus de 8 minutes');
+      await new Promise((r) => setTimeout(r, 1000));
+    }
     T = await page.evaluate(() => window.__tests);
   } catch (e) {
     annotate('Les tests ne sont pas allés au bout', e.message);
