@@ -206,3 +206,13 @@ test('Riftbound : unité → combattant', (App) => {
   eq([f.hp, f.type, f.attacks.length], [130, 'lightning', 2]);
   ok(App.battle.canFight({ kind: 'unit', category: 'Unité', might: 2 }, 'riftbound') && !App.battle.canFight({ kind: 'spell', category: 'Sort' }, 'riftbound'), 'seules les unités combattent');
 });
+test('Riftbound : dos de carte reconnu (fond uni, filets dorés symétriques), pas une face colorée', async (App) => {
+  await App.need('reco');
+  const mk = (back) => { const c = document.createElement('canvas'); c.width = 126; c.height = 176; const g = c.getContext('2d');
+    if (back) { g.fillStyle = '#16264a'; g.fillRect(0, 0, 126, 176); g.strokeStyle = '#e0b84a'; g.lineWidth = 3; g.strokeRect(10, 10, 106, 156); g.beginPath(); g.moveTo(63, 30); g.lineTo(105, 88); g.lineTo(63, 146); g.lineTo(21, 88); g.closePath(); g.stroke(); g.beginPath(); g.arc(63, 88, 30, 0, 7); g.stroke(); }
+    else for (let i = 0; i < 40; i++) { g.fillStyle = `hsl(${i * 37 % 360} 70% 50%)`; g.fillRect((i % 6) * 21, Math.floor(i / 6) * 25, 21, 25); }
+    return c; };
+  const s = (c) => App.recognizer.backScoreOf(c, c.width, c.height, true, 'riftbound');
+  ok(s(mk(true)) >= 0.6, `dos : ${s(mk(true)).toFixed(2)}`);
+  ok(s(mk(false)) < 0.55, `face : ${s(mk(false)).toFixed(2)}`);
+});

@@ -168,14 +168,45 @@
   const backRefs = {};
   const refsOf = (game) => {
     if (backRefs[game]) return backRefs[game];
-    const list = game === 'onepiece' ? App.onePieceBacks || [] : [BACK];
+    const list = game === 'onepiece' ? App.onePieceBacks || [] : [BACK]; // (Riftbound : mesure dédiée, rbBackScore)
     const dec = (t) => { const bin = atob(t.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return normRGB(a, t.w * t.h); };
     return (backRefs[game] = { refs: list.map(dec), scales: game === 'onepiece' ? [0.84, 0.92, 1] : [0.78, 0.84, 0.9] });
   };
   /** Même mesure, directement sur une image déjà dessinée (canvas, image de la caméra) : sert à la certification en direct */
   // fast (suivi en direct de la certification, v2.48) : sans les petits décalages → 3 essais au lieu de 9 (la caméra
   // du téléphone d'Arnaud ne donnait que ~6 images par seconde au suivi)
+  // Dos Riftbound (v3.10) : fond uni sombre (noir ou bleu nuit) et fins filets dorés symétriques. Un modèle 24 × 33 n'y voit que
+  // l'éclairage (dos bleu en pochette : 0,2 contre son propre modèle) → mesure dédiée sur 48 × 66 : part d'or, part de fond sombre,
+  // autres couleurs, symétrie du dessin doré (haut/bas et gauche/droite). Photos d'Arnaud (_tests-scanner/riftbound/dos.webp) :
+  // dos or 1,7 à 12 %, fond ≥ 80 %, autres ≤ 17 %, symétrie ≥ 0,59 ; ~80 faces (Riftbound, Pokémon, One Piece) : jamais les quatre.
+  let rbCanvas = null;
+  function rbBackScore(src, SW, SH) {
+    const W = 48, H = 66, N = W * H;
+    const c = rbCanvas || (rbCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.clearRect(0, 0, W, H); g.drawImage(src, SW * 0.04, SH * 0.04, SW * 0.92, SH * 0.92, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data, gold = new Uint8Array(N);
+    let ng = 0, nd = 0;
+    for (let i = 0; i < N; i++) {
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), s = mx ? (mx - mn) / mx : 0;
+      let h = 0;
+      if (mx !== mn) { h = mx === r ? 60 * (((gg - b) / (mx - mn)) % 6) : mx === gg ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - gg) / (mx - mn) + 4); if (h < 0) h += 360; }
+      // (gris peu coloré = table ou tapis autour d'une carte un peu petite dans le cadre : compté comme fond)
+      if (h >= 30 && h <= 65 && s > 0.35 && mx > 110) { gold[i] = 1; ng++; } else if (mx < 120 || (h >= 190 && h <= 250 && mx < 200) || s < 0.12) nd++;
+    }
+    const pg = ng / N, pd = nd / N, po = 1 - pg - pd;
+    let sym = 0;
+    if (ng) {
+      const near = (X, Y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = X + dx, y = Y + dy; if (x >= 0 && y >= 0 && x < W && y < H && gold[y * W + x]) return 1; } return 0; };
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (gold[y * W + x]) sym += (near(W - 1 - x, y) + near(x, H - 1 - y)) / 2;
+      sym /= ng;
+    }
+    const ok = [pg >= 0.012 && pg <= 0.2, pd >= 0.72, po <= 0.22, sym >= 0.5];
+    // tout bon : 0,62 à 0,87 selon la symétrie ; sinon au plus 0,3 (seuil du dos : 0,55 en direct, 0,6 en classeur)
+    return ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (sym - 0.5) / 0.4) : 0.1 * ok.filter(Boolean).length;
+  }
   function backScoreOf(src, SW, SH, fast = false, game = 'pokemon') {
+    if (game === 'riftbound') return rbBackScore(src, SW, SH);
     if (!backRef) backRef = refsOf('pokemon').refs[0];
     const { refs, scales } = refsOf(game);
     if (!refs.length) return -1;
