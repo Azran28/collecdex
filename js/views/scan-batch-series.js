@@ -117,9 +117,14 @@ App.scanBatchParts.series = (X, { R, ad, alive, esc, isPk, setStatus, urls }) =>
       if (!V || App.settings.visualCheck === false) return; // (réglage dans Paramètres)
       if (!V.supported()) { S.timing = { ...(S.timing || {}), error: 'pas possible sur ce navigateur' }; return; }
       // (une carte sans aucune piste trouvée par le texte n'est comparée qu'une fois la série connue)
-      const all = S.cells.filter((c) => !c.saved && ['sure', 'verifier', 'inconnue'].includes(c.state));
+      // v3.09 (Arnaud : « nécessaire de tout vérifier si la carte a été trouvée directement ? ») : une carte déjà SÛRE par le
+      // texte n'est comparée qu'à sa propre carte (rapide : elle donne ses 4 coins pour la recadrer et vote pour la série) ;
+      // seules les douteuses passent par les candidates, toute la série et toute la base
+      const sureOf = (c) => c.state === 'sure' && c.choice && c.cands.find((x) => x.id === c.choice);
+      const quick = S.cells.filter((c) => !c.saved && !c.cropped && sureOf(c));
+      const all = S.cells.filter((c) => !c.saved && ['verifier', 'inconnue'].includes(c.state));
       const todo = all.filter((c) => c.cands.length);
-      if (!all.length || (!todo.length && !hint)) return;
+      if (!all.length && !quick.length) return;
       // chronomètre (essai sur téléphone) : visuels officiels à préparer, comparaison, total
       const T = S.timing = { ...(S.timing || {}), refs: 0, match: 0, n: 0, dl: 0, fail: 0, total: null }, tv = performance.now();
       const rank = async (...a) => { const r = await V.rank(...a); T.refs += r.t.refs + r.t.tools; T.match += r.t.match; T.dl += r.t.dl || 0; T.fail += r.t.fail || 0; T.n++; T.backend = r.backend; return r; };
@@ -128,6 +133,13 @@ App.scanBatchParts.series = (X, { R, ad, alive, esc, isPk, setStatus, urls }) =>
       const st = (t) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${t}</div>`); };
       const pageKey = Date.now(), qid = (c) => `${pageKey}:${c.i}`;
       try {
+        for (const [k, c] of quick.entries()) {
+          if (S.stopped || !alive()) return;
+          st(`Recadrage — carte ${c.i + 1}…`);
+          S.prog = { step: 'Recadrage des cartes sûres', done: k, total: quick.length, kind: 'img' };
+          c.vscan = true; X.drawResults();
+          try { c.vis = await rank(qid(c), c.blob, [refOf(sureOf(c))], { must: [c.choice] }); } finally { c.vscan = false; }
+        }
         for (const [k, c] of todo.entries()) {
           if (S.stopped || !alive()) return;
           st(`Vérification par l'image — carte ${c.i + 1}…`);
@@ -138,7 +150,7 @@ App.scanBatchParts.series = (X, { R, ad, alive, esc, isPk, setStatus, urls }) =>
         let set = hint || (S.detected && S.detected.id) || null;
         if (!set) {
           const votes = {};
-          for (const c of todo) { const t = c.vis.res[0]; const x = t && byId.get(t.id); if (t && t.s >= V.SURE && x && x.set) votes[x.set.id] = (votes[x.set.id] || 0) + 1; }
+          for (const c of [...quick, ...todo]) { const t = c.vis && c.vis.res[0]; const x = t && byId.get(t.id); if (t && t.s >= V.SURE && x && x.set) votes[x.set.id] = (votes[x.set.id] || 0) + 1; }
           const [best, nb] = Object.entries(votes).sort((a, b) => b[1] - a[1])[0] || [];
           if (nb >= 2) set = best;
         }
@@ -191,7 +203,7 @@ App.scanBatchParts.series = (X, { R, ad, alive, esc, isPk, setStatus, urls }) =>
           finally { c.vscan = false; }
         }
       } catch (e) { console.warn('vérification par l’image', e); T.error = e.message; T.total = performance.now() - tv; setStatus(''); return; }
-      for (const c of all) {
+      for (const c of [...quick, ...all]) {
         const [a, b] = c.vis ? c.vis.res : [];
         const card = a && byId.get(a.id);
         if (!card || a.s < V.SURE) continue; // pas assez sûr à l'image : on garde la lecture du texte
@@ -240,7 +252,7 @@ App.scanBatchParts.series = (X, { R, ad, alive, esc, isPk, setStatus, urls }) =>
           if (info) c.info = { ...c.info, num: info.num || (c.info && c.info.num) };
         } catch (e) { console.warn('relecture', e); } finally { c.vscan = false; }
       }
-      T.total = performance.now() - tv; T.cards = all.length;
+      T.total = performance.now() - tv; T.cards = all.length + quick.length;
       setStatus('');
     }
 

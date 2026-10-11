@@ -97,6 +97,28 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
         // (« sûre » seulement si la mesure l'est vraiment ; une version choisie à la main pendant la mesure n'est pas écrasée)
         if (c.choice === id && !(c.det && c.det.user)) c.det = { id, list: d.list, sure: !!(d.sure && d.sure.base), info: d.info };
       } catch (e) { if (c.choice === id) c.det = { id, list: [], sure: false }; }
+      pageReverse();
+    }
+    /**
+     * Reverse comparée aux AUTRES cartes de la page (v3.09, page d'Arnaud : Raichu et Rattatac reverses mises en normale).
+     * Le reflet du fond dépend de la lumière : un seuil fixe (1,7) ne marche pas (reverses 1,23 et 1,06 ; normales de la même
+     * page 0,44…0,93 ; normales seules jusqu'à 1,17 sous une autre lumière). Sur une même photo la lumière est la même pour
+     * toutes : reverse si le rapport dépasse 1 ET 1,5 × la médiane de la page (au moins 4 cartes mesurées), à vérifier.
+     */
+    function pageReverse() {
+      if (burst) return; // (rafale : une photo par carte, lumière différente à chaque fois)
+      const m = S.cells.filter((c) => c.det && !c.det.measuring && c.det.info && c.det.info.reverseRatio != null);
+      if (m.length < 4) return;
+      const rs = m.map((c) => c.det.info.reverseRatio).sort((a, b) => a - b), med = rs[Math.floor(rs.length / 2)];
+      for (const c of m) {
+        if (c.det.user) continue;
+        const cur = c.cands.find((x) => x.id === c.det.id);
+        if (!cur || !cur.variants || !cur.variants.reverse) continue;
+        if (!c.det.list0) { c.det.list0 = c.det.list; c.det.sure0 = c.det.sure; }
+        const r = c.det.info.reverseRatio, rel = r >= Math.max(1, 1.5 * med) && !c.det.list0.includes('reverse');
+        c.det.list = rel ? ['reverse', ...c.det.list0.filter((v) => v === 'firstEdition')] : c.det.list0;
+        c.det.sure = rel ? r >= 1.3 && r >= 2 * med : c.det.sure0;
+      }
     }
     const versHtml = (c, cur) => {
       if (!cur || !cur.variants) return '';
