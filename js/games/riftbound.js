@@ -379,11 +379,16 @@
     if (edge) o.crop = edge;
     if (!context || !o) return o;
     if (top && top.orb >= V.SURE) {
+      // v3.17 : coins de la carte dans les alentours de la case (ctxQuad) → recalage de la grille du classeur (scan-batch-realign.js),
+      // et vrais bords cherchés là, où la carte est entière même quand la grille l'a coupée
+      const cq = o.url ? await V.quadOn(context, top, o.url).catch(() => null) : null;
+      if (cq) o.ctxQuad = cq;
       if (edge) return o;
-      const crop = o.url ? await V.cropOn(context, top, o.url).catch(() => null) : null;
+      const crop = (cq && await edgeCrop(context, cq)) || (o.url ? await V.cropOn(context, top, o.url).catch(() => null) : null);
       return crop ? { ...o, crop } : o;
     }
     const w = await V.check(context, cands, visualOpts(codes, setId)).catch(() => null);
+    if (w && w.quad) w.ctxQuad = w.quad;
     return w && w.cands[0] && w.cands[0].confident ? w : o;
   }
 
@@ -405,7 +410,7 @@
     if (early && !anyCode()) {
       statusFn('Vérification par l’image…');
       const e = await early;
-      if (e && e.cands[0] && e.cands[0].confident && (e.cands[0].orb || 0) >= IMG_SURE) return { info: { code: e.cands[0].id, name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
+      if (e && e.cands[0] && e.cands[0].confident && (e.cands[0].orb || 0) >= IMG_SURE) return { info: { code: e.cands[0].id, name: '', votes: {}, crop: e.crop, ctxQuad: e.ctxQuad, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
       // code relu : sur la carte recadrée par l'image (vrais bords) s'il y en a une, sinon les 2 autres bandes sur la case
       const crop = e && e.crop;
       statusFn(crop ? 'Lecture du code (carte recadrée)…' : 'Lecture du code…');
@@ -481,7 +486,7 @@
     const first = codes[0] ? codes[0].replace('|', ' · ') : '';
     const byImg = codes.length && top && !codeIds.has(top.id) && top.orb >= 25;
     const readTxt = codes.length ? `code ${byImg ? `${top.setId} · ${top.localId}` : first}${byImg ? ' (corrigé grâce à l’illustration)' : ''}` : '';
-    return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+    return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
   /** Recherche à la main (code « OGN-013 » ou nom anglais), classée par ressemblance avec la photo */

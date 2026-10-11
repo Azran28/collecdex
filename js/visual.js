@@ -153,18 +153,26 @@ App.visual = (() => {
    * Carte déjà reconnue : ses vrais bords cherchés dans une autre image (classeur : la case et ses alentours, où la carte est
    * entière même si la grille l'a coupée) → la carte pile sur ses bords, ou null
    */
+  /** Coins d'une carte déjà reconnue dans une image (fractions), ou null — v3.17 : sert aussi au recalage de la grille du classeur */
+  async function quadOn(blob, c, url) {
+    const ref = [{ id: c.id, url, set: (c.set && c.set.id) || c.setId }];
+    const quadIn = async (b) => {
+      const qid = `crop:${Date.now()}:${Math.random()}`;
+      try { const r = await rank(qid, b, ref, { must: [c.id] }), x = r.res.find((y) => y.id === c.id); return x && x.s >= SURE && x.quad ? x.quad : null; } finally { forget(qid); }
+    };
+    const q1 = await quadIn(blob);
+    if (q1) return q1;
+    // pas assez de points (carte sombre, petite dans l'image) : 2ᵉ essai sur le centre de l'image, la carte y est plus grande
+    const k = 0.8, o = (1 - k) / 2, mid = await centerOf(blob, k), q = await quadIn(mid.blob);
+    return q && q.map(([x, y]) => [o + x * k, o + y * k]);
+  }
   async function cropOn(blob, c, url) {
     const ref = [{ id: c.id, url, set: (c.set && c.set.id) || c.setId }];
     const quadIn = async (b) => {
       const qid = `crop:${Date.now()}:${Math.random()}`;
       try { const r = await rank(qid, b, ref, { must: [c.id] }), x = r.res.find((y) => y.id === c.id); return x && x.s >= SURE && x.quad ? x.quad : null; } finally { forget(qid); }
     };
-    let q1 = await quadIn(blob);
-    if (!q1) {
-      // pas assez de points (carte sombre, petite dans l'image) : 2ᵉ essai sur le centre de l'image, la carte y est plus grande
-      const k = 0.8, o = (1 - k) / 2, mid = await centerOf(blob, k), q = await quadIn(mid.blob);
-      q1 = q && q.map(([x, y]) => [o + x * k, o + y * k]);
-    }
+    const q1 = await quadOn(blob, c, url);
     if (!q1) return null;
     // la carte est petite dans cette image (peu de points, bords approximatifs) : on recommence au plus près d'elle
     try {
@@ -188,5 +196,5 @@ App.visual = (() => {
     for (const p of pend.values()) p.reject(new Error('arrêté'));
     pend.clear();
   }
-  return { SURE, supported, rank, warm, global, check, cropOn, quadCrop, embed, embedBlob, forget, stop };
+  return { SURE, supported, rank, warm, global, check, cropOn, quadOn, quadCrop, embed, embedBlob, forget, stop };
 })();

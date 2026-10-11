@@ -368,15 +368,25 @@ Object.assign(App.views.scan, {
      * même quand la grille tombe un peu à côté (v3.02 : rangée décalée sur une page d'Arnaud → carte coupée, non reconnue),
      * et ses coins donnent la carte pile sur ses bords
      */
-    async function ctxBlob(i) {
+    /** Case n° i telle que la grille la place (coins, fractions de la photo) */
+    function gridQuadOf(i) {
       const [cols, rows] = dims();
-      const img = S.photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
-      let x0, y0, x1, y1;
       const ac = S.autoGrid && S.autoCells && S.autoCells[i];
-      if (ac) { const q = ac.gridQuad || ac.quad; x0 = Math.min(...q.map((p) => p[0])); x1 = Math.max(...q.map((p) => p[0])); y0 = Math.min(...q.map((p) => p[1])); y1 = Math.max(...q.map((p) => p[1])); }
-      else { const cw = S.grid.w / cols, ch = S.grid.h / rows; x0 = S.grid.x + (i % cols) * cw; y0 = S.grid.y + Math.floor(i / cols) * ch; x1 = x0 + cw; y1 = y0 + ch; }
+      if (ac) return ac.gridQuad || ac.quad;
+      const cw = S.grid.w / cols, ch = S.grid.h / rows, x0 = S.grid.x + (i % cols) * cw, y0 = S.grid.y + Math.floor(i / cols) * ch;
+      return [[x0, y0], [x0 + cw, y0], [x0 + cw, y0 + ch], [x0, y0 + ch]];
+    }
+    /** Zone des alentours de la case n° i (fractions de la photo) : la case + 20 % de chaque côté */
+    function ctxRect(i) {
+      const q = gridQuadOf(i), xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+      let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
       const mx = (x1 - x0) * 0.2, my = (y1 - y0) * 0.2;
-      x0 = Math.max(0, x0 - mx) * NW; x1 = Math.min(1, x1 + mx) * NW; y0 = Math.max(0, y0 - my) * NH; y1 = Math.min(1, y1 + my) * NH;
+      x0 = Math.max(0, x0 - mx); x1 = Math.min(1, x1 + mx); y0 = Math.max(0, y0 - my); y1 = Math.min(1, y1 + my);
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    async function ctxBlob(i) {
+      const img = S.photo.img, NW = img.naturalWidth, NH = img.naturalHeight;
+      const r = ctxRect(i), x0 = r.x * NW, x1 = (r.x + r.w) * NW, y0 = r.y * NH, y1 = (r.y + r.h) * NH;
       const k = Math.min(1, 1100 / Math.max(x1 - x0, y1 - y0));
       const c = document.createElement('canvas'); c.width = Math.round((x1 - x0) * k); c.height = Math.round((y1 - y0) * k);
       c.getContext('2d').drawImage(img, x0, y0, x1 - x0, y1 - y0, 0, 0, c.width, c.height);
@@ -444,7 +454,7 @@ Object.assign(App.views.scan, {
         const url = URL.createObjectURL(blob); urls.push(url);
         // (la case et ses alentours, pour la vérification par l'image : vrais bords d'une carte coupée ; pas en classeur ouvert couché)
         const ctx = !S.autoRot ? await ctxBlob(i).catch(() => null) : null;
-        S.cells.push({ i, blob, url, auto, box, alt, ctx, state: 'attente', cands: [], choice: '', info: null, mode: null });
+        S.cells.push({ i, blob, url, auto, box, alt, ctx, ctxRect: ctx ? ctxRect(i) : null, state: 'attente', cands: [], choice: '', info: null, mode: null });
       }
       X.drawResults();
       // « Toutes » (v3.11) : licence de la page votée sur ses premières cartes (texte lu, ~3 s par carte) avant la lecture —
@@ -513,6 +523,8 @@ Object.assign(App.views.scan, {
         X.drawResults();
       }
       S.reread = null;
+      // v3.17 : grille recalée sur les cartes reconnues à l'image (leurs vrais coins), puis cartes douteuses relues (voir scan-batch-realign.js)
+      if (!burst && alive() && !S.stopped) await X.realign(hint, { cellBlob, ctxBlob, ctxRect, gridQuadOf, drawGrid });
       // Deuxième passe : la page semble rangée par série → on recompare les cartes incertaines à cette série
       S.prog = { step: 'Série de la page…', done: n, total: n };
       if (!hint && alive() && !S.stopped) await X.guessSeries(); // (toutes les licences, v2.94 : One Piece aussi)
@@ -535,6 +547,8 @@ Object.assign(App.views.scan, {
 
     // Scanner (classeur/rafale) — liste des cartes reconnues, versions, lecture de chaque case : voir scanBatchParts.list
     Object.assign(X, App.scanBatchParts.list(X, { R, ad, alive, burst, dims, esc, isPk, readCard, resultsEl, setStatus, sv, urls }));
+    // Scanner (classeur) — grille recalée sur les cartes reconnues à l’image : voir scanBatchParts.realign
+    Object.assign(X, App.scanBatchParts.realign(X, { alive, dims, esc, setStatus, urls }));
 
     resultsEl.addEventListener('change', async (e) => {
       if (e.target.id === 'b-set-after' && e.target.value && !S.running) {
