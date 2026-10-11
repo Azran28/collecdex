@@ -83,23 +83,141 @@ App.views.scan = {
   /** « Set de Base (1999) » */
   setLabel(c) { return c.set ? `${c.set.name}${c.set.releaseDate ? ' (' + c.set.releaseDate.slice(0, 4) + ')' : ''}` : (c.setId || ''); },
 
+  /** Licences proposées dans Capturer (actives et branchées) */
+  games() { return App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id)); },
+  /** Licence choisie : une licence, ou « auto » (toutes les licences, v3.11) */
+  AUTO: 'auto',
+  /**
+   * Licence de départ d'un écran de Capturer : { auto, game } — ?jeu=…, sinon celle de la session ; en « auto », game = la
+   * dernière licence reconnue (ou Pokémon), remplacée dès qu'une carte est reconnue.
+   */
+  startGame(params) {
+    let q = params.query.jeu;
+    if (!q) { try { q = sessionStorage.getItem('scanGame') || ''; } catch (e) { /* */ } }
+    const auto = q === App.views.scan.AUTO;
+    let game = !auto && q && App.games.get(q) ? q : 'pokemon';
+    if (auto) { try { const g = sessionStorage.getItem('scanAutoGame'); if (g && App.games.get(g)) game = g; } catch (e) { /* */ } }
+    App.views.scan.remember(auto ? App.views.scan.AUTO : game);
+    return { auto, game };
+  },
+  /** Licence choisie gardée pour la session (et la dernière, pour « Dernière utilisée » sur la page de choix) */
+  remember(choice) { try { sessionStorage.setItem('scanGame', choice); localStorage.setItem('scanGameLast', choice); } catch (e) { /* */ } },
+  /** Puces des licences en haut de Capturer : « Auto » (toutes les licences) puis chaque licence ; en auto, la licence reconnue */
+  gameChips(game, auto, mode = '') {
+    const { esc } = App.util, games = App.views.scan.games(), m = mode && mode !== 'carte' ? `mode=${mode}&` : '';
+    if (games.length < 2) return '';
+    const chip = (id, icon, name, on) => `<a class="chip ${on ? 'on' : ''}" href="#/scan?${m}jeu=${id}" data-game="${id}" role="tab" aria-selected="${on}">${App.icons.icon(icon, 14)} ${esc(name)}</a>`;
+    return `<div class="chips sc-game" role="tablist" aria-label="Licence des cartes">${chip(App.views.scan.AUTO, 'sparkles', 'Toutes', auto)}${games.map((g) => chip(g.id, g.icon, g.name, !auto && g.id === game)).join('')}</div>
+      <div class="small muted sc-autogame" ${auto ? '' : 'hidden'}>${auto ? App.views.scan.autoLabel(game, false) : ''}</div>`;
+  },
+  /** « Licence reconnue toute seule » / « Licence reconnue : Riftbound » */
+  autoLabel(game, found) {
+    const g = App.games.info(game);
+    return found && g ? `${App.icons.icon(g.icon, 13)} Licence reconnue : <b>${App.util.esc(g.name)}</b>` : 'La licence de chaque carte est reconnue toute seule';
+  },
+  /** Met à jour les puces après une carte reconnue en mode « Toutes » */
+  showAutoGame(root, game) {
+    const s = root.querySelector('.sc-autogame');
+    if (s) { s.hidden = false; s.innerHTML = App.views.scan.autoLabel(game, true); }
+    try { sessionStorage.setItem('scanAutoGame', game); } catch (e) { /* */ }
+  },
+
+  /**
+   * Choix de la licence avant Capturer (v3.11, demande d'Arnaud) : une tuile par licence + « Toutes les licences »
+   * (la licence de chaque carte est reconnue toute seule). Même présentation que le choix de licence du Combat.
+   */
+  async picker(el, params, alive) {
+    const { esc } = App.util, I = App.icons.icon;
+    const mode = ['classeur', 'rafale'].includes(params.query.mode) ? params.query.mode : '';
+    let last = ''; try { last = sessionStorage.getItem('scanGame') || localStorage.getItem('scanGameLast') || ''; } catch (e) { /* */ }
+    const href = (g) => `#/scan?jeu=${g}${mode ? '&mode=' + mode : ''}`;
+    const games = App.views.scan.games();
+    const rows = await Promise.all(games.map(async (g) => {
+      const items = App.col.all().filter((i) => i.qty > 0 && (i.game || 'pokemon') === g.id).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+      const imgs = await Promise.all(items.slice(0, 3).map((it) => App.col.displayImage(it, App.games.get(g.id)).catch(() => null)));
+      return { g, n: items.length, imgs: imgs.filter(Boolean) };
+    }));
+    if (!alive()) return;
+    const total = rows.reduce((s, r) => s + r.n, 0);
+    const lastTag = (id) => (id === last ? '<em class="sp-last">Dernière utilisée</em>' : '');
+    const tile = (r) => `<a class="bt-lic-tile sp-tile g-${r.g.id}" href="${href(r.g.id)}" data-game="${r.g.id}">
+        <span class="bt-lic-ic">${I(r.g.icon, 24)}</span>
+        <span class="bt-lic-t"><b>${esc(r.g.name)}</b><span>${esc(r.g.desc)}</span>
+          <small>${r.n ? `${r.n} carte${r.n > 1 ? 's' : ''} dans ton Dex` : 'Aucune carte dans ton Dex'} ${lastTag(r.g.id)}</small></span>
+        ${r.imgs.length ? `<span class="bt-lic-cards">${r.imgs.map((x) => `<img src="${esc(x.src)}" alt="">`).join('')}</span>` : ''}
+        <span class="bt-lic-go">›</span></a>`;
+    el.innerHTML = `
+      <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
+      <h1 style="margin:0 0 4px">Capturer</h1>
+      <p class="bt-lead">Quelle licence vas-tu capturer ? Tu pourras en changer en haut de l’écran.</p>
+      <div class="bt-lics sp-lics">
+        <a class="bt-lic-tile sp-tile g-auto" href="${href(App.views.scan.AUTO)}" data-game="auto">
+          <span class="bt-lic-ic">${I('sparkles', 24)}</span>
+          <span class="bt-lic-t"><b>Toutes les licences</b><span>Scanne n’importe quelle carte : CollecDex reconnaît sa licence tout seul.</span>
+            <small>${games.map((g) => esc(g.name)).join(' · ')} ${lastTag('auto')}</small></span>
+          <span class="bt-lic-go">›</span></a>
+        ${rows.map(tile).join('')}
+      </div>
+      <p class="small muted bt-soon">${total ? `${total} carte${total > 1 ? 's' : ''} dans ton Dex. ` : ''}Choisir la licence est un peu plus rapide et plus sûr que « Toutes les licences ».</p>`;
+  },
+
+  /**
+   * Licence d'une carte d'après le texte lu sur toute la carte (mode « Toutes les licences ») :
+   * 'riftbound' (code « OGN · 013/298 », UNITÉ, RGI…), 'onepiece' (code « OP09-004 », BANDAI, DON!!), 'pokemon' (PV, faiblesse…),
+   * ou '' si rien n'est net (on essaie alors les licences l'une après l'autre).
+   */
+  async detectGame(blob, st = () => {}) {
+    st('Quelle licence ?');
+    // carte entière + les deux petits codes du bas, très agrandis : One Piece en bas à droite (« OP10-001 »), Riftbound en bas à gauche
+    const texts = await App.recognizer.readZones(blob, ['full', [0.93, 0.985, 7, 'sharp', 0.6, 0.97], [0.935, 0.99, 7, 'sharp', 0.02, 0.5]]).catch(() => ['']);
+    const T = texts.join('\n'), rb = App.games.get('riftbound');
+    const score = {
+      riftbound: (rb && rb.codesIn && rb.codesIn(T).length ? 2 : 0) + [/\bRG[Il1]\b/, /\bUNIT[ÉE](?![A-Za-zÀ-ÿ])/, /\bL[ÉE]GENDE\b/, /\bRUNE\b/, /CHAMP\s+DE\s+BATAILLE|BATTLEFIELD/i, /comp[ée]tence|canalis/i, /\bSORT\b|\bSPELL\b/, /\bUNIT\b/].filter((r) => r.test(T)).length,
+      onepiece: (/(OP|[0©(C]P|ST|EB|PRB)\s?[0-9OIS]{2}\s?[-–—_.]\s?[0-9OIS]{3}/i.test(T) ? 2 : 0) + [/\b(OP|ST|EB|PRB)\s?\d{2}\s?-\s?\d{3}\b/i, /bandai/i, /DON\s*!!/i, /\bCOUNTER\b|\bCONTRE\b/i, /\bLEADER\b/i, /d[ée]clenchement|trigger/i, /\b(personnage|character)\b/i].filter((r) => r.test(T)).length,
+      pokemon: [/\b(PV|HP)\s*\d{2,3}\b|\b\d{2,3}\s*(PV|HP)\b/, /pok[eé]mon/i, /nintendo|game\s*freak|creatures/i, /faiblesse|weakness/i, /r[ée]sistance|resistance/i, /retraite|retreat/i, /\bdresseur\b|\btrainer\b/i, /[ée]nergie|energy/i].filter((r) => r.test(T)).length,
+    };
+    const [best, second] = Object.entries(score).sort((a, b) => b[1] - a[1]);
+    return best[1] >= 2 && best[1] >= second[1] + 2 ? best[0] : '';
+  },
+
+  /**
+   * Licence d'une carte d'après son illustration (mode « Toutes », cases de classeur où le texte est trop petit) :
+   * la base d'images de chaque licence, la licence `first` d'abord ; '' si aucune ne retrouve la carte avec certitude.
+   */
+  async visualGame(blob, first = '') {
+    const V = App.visual;
+    if (!V || !V.supported() || App.settings.visualCheck === false) return '';
+    const ids = App.views.scan.games().map((g) => g.id).sort((a, b) => (b === first) - (a === first));
+    for (const id of ids) {
+      const A = App.games.get(id);
+      const o = await (id === 'pokemon' ? V.check(blob, []) : A.visualCheck ? A.visualCheck(blob) : null).catch(() => null);
+      const t = o && o.cands && o.cands[0];
+      if (t && t.confident && (t.orb || 0) >= V.SURE) return id;
+    }
+    return '';
+  },
+
   async render(el, params, alive) {
+    // pas de licence choisie (onglet Capturer) : d'abord le choix de la licence (v3.11) ; carte visée (?carte=…) : directement
+    if (!params.query.jeu && !params.query.carte) return App.views.scan.picker(el, params, alive);
     const mode = ['classeur', 'rafale'].includes(params.query.mode) ? params.query.mode : 'carte';
+    const jq = params.query.jeu ? `jeu=${encodeURIComponent(params.query.jeu)}` : '';
+    const link = (m) => `#/scan?${[m ? 'mode=' + m : '', jq].filter(Boolean).join('&')}`;
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
       <h1 class="m-hide" style="margin:0 0 4px">Capturer</h1>
       <div class="mode-pick" role="tablist">
-        <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="#/scan" role="tab" aria-selected="${mode === 'carte'}">
+        <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="${link('')}" role="tab" aria-selected="${mode === 'carte'}">
           <span class="mc-ico">${App.icons.icon('capture', 22)}</span>
           <span class="mc-txt"><b>Une carte</b><span>Carte par carte, la plus fiable</span></span>
           ${mode === 'carte' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
         </a>
-        <a class="mode-card ${mode === 'classeur' ? 'on' : ''}" href="#/scan?mode=classeur" role="tab" aria-selected="${mode === 'classeur'}">
+        <a class="mode-card ${mode === 'classeur' ? 'on' : ''}" href="${link('classeur')}" role="tab" aria-selected="${mode === 'classeur'}">
           <span class="mc-ico">${App.icons.icon('dex', 22)}</span>
           <span class="mc-txt"><b class="m-hide">Page de classeur</b><b class="d-hide">Classeur</b><span>Jusqu’à 18 cartes d’un coup</span></span>
           ${mode === 'classeur' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
         </a>
-        <a class="mode-card ${mode === 'rafale' ? 'on' : ''}" href="#/scan?mode=rafale" role="tab" aria-selected="${mode === 'rafale'}">
+        <a class="mode-card ${mode === 'rafale' ? 'on' : ''}" href="${link('rafale')}" role="tab" aria-selected="${mode === 'rafale'}">
           <span class="mc-ico">${App.icons.icon('rafale', 22)}</span>
           <span class="mc-txt"><b>Rafale</b><span>Les cartes défilent, sans cliquer</span></span>
         </a>

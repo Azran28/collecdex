@@ -102,6 +102,14 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Importer** : un fichier Collectr, Cardmarket… avec des cartes Riftbound est reconnu (jeu « Riftbound », code OGN-013, ou série Origins, Spiritforged…). « (Signature) », « Alternate Art » = la bonne version.
 - **Combat** : voir « Combat » (unités Riftbound, la Faille de l'invocateur). **Badges** : 4 badges Riftbound secrets.
 
+## Capturer : choisir la licence, ou « Toutes les licences » (v3.11)
+- En touchant **Capturer**, une page te demande d'abord **quelle licence** tu vas capturer : **Toutes les licences**, Pokémon, One Piece ou Riftbound (même présentation que le choix du Combat ; ta dernière licence est marquée « Dernière utilisée »). Ensuite, tu choisis Une carte / Classeur / Rafale comme avant, et tu peux changer de licence avec les puces en haut (sur téléphone, la rangée défile de côté).
+- **Toutes les licences** : scanne n'importe quelle carte, CollecDex trouve sa licence tout seul (« Licence reconnue : Riftbound » sous les puces).
+  - **Une carte** : la licence est devinée sur le texte de la carte (codes « OP10-001 » / « OGN · 013/298 », PV, faiblesse…) ; si ce n'est pas net, chaque licence est essayée. Testé sur 8 cartes (Pokémon, One Piece dont une DON!!, Riftbound) : 8 bonnes licences, 7 à 30 s par carte (5 à 15 s quand la licence est choisie).
+  - **Classeur** : la licence de la **page** est trouvée sur ses premières cases (texte, puis image), puis gardée pour toute la page ; chaque nouvelle page peut être d'une autre licence. Page 4 Riftbound : même résultat qu'en mode Riftbound (8/9).
+  - **Rafale** : la licence est trouvée sur la 1re carte reconnue, puis gardée pour la rafale.
+- Choisir la licence reste **un peu plus rapide et plus sûr**. En « Toutes », la série de la carte ne se choisit pas (elle est devinée).
+
 ## Importer ma collection (Collectr, Cardmarket, Pokellector, Dragon Shield, Excel)
 - **Mon Dex › Importer** (ou Paramètres › Sauvegarde › « Importer un fichier »).
 - Choisis d'où vient ton fichier pour voir comment l'obtenir :

@@ -26,6 +26,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       const back = await R.looksLikeBack(cell.blob, S.game).catch(() => false);
       if (back && isPk()) { cell.state = 'dos'; return; }
       const { info, cands } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
+      cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
       if (back && !(cands[0] && (cands[0].confident || cands[0].numOk || (cands[0].orb || 0) >= 25))) { cell.state = 'dos'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.info = info; cell.cands = cands;
       if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); } // meilleur cadrage (One Piece) : photo de la case
@@ -48,6 +49,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
         if (!force && await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
         else {
           const { info, cands } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
+          cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
           cell.info = info; cell.cands = cands;
           if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); }
       if (info && info.cropLater) { const shown = cell.blob; info.cropLater.then((c) => { if (!c || cell.saved || cell.blob !== shown || !alive()) return; cell.blob = c; cell.url = URL.createObjectURL(c); urls.push(cell.url); drawResults(); }); } // (vrais bords, trouvés après coup)
@@ -59,7 +61,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
     }
 
     const stateLabel = {
-      attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'], dos: ['Dos de carte (ignoré)', 'muted'], autre: [`Autre jeu que ${ad.name} (ignorée)`, 'muted'], don: ['Carte DON!! (pas encore gérée)', 'muted'],
+      attente: ['En attente', ''], lecture: ['Lecture…', ''], vide: ['Pochette vide', 'muted'], dos: ['Dos de carte (ignoré)', 'muted'], autre: [S.auto ? 'Licence pas reconnue (ignorée)' : `Autre jeu que ${ad.name} (ignorée)`, 'muted'], don: ['Carte DON!! (pas encore gérée)', 'muted'],
       sure: ['Reconnue ✓', 'ok'], verifier: ['À vérifier', 'warn'], inconnue: ['Non reconnue', 'bad'], erreur: ['Erreur', 'bad'],
       enregistree: ['Enregistrée ✓', 'ok'],
     };

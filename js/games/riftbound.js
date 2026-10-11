@@ -287,7 +287,7 @@
   function codeRe() {
     const known = SET_CODES(), alts = known.map((s) => `(?<${s}>${SET_ALT[s] || s})`).join('|');
     // série, séparateur (« · » lu « - », « . », « + », « » ou rien), puis numéro (3 chiffres + lettre éventuelle, R01, T01, SP3), puis « /298 » éventuel
-    return new RegExp(String.raw`(?<![A-Z])(?:${alts})\s*[-–—·•.,:+*'"]?\s*((?:${D_}{3}(?:A(?![A-Z])|\*)?)|R${D_}{2}A?|T${D_}{2}|SP${D_})(?:\s*[/|lI1]\s*(${D_}{3}))?`, 'g');
+    return new RegExp(String.raw`(?<![A-Z])(?:${alts})\s*[^A-Z0-9\s]?\s*((?:${D_}{3}(?:A(?![A-Z])|\*)?)|R${D_}{2}A?|T${D_}{2}|SP${D_})(?:\s*[/|lI1]\s*(${D_}{3}))?`, 'g');
   }
   /** Codes lus (« OGN-013 », avec un poids) */
   function codesIn(text) {
@@ -457,6 +457,7 @@
     id: 'riftbound',
     name: 'Riftbound',
     listSets, getSet, getCard, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize, manual, codesIn, names,
+    visualCheck: (blob) => (useVisual() ? visualPass(blob, [], []) : Promise.resolve(null)), // (« Toutes » : licence devinée à l'image)
     langFor: () => (App.settings && App.settings.lang === 'en' ? 'en' : 'fr'),
     cardmarketUrl: (card) => cm(card.baseName || String(card.name || '').replace(/,.*$/, '')),
     boosterUrl: (set) => cm(set.name + ' booster'),

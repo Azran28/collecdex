@@ -216,3 +216,12 @@ test('Riftbound : dos de carte reconnu (fond uni, filets dorés symétriques), p
   ok(s(mk(true)) >= 0.6, `dos : ${s(mk(true)).toFixed(2)}`);
   ok(s(mk(false)) < 0.55, `face : ${s(mk(false)).toFixed(2)}`);
 });
+test('Capturer « Toutes » : licence devinée sur le texte d’une carte', async (App) => {
+  await App.need('reco', 'scan');
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('UNITÉ PORO Poro ronchon OGN · 013/298 · FR ©2025RGI'), 'riftbound');
+  eq(await guess('Smoker OP10-001 LEADER BANDAI'), 'onepiece');
+  eq(await guess('Pikachu PV 60 Faiblesse Résistance Retraite Nintendo'), 'pokemon');
+  eq(await guess('illisible'), '');
+});

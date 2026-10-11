@@ -5,16 +5,48 @@ Object.assign(App.views.scan, {
     const { esc } = App.util;
     const R = App.recognizer, RATIO = R.RATIO;
     // licence (v2.88 : classeur et rafale aussi pour One Piece) : la même que dans « Une carte » (puces en haut, ?jeu=…)
-    const GAMES = App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id));
-    S.game = params.query.jeu && App.games.get(params.query.jeu) ? params.query.jeu : 'pokemon';
-    if (!params.query.jeu) { try { const g = sessionStorage.getItem('scanGame'); if (g && App.games.get(g)) S.game = g; } catch (e) { /* */ } }
-    try { sessionStorage.setItem('scanGame', S.game); } catch (e) { /* */ }
-    const ad = App.games.get(S.game);
+    // v3.11 : « Toutes » (S.auto) = la licence est reconnue sur la 1re carte lue avec certitude, puis gardée pour la page / la rafale
+    ({ auto: S.auto, game: S.game } = App.views.scan.startGame(params));
+    // licence en cours : `ad` suit S.game (elle peut changer en « Toutes » ; les morceaux du classeur gardent cet objet)
+    const ad = new Proxy({}, { get: (t, k) => App.games.get(S.game)[k] });
     const isPk = () => S.game === 'pokemon';
     const modeQ = burst ? 'rafale' : 'classeur';
-    const gamePick = GAMES.length > 1 ? `<div class="chips sc-game" role="tablist" aria-label="Licence des cartes">${GAMES.map((g) => `<a class="chip ${g.id === S.game ? 'on' : ''}" href="#/scan?mode=${modeQ}&jeu=${g.id}" role="tab" aria-selected="${g.id === S.game}">${App.icons.icon(g.icon, 14)} ${esc(g.name)}</a>`).join('')}</div>` : '';
-    /** Lit une carte selon la licence : Pokémon (texte + série) ou One Piece (code imprimé + illustration) */
+    const gamePick = App.views.scan.gameChips(S.game, S.auto, modeQ);
+    /** « Toutes » : licence reconnue → gardée pour la suite (puces, séries de la page) */
+    function setGame(g) {
+      S.gameSet = true;
+      if (g !== S.game) {
+        S.game = g;
+        ad.listSets().then((sets) => { S.allSets = sets; const sel = el.querySelector('#b-set'); if (sel) { sel.innerHTML = '<option value="">Série : je ne sais pas</option>'; App.views.scan.fillSetSelect(sel, sets, ''); } }).catch(() => {});
+      }
+      App.views.scan.showAutoGame(el, g);
+      // cartes déjà lues avec une autre licence (pas reconnues) : relues dans celle-ci (rafale : tout de suite ; classeur : après la page)
+      const stale = (S.cells || []).filter((c) => c.game && c.game !== g && !c.saved && c.state !== 'vide');
+      if (burst) stale.forEach((c) => X.recogOne(c, '', () => {}).then(() => { if (alive()) X.drawResults(); }, () => {}));
+      else S.reread = stale;
+    }
+    /** Lit une carte, en « Toutes » tant que la licence n'est pas connue : licence devinée sur le texte, sinon chaque licence essayée */
     const readCard = async (blob, hint, st, orig = null, ctx = null) => {
+      if (!S.auto || S.gameSet) return readOne(blob, hint, st, orig, ctx);
+      // carte trouvée dans cette licence : sûre, code imprimé lu et existant, ou illustration nettement retrouvée
+      const found = (r) => { const t = r && r.cands && r.cands[0]; return !!(t && (t.confident || t.numOk || (t.orb || 0) >= 25)); };
+      const g = await App.views.scan.detectGame(blob, st);
+      if (g) { S.game = g; const r = await readOne(blob, '', st, orig, ctx); if (found(r)) setGame(g); return r; }
+      // chaque licence essayée : une seule fois par page / rafale (ensuite, la licence en cours)
+      if (S.triedAll) return readOne(blob, '', st, orig, ctx);
+      S.triedAll = true;
+      let first = null;
+      for (const x of [S.game, ...App.views.scan.games().map((y) => y.id).filter((y) => y !== S.game)]) {
+        S.game = x;
+        const r = await readOne(blob, '', st, orig, ctx).catch(() => null);
+        if (found(r)) { setGame(x); return r; }
+        if (!first && r) first = { x, r };
+      }
+      if (first) S.game = first.x;
+      return first ? first.r : { info: {}, cands: [] };
+    };
+    /** Lit une carte selon la licence : Pokémon (texte + série) ou One Piece / Riftbound (code imprimé + illustration) */
+    const readOne = async (blob, hint, st, orig = null, ctx = null) => {
       // (original : la case elle-même, relue au ras de ses bords et en bandes glissantes si le code n'est pas où on l'attend — marge de la pochette)
       // (ctx : la case et ses alentours, pour la vérification par l'image en classeur)
       if (!isPk()) return ad.recognize(blob, st, { setId: hint, original: orig || blob, context: ctx });
@@ -54,7 +86,7 @@ Object.assign(App.views.scan, {
     // le code reste (livePage), il suffit de repasser PAGE_CERT à vrai
     const PAGE_CERT = false;
     const RAFALE_CERT = false; // v2.58 : certification en rafale retirée pour le moment aussi (demande d'Arnaud)
-    const setBox = (title) => `<div class="set-first">
+    const setBox = (title) => `<div class="set-first" ${S.auto ? 'hidden' : ''}>
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
             <select id="b-set"><option value="">Série : je ne sais pas</option></select>
           </div>`;
@@ -395,6 +427,7 @@ Object.assign(App.views.scan, {
       const [cols, rows] = dims(), n = cols * rows;
       const hint = el.querySelector('#b-set').value;
       S.detected = null;
+      if (S.auto && !burst) { S.gameSet = false; S.triedAll = false; S.reread = null; } // (« Toutes » : chaque page a sa licence)
       S.cells = [];
       for (let i = 0; i < n; i++) {
         const { blob, auto, box, alt } = await cellBlob(i);
@@ -404,6 +437,22 @@ Object.assign(App.views.scan, {
         S.cells.push({ i, blob, url, auto, box, alt, ctx, state: 'attente', cands: [], choice: '', info: null, mode: null });
       }
       X.drawResults();
+      // « Toutes » (v3.11) : licence de la page votée sur ses premières cartes (texte lu, ~3 s par carte) avant la lecture —
+      // sinon une carte difficile était lue dans chaque licence, puis encore une fois recadrée (plus d'une minute par carte)
+      if (S.auto && !S.gameSet) {
+        const votes = {}; let seen = 0;
+        for (const cell of S.cells) {
+          if (seen >= 4 || S.stopped || !alive()) break;
+          if (await R.looksEmpty(cell.blob).catch(() => false)) continue;
+          seen++;
+          setStatus(`<div class="spinner"></div><div style="text-align:center">Quelle licence ? (carte ${cell.i + 1})</div>`);
+          // texte d'abord (rapide), sinon l'image (le texte d'une case est souvent trop petit)
+          const g = await App.views.scan.detectGame(cell.blob).catch(() => '') || await App.views.scan.visualGame(cell.ctx || cell.blob, Object.keys(votes)[0] || S.game).catch(() => '');
+          if (g && (votes[g] = (votes[g] || 0) + 1) >= 2) break;
+        }
+        const best = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+        if (best[0] && (best[0][1] >= 2 || best.length === 1)) setGame(best[0][0]);
+      }
       let rotChecked = !S.autoRot; // cartes couchées : on vérifie le sens (haut de la carte à droite ou à gauche) sur la 1re carte lue
       for (const cell of S.cells) {
         if (S.stopped || !alive()) return;
@@ -446,6 +495,14 @@ Object.assign(App.views.scan, {
         if (['sure', 'verifier'].includes(cell.state)) cell.found = Date.now(); // petit éclat sur la carte trouvée
         X.drawResults();
       }
+      // « Toutes » : les cartes lues avant que la licence soit reconnue sont relues dans la bonne licence
+      for (const cell of S.reread || []) {
+        if (S.stopped || !alive()) return;
+        cell.state = 'lecture'; X.drawResults();
+        try { await X.recogOne(cell, hint, () => {}); } catch (e) { console.error(e); cell.state = 'erreur'; }
+        X.drawResults();
+      }
+      S.reread = null;
       // Deuxième passe : la page semble rangée par série → on recompare les cartes incertaines à cette série
       S.prog = { step: 'Série de la page…', done: n, total: n };
       if (!hint && alive() && !S.stopped) await X.guessSeries(); // (toutes les licences, v2.94 : One Piece aussi)

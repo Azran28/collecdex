@@ -2856,3 +2856,19 @@ a.bt-choice:active { transform: scale(.985); }
 .bt-ov.g-riftbound .bt-sc { background: rgba(0,0,0,.22); }
 .bt-ov.g-riftbound .bt-sc em { color: #9ff6ff; }
 .bt-ov.g-riftbound .bt-sc.ok { border-color: #5fe3ef; box-shadow: 0 0 16px rgba(95,227,239,.35); }
+
+/* ===== v3.11 : Capturer — choix de la licence d'abord (mêmes tuiles que le Combat) + « Toutes les licences » ===== */
+.sp-lics { margin-top: 6px; }
+.bt-lic-tile.g-auto { background-image: radial-gradient(ellipse at 85% 20%, rgba(52,213,255,.35), transparent 55%), radial-gradient(ellipse at 60% 90%, rgba(255,79,163,.3), transparent 55%), linear-gradient(120deg, #1d1a3a, #2a1f55 55%, #123a5e); border-color: rgba(124,92,255,.55); }
+.g-auto .bt-lic-ic { background: linear-gradient(135deg, #ffd23f, #ff4fa3 40%, #7c5cff 70%, #34d5ff); color: #fff; box-shadow: 0 6px 18px rgba(124,92,255,.5); }
+.g-auto .bt-lic-t b { background: linear-gradient(90deg, #ffd23f, #ff4fa3, #7c5cff, #34d5ff); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
+.sp-last { font-style: normal; font-weight: 700; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.18); color: #fff; white-space: nowrap; }
+.sc-autogame { margin: -6px 0 12px; }
+.sc-autogame .ic { vertical-align: -2px; }
+.sp-tile { min-height: 0; }
+/* téléphone : 4 licences ne tiennent plus sur une ligne → la rangée défile de côté (sans barre) au lieu de déborder */
+@media (max-width: 760px) {
+  .sc-game { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -16px; margin-right: -16px; padding: 0 16px; }
+  .sc-game::-webkit-scrollbar { display: none; }
+  .sc-game .chip { flex: 0 0 auto; padding: 7px 12px; }
+}

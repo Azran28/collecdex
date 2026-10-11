@@ -6,9 +6,8 @@ Object.assign(App.views.scan, {
     const R = App.recognizer, RATIO = R.RATIO;
     // licence de la carte (v2.85) : choisie en haut (gardée pour les scans suivants), ou celle de la carte visée (?jeu=…)
     const GAMES = App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id));
-    let game = params.query.jeu && App.games.get(params.query.jeu) ? params.query.jeu : 'pokemon';
-    if (!params.query.jeu) { try { const g = sessionStorage.getItem('scanGame'); if (g && App.games.get(g)) game = g; } catch (e) { /* */ } }
-    try { sessionStorage.setItem('scanGame', game); } catch (e) { /* */ }
+    // (v3.11 : « Toutes » = auto : la licence de chaque carte est reconnue, game = la dernière reconnue)
+    let { auto, game } = params.query.carte && !params.query.jeu ? { auto: false, game: 'pokemon' } : App.views.scan.startGame(params);
     let ad = App.games.get(game);
     const isPk = () => game === 'pokemon';
     // exemples de la recherche à la main (nom, numéro) selon la licence
@@ -22,9 +21,9 @@ Object.assign(App.views.scan, {
     let cert = null; // résultat de la vérification en direct de la dernière photo (null = photo importée)
 
     el.innerHTML = `
-      ${GAMES.length > 1 ? `<div class="chips sc-game" role="tablist" aria-label="Licence de la carte">${GAMES.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/scan?jeu=${g.id}" data-game="${g.id}" role="tab" aria-selected="${g.id === game}">${App.icons.icon(g.icon, 14)} ${esc(g.name)}</a>`).join('')}</div>` : ''}
+      ${App.views.scan.gameChips(game, auto)}
       <div id="sc-target"></div>
-      <div class="set-first" style="max-width:640px">
+      <div class="set-first" style="max-width:640px" ${auto ? 'hidden' : ''}>
         <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
         <select id="sc-set"><option value="">Série : je ne sais pas (chercher partout)</option></select>
       </div>
@@ -63,10 +62,14 @@ Object.assign(App.views.scan, {
       </div>`;
 
     /** Change de licence sans quitter la page (carte d'une autre licence reconnue sur la photo) */
-    function switchGame(g) {
+    // (en « Toutes », la puce « Toutes » reste choisie : on affiche seulement la licence reconnue)
+    function switchGame(g, found = true) {
       game = g; ad = App.games.get(g);
-      try { sessionStorage.setItem('scanGame', g); } catch (e) { /* */ }
-      el.querySelectorAll('.sc-game [data-game]').forEach((a) => { a.classList.toggle('on', a.dataset.game === g); a.setAttribute('aria-selected', a.dataset.game === g); });
+      if (auto) { if (found) App.views.scan.showAutoGame(el, g); }
+      else {
+        App.views.scan.remember(g);
+        el.querySelectorAll('.sc-game [data-game]').forEach((a) => { a.classList.toggle('on', a.dataset.game === g); a.setAttribute('aria-selected', a.dataset.game === g); });
+      }
       fillSets();
       el.querySelector('#sc-name').placeholder = hint()[0];
       el.querySelector('#sc-num').placeholder = hint()[1];
@@ -415,7 +418,15 @@ Object.assign(App.views.scan, {
       if (vr.top < 60 || vr.bottom > window.innerHeight) window.scrollTo({ top: Math.max(0, window.scrollY + vr.top - 70), behavior: 'smooth' });
       const st = (m) => { const s = view.querySelector('.sc-scanlbl span'); if (s && alive()) s.textContent = m; };
       try {
-        const setId = el.querySelector('#sc-set').value;
+        // « Toutes » (v3.11) : la licence est devinée sur le texte de la carte ; pas nette → Pokémon d'abord (il reconnaît déjà
+        // les cartes One Piece / Riftbound qu'il lit), puis les autres licences si la carte n'est pas sûre
+        let autoSure = false;
+        if (auto) {
+          const g = await App.views.scan.detectGame(blob, st);
+          autoSure = !!g;
+          if ((g || 'pokemon') !== game) switchGame(g || 'pokemon', !!g); // (essai : pas encore « reconnue »)
+        }
+        const setId = auto ? '' : el.querySelector('#sc-set').value;
         let info, cands, summary, switched = false;
         // photo d'origine (cadre jaune + marge) : la carte y est entière même si le détourage l'a mal coupée (bord de la pochette,
         // ligne dans le dessin) → une fois la carte reconnue à l'image, ses vrais bords y sont repris (comme le classeur, v3.02)
@@ -440,7 +451,7 @@ Object.assign(App.views.scan, {
           summary = R.readSummary(info);
           // pas une carte Pokémon : c'est peut-être une carte One Piece (code « OP09-004 » lu) ou Riftbound (« OGN · 013/298 »)
           // → on bascule tout seul (la licence dont le code se lit dans le texte d'abord)
-          if (info.otherGame) {
+          if (info.otherGame && !auto) { // (« Toutes » : les autres licences sont essayées plus bas, avec la photo d'origine)
             const raw = info.raw ? `${info.raw.bottom}\n${info.raw.full}` : '', rb = App.games.get('riftbound');
             const order = rb && rb.codesIn && rb.codesIn(raw).length ? ['riftbound', 'onepiece'] : ['onepiece', 'riftbound'];
             for (const g of order) {
@@ -469,9 +480,26 @@ Object.assign(App.views.scan, {
           }
           if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
         }
+        // « Toutes » : licence pas devinée et carte pas sûre → les autres licences, gardée si la carte y est sûre
+        if (auto && !autoSure && !switched && !(cands[0] && cands[0].confident)) {
+          const raw = info && info.raw ? `${info.raw.bottom}\n${info.raw.full}` : '', rb = App.games.get('riftbound');
+          const others = App.views.scan.games().map((x) => x.id).filter((x) => x !== game).sort((a, b) => (b === 'riftbound' && rb.codesIn(raw).length) - (a === 'riftbound' && rb.codesIn(raw).length));
+          for (const g of others) {
+            const A = App.games.get(g); if (!A.recognize || !alive()) continue;
+            const r = await A.recognize(blob, st, { original: pageBlob, context: ctx }).catch(() => null);
+            // carte sûre, code imprimé lu et existant (« OP10-119 »), ou illustration nettement retrouvée ; DON!! = c'est bien du One Piece
+            const t = r && r.cands[0];
+            if (r && ((t && (t.confident || t.numOk || (t.orb || 0) >= 25)) || r.info.don)) {
+              switchGame(g); ({ info, cands } = r); summary = info.read; switched = g;
+              if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
+              break;
+            }
+          }
+        }
+        if (auto && (autoSure || switched || (cands[0] && cands[0].confident))) App.views.scan.showAutoGame(el, game);
         if (!alive()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
-        setStatus(switched ? `<span class="small">${App.icons.icon(App.games.info(switched).icon, 14)} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b> : passage en ${esc(App.games.info(switched).name)}.</span>`
+        setStatus(switched ? `<span class="small">${App.icons.icon(App.games.info(switched).icon, 14)} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b>${auto ? '' : ` : passage en ${esc(App.games.info(switched).name)}`}.</span>`
           : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre jeu ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '');
         donCard = !!info.don;
         showCandidates(cands, summary);

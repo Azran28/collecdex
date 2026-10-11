@@ -582,6 +582,7 @@
     id: 'onepiece',
     name: 'One Piece',
     listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize, manual,
+    visualCheck: (blob) => (useVisual() ? visualPass(blob, [], []) : Promise.resolve(null)), // (« Toutes » : licence devinée à l'image)
     cardmarketUrl: (card) => cm(String(card.id || '').replace(SUFFIX, '') || card.name),
     boosterUrl: (set) => cm(set.name.replace(/^.*·\s*/, '') + ' booster'),
     isOfficial: (localId, set) => isOfficialIn(String(localId).replace(/ ([PR])(\d+)$/, (m, k, n) => `_${k.toLowerCase()}${n}`), set.id),
