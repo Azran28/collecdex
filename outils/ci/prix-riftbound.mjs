@@ -45,7 +45,8 @@ export async function build(getJSON) {
 
 async function getJSON(url) {
   for (let i = 0; ; i++) {
-    try { const r = await fetch(url); if (r.ok) return await r.json(); throw new Error(`HTTP ${r.status} ${url}`); }
+    // (tcgcsv.com refuse « node » comme nom de programme : 401 ; on se présente)
+    try { const r = await fetch(url, { headers: { 'User-Agent': 'CollecDex (github.com/Azran28/collecdex)' } }); if (r.ok) return await r.json(); throw new Error(`HTTP ${r.status} ${url}`); }
     catch (e) { if (i >= 2) throw e; await new Promise((res) => setTimeout(res, 2000 * (i + 1))); }
   }
 }
