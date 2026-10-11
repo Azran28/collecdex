@@ -470,6 +470,6 @@ App.importer = (() => {
     return stats;
   }
 
-  const SOURCES = { collectr: 'Collectr', cardmarket: 'Cardmarket', pokellector: 'Pokellector', dragonshield: 'Dragon Shield', tableau: 'un tableau' };
+  const SOURCES = App.ui.IMPORT_SOURCES;
   return { readFile, parseCSV, detect, sourceOf, rowsOf, matchAll, match, apply, variantFor, FIELDS, LABELS, ORDER, SOURCES, _t: { numOf, cleanName, condOf, langOf, versionOf, findSets, norm } };
 })();

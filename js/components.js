@@ -231,5 +231,19 @@ App.ui = (() => {
     return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(short || n)}" data-alt-class="logo-gen${short ? ' logo-code' : ''}" style="--h:${h}"${short ? ' data-prod' : ''}>`;
   }
 
-  return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars };
+  /** Remplit un menu déroulant avec toutes les séries, regroupées par bloc (plus récentes d'abord) — Capturer, Objectifs */
+  function fillSetSelect(sel, sets, selected = '') {
+    const { esc } = App.util;
+    const groups = new Map();
+    for (const st of [...sets].sort((a, b) => (b.sortKey || b.releaseDate || '').localeCompare(a.sortKey || a.releaseDate || ''))) {
+      if (!groups.has(st.group.id)) groups.set(st.group.id, { name: st.group.name, sets: [] });
+      groups.get(st.group.id).sets.push(st);
+    }
+    sel.insertAdjacentHTML('beforeend', [...groups.values()].map((g) => `<optgroup label="${esc(g.name)}">${g.sets.map((st) => `<option value="${esc(st.id)}" ${st.id === selected ? 'selected' : ''}>${esc(st.name)}${st.releaseDate ? ' (' + st.releaseDate.slice(0, 4) + ')' : ''}</option>`).join('')}</optgroup>`).join(''));
+  }
+
+  /** Nom des applis d'où viennent les fichiers importés (fiche carte, page Importer) */
+  const IMPORT_SOURCES = { collectr: 'Collectr', cardmarket: 'Cardmarket', pokellector: 'Pokellector', dragonshield: 'Dragon Shield', tableau: 'un tableau' };
+
+  return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars, fillSetSelect, IMPORT_SOURCES };
 })();

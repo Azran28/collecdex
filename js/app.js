@@ -22,6 +22,8 @@ App.views = App.views || {};
     [/^\/capsules\/?$/, 'capsules', () => ({})],
     [/^\/importer\/?$/, 'import', () => ({})],
   ];
+  // pages dont le code n'est chargé qu'à la première ouverture (App.need, util.js)
+  const LAZY = { scan: ['reco', 'scan'], match: ['match'], import: ['import'] };
   const navOf = { import: 'collection', home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', friends: 'compte', goals: 'collection', capsules: 'capsules' };
 
   let cleanup = null;
@@ -66,6 +68,7 @@ App.views = App.views || {};
     el.innerHTML = App.ui.loading();
     window.scrollTo(0, 0);
     try {
+      if (LAZY[view]) { await App.need(...LAZY[view]); if (id !== renderId) return; }
       const c = await App.views[view].render(el, params, () => id === renderId);
       if (id === renderId) cleanup = c || null; else if (typeof c === 'function') c();
     } catch (e) {

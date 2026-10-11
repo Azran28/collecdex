@@ -216,3 +216,26 @@ App.util = (() => {
 
   return { esc, $, $$, euro, usd, toEur, pct, dateFr, debounce, toast, ask, openModal, closeModal, resizeImage, photoBlob,blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
 })();
+
+/*
+ * Chargement à la demande (v3.07) : les gros morceaux (Capturer, reconnaissance, Combat, Import) ne sont chargés qu'à la
+ * première ouverture de leur page, pour que le site s'ouvre plus vite. Liste dans index.html, dans l'ordre :
+ * <script type="text/plain" data-lazy="groupe" data-src="js/…?v=…"> (le service worker les garde quand même pour le hors ligne).
+ * await App.need('reco', 'scan') → les fichiers de ces groupes sont chargés (une seule fois).
+ */
+App.need = (() => {
+  const loading = {};
+  const one = (src) => new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = false; // exécutés dans l'ordre où on les ajoute
+    s.onload = ok;
+    s.onerror = () => { s.remove(); ko(new Error('Impossible de charger ' + src.split('?')[0] + ' (connexion ?)')); };
+    document.head.appendChild(s);
+  });
+  const group = (g) => loading[g] || (loading[g] = (async () => {
+    const list = [...document.querySelectorAll(`script[data-lazy="${g}"]`)].map((e) => e.dataset.src);
+    if (!list.length) throw new Error('Morceau du site inconnu : ' + g);
+    await Promise.all(list.map(one));
+  })().catch((e) => { delete loading[g]; throw e; })); // réessayé à la prochaine ouverture
+  return (...groups) => Promise.all(groups.map(group));
+})();

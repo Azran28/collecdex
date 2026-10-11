@@ -8,16 +8,8 @@
  * Fichiers (v3.06) : scan.js (commun : page, caméra), scan-single.js (une carte), scan-batch.js (classeur et rafale).
  */
 App.views.scan = {
-  /** Remplit un menu déroulant avec toutes les séries, regroupées par bloc (plus récentes d'abord) */
-  fillSetSelect(sel, sets, selected = '') {
-    const { esc } = App.util;
-    const groups = new Map();
-    for (const st of [...sets].sort((a, b) => (b.sortKey || b.releaseDate || '').localeCompare(a.sortKey || a.releaseDate || ''))) {
-      if (!groups.has(st.group.id)) groups.set(st.group.id, { name: st.group.name, sets: [] });
-      groups.get(st.group.id).sets.push(st);
-    }
-    sel.insertAdjacentHTML('beforeend', [...groups.values()].map((g) => `<optgroup label="${esc(g.name)}">${g.sets.map((st) => `<option value="${esc(st.id)}" ${st.id === selected ? 'selected' : ''}>${esc(st.name)}${st.releaseDate ? ' (' + st.releaseDate.slice(0, 4) + ')' : ''}</option>`).join('')}</optgroup>`).join(''));
-  },
+  /** Menu déroulant des séries : voir App.ui.fillSetSelect (components.js, utilisé aussi par Objectifs) */
+  fillSetSelect(...a) { return App.ui.fillSetSelect(...a); },
   /** Dessin affiché avant la photo ; en classeur, les pochettes au format choisi ([colonnes, rangées]) */
   empty(mode, dims = [3, 3]) {
     const [c, r] = dims, cw = Math.min(38, Math.floor(210 / c)), ch = Math.round((cw * 88) / 63);

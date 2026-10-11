@@ -4,8 +4,12 @@
  */
 
 // ---------- Le site se charge ----------
-test('le site se charge et tous les modules sont présents', (App, W) => {
+test('le site se charge et tous les modules sont présents', async (App, W) => {
   ok(App, 'App introuvable (erreur de syntaxe dans un fichier ?)');
+  // pas encore chargés au démarrage : seulement à l'ouverture de leur page (v3.07)
+  const early = ['recognizer', 'visual', 'battle', 'duel', 'importer'].filter((m) => App[m]).concat(['scan', 'match', 'import'].filter((v) => App.views[v]));
+  eq(early, [], 'chargés dès l’accueil alors qu’ils devraient attendre leur page');
+  await App.need('reco', 'scan', 'match', 'import');
   const mods = ['util', 'db', 'games', 'col', 'cloud', 'sfx', 'pokedex', 'capsules', 'battle', 'battleCards', 'duel', 'friends', 'certify', 'badges', 'wish', 'importer', 'notify', 'ui', 'recognizer', 'visual'];
   eq(mods.filter((m) => !App[m]), [], 'modules manquants');
   const views = ['home', 'sets', 'set', 'collection', 'showcase', 'match', 'friends', 'account', 'scan', 'settings', 'goals', 'capsules', 'import'];

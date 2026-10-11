@@ -234,6 +234,7 @@ App.views.showcase = {
       // beaucoup de cartes chères non certifiées, presque rien de certifié : on regarde les photos des plus chères
       if (pricey.length >= 3 && certV < totalV * 0.1) {
         let web = 0, checked = 0;
+        await App.need('reco'); // comparaison d'images (chargée à la demande)
         for (const it of pricey.slice(0, 6)) {
           try {
             const img = await S.img(it, App.games.get(it.game), 'low');

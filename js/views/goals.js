@@ -73,7 +73,7 @@ App.views.goals = {
         <div id="g-list">${gs.length ? App.ui.loading('Chargement de tes séries…') : `<div class="empty panel">Pas encore d’objectif. Choisis une série à compléter ci-dessus${started.length ? ', ou depuis la page d’une série (« En faire un objectif »)' : ''}.</div>`}</div>`;
       const sel = body.querySelector('#g-set');
       if (started.length) sel.insertAdjacentHTML('beforeend', `<optgroup label="Séries entamées">${started.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</optgroup>`);
-      App.views.scan.fillSetSelect(sel, sets.filter((s) => !App.col.inSet(game, s.id).length));
+      App.ui.fillSetSelect(sel, sets.filter((s) => !App.col.inSet(game, s.id).length));
       if (!gs.length) return;
       const full = await Promise.all(gs.map((g) => ad.getSet(g.setId).catch(() => null)));
       if (!alive()) return;
