@@ -90,5 +90,20 @@
     }
   });
 
+  // v3.16 : certification en tuiles au-dessus du cadre (comme connecté), gestes dans le cadre, page remplie sans défilement
+  test('Capturer (carte seule, téléphone) : tuiles de certification, page sans défilement', async (App, W) => {
+    const avail = App.certify.available, was = App.settings.certCarte;
+    App.certify.available = () => true; App.settings.certCarte = true;
+    try {
+      const app = await visit(W, '#/scan?jeu=pokemon');
+      ok(app.querySelectorAll('.cert-pick .cp-opt').length === 2, 'les 2 tuiles « Certifier / Juste la photo » manquent');
+      ok(app.querySelector('.scan-view .se-steps'), 'les gestes de la certification ne sont pas dans le cadre');
+      await until(() => W.document.documentElement.classList.contains('scan-still'), 3000, 'page bloquée avant la photo');
+      ok(W.document.documentElement.scrollHeight <= W.innerHeight + 1, 'la page dépasse de l’écran');
+      const bottom = app.getBoundingClientRect().bottom;
+      ok(W.innerHeight - bottom < 4, `la page n’est pas remplie (${Math.round(W.innerHeight - bottom)} px vides en bas)`);
+    } finally { App.certify.available = avail; App.settings.certCarte = was; }
+  });
+
   test('retour en taille ordinateur', async () => { size(1200, 800); await sleep(200); });
 })();

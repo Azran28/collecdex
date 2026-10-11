@@ -2894,24 +2894,6 @@ a.bt-choice:active { transform: scale(.985); }
   .mode-card .mc-short { display: block; font-size: .66rem; line-height: 1.1; opacity: .75; }
   .mode-card .mc-ico { align-self: flex-start; margin-top: 1px; }
 }
-/* certification : une question, deux réponses côte à côte */
-.cc-block { padding: 12px; }
-.cc-q { font-family: var(--display); font-weight: 600; font-size: 1rem; margin: 0 0 8px; }
-.cc-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.cc-opt { position: relative; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 12px; cursor: pointer; border: 1.5px solid var(--line); background: rgba(0,0,0,.18); color: var(--muted); }
-.cc-opt input { position: absolute; opacity: 0; pointer-events: none; }
-.cc-ic { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface2); }
-.cc-ic .ic { display: block; }
-.cc-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.cc-t b { color: var(--text); font-size: .9rem; }
-.cc-t small { font-size: .7rem; }
-.cc-opt.on { color: var(--text); border-color: #3ddc97; background: rgba(61,220,151,.14); }
-.cc-opt.on .cc-ic { background: #3ddc97; color: #0c0e19; }
-.cc-block.pc-off .cc-opt.on { border-color: #95a1bd; background: rgba(255,255,255,.07); }
-.cc-block.pc-off .cc-opt.on .cc-ic { background: #c8ccea; }
-.cc-opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-.cc-block .pc-steps { margin: 10px 0 0; }
-.cc-block.pc-off .pc-steps { display: none; }
 /* visuel de série recadré (sachet Riftbound) : même place qu'un visuel de produit One Piece */
 .logo-pack { display: block; height: 98px; max-width: 100%; border-radius: 6px; background: #12162a no-repeat; box-shadow: 0 4px 10px rgba(0,0,0,.45); }
 .set-card .logo-wrap:has(.logo-pack) { height: 104px; }
@@ -2944,3 +2926,31 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
   .fp-t small { display: none; }
   .fp-t b { font-size: .84rem; }
 }
+
+/* ===== v3.16 : certification en tuiles (même place et même forme que le format du classeur, couleurs de la certification) ===== */
+.cert-pick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cp-ic { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface2); color: #c8ccea; }
+.cp-ic .ic { display: block; }
+.cp-opt.on { background: rgba(255,255,255,.07); border-color: #95a1bd; box-shadow: none; }
+.cp-opt.on .cp-ic { background: #c8ccea; color: #0c0e19; }
+.cp-opt.cp-yes.on { background: rgba(61,220,151,.14); border-color: #3ddc97; box-shadow: 0 6px 18px rgba(61,220,151,.18); }
+.cp-opt.cp-yes.on .cp-ic { background: #3ddc97; }
+/* les 3 gestes de la certification, dans le cadre vide */
+.se-steps { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; font-size: .8rem; color: var(--muted); }
+.se-steps li { display: flex; align-items: center; gap: 8px; }
+.se-steps i { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: .72rem; background: #3ddc97; color: #0c0e19; }
+.se-steps b { color: var(--text); }
+@media (max-width: 760px) {
+  .cp-opt { flex-direction: row; gap: 8px; padding: 8px 10px; }
+  .cp-opt .fp-t { text-align: left; }
+  .cp-opt .fp-t small { display: block; font-size: .66rem; }
+}
+/* petit écran : le cadre vide rétrécit (fitScreen) → le dessin rapetisse, puis disparaît, pour que le texte reste entier */
+.scan-view:has(> .scan-empty) { container-type: size; }
+@container (max-height: 360px) {
+  .scan-empty { gap: 6px; padding: 12px; }
+  .se-frame:not(.grid) { width: 60px; height: 84px; margin-bottom: 0; }
+  .se-frame:not(.grid) .ic { width: 28px; height: 28px; }
+  .se-frame.grid { transform: scale(.75); margin: -20px 0 -22px; }
+}
+@container (max-height: 270px) { .se-frame { display: none !important; } }

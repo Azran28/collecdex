@@ -27,6 +27,7 @@ Object.assign(App.views.scan, {
         <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
         <select id="sc-set"><option value="">Série : je ne sais pas (chercher partout)</option></select>
       </div>
+      ${App.views.scan.certPick()}
       <div class="scan-wrap">
         <div>
           <div class="scan-view" id="sc-view">${App.views.scan.empty('carte')}</div>
@@ -196,11 +197,12 @@ Object.assign(App.views.scan, {
       }
     }
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
-    // interrupteur « Certification » de l'encadré (retenu dans les réglages, synchronisé)
-    el.addEventListener('change', (e) => {
-      if (e.target.name !== 'sc-certmode') return; // (v3.13 : deux réponses « Oui, certifier » / « Non, juste la photo »)
-      App.settings.certCarte = e.target.value === '1'; App.col.saveSettings().catch(() => {});
-      const box = el.querySelector('#sc-cert-help'); if (box) box.outerHTML = App.views.scan.guide('carte'); // étapes grisées si désactivée
+    // tuiles « Certifier / Juste la photo » (v3.16, retenu dans les réglages, synchronisé) ; le cadre vide montre les gestes ou non
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('.cp-opt'); if (!b) return;
+      App.settings.certCarte = b.dataset.cert === '1'; App.col.saveSettings().catch(() => {});
+      el.querySelectorAll('.cp-opt').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+      if (view.querySelector('.scan-empty')) view.innerHTML = App.views.scan.empty('carte');
     });
     el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });
 
@@ -382,7 +384,7 @@ Object.assign(App.views.scan, {
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
         const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
-          : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (certification désactivée). Active-la dans l’encadré « Certifier la carte » pour le badge.</div>`
+          : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (tu as choisi « Juste la photo »). Choisis « Certifier » au-dessus de la photo pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
         results.innerHTML = `<div class="panel capture-done">${mode === 'rien' || !cardURL ? '' : `<div class="reveal rt-${App.ui.holoTier(ad.rarity.rank(c.rarity))}"><span class="burst"></span><img src="${cardURL}" alt=""></div>`}<div>${what}${verLine}${certLine}</div><br>
           <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>

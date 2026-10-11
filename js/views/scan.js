@@ -18,32 +18,37 @@ App.views.scan = {
       <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}" ${grid}>${mode === 'classeur' ? `${'<i></i>'.repeat(c * r)}` : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
       <b>${mode === 'classeur' ? `Photo d’une page de classeur <span class="muted">(${c * r} cartes)</span>` : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
       ${App.views.scan.curName ? `<em class="se-lic">${App.util.esc(App.views.scan.curName)}</em>` : ''}
-      <span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>
+      ${mode === 'carte' && App.views.scan.certWanted() ? App.views.scan.certSteps() : `<span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>`}
     </div>`;
   },
 
   /**
-   * Aide à côté de la photo tant qu'il n'y a pas de résultat : allégée en v2.39 (demande d'Arnaud) — seulement le geste
-   * de la certification en carte seule (connecté) ; le reste s'explique tout seul (la grille et la recherche sont automatiques).
+   * Aide sous la photo tant qu'il n'y a pas de résultat : plus rien depuis v3.16 (le choix de la certification est passé en
+   * haut, en tuiles : `certPick`, et ses étapes dans le cadre vide : `certSteps`) ; gardée car appelée à plusieurs endroits.
    */
-  guide(mode) {
-    const certOn = App.certify && App.certify.available();
-    if (mode !== 'carte' || !certOn) return '';
-    const on = App.settings.certCarte !== false; // v2.58 : certification optionnelle en carte seule (demande d'Arnaud)
-    // v3.13 (Arnaud : « choix de certifier ou non plus clair ») : une question, deux réponses côte à côte (au lieu d'un interrupteur
-    // « activée / désactivée » sous les étapes) ; les 3 étapes seulement si l'on certifie
-    const I = (n, s = 18) => App.icons.icon(n, s);
-    const opt = (v, icon, title, sub) => `<label class="cc-opt ${on === v ? 'on' : ''}"><input type="radio" name="sc-certmode" value="${v ? 1 : 0}" ${on === v ? 'checked' : ''}>
-      <span class="cc-ic">${I(icon, 18)}</span><span class="cc-t"><b>${title}</b><small>${sub}</small></span></label>`;
-    const steps = ['Touche <b>Caméra</b> et montre d’abord le <b>dos</b> de la carte (pas d’étui opaque)', '💡 La lampe clignote : <b>garde le dos immobile</b> jusqu’à la fin', '<b>Retourne</b> la carte, puis appuie sur <b>Prendre la photo</b>'];
-    return `<div class="pc-block cc-block${on ? '' : ' pc-off'}" id="sc-cert-help">
-      <div class="cc-q">Certifier cette carte ?</div>
-      <div class="cc-seg" role="radiogroup" aria-label="Certifier la carte">
-        ${opt(true, 'shield', 'Oui, certifier', 'Avec le badge « Certifiée »')}
-        ${opt(false, 'camera', 'Non, juste la photo', 'Plus rapide, sans badge')}
-      </div>
-      ${on ? `<ol class="pc-steps">${steps.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join('')}</ol>` : ''}
+  guide() { return ''; },
+
+  /** Certification demandée en carte seule (connecté et « Certifier » choisi ; v2.58 : optionnelle, demande d'Arnaud) */
+  certWanted() { return !!(App.certify && App.certify.available()) && App.settings.certCarte !== false; },
+
+  /**
+   * v3.16 (Arnaud : « la certif au même niveau que le choix des pages de classeur ») : deux tuiles au-dessus du cadre,
+   * comme les formats du classeur, aux couleurs de la certification (vert = certifier). Rien si pas connecté.
+   */
+  certPick() {
+    if (!(App.certify && App.certify.available())) return '';
+    const on = App.settings.certCarte !== false, I = App.icons.icon;
+    const opt = (v, icon, title, sub) => `<button type="button" class="fp-opt cp-opt${v ? ' cp-yes' : ''}${on === v ? ' on' : ''}" data-cert="${v ? 1 : 0}" role="radio" aria-checked="${on === v}">
+        <span class="cp-ic">${I(icon, 18)}</span><span class="fp-t"><b>${title}</b><small>${sub}</small></span></button>`;
+    return `<div class="fmt-pick cert-pick" role="radiogroup" aria-label="Certifier la carte">
+      ${opt(true, 'shield', 'Certifier', 'Badge « Certifiée »')}${opt(false, 'camera', 'Juste la photo', 'Plus rapide, sans badge')}
     </div>`;
+  },
+
+  /** Les 3 gestes de la certification, dans le cadre vide (à la place de « Appuie sur… ») */
+  certSteps() {
+    const steps = ['Touche <b>Caméra</b>, montre d’abord le <b>dos</b>', 'La lampe clignote : garde-le <b>immobile</b>', '<b>Retourne</b> la carte, prends la photo'];
+    return `<ol class="se-steps">${steps.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join('')}</ol>`;
   },
 
   /** Interrupteur vert (activé) / rouge (désactivé), le même partout (v2.57 : « plus compréhensible », demande d'Arnaud) */
@@ -278,8 +283,15 @@ App.views.scan = {
       free();
       if (!v) return;
       const over = () => root.scrollHeight - window.innerHeight;
-      const o = over();
-      if (o > 0) { const h = v.getBoundingClientRect().height - o; if (h < 180) return; v.style.height = `${Math.floor(h)}px`; v.dataset.fit = '1'; }
+      // v3.16 : le cadre prend toute la place libre (grandit ou rétrécit) pour que les boutons arrivent juste au-dessus de la barre du bas
+      // (mesuré sur le bas de la page : la barre des boutons « colle » au bas de l'écran, sa position ne compte pas)
+      const main = el.closest('main') || el;
+      const delta = v.querySelector('.scan-empty') ? window.innerHeight - (main.getBoundingClientRect().bottom + window.scrollY) : -Math.max(0, over());
+      if (Math.abs(delta) > 1) {
+        const h = Math.min(760, v.getBoundingClientRect().height + delta);
+        if (h < 180) return;
+        v.style.height = `${Math.floor(h)}px`; v.dataset.fit = '1';
+      }
       if (over() > 1) { free(); return; }
       if (window.scrollY) window.scrollTo(0, 0);
       root.classList.add('scan-still');
