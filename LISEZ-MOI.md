@@ -10,6 +10,8 @@
 
 Il faut une connexion internet : les cartes, images et prix sont téléchargés depuis TCGdex puis gardés en mémoire.
 
+Pour s'ouvrir plus vite, le site ne charge Capturer, Combat et Importer qu'à la première ouverture de ces pages (un petit temps de chargement la première fois, c'est normal).
+
 ## Où sont les fichiers
 - **`supabase\sql\`** : tous les scripts à coller dans Supabase (`supabase-v….sql`). Quand ce mode d'emploi te dit « coller `supabase-v14.sql` », c'est dans ce dossier.
 - **`outils\`** : le petit serveur et le numéro de version (tu n'as rien à y faire : `Lancer CollecDex.bat` s'en occupe).
