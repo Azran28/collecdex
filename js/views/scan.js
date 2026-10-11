@@ -17,6 +17,7 @@ App.views.scan = {
     return `<div class="scan-empty">
       <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}" ${grid}>${mode === 'classeur' ? `${'<i></i>'.repeat(c * r)}` : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
       <b>${mode === 'classeur' ? `Photo d’une page de classeur <span class="muted">(${c * r} cartes)</span>` : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
+      ${App.views.scan.curName ? `<em class="se-lic">${App.util.esc(App.views.scan.curName)}</em>` : ''}
       <span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : mode === 'classeur' ? 'Appuie sur « Prendre la page en photo »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>
     </div>`;
   },
@@ -102,13 +103,12 @@ App.views.scan = {
   },
   /** Licence choisie gardée pour la session (et la dernière, pour « Dernière utilisée » sur la page de choix) */
   remember(choice) { try { sessionStorage.setItem('scanGame', choice); localStorage.setItem('scanGameLast', choice); } catch (e) { /* */ } },
-  /** Puces des licences en haut de Capturer : « Auto » (toutes les licences) puis chaque licence ; en auto, la licence reconnue */
-  gameChips(game, auto, mode = '') {
-    const { esc } = App.util, games = App.views.scan.games(), m = mode && mode !== 'carte' ? `mode=${mode}&` : '';
-    if (games.length < 2) return '';
-    const chip = (id, icon, name, on) => `<a class="chip ${on ? 'on' : ''}" href="#/scan?${m}jeu=${id}" data-game="${id}" role="tab" aria-selected="${on}">${App.icons.icon(icon, 14)} ${esc(name)}</a>`;
-    return `<div class="chips sc-game" role="tablist" aria-label="Licence des cartes">${chip(App.views.scan.AUTO, 'sparkles', 'Toutes', auto)}${games.map((g) => chip(g.id, g.icon, g.name, !auto && g.id === game)).join('')}</div>
-      <div class="small muted sc-autogame" ${auto ? '' : 'hidden'}>${auto ? App.views.scan.autoLabel(game, false) : ''}</div>`;
+  /**
+   * Haut de Capturer : v3.12 (Arnaud : « une fois la licence choisie, seulement le nombre de cartes et la certification ») —
+   * plus de puces de licence ; en « Toutes », une ligne dit la licence reconnue.
+   */
+  gameChips(game, auto) {
+    return auto ? `<div class="small muted sc-autogame">${App.views.scan.autoLabel(game, false)}</div>` : '';
   },
   /** « Licence reconnue toute seule » / « Licence reconnue : Riftbound » */
   autoLabel(game, found) {
@@ -123,42 +123,36 @@ App.views.scan = {
   },
 
   /**
-   * Choix de la licence avant Capturer (v3.11, demande d'Arnaud) : une tuile par licence + « Toutes les licences »
-   * (la licence de chaque carte est reconnue toute seule). Même présentation que le choix de licence du Combat.
+   * Choix de la licence avant Capturer (v3.11, demande d'Arnaud) ; v3.12 : grille compacte (d'autres licences arriveront) —
+   * « Toutes les licences » en bandeau, puis une petite tuile par licence (icône sur sa couleur, nom, cartes dans le Dex),
+   * les licences à venir en grisé. Plus d'exemples de cartes.
    */
-  async picker(el, params, alive) {
+  picker(el, params) {
     const { esc } = App.util, I = App.icons.icon;
     const mode = ['classeur', 'rafale'].includes(params.query.mode) ? params.query.mode : '';
     let last = ''; try { last = sessionStorage.getItem('scanGame') || localStorage.getItem('scanGameLast') || ''; } catch (e) { /* */ }
     const href = (g) => `#/scan?jeu=${g}${mode ? '&mode=' + mode : ''}`;
-    const games = App.views.scan.games();
-    const rows = await Promise.all(games.map(async (g) => {
-      const items = App.col.all().filter((i) => i.qty > 0 && (i.game || 'pokemon') === g.id).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-      const imgs = await Promise.all(items.slice(0, 3).map((it) => App.col.displayImage(it, App.games.get(g.id)).catch(() => null)));
-      return { g, n: items.length, imgs: imgs.filter(Boolean) };
-    }));
-    if (!alive()) return;
-    const total = rows.reduce((s, r) => s + r.n, 0);
-    const lastTag = (id) => (id === last ? '<em class="sp-last">Dernière utilisée</em>' : '');
-    const tile = (r) => `<a class="bt-lic-tile sp-tile g-${r.g.id}" href="${href(r.g.id)}" data-game="${r.g.id}">
-        <span class="bt-lic-ic">${I(r.g.icon, 24)}</span>
-        <span class="bt-lic-t"><b>${esc(r.g.name)}</b><span>${esc(r.g.desc)}</span>
-          <small>${r.n ? `${r.n} carte${r.n > 1 ? 's' : ''} dans ton Dex` : 'Aucune carte dans ton Dex'} ${lastTag(r.g.id)}</small></span>
-        ${r.imgs.length ? `<span class="bt-lic-cards">${r.imgs.map((x) => `<img src="${esc(x.src)}" alt="">`).join('')}</span>` : ''}
-        <span class="bt-lic-go">›</span></a>`;
+    const count = {}; for (const i of App.col.all()) if (i.qty > 0) count[i.game || 'pokemon'] = (count[i.game || 'pokemon'] || 0) + 1;
+    const games = App.views.scan.games(), soon = App.games.list.filter((g) => g.status !== 'actif' && g.id !== 'autres');
+    const lastCls = (id) => (id === last ? ' last' : '');
+    const n = (k) => (count[k] ? `${count[k]} carte${count[k] > 1 ? 's' : ''}` : 'Aucune carte');
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
-      <h1 style="margin:0 0 4px">Capturer</h1>
-      <p class="bt-lead">Quelle licence vas-tu capturer ? Tu pourras en changer en haut de l’écran.</p>
-      <div class="bt-lics sp-lics">
-        <a class="bt-lic-tile sp-tile g-auto" href="${href(App.views.scan.AUTO)}" data-game="auto">
-          <span class="bt-lic-ic">${I('sparkles', 24)}</span>
-          <span class="bt-lic-t"><b>Toutes les licences</b><span>Scanne n’importe quelle carte : CollecDex reconnaît sa licence tout seul.</span>
-            <small>${games.map((g) => esc(g.name)).join(' · ')} ${lastTag('auto')}</small></span>
-          <span class="bt-lic-go">›</span></a>
-        ${rows.map(tile).join('')}
-      </div>
-      <p class="small muted bt-soon">${total ? `${total} carte${total > 1 ? 's' : ''} dans ton Dex. ` : ''}Choisir la licence est un peu plus rapide et plus sûr que « Toutes les licences ».</p>`;
+      <h1 style="margin:0 0 2px">Capturer</h1>
+      <p class="muted" style="margin:0 0 12px">Quelle licence vas-tu capturer ?</p>
+      <div class="lic-grid">
+        <a class="lic-tile lic-auto${lastCls('auto')}" href="${href(App.views.scan.AUTO)}" data-game="auto">
+          <span class="lic-ic">${I('sparkles', 22)}</span>
+          <span class="lic-t"><b>Toutes les licences</b><small>La licence de chaque carte est reconnue toute seule</small></span>
+          ${last === 'auto' ? '<em class="lic-last">Dernière</em>' : ''}</a>
+        ${games.map((g) => `<a class="lic-tile g-${g.id}${lastCls(g.id)}" href="${href(g.id)}" data-game="${g.id}">
+          <span class="lic-ic">${I(g.icon, 20)}</span>
+          <span class="lic-t"><b>${esc(g.name)}</b><small>${n(g.id)}</small></span>
+          ${g.id === last ? '<em class="lic-last">Dernière</em>' : ''}</a>`).join('')}
+        ${soon.map((g) => `<span class="lic-tile g-${g.id} soon" aria-disabled="true">
+          <span class="lic-ic">${I(g.icon, 20)}</span>
+          <span class="lic-t"><b>${esc(g.name)}</b><small>Bientôt</small></span></span>`).join('')}
+      </div>`;
   },
 
   /**
@@ -203,9 +197,12 @@ App.views.scan = {
     const mode = ['classeur', 'rafale'].includes(params.query.mode) ? params.query.mode : 'carte';
     const jq = params.query.jeu ? `jeu=${encodeURIComponent(params.query.jeu)}` : '';
     const link = (m) => `#/scan?${[m ? 'mode=' + m : '', jq].filter(Boolean).join('&')}`;
+    // licence choisie (v3.12 : plus de puces de licence ici — on la change avec la flèche retour / « Capturer »)
+    const q = params.query.jeu, licName = q === App.views.scan.AUTO ? 'Toutes les licences' : (App.games.info(q || 'pokemon') || { name: 'Pokémon' }).name;
+    App.views.scan.curName = licName; // (rappelé dans le cadre vide : « Riftbound »)
     el.innerHTML = `
-      <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
-      <h1 class="m-hide" style="margin:0 0 4px">Capturer</h1>
+      <div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/scan">Capturer</a> › ${App.util.esc(licName)}</div>
+      <h1 class="m-hide" style="margin:0 0 4px">Capturer · ${App.util.esc(licName)}</h1>
       <div class="mode-pick" role="tablist">
         <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="${link('')}" role="tab" aria-selected="${mode === 'carte'}">
           <span class="mc-ico">${App.icons.icon('capture', 22)}</span>

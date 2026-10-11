@@ -86,7 +86,7 @@ Object.assign(App.views.scan, {
     // le code reste (livePage), il suffit de repasser PAGE_CERT à vrai
     const PAGE_CERT = false;
     const RAFALE_CERT = false; // v2.58 : certification en rafale retirée pour le moment aussi (demande d'Arnaud)
-    const setBox = (title) => `<div class="set-first" ${S.auto ? 'hidden' : ''}>
+    const setBox = (title) => `<div class="set-first" hidden>
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
             <select id="b-set"><option value="">Série : je ne sais pas</option></select>
           </div>`;
@@ -175,7 +175,7 @@ Object.assign(App.views.scan, {
     // liste des séries pour « Série de la page »
     ad.listSets().then((sets) => {
       S.allSets = sets;
-      let saved = ''; try { saved = sessionStorage.getItem('pageSet') || ''; } catch (e) { /* */ }
+      const saved = ''; // (v3.12 : plus de choix de la série avant la photo ; « Série de la page » après la lecture reste)
       const sel = el.querySelector('#b-set'); if (sel) { App.views.scan.fillSetSelect(sel, sets, saved); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }
     }).catch(() => {});
     el.querySelector('#b-fmt').addEventListener('change', (e) => {

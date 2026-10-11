@@ -32,6 +32,8 @@ App.views = App.views || {};
   let lastDepth = 0; // profondeur dans l'historique de l'appli (0 = première page ouverte)
   // retour : page précédente de l'appli s'il y en a une, sinon la page « parente » (dernier lien du fil d'Ariane)
   document.getElementById('nav-back').addEventListener('click', () => {
+    // Capturer (v3.12) : la flèche ramène toujours au choix de la licence (même après avoir changé de mode)
+    if (document.body.dataset.view === 'scan' && /[?&]jeu=/.test(location.hash)) { location.hash = '#/scan'; return; }
     if (history.state && history.state.d > 0) { history.back(); return; }
     const up = document.querySelector('#app .breadcrumb a:last-of-type');
     location.hash = up ? up.getAttribute('href') : '#/';
@@ -58,7 +60,7 @@ App.views = App.views || {};
     const st = history.state || {};
     if (typeof st.d !== 'number') history.replaceState({ ...st, d: lastDepth + (renderId ? 1 : 0) }, '');
     lastDepth = history.state.d;
-    document.getElementById('nav-back').hidden = TABS.includes(view) && !query.ecran; // sous-écran d'un onglet (Combat › Contre l'ordinateur) : flèche retour
+    document.getElementById('nav-back').hidden = TABS.includes(view) && !query.ecran && !(view === 'scan' && query.jeu); // sous-écran d'un onglet (Combat › Contre l'ordinateur) : flèche retour
     document.body.dataset.view = view;
     // conteneur neuf à chaque page, pour repartir sans les écouteurs de la page précédente
     const oldEl = document.getElementById('app');

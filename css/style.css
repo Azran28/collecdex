@@ -2857,18 +2857,26 @@ a.bt-choice:active { transform: scale(.985); }
 .bt-ov.g-riftbound .bt-sc em { color: #9ff6ff; }
 .bt-ov.g-riftbound .bt-sc.ok { border-color: #5fe3ef; box-shadow: 0 0 16px rgba(95,227,239,.35); }
 
-/* ===== v3.11 : Capturer — choix de la licence d'abord (mêmes tuiles que le Combat) + « Toutes les licences » ===== */
-.sp-lics { margin-top: 6px; }
-.bt-lic-tile.g-auto { background-image: radial-gradient(ellipse at 85% 20%, rgba(52,213,255,.35), transparent 55%), radial-gradient(ellipse at 60% 90%, rgba(255,79,163,.3), transparent 55%), linear-gradient(120deg, #1d1a3a, #2a1f55 55%, #123a5e); border-color: rgba(124,92,255,.55); }
-.g-auto .bt-lic-ic { background: linear-gradient(135deg, #ffd23f, #ff4fa3 40%, #7c5cff 70%, #34d5ff); color: #fff; box-shadow: 0 6px 18px rgba(124,92,255,.5); }
-.g-auto .bt-lic-t b { background: linear-gradient(90deg, #ffd23f, #ff4fa3, #7c5cff, #34d5ff); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
-.sp-last { font-style: normal; font-weight: 700; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.18); color: #fff; white-space: nowrap; }
+/* ===== v3.11–v3.12 : Capturer — choix de la licence d'abord : grille compacte (d'autres licences arriveront) ===== */
+.lic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-width: 900px; }
+.lic-tile { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border-radius: 16px; text-decoration: none; color: var(--text);
+  background: var(--surface); border: 1px solid var(--line); transition: transform .12s, border-color .12s; }
+.lic-tile:active { transform: scale(.98); }
+@media (hover: hover) and (pointer: fine) { a.lic-tile:hover { border-color: rgba(255,255,255,.3); transform: translateY(-2px); } }
+.lic-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: var(--g, #2a2f52); box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+.lic-ic .ic { display: block; }
+.lic-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.lic-t b { font-family: var(--display); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lic-t small { font-size: .76rem; color: var(--muted); }
+.lic-tile.last { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+.lic-last { position: absolute; top: -7px; right: 10px; font-style: normal; font-size: .66rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: #fff; }
+/* « Toutes les licences » : bandeau sur toute la largeur, couleurs de toutes les licences */
+.lic-tile.lic-auto { grid-column: 1 / -1; padding: 12px 14px; border-color: rgba(124,92,255,.55);
+  background: radial-gradient(ellipse at 90% 0%, rgba(52,213,255,.25), transparent 60%), radial-gradient(ellipse at 60% 120%, rgba(255,79,163,.22), transparent 60%), linear-gradient(120deg, #1d1a3a, #241d4d 60%, #12304f); }
+.lic-auto .lic-ic { width: 44px; height: 44px; background: linear-gradient(135deg, #ffd23f, #ff4fa3 40%, #7c5cff 70%, #34d5ff); }
+.lic-auto .lic-t b { font-size: 1.08rem; }
+.lic-tile.soon { opacity: .45; filter: grayscale(.6); }
 .sc-autogame { margin: -6px 0 12px; }
 .sc-autogame .ic { vertical-align: -2px; }
-.sp-tile { min-height: 0; }
-/* téléphone : 4 licences ne tiennent plus sur une ligne → la rangée défile de côté (sans barre) au lieu de déborder */
-@media (max-width: 760px) {
-  .sc-game { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -16px; margin-right: -16px; padding: 0 16px; }
-  .sc-game::-webkit-scrollbar { display: none; }
-  .sc-game .chip { flex: 0 0 auto; padding: 7px 12px; }
-}
+@media (max-width: 760px) { .lic-grid { grid-template-columns: 1fr 1fr; gap: 8px; } .lic-tile { padding: 9px 10px; gap: 8px; } .lic-ic { width: 36px; height: 36px; } }
+.scan-empty .se-lic { font-style: normal; font-size: .78rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: rgba(255,255,255,.1); color: var(--muted); }

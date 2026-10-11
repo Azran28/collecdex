@@ -23,7 +23,7 @@ Object.assign(App.views.scan, {
     el.innerHTML = `
       ${App.views.scan.gameChips(game, auto)}
       <div id="sc-target"></div>
-      <div class="set-first" style="max-width:640px" ${auto ? 'hidden' : ''}>
+      <div class="set-first" style="max-width:640px" hidden>
         <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
         <select id="sc-set"><option value="">Série : je ne sais pas (chercher partout)</option></select>
       </div>
@@ -82,7 +82,7 @@ Object.assign(App.views.scan, {
     const cam = App.views.scan.camera(view, { guide: true });
     // série choisie : gardée pour les scans suivants (on scanne souvent une série d'affilée)
     function fillSets() {
-      let savedSet = ''; try { savedSet = sessionStorage.getItem(isPk() ? 'scanSet' : 'scanSet:' + game) || ''; } catch (e) { /* */ }
+      const savedSet = ''; // (v3.12 : choix de la série retiré de l'écran)
       const sel = el.querySelector('#sc-set'), g = game;
       sel.innerHTML = '<option value="">Série : je ne sais pas (chercher partout)</option>';
       sel.closest('.set-first').classList.remove('chosen');
@@ -426,7 +426,7 @@ Object.assign(App.views.scan, {
           autoSure = !!g;
           if ((g || 'pokemon') !== game) switchGame(g || 'pokemon', !!g); // (essai : pas encore « reconnue »)
         }
-        const setId = auto ? '' : el.querySelector('#sc-set').value;
+        const setId = ''; // (v3.12 : plus de choix de la série avant la photo ; elle est trouvée sur la carte)
         let info, cands, summary, switched = false;
         // photo d'origine (cadre jaune + marge) : la carte y est entière même si le détourage l'a mal coupée (bord de la pochette,
         // ligne dans le dessin) → une fois la carte reconnue à l'image, ses vrais bords y sont repris (comme le classeur, v3.02)
