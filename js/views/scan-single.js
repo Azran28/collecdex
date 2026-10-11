@@ -198,8 +198,8 @@ Object.assign(App.views.scan, {
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
     // interrupteur « Certification » de l'encadré (retenu dans les réglages, synchronisé)
     el.addEventListener('change', (e) => {
-      if (e.target.id !== 'sc-certon') return;
-      App.settings.certCarte = e.target.checked; App.col.saveSettings().catch(() => {});
+      if (e.target.name !== 'sc-certmode') return; // (v3.13 : deux réponses « Oui, certifier » / « Non, juste la photo »)
+      App.settings.certCarte = e.target.value === '1'; App.col.saveSettings().catch(() => {});
       const box = el.querySelector('#sc-cert-help'); if (box) box.outerHTML = App.views.scan.guide('carte'); // étapes grisées si désactivée
     });
     el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });

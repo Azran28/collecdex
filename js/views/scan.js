@@ -30,7 +30,20 @@ App.views.scan = {
     const certOn = App.certify && App.certify.available();
     if (mode !== 'carte' || !certOn) return '';
     const on = App.settings.certCarte !== false; // v2.58 : certification optionnelle en carte seule (demande d'Arnaud)
-    return App.views.scan.certBlock('carte', App.views.scan.certSwitch('sc-certon', on, `${App.icons.icon('shield', 16)} Certification`));
+    // v3.13 (Arnaud : « choix de certifier ou non plus clair ») : une question, deux réponses côte à côte (au lieu d'un interrupteur
+    // « activée / désactivée » sous les étapes) ; les 3 étapes seulement si l'on certifie
+    const I = (n, s = 18) => App.icons.icon(n, s);
+    const opt = (v, icon, title, sub) => `<label class="cc-opt ${on === v ? 'on' : ''}"><input type="radio" name="sc-certmode" value="${v ? 1 : 0}" ${on === v ? 'checked' : ''}>
+      <span class="cc-ic">${I(icon, 18)}</span><span class="cc-t"><b>${title}</b><small>${sub}</small></span></label>`;
+    const steps = ['Touche <b>Caméra</b> et montre d’abord le <b>dos</b> de la carte (pas d’étui opaque)', '💡 La lampe clignote : <b>garde le dos immobile</b> jusqu’à la fin', '<b>Retourne</b> la carte, puis appuie sur <b>Prendre la photo</b>'];
+    return `<div class="pc-block cc-block${on ? '' : ' pc-off'}" id="sc-cert-help">
+      <div class="cc-q">Certifier cette carte ?</div>
+      <div class="cc-seg" role="radiogroup" aria-label="Certifier la carte">
+        ${opt(true, 'shield', 'Oui, certifier', 'Avec le badge « Certifiée »')}
+        ${opt(false, 'camera', 'Non, juste la photo', 'Plus rapide, sans badge')}
+      </div>
+      ${on ? `<ol class="pc-steps">${steps.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join('')}</ol>` : ''}
+    </div>`;
   },
 
   /** Interrupteur vert (activé) / rouge (désactivé), le même partout (v2.57 : « plus compréhensible », demande d'Arnaud) */
@@ -135,7 +148,8 @@ App.views.scan = {
     const count = {}; for (const i of App.col.all()) if (i.qty > 0) count[i.game || 'pokemon'] = (count[i.game || 'pokemon'] || 0) + 1;
     const games = App.views.scan.games(), soon = App.games.list.filter((g) => g.status !== 'actif' && g.id !== 'autres');
     const lastCls = (id) => (id === last ? ' last' : '');
-    const n = (k) => (count[k] ? `${count[k]} carte${count[k] > 1 ? 's' : ''}` : 'Aucune carte');
+    // nombre de cartes de la licence dans le Dex : petite icône du Dex + « 12 dans ton Dex » (v3.13 : on ne savait pas ce qu'était ce nombre)
+    const n = (k) => `<small class="lic-n" title="Cartes de cette licence déjà dans ton Dex">${I('dex', 11)} ${count[k] || 0} dans ton Dex</small>`;
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
       <h1 style="margin:0 0 2px">Capturer</h1>
@@ -147,7 +161,7 @@ App.views.scan = {
           ${last === 'auto' ? '<em class="lic-last">Dernière</em>' : ''}</a>
         ${games.map((g) => `<a class="lic-tile g-${g.id}${lastCls(g.id)}" href="${href(g.id)}" data-game="${g.id}">
           <span class="lic-ic">${I(g.icon, 20)}</span>
-          <span class="lic-t"><b>${esc(g.name)}</b><small>${n(g.id)}</small></span>
+          <span class="lic-t"><b>${esc(g.name)}</b>${n(g.id)}</span>
           ${g.id === last ? '<em class="lic-last">Dernière</em>' : ''}</a>`).join('')}
         ${soon.map((g) => `<span class="lic-tile g-${g.id} soon" aria-disabled="true">
           <span class="lic-ic">${I(g.icon, 20)}</span>
@@ -200,26 +214,33 @@ App.views.scan = {
     // licence choisie (v3.12 : plus de puces de licence ici — on la change avec la flèche retour / « Capturer »)
     const q = params.query.jeu, licName = q === App.views.scan.AUTO ? 'Toutes les licences' : (App.games.info(q || 'pokemon') || { name: 'Pokémon' }).name;
     App.views.scan.curName = licName; // (rappelé dans le cadre vide : « Riftbound »)
+    // téléphone (v3.13, Arnaud : « choix plus clair ») : une phrase sous les onglets dit ce que fait le mode choisi
+    const MODE_HINT = {
+      carte: '<b>Une carte</b> : une photo par carte. La plus fiable, et la seule qui peut <b>certifier</b> ta carte.',
+      classeur: '<b>Classeur</b> : une photo d’une page de classeur, toutes ses cartes (9 ou 18) reconnues d’un coup.',
+      rafale: '<b>Rafale</b> : passe tes cartes l’une après l’autre devant la caméra, elles sont prises toutes seules.',
+    };
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/scan">Capturer</a> › ${App.util.esc(licName)}</div>
       <h1 class="m-hide" style="margin:0 0 4px">Capturer · ${App.util.esc(licName)}</h1>
       <div class="mode-pick" role="tablist">
         <a class="mode-card ${mode === 'carte' ? 'on' : ''}" href="${link('')}" role="tab" aria-selected="${mode === 'carte'}">
           <span class="mc-ico">${App.icons.icon('capture', 22)}</span>
-          <span class="mc-txt"><b>Une carte</b><span>Carte par carte, la plus fiable</span></span>
+          <span class="mc-txt"><b>Une carte</b><span>Carte par carte, la plus fiable</span><small class="mc-short">1 carte</small></span>
           ${mode === 'carte' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
         </a>
         <a class="mode-card ${mode === 'classeur' ? 'on' : ''}" href="${link('classeur')}" role="tab" aria-selected="${mode === 'classeur'}">
           <span class="mc-ico">${App.icons.icon('dex', 22)}</span>
-          <span class="mc-txt"><b class="m-hide">Page de classeur</b><b class="d-hide">Classeur</b><span>Jusqu’à 18 cartes d’un coup</span></span>
+          <span class="mc-txt"><b class="m-hide">Page de classeur</b><b class="d-hide">Classeur</b><span>Jusqu’à 18 cartes d’un coup</span><small class="mc-short">1 page</small></span>
           ${mode === 'classeur' ? `<span class="mc-check">${App.icons.icon('shield', 14)}</span>` : ''}
         </a>
         <a class="mode-card ${mode === 'rafale' ? 'on' : ''}" href="${link('rafale')}" role="tab" aria-selected="${mode === 'rafale'}">
           <span class="mc-ico">${App.icons.icon('rafale', 22)}</span>
-          <span class="mc-txt"><b>Rafale</b><span>Les cartes défilent, sans cliquer</span></span>
+          <span class="mc-txt"><b>Rafale</b><span>Les cartes défilent, sans cliquer</span><small class="mc-short">À la suite</small></span>
         </a>
         <button type="button" class="sc-help d-hide" id="sc-help" aria-label="Mode d’emploi de Capturer">?</button>
       </div>
+      <p class="mode-hint d-hide">${MODE_HINT[mode]}</p>
       <div id="sc-body"></div>`;
     const body = el.querySelector('#sc-body');
     // téléphone : mode d'emploi à la 1re visite, et bouton « ? » pour le revoir

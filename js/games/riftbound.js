@@ -71,6 +71,13 @@
     OGN: ['2025-10-31', 'main', 1], OGS: ['2025-10-31', 'deck', 2], SFD: ['2026-02-13', 'main', 3],
     UNL: ['2026-05-08', 'main', 4], VEN: ['2026-07-31', 'main', 5], RAD: ['2026-10-23', 'main', 6],
   };
+  // produit TCGplayer montré comme visuel de la série (sachet de booster ; Proving Grounds : son coffret) — à ajouter à chaque nouvelle série :
+  // [produit, largeur, hauteur de l'image _400w, puis la zone du sachet x0, y0, x1, y1 (le reste est blanc)]
+  const PACKS_CROP = {
+    OGN: [635366, 400, 400, 96, 26, 302, 374], OGS: [635460, 400, 400, 28, 12, 372, 386], SFD: [661954, 400, 676, 0, 0, 400, 676],
+    UNL: [678149, 400, 676, 0, 0, 400, 676], VEN: [693377, 400, 400, 76, 0, 322, 400], RAD: [711362, 400, 400, 78, 0, 320, 400],
+  };
+  const PACKS = Object.fromEntries(Object.entries(PACKS_CROP).map(([k, v]) => [k, v[0]]));
   const GROUPS = { main: { id: 'rb-main', name: 'Extensions' }, deck: { id: 'rb-deck', name: 'Decks de démarrage' } };
   const NAMES = { OGN: 'Origins', OGS: 'Origins : Proving Grounds' }; // (noms français donnés par Riot pour les autres)
 
@@ -174,13 +181,21 @@
   // ---------- Prix (TCGplayer, préparés par le robot de mise en ligne : data/rb-prix.json = { m: date, p: { id: [normal, brillant] } }) ----------
   // (pas de fichier : site du PC d'Arnaud → celui du site en ligne, que GitHub Pages permet de lire ; sinon pas de prix)
   const ONLINE = 'https://azran28.github.io/collecdex/data/rb-prix.json';
-  const prices = () => cached('rb1:prix', DAY / 2, async () => {
+  // gardés 12 h ; une liste vide (fichier pas encore préparé, réseau coupé) seulement 15 min, pour réessayer bientôt
+  let pricesP = null;
+  const prices = () => pricesP || (pricesP = (async () => {
+    const hit = await App.db.get('cache', 'rb1:prix').catch(() => null);
+    const full = hit && hit.v && hit.v.p && Object.keys(hit.v.p).length;
+    if (hit && Date.now() - hit.t < (full ? DAY / 2 : 15 * 60 * 1000)) return hit.v;
     for (const u of ['data/rb-prix.json', ONLINE]) {
       const r = await fetch(u, { cache: 'no-cache' }).catch(() => null);
-      if (r && r.ok) return r.json();
+      const v = r && r.ok ? await r.json().catch(() => null) : null;
+      if (v && v.p && Object.keys(v.p).length) { await App.db.set('cache', 'rb1:prix', { t: Date.now(), v }).catch(() => {}); return v; }
     }
+    if (full) return hit.v; // (réseau coupé : les derniers prix connus)
+    await App.db.set('cache', 'rb1:prix', { t: Date.now(), v: { m: '', p: {} } }).catch(() => {});
     return { m: '', p: {} };
-  });
+  })().finally(() => setTimeout(() => { pricesP = null; }, 60000)));
   async function getCard(id) {
     id = String(id);
     const D = await data(), k = D.byId.get(id);
@@ -264,7 +279,10 @@
       const land = c.landscape || /-1039x744\./.test(u);
       return `https://images.weserv.nl/?url=${encodeURIComponent(u.replace(/^https:\/\//, '').replace(/\?.*$/, ''))}&w=${q === 'high' ? 720 : 360}${land ? '&ro=270' : ''}&output=webp`;
     },
-    logo: () => '',
+    // visuel de la série (v3.13) : le sachet de booster (coffret pour Proving Grounds), photo de TCGplayer (pas de visuel de série
+    // chez Riot) ; affiché directement (le relais images.weserv.nl refuse TCGplayer ; une image n'a pas besoin de CORS)
+    logo: (s) => (s && PACKS[s.id] ? `https://tcgplayer-cdn.tcgplayer.com/product/${PACKS[s.id]}_400w.jpg` : ''),
+    logoCrop: (s) => { const p = s && PACKS_CROP[s.id]; return p ? { W: p[1], H: p[2], x0: p[3], y0: p[4], x1: p[5], y1: p[6] } : null; },
     symbol: () => '',
   };
   const cm = (q) => `https://www.cardmarket.com/fr/Riftbound/Products/Search?searchString=${encodeURIComponent(q)}`;

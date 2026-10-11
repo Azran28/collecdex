@@ -226,6 +226,14 @@ App.ui = (() => {
     let h = 0; for (const ch of String(short ? set.id : (set.group && set.group.id) || set.id || n)) h = (h * 31 + ch.charCodeAt(0) * (short ? 67 : 1)) % 360; // codes voisins (OP-16, OP-17) : couleurs bien différentes
     const gen = `<span class="logo-gen${short ? ' logo-code' : ''}" style="--h:${h}">${App.icons.icon(ico, big ? 22 : 16)}<b>${esc(short || n)}</b></span>`;
     if (!url) return gen;
+    // photo de produit avec des marges blanches (Riftbound : sachets TCGplayer, que le relais d'images ne peut pas rogner) :
+    // seule la zone du sachet est montrée (image de fond recadrée), sans fond blanc
+    const crop = ad.img.logoCrop && ad.img.logoCrop(set);
+    if (crop) {
+      const { W, H, x0, y0, x1, y1 } = crop, w = x1 - x0, h = y1 - y0;
+      const pos = (a, full, part) => (full > part ? (a / (full - part)) * 100 : 0);
+      return `<span class="logo-pack${big ? ' big' : ''}" role="img" aria-label="${esc(n)}" style="background-image:url('${esc(url)}');aspect-ratio:${w}/${h};background-size:${(W / w) * 100}% ${(H / h) * 100}%;background-position:${pos(x0, W, w)}% ${pos(y0, H, h)}%"></span>`;
+    }
     // visuel du produit (One Piece : pochette du booster, boîte du deck) : si absent, le code de la série
     return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(short || n)}" data-alt-class="logo-gen${short ? ' logo-code' : ''}" data-ico="${ico}" style="--h:${h}"${short ? ' data-prod' : ''}>`;
   }

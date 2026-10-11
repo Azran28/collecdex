@@ -50,3 +50,8 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 
 ## Mise en page téléphone
 `.mode-pick` en onglets, `.sc-opts` (série + format côte à côte en classeur), `.sf-head` caché (le texte « Série : … » est dans l'option vide). Cadre vide = `clamp(230px, 100svh − 300px, 760px)` dans les 3 modes (v2.83) ; réduit à clamp(140px, 100svh − 590px, 380px) quand l'encadré de certification est affiché ; choix de la série du classeur avec la même marge de texte (12 px) que les autres modes. Mode d'emploi : `onboarding.js` (`maybeShowScan`, bouton `#sc-help`).
+
+## v3.13 : choix plus clairs (Arnaud)
+- Onglets de mode : `.mc-short` (« 1 carte / 1 page / À la suite », téléphone seulement) + `.mode-hint` (phrase du mode choisi, `MODE_HINT` dans `render`, téléphone).
+- Certification (carte seule, `guide('carte')`) : `.cc-block` « Certifier cette carte ? » + deux `label.cc-opt` (radios `name="sc-certmode"`, valeur 1 / 0 → `App.settings.certCarte`) ; étapes `.pc-steps` seulement si oui. `certSwitch`/`certBlock` restent pour la rafale (désactivée).
+- Page des licences : `.lic-n` = icône du Dex + « N dans ton Dex ».
