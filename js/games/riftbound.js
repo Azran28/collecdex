@@ -340,23 +340,50 @@
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/rb-index ----------
   const RB_INDEX_V = 1;
+  // seuil « sûre » par l'image seule, plus haut que le seuil commun (25) : la carte française est comparée au visuel anglais
+  // (moins de points communs) — page d'Arnaud : Rayon Hextech pris « sûr » pour Abandon à 27 ; vraies cartes sûres ≥ 36
+  const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   const twinBase = (c) => `${c.setId}|${String(c.localId).replace(/[a-z*]+$/, '')}`;
-  const visualOpts = (codes) => ({
+  // setId : série de la page / choisie — même dessin dans deux séries (runes d'Origins et de Vendetta) : celle-ci d'abord
+  const visualOpts = (codes, setId = '') => ({
     index: 'data/rb-index', v: RB_INDEX_V, cardsOf: (near) => fromIds(near.map((x) => x.id)), urlOf: (c) => img.card(c, 'low'),
     twinsOf: (top) => byCode(top.setId, String(top.localId).replace(/[a-z*]+$/, '')), // la carte et ses versions alternatives
     twinKey: (c) => c.id, // (chaque version a son propre dessin)
-    tie: (a, b) => (codes.includes(b.id) - codes.includes(a.id)) || (a.alt - b.alt),
+    tie: (a, b) => (codes.includes(b.id) - codes.includes(a.id)) || ((b.setId === setId) - (a.setId === setId)) || (a.alt - b.alt),
   });
-  async function visualPass(blob, cands, codes, context = null) {
-    const V = App.visual, o = await V.check(blob, cands, visualOpts(codes));
+  /**
+   * Recadrage sur les vrais bords (v3.14, Arnaud : cartes Riftbound mal recadrées dans le Dex). Les coins trouvés par l'image
+   * sont imprécis pour Riftbound : la carte (française) est comparée au visuel anglais, seule l'illustration correspond, le bas
+   * de la carte est donc deviné (cadre penché, coupé, pochette gardée). On cherche alors les vrais bords de la carte (détourage)
+   * autour de ces coins, et on ne les garde que s'ils concordent (chaque coin à moins de 12 % de la taille de la photo).
+   */
+  async function edgeCrop(blob, quad) {
+    try {
+      const bmp = await createImageBitmap(blob), c = document.createElement('canvas');
+      c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0);
+      const cl = (v) => Math.min(1, Math.max(0, v));
+      const m = 0.083, E = quad ? quad.map(([x, y]) => [cl(x), cl(y)]) : [[m, m], [1 - m, m], [1 - m, 1 - m], [m, 1 - m]];
+      const xs = E.map((p) => p[0]), ys = E.map((p) => p[1]);
+      const r = App.recognizer.cutCard(c, { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }, { expect: E });
+      if (!r || !r.canvas || r.fit < 0.45 || !r.quad) return null;
+      if (r.quad.some((p, i) => Math.hypot(p[0] - E[i][0], p[1] - E[i][1]) > 0.12)) return null;
+      return await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92));
+    } catch (e) { return null; }
+  }
+  async function visualPass(blob, cands, codes, context = null, setId = '') {
+    const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
+    const top = o && o.cands[0];
+    // carte reconnue : vrais bords cherchés autour des coins trouvés par l'image (d'abord sur la photo elle-même)
+    const edge = top && top.orb >= V.SURE ? await edgeCrop(blob, o.quad) : null;
+    if (edge) o.crop = edge;
     if (!context || !o) return o;
-    const top = o.cands[0];
     if (top && top.orb >= V.SURE) {
+      if (edge) return o;
       const crop = o.url ? await V.cropOn(context, top, o.url).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
     }
-    const w = await V.check(context, cands, visualOpts(codes)).catch(() => null);
+    const w = await V.check(context, cands, visualOpts(codes, setId)).catch(() => null);
     return w && w.cands[0] && w.cands[0].confident ? w : o;
   }
 
@@ -367,7 +394,7 @@
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
     const R = App.recognizer, D = await data();
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte
-    const early = useVisual() ? visualPass(blob, [], [], context).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+    const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
     // (2 bandes seulement au premier passage : 4 s → 2 s par carte ; le nom n'est lu qu'avec la carte entière, en dernier recours :
     //  les cartes françaises ne peuvent pas être reconnues par leur nom, Riot ne publiant que les noms anglais)
@@ -378,7 +405,7 @@
     if (early && !anyCode()) {
       statusFn('Vérification par l’image…');
       const e = await early;
-      if (e && e.cands[0] && e.cands[0].confident) return { info: { code: e.cands[0].id, name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
+      if (e && e.cands[0] && e.cands[0].confident && (e.cands[0].orb || 0) >= IMG_SURE) return { info: { code: e.cands[0].id, name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
       // code relu : sur la carte recadrée par l'image (vrais bords) s'il y en a une, sinon les 2 autres bandes sur la case
       const crop = e && e.crop;
       statusFn(crop ? 'Lecture du code (carte recadrée)…' : 'Lecture du code…');
@@ -444,8 +471,10 @@
       // (rien trouvé par le texte : la vérification lancée au début a déjà tout comparé, inutile de la refaire — 6 s par carte)
       const e = early && !cands.length ? await early : null;
       if (e) orb = e;
-      else orb = await visualPass(blob, cands, [...codeIds], context).catch((err) => { console.warn('vérification par l’image', err); return null; });
+      else orb = await visualPass(blob, cands, [...codeIds], context, setId).catch((err) => { console.warn('vérification par l’image', err); return null; });
       if (orb) { cands = orb.cands; top = cands[0]; }
+      // sûre par l'image seule : score d'au moins IMG_SURE (sinon « à vérifier »), sauf si le code lu désigne cette carte
+      if (top && top.confident && !codeIds.has(top.id) && (top.orb || 0) < IMG_SURE) delete top.confident;
     }
     if (orb && orb.crop) betterCrop = orb.crop;
     const cropLater = !orb && early && top ? early.then((e) => (e && e.crop && e.cands[0] && e.cands[0].id === top.id ? e.crop : null), () => null) : null;

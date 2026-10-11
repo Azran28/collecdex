@@ -146,7 +146,8 @@ App.visual = (() => {
     // sûre : image nettement reconnue, aucune autre carte aussi proche (sinon même dessin : la personne choisit)
     if (top.orb >= SURE && !second && !(read && top.orb < Math.max(...ranked.map((c) => c.orb)))) top.confident = true;
     const q = top.orb >= SURE && sc.get(top.id) && sc.get(top.id).quad;
-    return { cands: out, best: top.orb, crop: q ? await quadCrop(blob, q).catch(() => null) : null, url: url(top) };
+    // (quad : coins de la carte trouvés sur la photo, pour affiner le recadrage sur ses vrais bords — Riftbound, v3.14)
+    return { cands: out, best: top.orb, crop: q ? await quadCrop(blob, q).catch(() => null) : null, url: url(top), quad: q || null };
   }
   /**
    * Carte déjà reconnue : ses vrais bords cherchés dans une autre image (classeur : la case et ses alentours, où la carte est
