@@ -120,7 +120,7 @@ self.addEventListener('fetch', (e) => {
   }
 
   // Visuels officiels des cartes et des Pokémon (capsules) : copie gardée d'abord (ils ne changent pas)
-  // (+ visuels One Piece, relayés par images.weserv.nl : le site de Bandai refuse d'être affiché ailleurs)
+  // (+ visuels One Piece et Riftbound, relayés par images.weserv.nl : Bandai refuse d'être affiché ailleurs, Riot n'autorise pas la comparaison)
   if (u.hostname === 'assets.tcgdex.net' || u.hostname === 'images.weserv.nl' || (u.hostname === 'raw.githubusercontent.com' && u.pathname.startsWith('/PokeAPI/sprites/'))) {
     e.respondWith((async () => {
       const c = await caches.open(IMAGES);

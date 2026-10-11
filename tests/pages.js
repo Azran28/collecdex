@@ -29,13 +29,13 @@
   window.__visit = visit;
 
   const PAGES = [
-    ['#/', 'Accueil'], ['#/jeu/pokemon', 'Séries Pokémon'], ['#/jeu/onepiece', 'Séries One Piece'],
+    ['#/', 'Accueil'], ['#/jeu/pokemon', 'Séries Pokémon'], ['#/jeu/onepiece', 'Séries One Piece'], ['#/jeu/riftbound', 'Séries Riftbound'], ['#/jeu/riftbound/serie/OGN', 'Série Origins (Riftbound)'],
     ['#/jeu/pokemon/serie/base1', 'Série Set de Base'], ['#/jeu/pokemon/hors-serie', 'Hors-série'],
     ['#/collection', 'Mon Dex'], ['#/objectifs', 'Objectifs'], ['#/importer', 'Importer'],
     ['#/compte', 'Vitrine'], ['#/amis', 'Amis'], ['#/connexion', 'Connexion'], ['#/parametres', 'Paramètres'],
     ['#/scan', 'Capturer (carte seule)'], ['#/scan?mode=classeur', 'Capturer (classeur)'], ['#/scan?mode=rafale', 'Capturer (rafale)'],
     ['#/combat', 'Combat'], ['#/combat?jeu=pokemon', 'Combat Pokémon'], ['#/combat?jeu=pokemon&ecran=ordi', 'Combat contre l’ordinateur'],
-    ['#/combat?jeu=pokemon&ecran=decks', 'Combat : équipes'], ['#/combat?jeu=onepiece', 'Combat One Piece'],
+    ['#/combat?jeu=pokemon&ecran=decks', 'Combat : équipes'], ['#/combat?jeu=onepiece', 'Combat One Piece'], ['#/combat?jeu=riftbound', 'Combat Riftbound'], ['#/scan?jeu=riftbound', 'Capturer Riftbound'],
     ['#/capsules', 'Capsules'],
   ];
   const size = (w, h) => { const f = frame(); f.style.width = w + 'px'; f.style.height = h + 'px'; };

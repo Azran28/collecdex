@@ -1,5 +1,7 @@
 # Tests automatiques, puis mise en ligne seulement s'ils sont tous réussis.
 # (GitHub › Settings › Pages › Source doit être « GitHub Actions ».)
+# Chaque matin, le site est aussi remis en ligne tel quel (sans refaire les tests : le code n'a pas changé)
+# pour rafraîchir les prix Riftbound (data/rb-prix.json, préparé par outils/ci/prix-riftbound.mjs).
 name: Tests et mise en ligne
 
 on:
@@ -7,6 +9,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch: # aussi lancé par le robot de l'index (index.yml) après une mise à jour
+  schedule:
+    - cron: '41 5 * * *'
 
 concurrency:
   group: site-${{ github.ref }}
@@ -14,6 +18,7 @@ concurrency:
 
 jobs:
   tests:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -33,7 +38,8 @@ jobs:
 
   mise-en-ligne:
     needs: tests
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    # (passage du matin : tests sautés, le code en ligne est déjà celui de main)
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (needs.tests.result == 'success' || (github.event_name == 'schedule' && needs.tests.result == 'skipped'))
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -43,12 +49,17 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Préparer les fichiers du site (sans les notes ni les outils)
         run: |
           mkdir -p _site
           rsync -a --exclude '.git' --exclude '.github' --exclude '.claude' --exclude '_site' \
             --exclude 'CLAUDE.md' --exclude 'docs' --exclude 'outils' --exclude 'supabase' \
             --exclude 'LISEZ-MOI.md' --exclude 'README.md' --exclude 'Lancer CollecDex.bat' ./ _site/
+      - name: Prix Riftbound du jour (TCGplayer)
+        run: node outils/ci/prix-riftbound.mjs _site/data/rb-prix.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

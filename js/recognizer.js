@@ -278,8 +278,9 @@ App.recognizer = (() => {
     // versions reconnues sur la photo (holo / reverse / 1re édition), parmi celles qui existent pour cette carte
     // (déjà mesurées et vérifiées dans la liste du classeur : c.pickedVariants)
     try {
-      // autre licence (One Piece) : la version vient de la carte elle-même (holo selon la rareté), rien à mesurer
-      const det = c.pickedVariants ? { list: c.pickedVariants } : game !== 'pokemon' ? (c.variants ? { list: Object.keys(c.variants).filter((k) => c.variants[k]) } : null)
+      // autre licence (One Piece, Riftbound) : la version vient de la carte elle-même (holo selon la rareté), rien à mesurer ;
+      // carte qui existe en normal et en brillant (communes Riftbound) : normale (brillante à cocher sur sa fiche)
+      const det = c.pickedVariants ? { list: c.pickedVariants } : game !== 'pokemon' ? (c.variants ? { list: c.variants.normal ? ['normal'] : Object.keys(c.variants).filter((k) => c.variants[k]) } : null)
         : c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
       if (det && det.list.length) {
         const it = App.col.byKey(key);

@@ -11,7 +11,7 @@
   const gameOf = (it) => (it && it.game) || 'pokemon';
   const adOf = (it) => ad(gameOf(it)) || ad();
   // v2.99 : chaque licence a ses combats (decks, adversaires, salons en ligne) ; on choisit d'abord la licence
-  const FIGHT_GAMES = ['pokemon', 'onepiece'];
+  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound'];
   const TEAMS = 3, BAG_MAX = App.battleCards.DECK_MAX; // pioche du mode Avancé : 10 cartes (v2.80)
   const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -27,18 +27,30 @@
       bagKinds: 'Événement / Lieu / DON!!', bagName: 'Coffre', bagTitle: 'Ton coffre', search: 'Rechercher un personnage…', place: 'En haute mer',
       tag: 'Abordages en haute mer', foeTag: 'Des mousses aux Empereurs',
     },
+    riftbound: {
+      name: 'Riftbound', icon: 'rune', myTurn: 'À toi, invocateur !', champion: 'Tu es le champion de Runeterra !', back: 'img/combat/dos-riftbound.svg',
+      bagKinds: 'Sort / Équipement / Rune / Champ de bataille', bagName: 'Grimoire', bagTitle: 'Ton grimoire', search: 'Rechercher une unité…', place: 'Sur la Faille',
+      tag: 'Batailles sur la Faille de l’invocateur', foeTag: 'Des sbires aux Légendes',
+    },
   };
   const lic = (game) => LIC[game] || LIC.pokemon;
   // icônes du sac (Pokémon : sac à dos) et du coffre (One Piece : coffre au trésor)
   const BAG_ICON = {
     pokemon: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M11 8a5 5 0 0 1 10 0" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="6" y="8" width="20" height="20" rx="6" fill="#e3350d" stroke="#1a1a2e" stroke-width="2"/><path d="M6 15h20" stroke="#1a1a2e" stroke-width="2"/><rect x="10" y="18" width="12" height="7" rx="2" fill="#ffcb05" stroke="#1a1a2e" stroke-width="1.6"/><circle cx="16" cy="15" r="2.4" fill="#fff" stroke="#1a1a2e" stroke-width="1.6"/></svg>',
     onepiece: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M5 14a11 7 0 0 1 22 0v2H5z" fill="#8a5a32" stroke="#3b230f" stroke-width="1.8"/><rect x="5" y="15" width="22" height="12" rx="2" fill="#6b4423" stroke="#3b230f" stroke-width="1.8"/><path d="M5 19h22M10 9v18M22 9v18" stroke="#e8b04a" stroke-width="2"/><rect x="13.5" y="16" width="5" height="6" rx="1" fill="#ffd479" stroke="#3b230f" stroke-width="1.2"/></svg>',
+    // Riftbound : grimoire relié, rune lumineuse sur la couverture
+    riftbound: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M7 5h17a2 2 0 0 1 2 2v20H9a2 2 0 0 1-2-2z" fill="#1d3f7a" stroke="#0b1530" stroke-width="1.8"/><path d="M7 25a2 2 0 0 1 2-2h17" fill="none" stroke="#c8a24a" stroke-width="1.8"/><path d="M16.5 8.5 21 14l-4.5 5.5L12 14z" fill="#5fe3ef" stroke="#0b1530" stroke-width="1.3"/><path d="M16.5 11v6" stroke="#0b1530" stroke-width="1.2"/></svg>',
   };
-  /** Vocabulaire de la licence : en One Piece, on parle de personnages et de DON!! (pas de Pokémon ni d'énergie) */
-  const say = (game, s) => (game !== 'onepiece' ? String(s) : String(s)
+  /** Vocabulaire de la licence : en One Piece, on parle de personnages et de DON!! (pas de Pokémon ni d'énergie) ;
+   *  en Riftbound, d'unités (l'énergie existe aussi dans ce jeu, elle garde son nom ; « de son type » = de son domaine) */
+  const say = (game, s) => (game === 'onepiece' ? String(s)
     .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'le DON!!').replace(/d’énergie/g, 'de DON!!')
     .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 personnages').replace(/Pokémon/g, 'personnage')
-    .replace(/[ÉéE]nergies?/g, 'DON!!'));
+    .replace(/[ÉéE]nergies?/g, 'DON!!')
+    : game === 'riftbound' ? String(s).replace(/de son type/g, 'de son domaine')
+      .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 unités').replace(/\b(Ton|ton|Son|son|Un|un|Le|le|du|au|ce|Ce) Pokémon\b/g, (m, a) => ({ Ton: 'Ton unité', ton: 'ton unité', Son: 'Son unité', son: 'son unité', Un: 'Une unité', un: 'une unité', Le: 'L’unité', le: 'l’unité', du: 'de l’unité', au: 'à l’unité', ce: 'cette unité', Ce: 'Cette unité' })[a])
+      .replace(/Pokémon/g, 'unité').replace(/(unités?) actif(s?)\b/g, '$1 active$2').replace(/(unités?)( de banc)? le plus faible/g, '$1$2 la plus faible')
+      : String(s));
   const LAST = 'cdx-combat-game';
   const lastGame = () => { try { const g = localStorage.getItem(LAST); return FIGHT_GAMES.includes(g) ? g : 'pokemon'; } catch (e) { return 'pokemon'; } };
 
@@ -90,13 +102,14 @@
   /** Cartes du sac encore possédées (une même carte peut y être plusieurs fois, dans la limite de ses exemplaires) */
   const bagItems = (keys) => { const n = {}; return (keys || []).map((k) => App.col.byKey(k)).filter((i) => i && i.qty > 0 && (n[i.key] = (n[i.key] || 0) + 1) <= i.qty); };
 
-  /** Tes cartes de pioche (Dresseur et Énergie ; One Piece : Événement et Lieu), d'après les listes des séries */
+  /** Tes cartes de pioche (Dresseur et Énergie ; One Piece : Événement et Lieu ; Riftbound : Sort, Équipement, Rune, Champ de bataille) */
   async function myTrainers(game = 'pokemon') {
     const items = App.col.all().filter((i) => i.qty > 0 && gameOf(i) === game);
     const bySet = {};
     for (const it of items) (bySet[it.setId] = bySet[it.setId] || []).push(it);
     const out = [];
-    const ok = game === 'onepiece' ? (c) => /^(Événement|Lieu|Event|Stage)$/i.test(c) : (c) => !/pok/i.test(c);
+    const ok = game === 'onepiece' ? (c) => /^(Événement|Lieu|Event|Stage)$/i.test(c)
+      : game === 'riftbound' ? (c) => /^(Sort|Équipement|Rune|Champ de bataille)$/i.test(c) : (c) => !/pok/i.test(c);
     await App.util.pool(Object.keys(bySet), 4, async (sid) => {
       const set = await ad(game).getSet(sid).catch(() => null);
       const cat = new Map((set ? set.cards : []).map((c) => [c.id, c.category]));
@@ -105,20 +118,20 @@
     return out.sort((a, b) => (a.snap.name || '').localeCompare(b.snap.name || '', 'fr'));
   }
 
-  /** Tes cartes qui peuvent combattre dans une licence (Pokémon ; One Piece : Personnages et Leaders), d'après les listes des séries */
+  /** Tes cartes qui peuvent combattre dans une licence (Pokémon ; One Piece : Personnages et Leaders ; Riftbound : unités), d'après les listes des séries */
   async function myPokemon(game = 'pokemon') {
     const items = App.col.all().filter((i) => i.qty > 0 && gameOf(i) === game);
     const bySet = {};
     for (const it of items) (bySet[`${it.game}|${it.setId}`] = bySet[`${it.game}|${it.setId}`] || []).push(it);
     const out = [];
     await App.util.pool(Object.keys(bySet), 4, async (k) => {
-      const [game, sid] = k.split('|'), op = game === 'onepiece';
+      const [game, sid] = k.split('|'), op = game !== 'pokemon';
       const set = await App.games.get(game).getSet(sid).catch(() => null);
       const cat = new Map((set ? set.cards : []).map((c) => [c.id, c]));
       for (const it of bySet[k]) {
         const c = cat.get(it.id);
-        if (op) { // (liste One Piece : catégorie seulement ; PV et type viennent de la fiche, en arrière-plan)
-          if (c && c.category && !/^(Personnage|Leader)$/i.test(c.category)) continue;
+        if (op) { // (liste One Piece / Riftbound : catégorie seulement ; PV et type viennent de la fiche, en arrière-plan)
+          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
           out.push(Object.assign(Object.create(it), { _hp: null, _type: null }));
           continue;
         }
@@ -132,7 +145,7 @@
   /** Combattant d'une carte de la collection (toutes licences) ; null si elle ne peut pas combattre */
   async function fromItem(it) {
     const game = it.game || 'pokemon', card = await adOf(it).getCard(it.id);
-    if (game === 'onepiece' ? !B().isOpFighter(card) : (!/pok/i.test(card.category || 'Pokémon') || !card.hp)) return null;
+    if (!B().canFight(card, game)) return null;
     const img = await App.col.displayImage(it, adOf(it), 'high');
     return B().fighterOf(card, game, { img: img.src, imgOff: App.battleCards.offImg(card), mine: true });
   }
@@ -157,12 +170,14 @@
   const typeColor = (t) => (B().TYPE_INFO[t] || ['?', '#dfe4ee'])[1];
   // One Piece : la couleur de la carte tient lieu de type
   const OP_NAMES = { fire: 'Rouge', grass: 'Vert', water: 'Bleu', psychic: 'Violet', darkness: 'Noir', lightning: 'Jaune', colorless: 'Sans couleur' };
-  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : Object.keys(B().TYPE_INFO));
-  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
+  // Riftbound : le domaine de la carte tient lieu de type
+  const RB_NAMES = { fire: 'Fureur', grass: 'Calme', water: 'Esprit', fighting: 'Corps', psychic: 'Chaos', lightning: 'Ordre', colorless: 'Sans domaine' };
+  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : Object.keys(B().TYPE_INFO));
+  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
   const typeChip = (t, game) => `<span class="bt-type" style="--tc:${typeColor(t)}">${esc(typeName(t, game))}</span>`;
   const pips = (n) => `<span class="bt-pips" title="${n} énergie${n > 1 ? 's' : ''}">${Array.from({ length: Math.min(n, 8) }, () => '<i></i>').join('')}${n > 8 ? `<b>+${n - 8}</b>` : ''}</span>`;
   const costPips = (n) => (n ? Array.from({ length: n }, () => '<i></i>').join('') : '<small>0</small>');
   const hpCls = (r) => (r < 0.3 ? 'low' : r < 0.6 ? 'mid' : '');
 
-  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
+  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, RB_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
 })();

@@ -6,7 +6,7 @@
   /** Statistiques de combat d'une carte (d'après la fiche détaillée TCGdex, gardée en cache) */
   async function combatStats(it) {
     const game = it.game || 'pokemon', card = await adOf(it).getCard(it.id);
-    if (game === 'onepiece' ? !B().isOpFighter(card) : (!/pok/i.test(card.category || 'Pokémon') || !card.hp)) return { invalid: true };
+    if (!B().canFight(card, game)) return { invalid: true };
     const f = B().fighterOf(card, game);
     const dmg = (a) => (a.noDamage ? 10 : a.mode === 'x' ? a.base * 2 : a.base);
     return {
@@ -66,7 +66,7 @@
       const drawTypes = () => {
         // les 11 types du jeu de cartes, toujours affichés (grisés si tu n'en as aucun)
         const cnt = {}; rows.forEach((r) => { if (r.type && !r.invalid) cnt[r.type] = (cnt[r.type] || 0) + 1; });
-        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">${game === 'onepiece' ? 'Toutes les couleurs' : 'Tous les types'}</button>` + typesOf(game).map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''} ${cnt[t] ? '' : 'none'}" data-t="${t}" style="--tc:${typeColor(t)}" ${cnt[t] ? '' : `disabled title="${say(game, 'Aucun Pokémon de ce type dans ta collection')}"`}><i></i>${esc(typeName(t, game))}${cnt[t] ? ` <small>${cnt[t]}</small>` : ''}</button>`).join('');
+        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">${game === 'onepiece' ? 'Toutes les couleurs' : game === 'riftbound' ? 'Tous les domaines' : 'Tous les types'}</button>` + typesOf(game).map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''} ${cnt[t] ? '' : 'none'}" data-t="${t}" style="--tc:${typeColor(t)}" ${cnt[t] ? '' : `disabled title="${say(game, 'Aucun Pokémon de ce type dans ta collection')}"`}><i></i>${esc(typeName(t, game))}${cnt[t] ? ` <small>${cnt[t]}</small>` : ''}</button>`).join('');
       };
       drawTypes();
 
@@ -157,6 +157,7 @@
       const end = (v) => { if (done) return; done = true; resolve(v); };
       body = App.util.openModal('', () => end(null));
       const kinds = lic(game).bagKinds, loanTxt = game === 'onepiece' ? 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Guard Point, Four Thousand-Brick Fist, You Can Be My Samurai!!, Sables et 3 DON!!.'
+        : game === 'riftbound' ? 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Hextech Ray, Discipline, Rune Prison, Retreat et 3 runes de ton domaine.'
         : 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Potion, PlusPower, Défenseur, Transfert et 3 Énergies du type de ton 1er Pokémon.';
       if (!list.length) {
         body.innerHTML = `<div class="bt-pick"><h2>Pioche · ${esc(name)}</h2><p class="muted">Tu n’as pas encore de carte ${esc(kinds)} dans ton Dex. ${loanTxt} Capture-les pour les utiliser !</p>

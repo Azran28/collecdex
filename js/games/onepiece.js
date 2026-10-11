@@ -587,6 +587,7 @@
     isOfficial: (localId, set) => isOfficialIn(String(localId).replace(/ ([PR])(\d+)$/, (m, k, n) => `_${k.toLowerCase()}${n}`), set.id),
     numLabel: (card) => card.localId,
     logoText: (s) => (s.id === 'PROMO' ? 'Promos' : s.id === 'AUTRES' ? 'Autres' : s.id),
+    extraLabel: 'parallèles et réimpressions', // (cartes en plus des numérotées, page d'une série)
     priceNote: 'Prix : marché américain TCGplayer (cartes anglaises), converti en euros, mise à jour quotidienne.',
     rarity,
     pullRates: () => null,

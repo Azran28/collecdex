@@ -65,8 +65,30 @@ App.battle = (() => {
       type: OP_COLOR[(card.colors || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: rush ? 1 : 0, ko: false, ...extra,
     };
   }
+  /**
+   * Combattant Riftbound (v3.10, même moteur, adapté légèrement) : seules les unités combattent.
+   * PV = 40 + puissance × 16 (+ [Shield], [Tank], champion) ; type = domaine (Fureur → Feu…) ; attaque = puissance × 10 (+ [Assault]),
+   * coût selon l'énergie de la carte ; « Riposte » (1 énergie) si l'unité a [Shield] ou [Tank] ; [Accelerate] = commence avec 1 énergie.
+   */
+  const RB_DOMAIN = { fury: 'fire', calm: 'grass', mind: 'water', body: 'fighting', chaos: 'psychic', order: 'lightning' };
+  const isRbFighter = (card) => (card.kind === 'unit' || /^Unité$/i.test(card.category || '')) && card.might != null;
+  function fighterRB(card, extra = {}) {
+    const might = Math.max(1, +card.might || 1), cost = +card.cost || 0, text = String(card.text || '');
+    const kw = (re) => { const m = text.match(re); return m ? +(m[1] || 1) : 0; };
+    const shield = kw(/\[Shield(?:\s+(\d+))?\]/i), assault = kw(/\[Assault(?:\s+(\d+))?\]/i), tank = /\[Tank\]/i.test(text);
+    const champ = (card.supertypes || []).includes('champion'), accel = /\[Accelerate\]/i.test(text);
+    const hp = Math.min(260, Math.max(40, r10(40 + might * 16 + shield * 10 + (tank ? 20 : 0) + (champ ? 20 : 0))));
+    const attacks = [{ name: champ ? 'Coup de champion' : 'Attaque', cost: Math.min(3, 1 + Math.floor(cost / 3)), base: Math.max(10, r10(might * 10 + assault * 10)), mode: '', noDamage: false, text: assault ? `Assaut ${assault} : +${assault * 10} dégâts` : '' }];
+    if (shield || tank) attacks.unshift({ name: 'Riposte', cost: 1, base: Math.max(10, r10(might * 5)), mode: '', noDamage: false, text: '' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'riftbound',
+      type: RB_DOMAIN[(card.domains || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: accel ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound) */
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -159,11 +181,20 @@ App.battle = (() => {
     { n: 4, name: 'Grand Corsaire', desc: 'Les Sept Grands Corsaires · un DON!! d’avance', pool: ['ST03-003', 'ST03-009', 'OP01-067', 'OP01-070', 'OP01-078', 'OP01-074', 'ST03-005', 'OP01-073'], bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Empereur', desc: 'Les Empereurs des mers · sors tes meilleures cartes', pool: ['OP01-120', 'OP01-094', 'OP02-004', 'OP11-073', 'OP09-093', 'OP01-070'], bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Riftbound (v3.10 ; unités d'Origins vérifiées dans la galerie de Riot)
+  const og = (...n) => n.map((x) => `ogn-${String(x).padStart(3, '0')}-298`);
+  const LEVELS_RB = [
+    { n: 1, name: 'Sbire', desc: 'Petites unités d’Origins · il joue un peu au hasard', pool: og(3, 6, 10, 13, 44, 52, 54, 84, 91, 96, 136, 171, 210), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Combattant', desc: 'Unités aguerries · il attaque toujours au plus fort', pool: og(1, 2, 12, 49, 86, 92, 125, 131, 167, 174, 177, 178, 208, 215), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Champion', desc: 'Les champions d’Origins · il connaît tes points faibles', pool: og(27, 30, 66, 67, 68, 73, 74, 110, 112, 193, 200, 232, 238, 241), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Maître', desc: 'Champions épiques · une énergie d’avance', pool: og(34, 39, 76, 78, 79, 119, 162, 164, 202, 205, 243, 246), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Légende', desc: 'Les monstres de Runeterra · sors tes meilleures cartes', pool: og(41, 158, 38, 82, 161, 148, 11, 88), bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterOf, isOpFighter, OP_COLOR, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterOf, canFight, isOpFighter, isRbFighter, OP_COLOR, RB_DOMAIN, LEVELS_RB, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

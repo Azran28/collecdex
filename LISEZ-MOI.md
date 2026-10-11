@@ -93,6 +93,16 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Mes objectifs** : choisis la licence en haut de la page.
 - Combats : Pokémon et One Piece, chacun de son côté (v2.99, voir « Combat »).
 
+## Riftbound (v3.10, le jeu de cartes League of Legends)
+- **Explorer** : choisis **Riftbound** en haut. 6 séries : **Origins**, **Origins : Proving Grounds**, **Armes spirituelles** (Spiritforged), **Déchaînement** (Unleashed), **Vendetta**, **Radiance**. Données de la **galerie officielle de Riot** : les nouvelles séries apparaissent toutes seules.
+- **Noms en anglais** : Riot ne publie pas encore les noms français des cartes, même sur sa page française. Ta « Poro ronchon » s'appelle donc **Pouty Poro**, ton « Dragon des glaces » **Raging Firebrand**. Les séries, raretés, types et domaines sont en français. Ta photo garde ta carte française.
+- **Raretés** : Commune, Peu commune, Rare, Épique, Showcase. « Cartes numérotées » = 001 à 298 (Origins) ; en plus : les **versions alternatives** (238**a**), les **signatures** (304*****), les jetons. **Brillantes** : Rare, Épique et Showcase le sont toujours ; une Commune ou Peu commune peut exister en normale et en brillante (coche « Holo » sur sa fiche si la tienne brille).
+- **Capturer** : choisis **Riftbound** en haut (ou photographie-la en mode Pokémon : l'appli bascule toute seule). Le **code en bas à gauche** (ex. **OGN · 013/298**) est lu, puis l'image de ta carte est comparée à toutes les cartes Riftbound. Testé sur tes photos : 3 cartes seules sur 3 reconnues ; en classeur, 8 sur 9 (page 4), 7 sur 9 (page 3, cartes très brillantes) et les champs de bataille couchés, **sans aucune erreur « sûre »** ; ~1 min 20 par page de 9.
+- **Pas encore reconnues** : les **runes et jetons d'Armes spirituelles** (SFD R01…R06, T01 Mech) — Riot ne les a pas mis dans sa galerie. La **certification** (montrer le dos de la carte) ne marche pas encore pour Riftbound : envoie-moi une photo nette du **dos** d'une carte Riftbound pour l'activer.
+- **Prix** : marché américain TCGplayer (cartes anglaises), converti en euros, mis à jour **chaque matin** par le robot de mise en ligne. (Sur ton PC, les prix sont pris sur le site en ligne.)
+- **Importer** : un fichier Collectr, Cardmarket… avec des cartes Riftbound est reconnu (jeu « Riftbound », code OGN-013, ou série Origins, Spiritforged…). « (Signature) », « Alternate Art » = la bonne version.
+- **Combat** : voir « Combat » (unités Riftbound, la Faille de l'invocateur). **Badges** : 4 badges Riftbound secrets.
+
 ## Importer ma collection (Collectr, Cardmarket, Pokellector, Dragon Shield, Excel)
 - **Mon Dex › Importer** (ou Paramètres › Sauvegarde › « Importer un fichier »).
 - Choisis d'où vient ton fichier pour voir comment l'obtenir :
@@ -108,9 +118,10 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Pas encore : les cartes japonaises, les anciens fichiers Excel .xls (enregistre-les en .xlsx ou CSV).
 
 ## Combat
-- **Une licence à la fois (v2.99)** : l'onglet **Combat** commence par le **choix de la licence** (Pokémon ou One Piece). Chacune a **ses 3 decks**, **ses adversaires** (5 niveaux chacun), **ses niveaux battus**, ses victoires et **ses salons en ligne**. « Licence » en haut à droite du bandeau pour changer. Tes anciens decks mélangés ont été rangés tout seuls : les cartes One Piece sont passées dans les decks One Piece (même nom).
+- **Une licence à la fois (v2.99)** : l'onglet **Combat** commence par le **choix de la licence** (Pokémon, One Piece ou Riftbound). Chacune a **ses 3 decks**, **ses adversaires** (5 niveaux chacun), **ses niveaux battus**, ses victoires et **ses salons en ligne**. « Licence » en haut à droite du bandeau pour changer. Tes anciens decks mélangés ont été rangés tout seuls : les cartes One Piece sont passées dans les decks One Piece (même nom).
 - **Décor et style de la licence** : Pokémon = terrain de combat en herbe, boîtes blanches façon jeu vidéo, « À toi ! » rouge et blanc ; One Piece = haute mer au coucher du soleil avec un navire pirate, fiches façon **avis de recherche**, « À l'abordage ! », l'énergie s'appelle **DON!!**. Au dernier niveau (Légende / Empereur), le ciel devient orageux.
 - **One Piece** : tes **Personnages** et **Leaders**. PV = puissance ÷ 50 (+ le contre, + les vies du Leader), attaque = puissance ÷ 100, « Riposte » pour 1 DON!! si la carte a un contre, la couleur de la carte (Rouge, Vert, Bleu, Violet, Noir, Jaune) donne le type, [Double attaque] = 2 pièces, [Initiative] = 1 DON!! dès le départ. Adversaires : **Mousse**, **Pirate**, **Supernova**, **Grand Corsaire**, **Empereur** (Shanks, Kaido, Barbe Blanche, Big Mom, Barbe Noire…). Pioche du mode Avancé : tes **Événements** et **Lieux** (effet lu dans leur texte : [Contre] +X000 = protection, +X000 de puissance = dégâts en plus, KO = gros coup, renvoyer un personnage = Rafale, piocher = +1 DON!!, Lieu = +10 dégâts 3 tours), plus **3 cartes DON!!** ajoutées toutes seules.
+- **Riftbound (v3.10)** : tes **unités** (champions compris). PV = 40 + puissance × 16 (+ [Shield], [Tank], champion), attaque = puissance × 10 (+ [Assault]), « Riposte » si l'unité a [Shield] ou [Tank], le **domaine** (Fureur, Calme, Esprit, Corps, Chaos, Ordre) donne le type, [Accelerate] = 1 énergie dès le départ. Décor : **la Faille de l'invocateur** de nuit, panneaux hextech bleu nuit et or, « À toi, invocateur ! ». Adversaires : **Sbire**, **Combattant**, **Champion**, **Maître**, **Légende** (Volibear, Kadregrin, Anivia…). En Avancé, ton **Grimoire** : sorts, équipements, runes (= +1 énergie) et champs de bataille (= stade).
 - **Sac / Coffre (v3.00)** : en Avancé, tes cartes utilitaires sont dans ton **Sac** (Pokémon) ou ton **Coffre** (One Piece) : touche-le pour voir toutes tes cartes en main d'un coup, avec leur effet ; celles qui servent maintenant sont entourées, touche-en une pour la jouer. Pioche plus lente : **2 cartes au départ**, puis **1 tous les 2 tours**, **4 en main au plus**.
 - **Vrais dégâts (v3.00)** : chaque attaque affiche les dégâts qu'elle fera vraiment au combattant d'en face (faiblesse, résistance, bonus, protections) ; le chiffre de la carte est barré à côté. L'animation montre toujours les dégâts complets (« −90 PV » même si l'adversaire n'en avait que 60).
 - **Avancé : cartes cachées** : les cartes du banc adverse restent **face cachée** (dos de carte) tant qu'elles n'ont pas combattu ; elles se retournent en entrant en jeu, et toutes à la fin du combat. En ligne, c'est pareil des deux côtés : ton adversaire ne voit pas ton banc.
@@ -214,7 +225,7 @@ Le site est aussi en ligne : **https://azran28.github.io/collecdex/** (PC, tél�
 
 ### Les robots de GitHub (depuis le 9 oct.)
 - **Tests avant chaque mise en ligne** : à chaque nouvelle version, un robot de GitHub ouvre toutes les pages du site (en taille ordinateur et téléphone), joue 3 combats et vérifie les fonctions importantes (~70 vérifications, 3 minutes). **Le site n'est mis en ligne que si tout est réussi** ; sinon l'ancienne version reste en ligne et GitHub t'envoie un e-mail. Tu peux voir les passages dans l'onglet **Actions** du dépôt (https://github.com/Azran28/collecdex/actions) : coche verte = en ligne, croix rouge = bloqué. Tu peux aussi lancer les tests toi-même : **https://azran28.github.io/collecdex/tests.html** (ou `http://localhost:8765/tests.html`).
-- **Nouvelles séries reconnues toutes seules** : chaque lundi matin, un autre robot ajoute les cartes sorties depuis la semaine précédente à la base de référence des images (celle qui reconnaît une carte d'après son dessin), pour Pokémon et One Piece, puis publie (après les tests). Les cartes dont l'image n'est pas encore disponible sont réessayées la semaine suivante. Pour le lancer tout de suite (par ex. le jour d'une sortie) : onglet **Actions** › **Base de référence des images** › **Run workflow**.
+- **Nouvelles séries reconnues toutes seules** : chaque lundi matin, un autre robot ajoute les cartes sorties depuis la semaine précédente à la base de référence des images (celle qui reconnaît une carte d'après son dessin), pour Pokémon, One Piece et Riftbound, puis publie (après les tests). Les cartes dont l'image n'est pas encore disponible sont réessayées la semaine suivante. Pour le lancer tout de suite (par ex. le jour d'une sortie) : onglet **Actions** › **Base de référence des images** › **Run workflow**.
 
 ## Quand je t'envoie une mise à jour
 
@@ -237,6 +248,7 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 
 - Cartes, raretés, images, prix : [TCGdex](https://tcgdex.dev), base libre et gratuite. Les prix Cardmarket (€) sont mis à jour chaque jour.
 - One Piece : cartes du site officiel de Bandai (copie « Punk Records » sur GitHub), images relayées par images.weserv.nl, prix TCGplayer via optcgapi.com.
+- Riftbound : galerie officielle des cartes de Riot Games (playriftbound.com), images relayées par images.weserv.nl, prix TCGplayer via tcgcsv.com (préparés chaque matin par le robot).
 - Taux de drop : études publiques d'ouverture de boosters (Pokémon ne publie pas de chiffres officiels).
 - Notes : ta note personnelle.
 
@@ -244,7 +256,7 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 
 - `index.html` : la page
 - `css/style.css` : l'apparence
-- `js/games/` : un fichier par jeu (Pokémon aujourd'hui ; One Piece, Magic… ensuite)
+- `js/games/` : un fichier par jeu (Pokémon, One Piece, Riftbound ; Magic… ensuite)
 - `js/games/pokemon-pullrates.js` : les taux de drop et leurs sources
 - `js/views/` : une page du site par fichier
 

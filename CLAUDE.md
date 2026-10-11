@@ -1,6 +1,6 @@
 # CollecDex — contexte pour Claude
 
-« Pokédex » de collection de cartes pop-culture (Pokémon d'abord, puis One Piece, Magic, Yu-Gi-Oh!, Lorcana, et à terme tout ce qui se collectionne en « X / Y »).
+« Pokédex » de collection de cartes pop-culture (Pokémon d'abord, puis One Piece, Riftbound, Magic, Yu-Gi-Oh!, Lorcana, et à terme tout ce qui se collectionne en « X / Y »).
 Propriétaire : **Arnaud** (GitHub `Azran28`). Il code très peu : c'est Claude qui écrit tout le code, Arnaud teste et décide.
 
 ## Organisation du contexte (économie de tokens)
@@ -13,6 +13,7 @@ Ce fichier ne garde que l'essentiel. Le détail technique est dans **`.claude/ru
 | `visuel.md` | vérification par l'image (`visual.js`, worker, index, labo) |
 | `certification.md` | `certify.js`, lampe, labo de certification |
 | `onepiece.md` | adaptateur One Piece et ses particularités (scanner, images, prix) |
+| `riftbound.md` | adaptateur Riftbound (galerie Riot, noms anglais, prix par le robot, code « OGN · 013/298 ») |
 | `pokemon-donnees.md` | adaptateur Pokémon / TCGdex, séries anglaises, hors-série, langues |
 | `combat.md` | combats (ordinateur, Avancé, en ligne, reprise, revanche) |
 | `capsules.md` | capsules, boutique, Pokédex |
@@ -62,13 +63,13 @@ Documents non chargés automatiquement (à lire seulement si besoin) : `.claude/
 
 ## Architecture (HTML/CSS/JS sans framework ni build)
 - Scripts classiques, espace de noms global `App`, routeur par `#` (`js/app.js`). **Ordre de chargement important** : `util.js` crée `App`, donc `icons.js` vient après. Tous les `<script>` ont `defer` (garder `defer` sur tout nouveau script) ; nouveau fichier JS → l'ajouter dans `index.html` avec `?v=`. Capturer, reconnaissance, Combat, Import = **chargés à la demande** (`data-lazy`, `App.need`, voir `appli-mobile.md`).
-- `js/db.js` (IndexedDB : `items`, `photos`, `kv`, `cache`) · `js/collection.js` (`App.col`) · `js/cloud.js` (synchro Supabase) · `js/games/registry.js` + un adaptateur par jeu (`pokemon.js`, `onepiece.js`…) · `js/recognizer*.js` (reconnaissance, 5 fichiers) · `js/visual.js` + `visual-worker.js` (image) · `js/certify.js` · `js/notify.js` · `js/wish.js` · `js/install.js` + `sw.js` · `js/capsules.js` + `js/pokedex.js` · `js/battle*.js` + `js/duel.js` · `js/friends.js` · `js/importer.js` · `js/badges.js` (39 badges secrets, toutes licences) · `js/icons.js` (SVG, logo) · `js/sfx.js` (`App.sfx`, Web Audio, réglage `App.settings.sound`) · `js/onboarding.js`.
+- `js/db.js` (IndexedDB : `items`, `photos`, `kv`, `cache`) · `js/collection.js` (`App.col`) · `js/cloud.js` (synchro Supabase) · `js/games/registry.js` + un adaptateur par jeu (`pokemon.js`, `onepiece.js`, `riftbound.js`…) · `js/recognizer*.js` (reconnaissance, 5 fichiers) · `js/visual.js` + `visual-worker.js` (image) · `js/certify.js` · `js/notify.js` · `js/wish.js` · `js/install.js` + `sw.js` · `js/capsules.js` + `js/pokedex.js` · `js/battle*.js` + `js/duel.js` · `js/friends.js` · `js/importer.js` · `js/badges.js` (43 badges secrets, toutes licences) · `js/icons.js` (SVG, logo) · `js/sfx.js` (`App.sfx`, Web Audio, réglage `App.settings.sound`) · `js/onboarding.js`.
 - `js/views/*.js` : une page par fichier (accueil, séries, série, fiche carte, Mon Dex, vitrine, capture, paramètres, compte, match…). **Gros fichiers découpés (v3.06)** : Capturer = `scan*.js` (+ morceaux `scan-batch-*.js`, état partagé `S`), Combat = `match*.js` (`App.matchParts`), reconnaissance = `recognizer*.js` (`App.recognizerParts`) ; détails dans les notes `scanner-ecran.md`, `combat.md`, `reconnaissance.md`. Garder les fichiers sous ~800 lignes : un nouveau gros bloc va dans son propre fichier.
 - Navigation : `#/compte` = la **vitrine** (avatar en haut à droite ; `#/vitrine` alias) ; connexion/synchro (`views/account.js`) en haut des **Paramètres** (`embedded: true`) et sur `#/connexion` ; **Combat** = `#/combat` (alias `#/match`, fichier `views/match.js`). La pastille du compte pointe vers `#/compte` si connecté, `#/connexion` sinon.
 - `css/style.css` : styles de base puis blocs successifs ; règles mobiles sous `@media (max-width: 760px)` (voir `appli-mobile.md`).
 
 ## Sécurité (à respecter partout)
-- **CSP** dans `index.html` : scripts seulement du site et de bibliothèques précises de `cdn.jsdelivr.net` (supabase-js 2.117.2, tesseract.js / tesseract.js-core 5.1.1 avec et sans « v » ; + `wasm-unsafe-eval`), workers `blob:`, connexions limitées (TCGdex, Supabase, jsDelivr, tessdata, raw.githubusercontent, optcgapi.com, images.weserv.nl). **Nouveau service externe ou nouvelle bibliothèque → l'ajouter à la CSP**, sinon bloqué en silence (`securitypolicyviolation`). Pas de script en ligne ni d'attribut `onclick=` (utiliser un écouteur, ex. `data-reload`).
+- **CSP** dans `index.html` : scripts seulement du site et de bibliothèques précises de `cdn.jsdelivr.net` (supabase-js 2.117.2, tesseract.js / tesseract.js-core 5.1.1 avec et sans « v » ; + `wasm-unsafe-eval`), workers `blob:`, connexions limitées (TCGdex, Supabase, jsDelivr, tessdata, raw.githubusercontent, optcgapi.com, images.weserv.nl, content.publishing.riotgames.com, azran28.github.io). **Nouveau service externe ou nouvelle bibliothèque → l'ajouter à la CSP**, sinon bloqué en silence (`securitypolicyviolation`). Pas de script en ligne ni d'attribut `onclick=` (utiliser un écouteur, ex. `data-reload`).
 - Bibliothèques CDN **à version figée avec SRI** (`integrity` + `crossOrigin`) : supabase-js 2.117.2 (`cloud.js`), tesseract.js 5.1.1 (`recognizer.js`). Changer de version → recalculer le sha384 et changer la CSP.
 - **Données d'un autre dresseur = jamais fiables** : `friends.js` filtre tout (`cleanRow`, `cleanItem`, `cleanProfile`). Toujours `esc()` dans les gabarits, y compris dans `style="…url('…')"` et `data-game`.
 - `outils/serveur.ps1` : sert le dossier parent, ne sert jamais `.git`/`.claude`, option `-NoBrowser`. `.claude/launch.json` : l'aperçu se branche sur le serveur d'Arnaud (port 8765 réservé) ; `collecdex-copie` = `outils/serveur.ps1 -Port 8766` sur le worktree.

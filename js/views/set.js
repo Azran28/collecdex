@@ -93,7 +93,7 @@ App.views.set = {
         </div>
         <div style="margin:10px 0">${App.ui.progressBar(p)}</div>
         <div class="row small muted">
-          <span>${set.official} cartes numérotées${set.total > set.official ? ` + ${set.total - set.official} ${game === "onepiece" ? "parallèles et réimpressions" : "secrètes"}` : ''}</span>
+          <span>${set.official} cartes numérotées${set.total > set.official ? ` + ${set.total - set.official} ${ad.extraLabel || "secrètes"}` : ''}</span>
           <span>· comptées : <a href="#/parametres">${App.settings.completion === 'official' ? 'numérotées' : 'toutes'}</a></span>
           ${value ? `<span>· Valeur : <b style="color:var(--accent2)">${euro(value)}</b></span>` : ''}
         </div>

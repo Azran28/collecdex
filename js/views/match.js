@@ -13,6 +13,14 @@
       'Mets K.O. les 3 personnages adverses pour gagner et débloquer le niveau suivant.',
       '<b>Avancé</b> (niveaux à part) : une pioche de 10 cartes Événement / Lieu au plus, plus 3 DON!! (sinon pioche de prêt), mélangée : 3 cartes en main au départ, 1 de plus à chacun de tes tours ; une carte par tour avant l’action. Effets simplifiés : [Contre] +X000 = protection, +X000 de puissance = dégâts en plus, KO = gros coup, renvoyer un personnage = Rafale, piocher = +1 DON!!, Lieu = +10 dégâts 3 tours.',
       'En Avancé, les personnages du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
+    ] : game === 'riftbound' ? [
+      '3 unités par équipe (unités Riftbound, champions compris) : une qui combat, deux sur le banc. Une case vide est remplie par une unité de prêt.',
+      'Ta carte devient un combattant : PV = 40 + puissance × 16 (+ [Shield], [Tank], champion), attaque = puissance × 10 (+ [Assault]), « Riposte » si l’unité a [Shield] ou [Tank], domaine = type ; [Accelerate] = 1 énergie dès le départ. Pas de faiblesse ni de résistance.',
+      'À ton tour, ton unité gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> d’unité.',
+      'Une attaque coûte de l’énergie selon le coût de la carte ; l’énergie en plus reste pour la suite.',
+      'Mets K.O. les 3 unités adverses pour gagner et débloquer le niveau suivant.',
+      '<b>Avancé</b> (niveaux à part) : un grimoire de 10 cartes Sort / Équipement / Rune / Champ de bataille au plus (sinon grimoire de prêt), mélangé : 2 cartes en main au départ, puis 1 de plus tous les 2 tours ; une carte par tour avant l’action. Effets simplifiés : rune = +1 énergie (+2 si même domaine), « Deal N » = dégâts en plus, « Stun » = protection, équipement = PV en plus, champ de bataille = stade.',
+      'En Avancé, les unités du banc adverse restent <b>face cachée</b> tant qu’elles n’ont pas combattu (et les tiennes pour ton adversaire en ligne).',
     ] : [
       '3 Pokémon par équipe : un qui combat, deux sur le banc. Une case vide est remplie par un Pokémon de prêt.',
       'À ton tour, ton Pokémon gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> de Pokémon.',

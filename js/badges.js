@@ -6,6 +6,11 @@
 App.badges = (() => {
   const N = (s) => App.util.norm(s || '');
   const has = (ctx, name) => ctx.items.some((i) => N(i.snap.name).split(' ').includes(N(name)));
+  // champions de League of Legends présents dans Riftbound (nom avant la virgule : « Jinx, Demolitionist », « Lee Sin, Blind Monk »)
+  const RB_CHAMPS = new Set(['ahri', 'akali', 'ambessa', 'anivia', 'annie', 'aphelios', 'azir', 'bard', 'blitzcrank', 'caitlyn', 'darius', 'diana', 'dr. mundo', 'draven', 'ekko',
+    'evelynn', 'ezreal', 'fiora', 'garen', 'heimerdinger', 'irelia', 'ivern', 'jarvan iv', 'jax', 'jayce', 'jhin', 'jinx', 'k\'sante', 'kai\'sa', 'karma', 'karthus', 'kayn', 'kennen',
+    'kha\'zix', 'kog\'maw', 'leblanc', 'lee sin', 'leona', 'lillia', 'lucian', 'lux', 'malzahar', 'master yi', 'mel', 'miss fortune', 'nocturne', 'poppy', 'qiyana', 'rek\'sai', 'renata glasc',
+    'rengar', 'rumble', 'sett', 'shen', 'sivir', 'sona', 'taric', 'teemo', 'tryndamere', 'twisted fate', 'udyr', 'vayne', 'vi', 'viktor', 'volibear', 'warwick', 'yasuo', 'yone', 'zed'].map(N));
   const L = [
     // Taille de la collection
     ['c1', 'Premier pas', 'Ta première carte dans ton Dex', 'sparkles', 1, (x) => x.n >= 1],
@@ -54,6 +59,11 @@ App.badges = (() => {
     ['op-crew', 'Équipage au complet', '5 membres de l’équipage de Luffy', 'anchor', 3, (x) => ['zoro', 'nami', 'usopp', 'sanji', 'chopper', 'robin', 'franky', 'brook', 'jinbe'].filter((n) => has(x, n)).length >= 5],
     ['op-yonko', 'Les Quatre Empereurs', 'Shanks, Big Mom, Kaido et Barbe Noire', 'crown', 3, (x) => has(x, 'shanks') && has(x, 'linlin') && has(x, 'kaido') && has(x, 'teach')],
     ['op-lead', 'Capitaine', '10 cartes Leader différentes', 'anchor', 2, (x) => x.items.filter((i) => i.game === 'onepiece' && /leader/i.test(i.snap.rarity || '')).length >= 10],
+    // Riftbound (v3.10 : mêmes idées ; noms des cartes en anglais, comme chez Riot)
+    ['rb-poro', 'Poro-mania', '3 Poros différents', 'rune', 2, (x) => x.items.filter((i) => i.game === 'riftbound' && N(i.snap.name).includes('poro')).length >= 3],
+    ['rb-runes', 'Maître des runes', 'Les 6 runes : Fureur, Calme, Esprit, Corps, Chaos et Ordre', 'rune', 2, (x) => ['fury', 'calm', 'mind', 'body', 'chaos', 'order'].every((d) => x.items.some((i) => i.game === 'riftbound' && N(i.snap.name) === `${d} rune`))],
+    ['rb-champs', 'Invocateur', '10 champions différents', 'crown', 3, (x) => new Set(x.items.filter((i) => i.game === 'riftbound').map((i) => N(String(i.snap.name).split(',')[0])).filter((n) => RB_CHAMPS.has(n))).size >= 10],
+    ['rb-showcase', 'Vitrine dorée', '3 cartes Showcase', 'rune', 3, (x) => x.items.filter((i) => i.game === 'riftbound' && i.snap.rarity === 'showcase').length >= 3],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   const setsCache = {}; // séries de chaque licence

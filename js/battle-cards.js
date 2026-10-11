@@ -65,9 +65,36 @@ App.battleCards = (() => {
     return mk('heal', 30);
   }
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece */
+  /**
+   * Effet simplifié d'une carte Riftbound (Sort, Équipement, Rune, Champ de bataille) d'après son texte (anglais, chez Riot) :
+   * Rune → +1 énergie de son domaine ; Champ de bataille → Stade ; Équipement → +20 PV max ; « Kill a unit » → gros coup ;
+   * « Deal N » / « +N ⚔ » → dégâts en plus ; « Stun » / « −N ⚔ » / contrer → protection ; renvoyer une unité ennemie → Rafale ;
+   * renvoyer / déplacer une unité alliée → échange ; piocher / canaliser → +1 énergie.
+   */
+  const isRbCard = (card) => /^(sort|equipement|rune|champ de bataille)$/.test(norm(card && card.category));
+  function effectOfRB(card) {
+    const text = norm(card.text || ''), cat = norm(card.category);
+    const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
+    const k = (v) => Math.min(40, Math.max(10, +v * 10)); // 3 dégâts → 30
+    let m;
+    if (cat === 'rune') return mk('energy', 1, { eType: App.battle.RB_DOMAIN[(card.domains || [])[0]] || null });
+    if (cat === 'champ de bataille') return mk('stadium', /\+\d\s*⚔/.test(text) ? 20 : 10);
+    if (cat === 'equipement') return /deal \d|[-−]\d\s*⚔/.test(text) ? mk('armor', 10) : mk('toolHp', 20);
+    if (/\bkill (?:a|an enemy|it)\b|\bkill a unit\b/.test(text)) return mk('power', 40);
+    if ((m = text.match(/deal (\d+)/))) return mk('power', k(m[1]));
+    if (/\bstun\b|counter a spell|prevent all/.test(text)) return mk('shield', 30);
+    if ((m = text.match(/[-−](\d+)\s*⚔/))) return mk('shield', k(m[1]));
+    if ((m = text.match(/\+(\d+)\s*⚔/))) return mk('power', k(m[1]));
+    if (/return a unit at a battlefield\b.{0,40}owner'?s hand|move an enemy unit|choose an enemy unit/.test(text)) return mk('gust');
+    if (/return a friendly unit|move a friendly unit|\brecall\b/.test(text)) return mk('switch');
+    if (/\bchannel\b|\bdraw \d|look at the top|\bready\b/.test(text)) return mk('charge');
+    return mk('heal', 30);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound */
   function effectOf(card) {
     if (isOpCard(card)) return effectOfOP(card);
+    if (isRbCard(card)) return effectOfRB(card);
     const name = norm(card.name), text = norm(card.effect || card.description || '');
     const cat = norm(card.category);
     const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
@@ -107,13 +134,14 @@ App.battleCards = (() => {
     if (!card) return '';
     if (App.pokemonHorsSerie && App.pokemonHorsSerie.isLocalImage(card.image)) return `${card.image}.jpg`; // carte hors-série : visuel du site
     if (/onepiece-cardgame\.com\//.test(card.image || '')) return App.games.get('onepiece').img.card(card, 'high'); // One Piece : visuel relayé (Bandai bloque l'affichage direct)
+    if (/^https:\/\/cmsassets\.rgpub\.io\//.test(card.image || '')) return App.games.get('riftbound').img.card(card, 'high'); // Riftbound : visuel relayé (réduit)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
     return m && card.localId ? `https://assets.tcgdex.net/en/${m[1]}/${m[2]}/${encodeURIComponent(card.localId)}/high.webp` : '';
   }
   /** Carte du sac prête pour le combat (img peut être ta photo ; imgOff = visuel officiel, envoyé à l'adversaire) */
   function bagCard(card, extra = {}) {
-    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
+    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
   }
   // carte DON!! One Piece : absente des listes de Bandai, on la dessine (img/combat/don.svg)
   const DON_IMG = 'img/combat/don.svg';
@@ -197,15 +225,30 @@ App.battleCards = (() => {
     [['ST02-016', 1], ['ST01-014', 1], ['OP05-057', 2], ['ST02-017', 1], ['ST03-015', 1], ['ST01-017', 1]],
     [['ST02-016', 2], ['OP05-057', 2], ['ST01-015', 1], ['ST02-017', 1], ['ST03-015', 1], ['OP01-055', 1]],
   ];
+  // Riftbound (Origins) : Hextech Ray / Void Seeker / Falling Comet (dégâts), Discipline / Primal Strength (+⚔), Rune Prison (étourdir),
+  // Rebuke (Rafale), Vengeance (gros coup), Mobilize (+1 énergie), Targon's Peak (champ de bataille), puis des runes du domaine
+  const rb = (n) => `ogn-${String(n).padStart(3, '0')}-298`;
+  const AI_BAGS_RB = [
+    [[rb(9), 2]],
+    [[rb(9), 2], [rb(58), 1]],
+    [[rb(9), 2], [rb(58), 1], [rb(50), 1], [rb(172), 1]],
+    [[rb(24), 1], [rb(9), 1], [rb(58), 2], [rb(50), 1], [rb(172), 1], [rb(289), 1]],
+    [[rb(85), 2], [rb(154), 2], [rb(50), 1], [rb(229), 1], [rb(172), 1], [rb(134), 1]],
+  ];
+  const RUNE_OF = { fire: rb(7), grass: rb(42), water: rb(89), fighting: rb(126), psychic: rb(166), lightning: rb(214) };
+  const runeFor = (type) => RUNE_OF[type] || rb(7);
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
   const aiBag = (level, type, game) => (game === 'onepiece'
     ? [...many(AI_BAGS_OP[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('DON')]
-    : [...many(AI_BAGS[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(energyFor(type))]);
+    : game === 'riftbound' ? [...many(AI_BAGS_RB[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(runeFor(type))]
+      : [...many(AI_BAGS[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(energyFor(type))]);
   // deck de prêt (8 cartes) : 2 Potion, PlusPower, Défenseur, Transfert, 3 Énergies
-  // (One Piece : 2 Guard Point, Four Thousand-Brick Fist, You Can Be My Samurai!!, Sables, 3 DON!!)
+  // (One Piece : 2 Guard Point, Four Thousand-Brick Fist, You Can Be My Samurai!!, Sables, 3 DON!! ;
+  //  Riftbound : 2 Hextech Ray, Discipline, Rune Prison, Retreat, 3 runes)
   const loanBag = (type, game) => (game === 'onepiece'
     ? [...many([['ST01-014', 2], ['OP05-020', 1], ['OP01-055', 1], ['ST03-015', 1]]), 'DON', 'DON', 'DON']
-    : [...many([['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-95', 1]]), ...Array(3).fill(energyFor(type))]);
+    : game === 'riftbound' ? [...many([[rb(9), 2], [rb(58), 1], [rb(50), 1], [rb(104), 1]]), ...Array(3).fill(runeFor(type))]
+      : [...many([['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-95', 1]]), ...Array(3).fill(energyFor(type))]);
   // v3.00 : pioche plus lente (2 cartes au départ, 1 tous les 2 tours, 4 en main au plus)
   const DECK_MAX = 10, HAND_START = 2, DRAW_EVERY = 2, HAND_MAX = 4;
 
@@ -216,5 +259,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, bagCard, donCard, loadBag, DON_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
+  return { effectOf, isOpCard, isRbCard, bagCard, donCard, loadBag, DON_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

@@ -11,6 +11,9 @@ Object.assign(App.views.scan, {
     try { sessionStorage.setItem('scanGame', game); } catch (e) { /* */ }
     let ad = App.games.get(game);
     const isPk = () => game === 'pokemon';
+    // exemples de la recherche à la main (nom, numéro) selon la licence
+    const HINTS = { pokemon: ['Nom (ex. Dracaufeu)', 'N° (ex. 025/165)'], onepiece: ['Nom (ex. Monkey D. Luffy)', 'Code (ex. OP09-004)'], riftbound: ['Nom anglais (ex. Pouty Poro)', 'Code (ex. OGN-013)'] };
+    const hint = () => HINTS[game] || HINTS.onepiece;
     // la certification (dos de la carte, lampe) n'existe que pour Pokémon pour l'instant
     const guideC = () => App.views.scan.guide('carte'); // certification : Pokémon et One Piece (dos One Piece appris en v2.88)
     const targetId = params.query.carte || null;
@@ -51,8 +54,8 @@ Object.assign(App.views.scan, {
             <h3>La carte n’est pas proposée ?</h3>
             <p class="small muted">Cherche-la par son nom et/ou son numéro. Ta photo sera utilisée.</p>
             <div class="row">
-              <input type="text" id="sc-name" placeholder="Nom (ex. ${isPk() ? "Dracaufeu" : "Monkey D. Luffy"})" style="flex:1;min-width:160px">
-              <input type="text" id="sc-num" placeholder="${isPk() ? "N° (ex. 025/165)" : "Code (ex. OP09-004)"}" style="width:130px">
+              <input type="text" id="sc-name" placeholder="${hint()[0]}" style="flex:1;min-width:160px">
+              <input type="text" id="sc-num" placeholder="${hint()[1]}" style="width:130px">
               <button class="btn" id="sc-search">Chercher</button>
             </div>
           </div>
@@ -65,8 +68,8 @@ Object.assign(App.views.scan, {
       try { sessionStorage.setItem('scanGame', g); } catch (e) { /* */ }
       el.querySelectorAll('.sc-game [data-game]').forEach((a) => { a.classList.toggle('on', a.dataset.game === g); a.setAttribute('aria-selected', a.dataset.game === g); });
       fillSets();
-      el.querySelector('#sc-name').placeholder = `Nom (ex. ${isPk() ? 'Dracaufeu' : 'Monkey D. Luffy'})`;
-      el.querySelector('#sc-num').placeholder = isPk() ? 'N° (ex. 025/165)' : 'Code (ex. OP09-004)';
+      el.querySelector('#sc-name').placeholder = hint()[0];
+      el.querySelector('#sc-num').placeholder = hint()[1];
     }
     const view = el.querySelector('#sc-view');
     const status = el.querySelector('#sc-status');
@@ -322,7 +325,7 @@ Object.assign(App.views.scan, {
             <img src="${esc(ad.img.card(c, 'low'))}" alt="" data-alt="${esc(c.name)}">
             <div><b>${esc(c.name)}</b> ${ad.rarity.symbol(c.rarity, 12)}<br>
               <span class="muted small">${esc(App.views.scan.setLabel(c))} · n° ${esc(c.localId)}${c.set && c.set.cardCount && !ad.numLabel ? '/' + c.set.cardCount.official : ''}</span>
-              ${!isPk() && c.variants ? `<br><span class="small muted">${c.variants.holo ? '✨ Holo' : 'Non holo'}</span>` : ''}
+              ${!isPk() && c.variants ? `<br><span class="small muted">${c.variants.holo && c.variants.normal ? 'Normale (existe aussi en brillante)' : c.variants.holo ? '✨ Holo' : 'Non holo'}</span>` : ''}
               ${!isPk() && /_p\d+$/.test(c.id) ? '<br><span class="small muted">Version parallèle (autre illustration) : compare avec ta carte</span>' : ''}
               ${!isPk() && /_r\d+$/.test(c.id) ? '<br><span class="small muted">Réimpression au même dessin, dans une autre série : vérifie la série</span>' : ''}
               ${i === 0 && c.twin ? '<br><span class="pill small" style="background:#7a4a00">Existe aussi dans une autre série : vérifie la série</span>' : ''}
@@ -435,11 +438,16 @@ Object.assign(App.views.scan, {
           if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
           else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
           summary = R.readSummary(info);
-          // pas une carte Pokémon : c'est peut-être une carte One Piece (code « OP09-004 » lu) → on bascule tout seul
-          const op = App.games.get('onepiece');
-          if (info.otherGame && op && op.recognize) {
-            const r = await op.recognize(blob, st).catch(() => null);
-            if (r && r.cands.length) { switchGame('onepiece'); ({ info, cands } = r); summary = info.read; switched = true; }
+          // pas une carte Pokémon : c'est peut-être une carte One Piece (code « OP09-004 » lu) ou Riftbound (« OGN · 013/298 »)
+          // → on bascule tout seul (la licence dont le code se lit dans le texte d'abord)
+          if (info.otherGame) {
+            const raw = info.raw ? `${info.raw.bottom}\n${info.raw.full}` : '', rb = App.games.get('riftbound');
+            const order = rb && rb.codesIn && rb.codesIn(raw).length ? ['riftbound', 'onepiece'] : ['onepiece', 'riftbound'];
+            for (const g of order) {
+              const A = App.games.get(g); if (!A || !A.recognize) continue;
+              const r = await A.recognize(blob, st).catch(() => null);
+              if (r && r.cands.length) { switchGame(g); ({ info, cands } = r); summary = info.read; switched = g; break; }
+            }
           }
           if (useV && !switched && !info.otherGame) {
             const top = cands[0];
@@ -463,7 +471,7 @@ Object.assign(App.views.scan, {
         }
         if (!alive()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
-        setStatus(switched ? `<span class="small">${App.icons.icon('anchor', 14)} <b>Carte One Piece reconnue</b> : passage en One Piece.</span>`
+        setStatus(switched ? `<span class="small">${App.icons.icon(App.games.info(switched).icon, 14)} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b> : passage en ${esc(App.games.info(switched).name)}.</span>`
           : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre jeu ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '');
         donCard = !!info.don;
         showCandidates(cands, summary);

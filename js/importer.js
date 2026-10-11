@@ -225,7 +225,7 @@ App.importer = (() => {
   /** « 4/102 », « SV049/SV094 », « 004 », « TG12/TG30 » → { n: '4', total: 102 } */
   function numOf(v) {
     const s = String(v || '').trim(); if (!s) return null;
-    const m = s.match(/^#?\s*([A-Za-z]{0,5}-?\d{1,4}[a-z]?)\s*(?:\/\s*([A-Za-z]{0,5}\d{1,4}))?$/);
+    const m = s.match(/^#?\s*([A-Za-z]{0,5}-?\d{1,4}[a-z*]?)\s*(?:\/\s*([A-Za-z]{0,5}\d{1,4}))?$/);
     if (!m) return null;
     const tot = m[2] ? parseInt(m[2].replace(/\D/g, ''), 10) : null;
     return { n: m[1].replace('-', ''), total: Number.isFinite(tot) ? tot : null };
@@ -274,6 +274,22 @@ App.importer = (() => {
         row.par = /parallel|parall[eè]le|alternate|alt\.? ?art|\bV\.\s?[2-9]\b|manga|wanted|\bSP\b/i.test(`${rawName} ${get(r, 'version')}`);
         if (/japan|japon/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise (pas encore prise en charge)';
         else if (!opCode && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
+      // Riftbound (v3.10) : jeu indiqué (« Riftbound », « League of Legends »), code imprimé (« OGN-013 », « SFD R01 ») ou série Riftbound
+      const rbCode = `${get(r, 'number')} ${rawName}`.toUpperCase().match(/\b(OGN|OGS|SFD|UNL|VEN|RAD)\s?[-·•]?\s?(\d{3}[A*]?|R\d{2}A?|T\d{2})\b/);
+      const rbSet = /^(origins|origins\s*:?\s*proving grounds|proving grounds|spiritforged|armes spirituelles|unleashed|d[ée]cha[iî]nement|vendetta|radiance)$/i.test(String(get(r, 'set') || '').trim());
+      if (/riftbound|league of legends/.test(cat) || (rbCode && !/pok/.test(cat)) || (rbSet && !/pok|one ?piece/.test(cat))) {
+        row.game = 'riftbound';
+        row.code = rbCode ? `${rbCode[1]}|${rbCode[2]}` : '';
+        // version : signature (« (Signature) », numéro « 304* »), illustration alternative (« Alternate Art », « Showcase »)
+        row.sig = /signature/i.test(rawName) || /\*/.test(rbCode ? rbCode[2] : '');
+        row.alt = /alternate|alt\.? ?art|showcase/i.test(`${rawName} ${get(r, 'version')}`);
+        row.name = row.name.replace(/\s*[([]\s*(signature|alternate art|overnumbered|showcase|foil)\s*[)\]]/gi, '').trim() || row.name;
+        if (/japan|japon|chin/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise ou chinoise (pas encore prise en charge)';
+        else if (!rbCode && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
         else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
         out.push(row);
         return;
@@ -351,9 +367,35 @@ App.importer = (() => {
     return { status, ...wrap(pref[0]), cands: [...pref.slice(1), ...rest].slice(0, 11).map(wrap), why: status === 'ok' ? '' : pref.length > 1 ? 'plusieurs versions parallèles : choisis la tienne' : 'le nom ne correspond pas tout à fait au code' };
   }
 
+  /** Ligne Riftbound : par le code (« OGN-013 »), sinon série + numéro, sinon le nom (anglais) ; signature / version alternative si la ligne l'indique */
+  async function matchRB(row) {
+    const rb = App.games.get('riftbound');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'riftbound' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    let list = [], exact = '';
+    if (row.code) { const [s, n] = row.code.split('|'); exact = n.replace(/A$/, 'a'); list = await rb.byCode(s, n.replace(/[A*]$/, '')); }
+    else if (row.num && row.setName) for (const s of await rb.setIdsByName(row.setName)) { exact = String(row.num.n); list.push(...await rb.byCode(s, exact.replace(/[a*]$/i, ''))); }
+    if (!list.length && q.length >= 2) list = (await rb.search({ name: row.name })).filter((c) => nameScore(q, c.name, c.baseName) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: row.code ? `code ${row.code.replace('|', '-')} inconnu` : 'carte introuvable (nom anglais attendu)' };
+    if (!exact) {
+      const inSet = row.setName ? new Set(await rb.setIdsByName(row.setName)) : null;
+      if (inSet && inSet.size) { const f = list.filter((c) => inSet.has(c.setId)); if (f.length) list = f; }
+      return { status: list.length === 1 ? 'verif' : 'choix', ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: 'numéro de la carte non indiqué' };
+    }
+    const same = (c) => String(c.localId).toUpperCase().replace(/^0+(?=\d)/, '') === String(exact).toUpperCase().replace(/^0+(?=\d)/, '');
+    const sig = list.filter((c) => /\*$/.test(c.localId)), alt = list.filter((c) => /[a-z]$/.test(c.localId)), base = list.filter((c) => !/[a-z*]$/.test(c.localId));
+    const ex = list.filter(same);
+    const pref = row.sig && sig.length ? sig : row.alt && alt.length ? alt : /[a*]$/i.test(exact) && ex.length ? ex : base.length ? base : list;
+    const rest = list.filter((c) => !pref.includes(c));
+    const okName = !q || nameScore(q, pref[0].name, pref[0].baseName) >= 0.6;
+    const status = pref.length === 1 ? (okName ? 'ok' : 'verif') : 'choix';
+    return { status, ...wrap(pref[0]), cands: [...pref.slice(1), ...rest].slice(0, 11).map(wrap), why: status === 'ok' ? '' : pref.length > 1 ? 'plusieurs versions : choisis la tienne' : 'le nom ne correspond pas tout à fait au numéro' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
     if (row.game === 'onepiece') return matchOP(row);
+    if (row.game === 'riftbound') return matchRB(row);
     const q = norm(row.name);
     const pick = async (setId, cardId) => { const st = await getSet(setId); const c = st && st.cards.find((x) => x.id === cardId); return c ? { card: c, set: st } : null; };
     const withNames = async (st) => { const en = await getEn(st.id); const enBy = Object.fromEntries(en.map((c) => [c.id, c.name])); return st.cards.map((c) => ({ c, s: nameScore(q, c.name, enBy[c.id]) })); };
@@ -442,7 +484,9 @@ App.importer = (() => {
       const g = byId.get(id) || { game, card: r.card, set: r.set, qty: 0, vars: new Set(), lang: r.lang, cond: r.cond };
       g.qty += Math.max(1, r.qty || 1);
       if (game === 'pokemon') variantFor(r, r.card).forEach((x) => g.vars.add(x));
-      else if (r.card.variants) Object.keys(r.card.variants).filter((k) => r.card.variants[k]).forEach((x) => g.vars.add(x)); // One Piece : holo selon la rareté
+      // One Piece : holo selon la rareté ; Riftbound : commune en normal ET en brillant → brillante seulement si la ligne le dit (« Foil »)
+      else if (r.card.variants && r.card.variants.normal && r.card.variants.holo) g.vars.add(r.ver && ['holo', 'foil'].includes(r.ver.base) ? 'holo' : 'normal');
+      else if (r.card.variants) Object.keys(r.card.variants).filter((k) => r.card.variants[k]).forEach((x) => g.vars.add(x));
       if (!g.cond && r.cond) g.cond = r.cond;
       byId.set(id, g);
     }

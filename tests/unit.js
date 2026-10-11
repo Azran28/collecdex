@@ -28,6 +28,7 @@ test('chaque script de la page a le même numéro de version', async (App, W) =>
 test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('pokemon'), 'Pokémon');
   ok(App.games.get('onepiece'), 'One Piece');
+  ok(App.games.get('riftbound'), 'Riftbound');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -110,6 +111,7 @@ test('combat : types reconnus en français et en anglais', (App) => {
 test('combat : niveaux de l’ordinateur', (App) => {
   ok(App.battle.levels('pokemon').length >= 5, 'niveaux Pokémon');
   ok(App.battle.levels('onepiece').length >= 1, 'niveaux One Piece');
+  eq(App.battle.levels('riftbound').length, 5, 'niveaux Riftbound');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -185,3 +187,22 @@ test('index Pokémon (data/vis-index) cohérent', async (App) => {
   ok(m.ids.includes('base1-4'), 'Dracaufeu du Set de Base présent');
 });
 test('index One Piece (data/op-index) cohérent', async () => { await checkIndex('op-index'); });
+test('index Riftbound (data/rb-index) cohérent', async () => {
+  const m = await checkIndex('rb-index');
+  ok(m.ids.includes('ogn-013-298'), 'Poro ronchon (OGN 013) présent');
+});
+
+// ---------- Riftbound : code imprimé lu sur la photo, combattant ----------
+test('Riftbound : code imprimé lu même mal reconnu', (App) => {
+  const c = (t) => App.games.get('riftbound').codesIn(t).map(([k]) => k);
+  ok(c('OGN · 013/298 · FR').includes('OGN|013'), '« OGN · 013/298 »');
+  ok(c('0GN - O31/298').includes('OGN|031'), 'lettres lues à la place des chiffres');
+  ok(c('OGN • 238A/298').includes('OGN|238a'), 'version alternative « 238a »');
+  ok(c('SFD · R02A').includes('SFD|R02a'), 'rune « R02a »');
+  eq(c('Deal 3 to a unit at a battlefield.'), [], 'pas de code dans un texte de carte');
+});
+test('Riftbound : unité → combattant', (App) => {
+  const f = App.battle.fighterRB({ id: 'x', name: 'Leona', kind: 'unit', might: 4, cost: 4, domains: ['order'], supertypes: ['champion'], text: '[Shield] (+1 ⚔ while I\'m a defender.)' });
+  eq([f.hp, f.type, f.attacks.length], [130, 'lightning', 2]);
+  ok(App.battle.canFight({ kind: 'unit', category: 'Unité', might: 2 }, 'riftbound') && !App.battle.canFight({ kind: 'spell', category: 'Sort' }, 'riftbound'), 'seules les unités combattent');
+});

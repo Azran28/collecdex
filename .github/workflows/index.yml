@@ -44,7 +44,7 @@ jobs:
         run: |
           git config user.name "CollecDex (robot)"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/ js/visual.js js/games/onepiece.js
+          git add data/ js/visual.js js/games/onepiece.js js/games/riftbound.js
           git commit -m "Base de référence des images : nouvelles cartes (robot)"
           # numéro de version posé après avoir récupéré les derniers envois (pas de conflit sur index.html)
           git pull --rebase origin main

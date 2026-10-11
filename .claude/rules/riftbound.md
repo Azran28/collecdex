@@ -1,0 +1,30 @@
+---
+paths:
+  - "js/games/riftbound.js"
+  - "js/games/registry.js"
+  - "outils/ci/prix-riftbound.mjs"
+  - "js/views/scan*.js"
+---
+# Riftbound (v3.10, `js/games/riftbound.js`, 3ᵉ licence)
+Même logique que One Piece (voir `onepiece.md`) ; ici seulement ce qui diffère.
+
+## Données
+- **Galerie officielle de Riot** : `content.publishing.riotgames.com/publishing-content/v2.0/public/channel/riftbound_website/list/riftbound_gallery_cards?locale=fr_FR&from=0&limit=1000` (2 pages, ~300 Ko compressés) + `…/riftbound_gallery_sets` ; CORS accordé à localhost et azran28.github.io. Gardé 3 jours en `rb1:index` sous forme compacte (`compact` : `id, s, l, n, sub, t, sp, r, d, img, o, a, x, e, m, p, tg`). Même page que playriftbound.com/fr-fr/card-gallery (`__NEXT_DATA__`).
+- **Noms et textes en anglais** même en `fr_FR` (Riot ne publie pas les noms français) ; séries (« Armes spirituelles », « Déchaînement »), raretés, types : français. Riftcodex (api.riftcodex.com) = autre source, anglaise aussi, sans Radiance.
+- **Id = id Riot** (`ogn-013-298`, alternative `ogn-238a-298`, signature `ogn-304-star-298`, rune `rad-r01`, jeton `unl-t01`, `ven-sp3-006`) ; `localId` imprimé (`013`, `238a`, `304*`, `R01`) ; nom = `name, subtitle`, légende = `tag, name` (« Lee Sin, Blind Monk »). Doublons Riot au numéro `…-000` écartés (`data()`). Numérotées = 3 chiffres ≤ `collectorNumberMax` ; `cardCount.official` affiché = `max` (total imprimé, même si Riot n'a pas tout publié). Dates/genres des séries : `SETS` (série inconnue = en dernier).
+- Manquent chez Riot : runes et jetons d'Armes spirituelles (SFD R01…R06, T01), promos (OPP, PR, JDG).
+- **Brillance** : rare / epic / showcase = `{ holo }`, commune / peu commune = `{ normal, holo }` → `addScanned` et l'import gardent `normal` par défaut (`recognizer.js`, `importer.js`).
+- **Images** : `cmsassets.rgpub.io` (PNG 744×1039, sans CORS) → `images.weserv.nl` (`w=360|720`, webp) ; champs de bataille (paysage, `o`) tournés `&ro=270` = sens du classeur (vérifié sur la page 2 d'Arnaud).
+- **Prix** : tcgcsv.com (copie quotidienne TCGplayer, catégorie 89) **sans CORS** → `outils/ci/prix-riftbound.mjs` (`idOf` : « 013/298 » → `ogn-013-298`, « 304*/298 » → `-star-`, `R01`, `SP3/006`) lancé par `site.yml` à chaque mise en ligne + chaque matin (`schedule`, tests sautés) → `_site/data/rb-prix.json` `{ m, p: { id: [normal, brillant] } }`. Pas dans le dépôt (`.gitignore`) ; sans fichier local, le site lit celui en ligne (CSP `azran28.github.io`). Test local : `_tests-scanner/rb-prix/` (fichiers tcgcsv) + serveur `/__save`.
+
+## Reconnaissance
+- Code en **bas à gauche** : « OGN · 013/298 · FR » → `codesIn` (`codeRe` : séries lues de travers `SET_ALT`, `digitsOf` comme One Piece, suffixe `A`/`*`, `R01`, `T01`, `SP3`) → `série|numéro` ; `byCode(set, num)` = la carte + ses versions.
+- `recognize` : vérification par l'image lancée tout de suite (`early`, `data/rb-index`, `RB_INDEX_V`) ; 1er passage = **2 bandes** du code seulement (les noms ne servent qu'aux cartes anglaises : lus seulement en dernier recours) ; image pas sûre → 2 autres bandes (ou la carte recadrée). **Classeur (`context`)** : pas d'`otherCrops` ni de lecture de toute la carte, et le résultat de `early` est réutilisé (avant : 180 s par page, après : 80 s, même justesse).
+- Mesures (`_tests-scanner/riftbound/`, banc `rb-bench.js` : `__rbOne('5')`, `__rbPage('4')`, `__rbSpy()`) : cartes seules 5, 6, 7 = 3/3 sûres ; page 4 (OGN 021…031) 8/9, 7 sûres ; page 3 (légendes, alternatives) 7/9, 6 sûres ; page 2 (champs de bataille, zoom 2×2 lu en 3×3) 3 trouvés ; 0 sûre fausse. Page 1 = runes SFD, absentes des données.
+- Mode Pokémon : `recognizer-text.js › OTHER` (RGI, « OGN · », UNITÉ, compétence, rune, champ de bataille…) → `scan-single` essaie Riftbound puis One Piece (celle dont le code se lit dans le texte d'abord).
+- **Certification** : pas de modèle de dos Riftbound (`certify.js › backOf` = Pokémon + One Piece) → photo « non certifiable ». À faire avec une photo du dos.
+
+## Ailleurs
+- Index d'images : `js/labo-index-op.js` prend la licence (`__opIndex.build('riftbound')`, `pack(128, 'riftbound')`) ; robot hebdomadaire `index-maj` (`riftbound: data/rb-index`, `RB_INDEX_V`).
+- Combats : `battle.fighterRB` (PV 40 + puissance × 16…, `RB_DOMAIN` domaine → type), `canFight`, `LEVELS_RB` (unités d'Origins), `battleCards.effectOfRB` (texte anglais), `AI_BAGS_RB`, runes = énergie ; `match-core` `LIC.riftbound` (Grimoire), `say` (unité), `RB_NAMES` ; décor `img/combat/faille-riftbound.svg`, dos `dos-riftbound.svg`, CSS `.g-riftbound` (fin de `style.css`).
+- Import : `importer.js › matchRB` (code, série + numéro, nom anglais ; `row.sig` / `row.alt`). Badges : `rb-poro`, `rb-runes`, `rb-champs` (`RB_CHAMPS`), `rb-showcase`. `friends.js` / `duel.js` acceptent les visuels `cmsassets.rgpub.io` (relayés en combat).

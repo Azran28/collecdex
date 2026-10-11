@@ -16,7 +16,7 @@ App.ui = (() => {
       const span = document.createElement('span');
       span.className = el.dataset.altClass || 'noimg';
       span.textContent = el.dataset.alt;
-      if (span.classList.contains('logo-gen')) { span.style.cssText = el.getAttribute('style') || ''; span.innerHTML = App.icons.icon(span.classList.contains('logo-code') ? 'anchor' : 'layers', 16) + '<b>' + esc(el.dataset.alt) + '</b>'; } // logo-code : code de la série One Piece
+      if (span.classList.contains('logo-gen')) { span.style.cssText = el.getAttribute('style') || ''; span.innerHTML = App.icons.icon(el.dataset.ico || (span.classList.contains('logo-code') ? 'anchor' : 'layers'), 16) + '<b>' + esc(el.dataset.alt) + '</b>'; } // logo-code : code de la série One Piece
       el.replaceWith(span);
     } else {
       el.style.visibility = 'hidden';
@@ -222,12 +222,12 @@ App.ui = (() => {
     const n = String(set.name || '');
     // pas de logo (One Piece) : le code de la série en gros (« OP-09 »), une couleur par série
     const short = ad && ad.logoText ? ad.logoText(set) : '';
-    const ico = /promo/i.test(n) ? 'star' : /mcdonald/i.test(n) ? 'gift' : /kit|coffret|deck/i.test(n) ? 'box' : /énergie|energy/i.test(n) ? 'bolt' : short ? 'anchor' : 'layers';
+    const ico = /promo/i.test(n) ? 'star' : /mcdonald/i.test(n) ? 'gift' : /kit|coffret|deck/i.test(n) ? 'box' : /énergie|energy/i.test(n) ? 'bolt' : short ? ((App.games.info(game) || {}).icon || 'anchor') : 'layers';
     let h = 0; for (const ch of String(short ? set.id : (set.group && set.group.id) || set.id || n)) h = (h * 31 + ch.charCodeAt(0) * (short ? 67 : 1)) % 360; // codes voisins (OP-16, OP-17) : couleurs bien différentes
     const gen = `<span class="logo-gen${short ? ' logo-code' : ''}" style="--h:${h}">${App.icons.icon(ico, big ? 22 : 16)}<b>${esc(short || n)}</b></span>`;
     if (!url) return gen;
     // visuel du produit (One Piece : pochette du booster, boîte du deck) : si absent, le code de la série
-    return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(short || n)}" data-alt-class="logo-gen${short ? ' logo-code' : ''}" style="--h:${h}"${short ? ' data-prod' : ''}>`;
+    return `<img loading="lazy" src="${esc(url)}" alt="${esc(n)}" data-alt="${esc(short || n)}" data-alt-class="logo-gen${short ? ' logo-code' : ''}" data-ico="${ico}" style="--h:${h}"${short ? ' data-prod' : ''}>`;
   }
 
   /** Remplit un menu déroulant avec toutes les séries, regroupées par bloc (plus récentes d'abord) — Capturer, Objectifs */

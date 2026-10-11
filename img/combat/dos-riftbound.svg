@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Dos de carte Riftbound (carte cachée en combat Avancé), dessiné pour CollecDex : rune hextech sur fond nuit -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".45" r=".8">
+      <stop offset="0" stop-color="#1c3f6e"/><stop offset=".6" stop-color="#10264a"/><stop offset="1" stop-color="#081329"/>
+    </radialGradient>
+    <radialGradient id="g" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#9ff6ff" stop-opacity=".55"/><stop offset="1" stop-color="#5fe3ef" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="630" height="880" rx="30" fill="#081329"/>
+  <rect x="18" y="18" width="594" height="844" rx="20" fill="url(#f)" stroke="#c8a24a" stroke-width="8"/>
+  <path d="M60 40h510M60 840h510" stroke="#c8a24a" stroke-width="3" opacity=".6"/>
+  <path d="M42 120v640M588 120v640" stroke="#c8a24a" stroke-width="3" opacity=".45"/>
+  <g transform="translate(315 440)">
+    <circle r="230" fill="url(#g)"/>
+    <path d="M0 -200 L150 0 L0 200 L-150 0 Z" fill="none" stroke="#c8a24a" stroke-width="10"/>
+    <path d="M0 -150 L108 0 L0 150 L-108 0 Z" fill="#0d2246" stroke="#5fe3ef" stroke-width="6"/>
+    <path d="M0 -95 L0 95 M-48 -10 L0 -70 L48 -10" fill="none" stroke="#9ff6ff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cy="62" r="16" fill="#9ff6ff"/>
+    <path d="M-200 0h-40M200 0h40M0 -230v-30M0 230v30" stroke="#c8a24a" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -26,7 +26,8 @@ App.duel = (() => {
   const str = (v, max = 60) => (typeof v === 'string' || typeof v === 'number' ? String(v).slice(0, max) : '');
   const int = (v, lo, hi, def = lo) => { const n = Math.round(+v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
   const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+\.jpg$/.test(v) || v === App.battleCards.DON_IMG
-    || /^https:\/\/images\.weserv\.nl\/\?url=(fr|en)\.onepiece-cardgame\.com%2Fimages%2Fcardlist%2Fcard%2F[A-Za-z0-9_-]+\.(webp|png)(%3F\d+)?&w=\d{3}&output=webp$/.test(v)) ? v : ''); // hors-série : visuel du site ; One Piece : visuel relayé
+    || /^https:\/\/images\.weserv\.nl\/\?url=(fr|en)\.onepiece-cardgame\.com%2Fimages%2Fcardlist%2Fcard%2F[A-Za-z0-9_-]+\.(webp|png)(%3F\d+)?&w=\d{3}&output=webp$/.test(v)
+    || /^https:\/\/images\.weserv\.nl\/\?url=cmsassets\.rgpub\.io%2Fsanity%2Fimages%2F[a-z0-9]+%2Fgame_data_live%2F[a-f0-9]+-\d{3,4}x\d{3,4}\.png&w=\d{3}(&ro=270)?&output=webp$/.test(v)) ? v : ''); // hors-série : visuel du site ; One Piece et Riftbound : visuel relayé
   // licence du salon (supabase-v18.sql) ; null = serveur pas encore à jour
   const gameOf = (g) => (typeof g === 'string' && /^[a-z]{2,20}$/.test(g) && App.games.get(g) ? g : null);
   const type = (t) => (typeof t === 'string' && App.battle.TYPE_INFO[t] ? t : 'colorless');

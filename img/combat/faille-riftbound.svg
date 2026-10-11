@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
+  <!-- La Faille de l'invocateur à la tombée de la nuit (décor des combats Riftbound, dessiné pour CollecDex) -->
+  <defs>
+    <linearGradient id="ciel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1230"/><stop offset=".5" stop-color="#1d2f6a"/><stop offset="1" stop-color="#3f6fa8"/>
+    </linearGradient>
+    <linearGradient id="sol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c5a3e"/><stop offset=".5" stop-color="#1c3d2c"/><stop offset="1" stop-color="#0d1f18"/>
+    </linearGradient>
+    <linearGradient id="riv" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5fe3ef" stop-opacity=".9"/><stop offset="1" stop-color="#2a8fb8" stop-opacity=".7"/>
+    </linearGradient>
+    <radialGradient id="lune" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#e9fbff"/><stop offset=".4" stop-color="#bff3ff"/><stop offset="1" stop-color="#5fe3ef" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="faille" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#d6fbff" stop-opacity=".9"/><stop offset=".5" stop-color="#5fe3ef" stop-opacity=".35"/><stop offset="1" stop-color="#5fe3ef" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1000" height="420" fill="url(#ciel)"/>
+  <g fill="#fff" opacity=".7">
+    <circle cx="90" cy="60" r="2"/><circle cx="230" cy="120" r="1.5"/><circle cx="410" cy="50" r="2"/><circle cx="560" cy="140" r="1.5"/>
+    <circle cx="880" cy="90" r="2"/><circle cx="950" cy="200" r="1.5"/><circle cx="330" cy="200" r="1.2"/><circle cx="660" cy="40" r="1.2"/>
+  </g>
+  <circle cx="760" cy="150" r="130" fill="url(#lune)"/>
+  <circle cx="760" cy="150" r="42" fill="#effcff"/>
+  <!-- montagnes (Targon au loin) -->
+  <path d="M0 400 L120 270 L210 340 L330 200 L450 330 L560 250 L700 360 L820 230 L1000 380 V440 H0 Z" fill="#162a52"/>
+  <path d="M330 200 L360 235 L345 232 L330 250 L318 228 Z M820 230 L845 262 L828 258 L815 275 L805 252 Z" fill="#d9ecff" opacity=".7"/>
+  <path d="M0 430 L160 340 L300 410 L460 330 L620 420 L780 340 L1000 430 V470 H0 Z" fill="#1d3a5c"/>
+  <!-- la Faille : prairie, rivière lumineuse en diagonale, voies de pierre -->
+  <rect y="440" width="1000" height="560" fill="url(#sol)"/>
+  <path d="M-20 980 C200 820 330 760 500 700 C670 640 820 560 1020 470 L1020 540 C830 620 690 700 520 760 C350 820 220 900 60 1020 Z" fill="url(#riv)"/>
+  <path d="M0 640 C250 600 420 520 560 470" fill="none" stroke="#8a8f7a" stroke-width="26" opacity=".45" stroke-linecap="round"/>
+  <path d="M440 1000 C520 860 640 720 1000 640" fill="none" stroke="#8a8f7a" stroke-width="30" opacity=".4" stroke-linecap="round"/>
+  <ellipse cx="500" cy="700" rx="150" ry="70" fill="url(#faille)"/>
+  <g fill="#0f2a1c" opacity=".85">
+    <ellipse cx="90" cy="520" rx="90" ry="34"/><ellipse cx="300" cy="560" rx="70" ry="26"/><ellipse cx="880" cy="760" rx="120" ry="40"/>
+    <ellipse cx="700" cy="880" rx="90" ry="30"/><ellipse cx="160" cy="760" rx="80" ry="28"/>
+  </g>
+  <!-- deux tours aux runes bleues -->
+  <g>
+    <path d="M140 600 l26 -110 l26 110 z" fill="#2a3550"/><circle cx="166" cy="500" r="11" fill="#5fe3ef"/>
+    <path d="M820 520 l22 -96 l22 96 z" fill="#2a3550"/><circle cx="842" cy="434" r="10" fill="#5fe3ef"/>
+  </g>
+</svg>
