@@ -18,7 +18,7 @@ App.views.scan = {
       <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}" ${grid}>${mode === 'classeur' ? `${'<i></i>'.repeat(c * r)}` : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
       <b>${mode === 'classeur' ? `Photo d’une page de classeur <span class="muted">(${c * r} cartes)</span>` : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
       ${App.views.scan.curName ? `<em class="se-lic">${App.util.esc(App.views.scan.curName)}</em>` : ''}
-      <span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : mode === 'classeur' ? 'Appuie sur « Prendre la page en photo »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>
+      <span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>
     </div>`;
   },
 
@@ -217,7 +217,7 @@ App.views.scan = {
     // téléphone (v3.13, Arnaud : « choix plus clair ») : une phrase sous les onglets dit ce que fait le mode choisi
     const MODE_HINT = {
       carte: '<b>Une carte</b> : une photo par carte. La plus fiable, et la seule qui peut <b>certifier</b> ta carte.',
-      classeur: '<b>Classeur</b> : une photo d’une page de classeur, toutes ses cartes (9 ou 18) reconnues d’un coup.',
+      classeur: '<b>Classeur</b> : une photo d’une page de classeur, toutes ses cartes (4, 9 ou 18) reconnues d’un coup.',
       rafale: '<b>Rafale</b> : passe tes cartes l’une après l’autre devant la caméra, elles sont prises toutes seules.',
     };
     el.innerHTML = `
@@ -247,7 +247,49 @@ App.views.scan = {
     el.querySelector('#sc-help').addEventListener('click', () => App.onboarding.showScan());
     App.onboarding.maybeShowScan();
     const cleanup = mode === 'carte' ? await App.views.scan.single(body, params, alive) : await App.views.scan.batch(body, params, alive, mode === 'rafale');
-    return () => { if (cleanup) cleanup(); App.recognizer.stop(); };
+    const unfit = alive() ? App.views.scan.fitScreen(el) : () => {};
+    return () => { unfit(); if (cleanup) cleanup(); App.recognizer.stop(); };
+  },
+
+  /**
+   * v3.15 (Arnaud : « empêcher le défilement tant que la recherche n'est pas démarrée ») : sur téléphone, avant la photo
+   * (cadre vide ou caméra), tout tient sur un écran — le cadre rétrécit juste assez — et la page ne défile pas.
+   * Dès qu'il y a une photo, un résultat ou un message, la page redevient normale. Renvoie la fonction qui arrête tout.
+   */
+  fitScreen(el) {
+    const mq = matchMedia('(max-width: 760px)'), root = document.documentElement;
+    let timer = 0;
+    const idleView = () => {
+      const v = el.querySelector('.scan-view');
+      if (!v || !v.querySelector('.scan-empty, video')) return null;
+      const st = el.querySelector('#sc-status, #b-status'), res = el.querySelector('#sc-results, #b-results');
+      if (st && st.children.length) return null; // message, attente…
+      if (res && [...res.children].some((c) => !c.matches('.pc-block'))) return null; // (l'encadré « Certifier ? » ne compte pas)
+      if (el.querySelector('.sv:not(.hidden)')) return null;
+      return v;
+    };
+    const free = () => {
+      root.classList.remove('scan-still');
+      el.querySelectorAll('.scan-view[data-fit]').forEach((v) => { v.style.height = ''; delete v.dataset.fit; });
+    };
+    const apply = () => {
+      timer = 0;
+      const v = mq.matches ? idleView() : null;
+      free();
+      if (!v) return;
+      const over = () => root.scrollHeight - window.innerHeight;
+      const o = over();
+      if (o > 0) { const h = v.getBoundingClientRect().height - o; if (h < 180) return; v.style.height = `${Math.floor(h)}px`; v.dataset.fit = '1'; }
+      if (over() > 1) { free(); return; }
+      if (window.scrollY) window.scrollTo(0, 0);
+      root.classList.add('scan-still');
+    };
+    const later = () => { if (!timer) timer = setTimeout(apply, 30); }; // (pas requestAnimationFrame : arrêté quand l'onglet est en arrière-plan)
+    const mo = new MutationObserver(later);
+    mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+    window.addEventListener('resize', later);
+    apply();
+    return () => { mo.disconnect(); window.removeEventListener('resize', later); clearTimeout(timer); free(); };
   },
 
   /* ================= Caméra (partagée par les deux modes) ================= */

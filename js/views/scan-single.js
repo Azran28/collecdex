@@ -316,7 +316,7 @@ Object.assign(App.views.scan, {
       // scan raté ou mauvaise carte : reprendre une photo (ou recadrer celle-ci) en un geste (demande d'Arnaud)
       const retry = `<div class="row sc-retry"><button class="btn primary" data-retry="photo">${App.icons.icon('camera', 16)} Réessayer</button>${lastShot ? '<button class="btn" data-retry="crop">✂ Recadrer cette photo</button>' : ''}</div>`;
       if (!cands.length) {
-        results.innerHTML = `<div class="panel">${donCard ? `<b>C’est une carte DON!!</b><br><span class="small muted">Les cartes DON!! ne sont pas encore dans CollecDex : elles n’ont pas de numéro et Bandai ne les liste pas avec les autres cartes.</span>` : `Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (${isPk() ? 'le numéro en bas doit être lisible' : 'le code en bas à droite, ex. OP10-001, doit être lisible'}) ou cherche-la ci-dessous.</span>`}${retry}</div>`;
+        results.innerHTML = `<div class="panel">${donCard ? `<b>C’est une carte DON!!</b><br><span class="small muted">Les cartes DON!! ne sont pas encore dans CollecDex : elles n’ont pas de numéro et Bandai ne les liste pas avec les autres cartes.</span>` : `Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (${({ pokemon: 'le numéro en bas doit être lisible', onepiece: 'le code en bas à droite, ex. OP10-001, doit être lisible', riftbound: 'le code en bas à gauche, ex. OGN · 013/298, doit être lisible' })[game] || 'le numéro ou le code imprimé en bas doit être lisible'}) ou cherche-la ci-dessous.</span>`}${retry}</div>`;
         return;
       }
       results.innerHTML = `

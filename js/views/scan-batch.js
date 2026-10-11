@@ -91,13 +91,17 @@ Object.assign(App.views.scan, {
             <select id="b-set"><option value="">Série : je ne sais pas</option></select>
           </div>`;
     // commandes du mode page (gardées cachées en rafale : le code commun s'en sert)
-    const pageCtl = `<div class="row" style="margin-bottom:10px">
-            <label class="small"><span class="m-hide">Format de la page</span>
-              <select id="b-fmt">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}"${k === S.fmt ? ' selected' : ''}>${v[2]}</option>`).join('')}</select></label>
+    // v3.15 (Arnaud : « sélecteur du classeur plus sympa ») : trois tuiles dessinées au lieu d'un menu déroulant ;
+    // le menu reste, caché, et porte toujours le format (le reste du code s'en sert)
+    const FMT_TILE = { '3x3': ['9 cartes', '3 × 3'], '2x2': ['4 cartes', '2 × 2'], double: ['18 cartes', '2 pages'] };
+    const fmtIco = (k) => { const pg = `<span class="fp-page">${'<i></i>'.repeat(k === '2x2' ? 4 : 9)}</span>`; return `<span class="fp-ico fp-${k}">${k === 'double' ? pg + pg : pg}</span>`; };
+    const pageCtl = `<div class="fmt-pick" role="radiogroup" aria-label="Format de la page">
+            ${Object.keys(FORMATS).map((k) => `<button type="button" class="fp-opt${k === S.fmt ? ' on' : ''}" data-fmt="${k}" role="radio" aria-checked="${k === S.fmt}">${fmtIco(k)}<span class="fp-t"><b>${FMT_TILE[k][0]}</b><small>${FMT_TILE[k][1]}</small></span></button>`).join('')}
+            <select id="b-fmt" hidden>${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}"${k === S.fmt ? ' selected' : ''}>${v[2]}</option>`).join('')}</select>
           </div>`;
     // page de classeur (pas de certification) : l'appareil photo du téléphone d'abord — plein écran, pleine qualité
     const pageBtns = `<div class="row action-dock scan-dock" style="margin-top:14px" id="b-actions">
-            <label class="btn primary" id="b-native">${App.icons.icon('camera', 16)} Prendre la page en photo<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
+            <label class="btn primary" id="b-native">${App.icons.icon('camera', 16)} Caméra<input type="file" accept="image/*" capture="environment" id="b-file" hidden></label>
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             ${certOn && !burst && PAGE_CERT ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
@@ -178,8 +182,14 @@ Object.assign(App.views.scan, {
       const saved = ''; // (v3.12 : plus de choix de la série avant la photo ; « Série de la page » après la lecture reste)
       const sel = el.querySelector('#b-set'); if (sel) { App.views.scan.fillSetSelect(sel, sets, saved); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }
     }).catch(() => {});
+    const markFmt = () => el.querySelectorAll('.fp-opt').forEach((b) => { const on = b.dataset.fmt === S.fmt; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+    el.querySelectorAll('.fp-opt').forEach((b) => b.addEventListener('click', () => {
+      const sel = el.querySelector('#b-fmt');
+      if (sel.disabled || S.running || sel.value === b.dataset.fmt) return;
+      sel.value = b.dataset.fmt; sel.dispatchEvent(new Event('change'));
+    }));
     el.querySelector('#b-fmt').addEventListener('change', (e) => {
-      S.fmt = e.target.value; S.fmtChosen = true; try { localStorage.setItem('pageFmt', S.fmt); } catch (err) { /* */ } cancelAuto(); S.autoCells = null; S.autoRot = 0; S.dimsOv = null; S.autoGrid = false; S.grid = defaultGrid();
+      S.fmt = e.target.value; markFmt(); S.fmtChosen = true; try { localStorage.setItem('pageFmt', S.fmt); } catch (err) { /* */ } cancelAuto(); S.autoCells = null; S.autoRot = 0; S.dimsOv = null; S.autoGrid = false; S.grid = defaultGrid();
       if (S.photo && !S.running) {
         let gd = null;
         try { gd = S.fmt === 'double' ? R.detectDouble(S.photo.img) : R.detectGrid(S.photo.img, ...FORMATS[S.fmt].slice(0, 2)); } catch (err) { console.warn(err); }
@@ -276,7 +286,7 @@ Object.assign(App.views.scan, {
           const ok = found && r.grid.fit >= 0.45; // assez sûr pour lancer la reconnaissance tout seul
           const auto = el.querySelector('#b-auto');
           if (found) {
-            if (r.fmt !== S.fmt) { S.fmt = r.fmt; el.querySelector('#b-fmt').value = S.fmt; }
+            if (r.fmt !== S.fmt) { S.fmt = r.fmt; el.querySelector('#b-fmt').value = S.fmt; markFmt(); }
             useDetection(r.grid, r.fmt); drawGrid();
           }
           if (!ok) { el.querySelector('#b-go').classList.remove('hidden'); auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} ${found ? 'Vérifie les cases (glisse la grille si besoin)' : 'Je n’ai pas trouvé la grille tout seul : place-la sur les pochettes'}, puis lance la reconnaissance.`; return; }
@@ -422,7 +432,7 @@ Object.assign(App.views.scan, {
       S.running = true; S.timing = null; S.pageDur = 0;
       if (!burst) X.svOpen('scan'); // analyse en plein écran, carte par carte
       const tStart = performance.now();
-      el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true;
+      el.querySelector('#b-go').disabled = true; el.querySelector('#b-reset').disabled = true; el.querySelector('#b-fmt').disabled = true; el.querySelector('.fmt-pick').classList.add('off');
       const warmP = isPk() && App.visual && App.settings.visualCheck !== false ? App.visual.warm() : null; // bibliothèques de la vérification par l'image chargées pendant la lecture du texte
       const [cols, rows] = dims(), n = cols * rows;
       const hint = el.querySelector('#b-set').value;
@@ -509,7 +519,7 @@ Object.assign(App.views.scan, {
       // Troisième passe : vérification par l'image (réseau de neurones + points clés)
       if (isPk() && alive() && !S.stopped && App.settings.visualCheck !== false) { S.timing = { text: performance.now() - tStart, warm: await warmP }; await X.visualPass(hint); }
       S.running = false; S.prog = null; S.pageDur = performance.now() - tStart;
-      el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('#b-go').disabled = false;
+      el.querySelector('#b-reset').disabled = false; el.querySelector('#b-fmt').disabled = false; el.querySelector('.fmt-pick').classList.remove('off'); el.querySelector('#b-go').disabled = false;
       el.querySelector('#b-set').disabled = false;
       setStatus('');
       X.drawResults();

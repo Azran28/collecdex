@@ -2918,3 +2918,29 @@ a.bt-choice:active { transform: scale(.985); }
 .logo-pack.big { height: 200px; margin: 0 auto; }
 .gc-logo .logo-pack { height: 60px; }
 @media (max-width: 760px) { .set-card .logo-wrap:has(.logo-pack) { height: 96px; } .set-card .logo-pack { height: 88px; } .logo-pack.big { height: 160px; } }
+
+/* ===== v3.15 : format du classeur en tuiles dessinées ; Capturer sans défilement avant la photo ===== */
+html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: none; }
+.fmt-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; max-width: 520px; }
+.fmt-pick.off { opacity: .5; pointer-events: none; }
+.fp-opt { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.fp-opt:hover { border-color: rgba(124,92,255,.6); }
+.fp-opt.on { border-color: transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--holo) border-box; color: var(--text); box-shadow: 0 6px 18px rgba(124,92,255,.22); }
+.fp-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.fp-t b { font-family: var(--display); font-weight: 600; font-size: .9rem; white-space: nowrap; }
+.fp-t small { font-size: .7rem; opacity: .75; }
+/* dessin du format : une page = des pochettes au format carte (63 × 88) */
+.fp-ico { display: flex; gap: 2px; flex: none; }
+.fp-page { display: grid; grid-template-columns: repeat(3, 6px); grid-auto-rows: 8px; gap: 1.5px; padding: 2px; border: 1px solid currentColor; border-radius: 3px; }
+.fp-2x2 .fp-page { grid-template-columns: repeat(2, 9.5px); grid-auto-rows: 13px; }
+.fp-double .fp-page { grid-template-columns: repeat(3, 4px); grid-auto-rows: 5.5px; gap: 1px; }
+.fp-page i { border-radius: 1.5px; background: currentColor; opacity: .45; }
+.fp-opt.on .fp-page { border-color: #ffd23f; }
+.fp-opt.on .fp-page i { background: var(--holo); opacity: 1; }
+@media (max-width: 760px) {
+  .sc-opts .fmt-pick { grid-column: 1 / -1; max-width: none; }
+  .fp-opt { flex-direction: column; justify-content: center; gap: 4px; padding: 7px 4px 6px; text-align: center; }
+  .fp-ico { height: 34px; align-items: center; }
+  .fp-t small { display: none; }
+  .fp-t b { font-size: .84rem; }
+}

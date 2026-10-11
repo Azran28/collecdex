@@ -70,5 +70,25 @@
     App.util.closeModal();
   }, { net: true });
 
+  // v3.15 : format du classeur en tuiles ; sur téléphone, page sans défilement avant la photo
+  test('Capturer (classeur, téléphone) : tuiles du format, page sans défilement', async (App, W) => {
+    let saved = null;
+    try { saved = W.localStorage.getItem('pageFmt'); } catch (e) { /* */ }
+    const app = await visit(W, '#/scan?mode=classeur&jeu=pokemon');
+    try {
+      const tiles = app.querySelectorAll('.fp-opt');
+      ok(tiles.length === 3, `3 tuiles de format attendues, ${tiles.length} trouvées`);
+      app.querySelector('.fp-opt[data-fmt="2x2"]').click();
+      await sleep(100);
+      ok(app.querySelector('#b-fmt').value === '2x2', 'le format 2 × 2 n’est pas choisi');
+      ok(app.querySelectorAll('.se-frame i').length === 4, 'le dessin du cadre n’a pas 4 pochettes');
+      ok(app.querySelector('.fp-opt[data-fmt="2x2"]').classList.contains('on'), 'la tuile choisie n’est pas allumée');
+      await until(() => W.document.documentElement.classList.contains('scan-still'), 3000, 'page bloquée avant la photo');
+      ok(W.document.documentElement.scrollHeight <= W.innerHeight + 1, 'la page dépasse de l’écran');
+    } finally {
+      try { if (saved == null) W.localStorage.removeItem('pageFmt'); else W.localStorage.setItem('pageFmt', saved); } catch (e) { /* */ }
+    }
+  });
+
   test('retour en taille ordinateur', async () => { size(1200, 800); await sleep(200); });
 })();
