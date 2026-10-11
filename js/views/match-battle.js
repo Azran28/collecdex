@@ -45,7 +45,6 @@
     // Pioche (mode Avancé) : chaque deck est mélangé, 3 cartes en main au départ, puis 1 de plus au début de chaque tour.
     // En ligne, le mélange vient de la graine du salon (le même sur les deux téléphones, dans le même ordre : d'abord celui qui commence).
     const hand = (side) => side.bag.map((c, i) => ({ c, i })).filter((x) => !x.c.used && x.c.inHand !== false);
-    const pileTxt = (side) => (side.pile && side.pile.length ? `<br>pioche : ${side.pile.length}` : '');
     const drawCard = (side) => { if (!side.pile || !side.pile.length) return null; const c = side.bag[side.pile.shift()]; if (c) c.inHand = true; return c || null; };
     if (ADV) {
       const shuffle = (side, r) => {

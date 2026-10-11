@@ -150,7 +150,6 @@ App.ui = (() => {
   const errorBox = (e) => `<div class="error-box"><b>Oups, impossible de charger les données.</b><br><span class="small">${esc(e && e.message ? e.message : e)}</span><br><br><span class="small muted">Vérifie ta connexion internet. Les données viennent de TCGdex (api.tcgdex.net).</span><br><br><button class="btn sm" data-reload>Réessayer</button></div>`;
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-reload]')) location.reload(); });
 
-  const stars = (n, name = 'rating') => `<span class="stars" data-stars="${name}">${[1, 2, 3, 4, 5].map((i) => `<button type="button" data-v="${i}" class="${i <= n ? 'on' : ''}" aria-label="${i} étoile${i > 1 ? 's' : ''}">★</button>`).join('')}</span>`;
 
   /**
    * Recadrer une image au format carte (63 × 88) : cadre jaune déplaçable + curseur de taille.
@@ -245,5 +244,5 @@ App.ui = (() => {
   /** Nom des applis d'où viennent les fichiers importés (fiche carte, page Importer) */
   const IMPORT_SOURCES = { collectr: 'Collectr', cardmarket: 'Cardmarket', pokellector: 'Pokellector', dragonshield: 'Dragon Shield', tableau: 'un tableau' };
 
-  return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, stars, fillSetSelect, IMPORT_SOURCES };
+  return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, fillSetSelect, IMPORT_SOURCES };
 })();
