@@ -10,6 +10,7 @@ paths:
 ## tests.html
 - Le vrai site (`index.html#/`) dans un `<iframe>` de même origine (`util.js` n'autorise le cadre qu'à une page du site) ; les tests utilisent son `App` (`W.App`). `tests/runner.js` (moteur : `test(nom, fn, { net })`, `eq`, `ok`, `near`, `until`, `sleep` ; résultat dans `window.__tests` = `{ done, pass, fail, results }`), `tests/unit.js` (fonctions, sécurité, fichiers de l'index), `tests/pages.js` (chaque page en 1200 × 800 puis 375 × 812 : pas de « Oups », pas d'erreur, pas de débordement ; `__visit(W, hash)`), `tests/combat.js` (3 combats complets), `tests/start.js` (ouvre le site, `onboarded1` / `onboardedScan1` posés le temps des tests puis remis).
 - `{ net: true }` = a besoin d'internet (TCGdex…) : réessayé une fois.
+- `visit` attend le conteneur `#app` de la NOUVELLE page (sinon la page d'avant passait pour prête : « page vide » au 1er chargement Riftbound, v3.10).
 - Local : `sh outils/stamp.sh` d'abord (sinon le navigateur garde les anciens fichiers `?v=` : un fichier cassé passe inaperçu), puis `tests.html` dans l'aperçu (serveur sur un autre port que 8765 : `collecdex-copie`). ~35 s. Vérifié : une page Capturer cassée exprès → 9 tests en échec.
 - Données : rien n'est enregistré (les combats appellent `App.matchParts.battle` directement, sans la page qui compte victoires et défaites).
 

@@ -12,11 +12,15 @@
     const errs = window.__siteErrors, from = errs.length;
     if (W.location.hash === hash) W.location.hash = '#/__';
     await sleep(30);
+    const d = W.document, before = d.getElementById('app');
     W.location.hash = hash;
-    const d = W.document;
+    // (v3.10 : attendre le conteneur de la NOUVELLE page — le routeur en crée un neuf — sinon la page d'avant, déjà dessinée,
+    //  passait pour prête et l'on tombait ensuite sur « Chargement… » : « page vide » au 1er chargement des cartes Riftbound)
+    //  (même conteneur au bout de 3 s : le site était déjà sur cette page, aucune nouvelle n'a été créée)
+    const t0 = Date.now();
     await until(() => {
       const app = d.getElementById('app');
-      return app && !app.querySelector(':scope > .loading') && app.children.length > 0;
+      return app && (app !== before || Date.now() - t0 > 3000) && !app.querySelector(':scope > .loading') && app.children.length > 0;
     }, ms, `page ${hash}`);
     await sleep(400); // les morceaux dessinés juste après
     const app = d.getElementById('app');
