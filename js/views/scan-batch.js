@@ -175,6 +175,27 @@ Object.assign(App.views.scan, {
       }
       S.dimsOv = k === 'double' && g.rot ? [3, 6] : null;
     }
+    /**
+     * v3.19 : chaque carte sur son vrai bord, avec son propre contour (recognizer-page.js ; la grille n'est qu'une première
+     * idée : elle se calait sur le bas du bandeau du nom ou sur les pochettes). Pas en classeur ouvert. Vrai si les cartes
+     * remplacent la grille (au moins 70 % trouvées). Abandonné si la photo change ou si la grille est touchée entre-temps.
+     */
+    async function refineCards(img) {
+      const [cols, rows] = FORMATS[S.fmt] || [];
+      if (S.fmt === 'double' || !cols || window.__noCards) return false;
+      const token = S.gridToken = (S.gridToken || 0) + 1;
+      let r = null; try { r = await R.detectCards(img, cols, rows); } catch (e) { console.warn('cartes', e); }
+      if (!S.photo || S.photo.img !== img || S.running || token !== S.gridToken || !r || r.found < Math.ceil(cols * rows * 0.7)) return false;
+      // découpe habituelle (lecture prudente) sur la carte agrandie de 4 % ; la carte exacte en plus (snapped)
+      const grow = (q, k) => { const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4; return q.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]); };
+      S.autoGrid = true; S.autoRot = 0; S.dimsOv = null;
+      S.autoCells = r.cells.map((c) => ({ ...c, snapped: true, gridQuad: grow(c.quad, 1.04), cards: true }));
+      const xs = r.cells.flatMap((c) => c.quad.map((p) => p[0])), ys = r.cells.flatMap((c) => c.quad.map((p) => p[1]));
+      const cl = (v) => Math.max(0, Math.min(1, v)), x0 = cl(Math.min(...xs)), y0 = cl(Math.min(...ys));
+      S.grid = { x: x0, y: y0, w: cl(Math.max(...xs)) - x0, h: cl(Math.max(...ys)) - y0 };
+      drawGrid();
+      return true;
+    }
 
     // liste des séries pour « Série de la page »
     ad.listSets().then((sets) => {
@@ -196,6 +217,7 @@ Object.assign(App.views.scan, {
         if (gd && gd.fit >= 0.45) useDetection(gd, S.fmt);
         else { if (S.fmt === 'double') { const t = S.photo.img.naturalHeight > S.photo.img.naturalWidth; S.dimsOv = t ? [3, 6] : null; } S.grid = defaultGrid(); }
         drawGrid();
+        S.gridToken = (S.gridToken || 0) + 1; refineCards(S.photo.img); // (repérage d'un autre format abandonné)
       } else if (view.querySelector('.scan-empty')) view.innerHTML = App.views.scan.empty('classeur', dims()); // pas encore de photo : le dessin prend le format choisi
     });
     el.querySelector('#b-set').addEventListener('change', (e) => {
@@ -274,7 +296,7 @@ Object.assign(App.views.scan, {
         el.querySelector('#b-actions').classList.add('hidden');
         el.querySelector('#b-gridbar').classList.remove('hidden');
         // on cherche la grille tout seul (format compris) ; si c'est sûr, la reconnaissance démarre d'elle-même
-        setTimeout(() => {
+        setTimeout(async () => {
           let r = null;
           try {
             // format choisi à la main : on cherche CETTE grille-là, sans passer à un autre format
@@ -282,19 +304,28 @@ Object.assign(App.views.scan, {
             else r = R.detectPage(img, PAGE_FORMATS, S.fmt === 'double' ? '3x3' : S.fmt);
           } catch (e) { console.warn('grille', e); }
           if (!S.photo || S.photo.img !== img) return;
-          const found = r && r.grid && r.grid.fit >= 0.38 && r.grid.w > 0.2 && r.grid.h > 0.2;
-          const ok = found && r.grid.fit >= 0.45; // assez sûr pour lancer la reconnaissance tout seul
+          let found = r && r.grid && r.grid.fit >= 0.38 && r.grid.w > 0.2 && r.grid.h > 0.2;
+          let ok = found && r.grid.fit >= 0.45; // assez sûr pour lancer la reconnaissance tout seul
           const auto = el.querySelector('#b-auto');
           if (found) {
             if (r.fmt !== S.fmt) { S.fmt = r.fmt; el.querySelector('#b-fmt').value = S.fmt; markFmt(); }
             useDetection(r.grid, r.fmt); drawGrid();
           }
+          // puis chaque carte sur son vrai bord (quelques secondes ; la grille reste affichée pendant ce temps)
+          if (S.fmt !== 'double') {
+            const token = (S.gridToken || 0) + 1;
+            auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} Je repère chaque carte…`;
+            const done = await refineCards(img);
+            if (!S.photo || S.photo.img !== img || S.running || S.gridToken !== token) return; // autre photo, ou grille touchée
+            if (done) found = ok = true;
+          }
+          S.byCards = !!(S.autoCells && S.autoCells[0] && S.autoCells[0].cards);
           if (!ok) { el.querySelector('#b-go').classList.remove('hidden'); auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} ${found ? 'Vérifie les cases (glisse la grille si besoin)' : 'Je n’ai pas trouvé la grille tout seul : place-la sur les pochettes'}, puis lance la reconnaissance.`; return; }
           let n = 3;
           auto.classList.remove('hidden');
           window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
           const tick = () => {
-            auto.innerHTML = `${App.icons.icon('check', 14)} <b>Grille placée toute seule</b> — ${FORMATS[S.fmt][2]} : reconnaissance dans ${n} s… <button class="linkbtn" id="b-adjust">Ajuster d’abord</button>`;
+            auto.innerHTML = `${App.icons.icon('check', 14)} <b>${S.byCards ? 'Cartes repérées toutes seules' : 'Grille placée toute seule'}</b> — ${FORMATS[S.fmt][2]} : reconnaissance dans ${n} s… <button class="linkbtn" id="b-adjust">Ajuster d’abord</button>`;
             if (n-- <= 0) { S.autoTimer = null; auto.classList.add('hidden'); el.querySelector('#b-go').click(); return; }
             S.autoTimer = setTimeout(tick, 1000);
           };
@@ -335,6 +366,7 @@ Object.assign(App.views.scan, {
     view.addEventListener('pointerdown', (e) => {
       if (!S.photo || S.running || !e.target.closest('.crop-area')) return;
       e.preventDefault(); cancelAuto();
+      S.gridToken = (S.gridToken || 0) + 1; // repérage des cartes en cours : abandonné (la grille est à la main maintenant)
       if (S.autoGrid && S.autoCells) { S.autoCells = null; S.autoGrid = false; drawGrid(); } // on repasse en grille réglable à la main
       S.autoGrid = false;
       const area = view.querySelector('.crop-area').getBoundingClientRect();
@@ -408,7 +440,10 @@ Object.assign(App.views.scan, {
           const snap = await new Promise((res) => c.toBlob((b) => res({ blob: b, auto: true, box }), 'image/jpeg', 0.9));
           try {
             const o = R.cellCard(img, { ...S.autoCells[i], quad: S.autoCells[i].gridQuad }, rot);
-            return await new Promise((res) => o.canvas.toBlob((b) => res({ blob: b, auto: o.auto, box: o.box, alt: snap }), 'image/jpeg', 0.9));
+            const habit = await new Promise((res) => o.canvas.toBlob((b) => res({ blob: b, auto: o.auto, box: o.box }), 'image/jpeg', 0.9));
+            // v3.19 : cartes repérées une à une (recognizer-page.js) : la carte exacte d'abord, la découpe habituelle en secours
+            if (S.autoCells[i].cards && !window.__habitFirst) return { ...snap, alt: habit };
+            return { ...habit, alt: snap };
           } catch (e) { return snap; }
         } catch (e) { console.warn(e); }
       }

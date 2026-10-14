@@ -243,3 +243,31 @@ test('bords d’une carte (détecteur appris)', async (App) => {
   const diag = Math.hypot(w, h), worst = Math.max(...r.quad.map(([x, y], j) => Math.hypot(x * 600 - want[j][0], y * 780 - want[j][1]))) / diag * 100;
   ok(worst < 2, `pire coin à ${worst.toFixed(1)} % de la diagonale`);
 });
+// v3.19 : chaque carte d'une page de classeur sur son propre bord (recognizer-page.js) — page dessinée : coutures soudées
+// en pointillés clairs (comme les vraies feuilles), 9 cartes un peu décalées / tournées dans leur pochette, bandeau du
+// nom bien net au milieu (piège de l'ancienne grille) ; chaque carte à 3 % près de la diagonale. (Faiblesse connue : des
+// pochettes dessinées en rectangles fermés bien nets passent pour des cartes ; les vraies coutures ne le font pas.)
+test('cartes d’une page de classeur, une par une', async (App) => {
+  await App.need('reco');
+  const c = document.createElement('canvas'); c.width = 900; c.height = 1200; const g = c.getContext('2d');
+  g.fillStyle = '#4a4a50'; g.fillRect(0, 0, 900, 1200);
+  const pw = 290, ph = 390, w = 252, h = w * 88 / 63, want = [];
+  g.fillStyle = '#9a9aa2';
+  for (let s = 1; s < 3; s++) { for (let y = 0; y < 1200; y += 9) g.fillRect(15 + s * (pw + 5) - 4, y, 3, 5); for (let x = 0; x < 900; x += 9) g.fillRect(x, 15 + s * (ph + 5) - 4, 5, 3); }
+  for (let k = 0; k < 9; k++) {
+    const i = k % 3, j = (k / 3) | 0, px = 15 + i * (pw + 5), py = 15 + j * (ph + 5);
+    const a = ((k * 37) % 7 - 3) * 0.004, cx = px + pw / 2 + ((k * 13) % 5 - 2) * 3, cy = py + ph / 2 + ((k * 7) % 5 - 2) * 3;
+    g.save(); g.translate(cx, cy); g.rotate(a);
+    g.fillStyle = '#121216'; g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, 12); g.fill();
+    g.fillStyle = `hsl(${k * 40} 55% 50%)`; g.fillRect(-w / 2 + 10, -h / 2 + 10, w - 20, h * 0.55);
+    g.fillStyle = '#c0282c'; g.fillRect(-w / 2 + 10, -h / 2 + 10 + h * 0.55, w - 20, 24); // bandeau du nom
+    g.fillStyle = '#efe8da'; g.fillRect(-w / 2 + 10, -h / 2 + 34 + h * 0.55, w - 20, h * 0.45 - 54); g.fillStyle = '#333';
+    for (let l = 0; l < 4; l++) g.fillRect(-w / 2 + 22, -h / 2 + 50 + h * 0.55 + l * 18, 150 + (l % 2) * 40, 6);
+    g.restore();
+    want.push([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)]));
+  }
+  const r = await App.recognizer.detectCards(c, 3, 3); ok(r && r.cells.length === 9, 'pas 9 cartes');
+  const diag = Math.hypot(w, h);
+  const errs = r.cells.map((cell, k) => Math.max(...cell.quad.map(([x, y], m) => Math.hypot(x * 900 - want[k][m][0], y * 1200 - want[k][m][1]))) / diag * 100);
+  ok(Math.max(...errs) < 3, `pire carte à ${Math.max(...errs).toFixed(1)} % (${errs.map((e) => e.toFixed(1)).join(' ')})`);
+});

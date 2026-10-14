@@ -18,12 +18,16 @@ App.recognizerParts = App.recognizerParts || {};
   const T_NO = 15.75; // note minimale sans coins attendus (en dessous : 1 essai sur 5 au labo, dont la plupart des cadres faux)
   const P = { N: 480, slope: 0.2, nLines: 20, inset: 0.025, nRefine: 60 };
 
-  /** Carte la plus probable dans l'image (canvas, image, ImageBitmap) → { quad (fractions, HG HD BD BG), score } ou null */
-  function findCard(src, { expect = null } = {}) {
+  /**
+   * Carte la plus probable dans l'image (canvas, image, ImageBitmap) → { quad (fractions, HG HD BD BG), score } ou null.
+   * top = K : renvoie aussi `cands`, les K meilleurs cadres distincts (même forme), pour un choix sur toute la page.
+   * n = taille de travail (480 px par défaut) ; lines = droites gardées par sens (20 ; 12 = ~5 fois plus rapide).
+   */
+  function findCard(src, { expect = null, top = 0, n = P.N, lines = P.nLines } = {}) {
     const Wt = expect ? W_EXP : W_NO;
     const W0 = src.naturalWidth || src.width, H0 = src.naturalHeight || src.height;
     if (!W0 || !H0) return null;
-    const S = P.N / Math.max(W0, H0), W = Math.max(40, Math.round(W0 * S)), H = Math.max(40, Math.round(H0 * S));
+    const S = n / Math.max(W0, H0), W = Math.max(40, Math.round(W0 * S)), H = Math.max(40, Math.round(H0 * S));
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d', { willReadFrequently: true }); g.filter = 'blur(0.7px)'; g.drawImage(src, 0, 0, W, H);
     const px = g.getImageData(0, 0, W, H).data;
@@ -71,7 +75,7 @@ App.recognizerParts = App.recognizerParts || {};
       }
       cand.sort((x, y) => y.v - x.v);
       const keep = [];
-      for (const c of cand) { if (keep.every((k) => Math.abs(k.p - c.p) > 3)) keep.push(c); if (keep.length >= P.nLines) break; }
+      for (const c of cand) { if (keep.every((k) => Math.abs(k.p - c.p) > 3)) keep.push(c); if (keep.length >= lines) break; }
       return keep;
     }
     const VL = hough(true), HL = hough(false);
@@ -221,7 +225,18 @@ App.recognizerParts = App.recognizerParts || {};
     let best = all[0];
     for (let i = 1; i < all.length; i++) if (all[i].score > best.score) best = all[i];
     findCard.last = { n: n0, refined: all.length - n0 };
-    return { quad: best.q.map(([x, y]) => [x / W, y / H]), score: best.score };
+    const res = { quad: best.q.map(([x, y]) => [x / W, y / H]), score: best.score };
+    if (top) {
+      // cadres distincts (coins à plus de 1 % de la diagonale l'un de l'autre), du mieux noté au moins bien
+      const cands = [];
+      for (const c of [...all].sort((a, b) => b.score - a.score)) {
+        const dg = dist(c.q[0], c.q[2]);
+        if (cands.some((o) => o.q.every((p, j) => dist(p, c.q[j]) < dg * 0.01))) continue;
+        cands.push(c); if (cands.length >= top) break;
+      }
+      res.cands = cands.map((c) => ({ quad: c.q.map(([x, y]) => [x / W, y / H]), score: c.score }));
+    }
+    return res;
   }
 
   /** Carte d'une capture (carte seule, rafale) si le détecteur est assez sûr de lui, sinon null */
