@@ -20,3 +20,4 @@ paths:
 - `index.yml` : base de référence des images, voir `visuel.md`.
 - Pas de `waitForFunction` dans les scripts Playwright (il passe par `eval`, refusé par la CSP de la page) : boucle de `page.evaluate`.
 - **Lire un échec sans se connecter** : les journaux demandent une connexion, mais les échecs sont écrits en annotations `::error` : `curl https://api.github.com/repos/Azran28/collecdex/actions/workflows/site.yml/runs?head_sha=<sha>` → id du passage → `…/actions/runs/<id>/jobs` → id du travail → `…/check-runs/<id>/annotations`.
+- Échec isolé vu le 14 oct. (v3.18, sans rapport avec le code changé) : combats « Riftbound avancé » (pas de fin après 400 actions) et « One Piece » (début > 90 s, données lentes à venir) ; passés en local et au passage suivant. Relancer avant de chercher plus loin (sans `gh` sur le PC : un nouvel envoi relance le robot).
