@@ -177,10 +177,17 @@ Object.assign(App.views.scan, {
           // que si ses 4 bords sont trouvés avec assurance (dans le cadre, sinon dans toute la photo) — sinon on garde la
           // photo entière, marge comprise : toutes les infos de la carte restent visibles, rien n'est coupé
           const img = await createImageBitmap(b), zone = cam.zone || { x: 0.115, y: 0.115, w: 0.77, h: 0.77 }, all = { x: 0.01, y: 0.01, w: 0.98, h: 0.98 };
-          const sure = (r) => (r && r.fit >= 0.45 ? App.views.scan.sane(r) : null);
-          const cz = sure(R.cutCard(img, zone)), ca = cz ? null : sure(R.cutCard(img, all));
-          tooClose = !cz && !ca; // bords pas trouvés avec assurance : photo entière (et conseil d'éloigner un peu la carte)
-          if (cz || ca) card = await new Promise((res) => (cz || ca).canvas.toBlob(res, 'image/jpeg', 0.92)) || b;
+          // v3.18 : d'abord le détecteur de bords appris au labo (R.bestCard, recognizer-edges.js), seulement s'il est sûr de lui ;
+          // sinon l'ancien détourage (dans le cadre, puis dans toute la photo)
+          const nb = R.bestCard(img); // (pas de « sane » : il écartait les cartes décentrées, et les 4 coins sont déjà dans la photo)
+          let cut = nb ? App.views.scan.warpTo(img, nb.quad) : null;
+          if (!cut) {
+            const sure = (r) => (r && r.fit >= 0.45 ? App.views.scan.sane(r) : null);
+            const cz = sure(R.cutCard(img, zone)), ca = cz ? null : sure(R.cutCard(img, all));
+            cut = (cz || ca) ? (cz || ca).canvas : null;
+          }
+          tooClose = !cut; // bords pas trouvés avec assurance : photo entière (et conseil d'éloigner un peu la carte)
+          if (cut) card = await new Promise((res) => cut.toBlob(res, 'image/jpeg', 0.92)) || b;
         } catch (e) { console.warn(e); }
         el.querySelector('#sc-actions').classList.remove('hidden');
         await analyse(card);
@@ -230,8 +237,10 @@ Object.assign(App.views.scan, {
         // automatique ci-dessous prenait parfois l'intérieur d'une carte à bordure jaune (recadrage « sans sens »)
         if (!initial && !lp.page) {
           try {
-            const r = R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 });
-            if (r && r.fit >= 0.45) {
+            // v3.18 : détecteur de bords appris (s'il est sûr de lui), sinon l'ancien détourage
+            const nb = R.bestCard(img); // (pas de « sane » : il écartait les cartes décentrées, et les 4 coins sont déjà dans la photo)
+            const r = nb ? { quad: nb.quad, canvas: App.views.scan.warpTo(img, nb.quad), fit: 1 } : R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 });
+            if (r && r.fit >= 0.45 && r.canvas) {
               const xs = r.quad.map((p) => p[0]), ys = r.quad.map((p) => p[1]);
               const bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
               size = Math.min(1, Math.max(bh, (bw * ar) / RATIO)); cx = (Math.max(...xs) + Math.min(...xs)) / 2; cy = (Math.max(...ys) + Math.min(...ys)) / 2;
@@ -380,7 +389,7 @@ Object.assign(App.views.scan, {
         const shotBlob = cardBlob;
         const VN = { normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1ʳᵉ édition' };
         const det = mode === 'rien' ? null : R.lastVariants;
-        const verLine = det && det.list.length ? `<div class="small" style="margin-top:6px">${App.icons.icon('sparkles', 13)} Version reconnue : <b>${det.list.map((v) => VN[v] || v).join(' · ')}</b> <button class="linkbtn small" data-open-card="${esc(c.id)}">modifier</button></div>` : '';
+        const verLine = det && det.list.length ? `<div class="small" style="margin-top:6px">${App.icons.icon('sparkles', 13)} Version reconnue : <b>${det.list.map((v) => VN[v] || v).join(' · ')}</b> <button class="linkbtn small" data-game="${esc(game)}" data-open-card="${esc(c.id)}">modifier</button></div>` : '';
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
         const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`

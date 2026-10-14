@@ -166,7 +166,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
                 <div class="bimgs"><img src="${c.url}" alt=""><img src="${esc(ad.img.card(cur, 'low'))}" alt="" data-alt=""></div>
                 <div class="bstate ok">${c.i + 1}. Enregistrée ✓</div>
                 <div class="small"><b>${esc(cur ? cur.name : '')}</b> <span class="muted">${esc(cur && cur.set ? cur.set.name : '')}</span></div>
-                ${c.vers && c.vers.length ? `<div class="small">${App.icons.icon('sparkles', 12)} ${c.vers.map((v) => ({ normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1ʳᵉ édition' }[v] || v)).join(' · ')} <button class="linkbtn small" data-open-card="${esc(cur.id)}">modifier</button></div>` : ''}
+                ${c.vers && c.vers.length ? `<div class="small">${App.icons.icon('sparkles', 12)} ${c.vers.map((v) => ({ normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1ʳᵉ édition' }[v] || v)).join(' · ')} <button class="linkbtn small" data-game="${esc(c.game || S.game)}" data-open-card="${esc(cur.id)}">modifier</button></div>` : ''}
                 ${c.cert === 'encours' ? `<div class="small muted">${App.icons.icon('shield', 12)} Certification…</div>`
                   : c.cert === 'ok' ? `<div class="small cert-ok">${App.icons.icon('shield', 13)} Certifiée</div>`
                   : c.cert ? `<div class="small muted">${App.icons.icon('shield', 12)} Non certifiée : ${esc(c.cert)}${cur ? ` · <a href="#/scan?carte=${encodeURIComponent(cur.id)}">la capturer seule</a>` : ''}</div>` : ''}

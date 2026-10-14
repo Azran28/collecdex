@@ -359,11 +359,24 @@
    * autour de ces coins, et on ne les garde que s'ils concordent (chaque coin à moins de 12 % de la taille de la photo).
    */
   async function edgeCrop(blob, quad) {
+    // v3.18 : sans coins trouvés par l’image, rien à recadrer (avant : cadre supposé à 8 % du bord = le cadre intérieur de la carte sur
+    // une image déjà recadrée → carte zoomée, coupée)
+    if (!quad) return null;
     try {
       const bmp = await createImageBitmap(blob), c = document.createElement('canvas');
       c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0);
       const cl = (v) => Math.min(1, Math.max(0, v));
-      const m = 0.083, E = quad ? quad.map(([x, y]) => [cl(x), cl(y)]) : [[m, m], [1 - m, m], [1 - m, 1 - m], [m, 1 - m]];
+      const E = quad.map(([x, y]) => [cl(x), cl(y)]);
+      // v3.18 : carte qui touche le bord de l'image (photo déjà recadrée sur la carte) : rien à recadrer ici (le cadre intérieur
+      // passait pour le bord → carte zoomée, coupée : Fizz et Poro d'Arnaud) ; c'est la photo d'origine (context) qui servira
+      if (E.some(([x, y]) => x < 0.03 || x > 0.97 || y < 0.03 || y > 0.97)) return null;
+      // détecteur de bords appris au labo (recognizer-edges.js), guidé par les coins trouvés par l'image
+      const sq = App.recognizer.snapQuad ? App.recognizer.snapQuad(c, E) : null;
+      if (sq) {
+        const q = sq.map(([x, y]) => [x * c.width, y * c.height]), qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
+        const out = App.recognizer.warpQuad(c, q, Math.min(900, Math.max(240, Math.round(qw))));
+        return await new Promise((res) => out.toBlob(res, 'image/jpeg', 0.92));
+      }
       const xs = E.map((p) => p[0]), ys = E.map((p) => p[1]);
       const r = App.recognizer.cutCard(c, { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }, { expect: E });
       if (!r || !r.canvas || r.fit < 0.45 || !r.quad) return null;

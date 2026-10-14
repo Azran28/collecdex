@@ -225,3 +225,21 @@ test('Capturer « Toutes » : licence devinée sur le texte d’une carte', asyn
   eq(await guess('Pikachu PV 60 Faiblesse Résistance Retraite Nintendo'), 'pokemon');
   eq(await guess('illisible'), '');
 });
+// v3.18 : détecteur de bords appris au labo (recognizer-edges.js) — une carte dessinée sur un fond (bordure noire, dessin,
+// texte) doit être trouvée à 2 % près, même un peu tournée
+test('bords d’une carte (détecteur appris)', async (App) => {
+  await App.need('reco');
+  const c = document.createElement('canvas'); c.width = 600; c.height = 780; const g = c.getContext('2d');
+  g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, 600, 780);
+  g.save(); g.translate(300, 390); g.rotate(0.03);
+  const w = 400, h = w * 88 / 63;
+  g.fillStyle = '#15151a'; g.beginPath(); g.roundRect(-w / 2, -h / 2, w, h, 18); g.fill();
+  for (let i = 0; i < 30; i++) { g.fillStyle = `hsl(${i * 47 % 360} 60% 55%)`; g.fillRect(-w / 2 + 16 + (i % 6) * 61, -h / 2 + 16 + Math.floor(i / 6) * 60, 61, 60); }
+  g.fillStyle = '#eee8dc'; g.fillRect(-w / 2 + 16, h / 2 - 220, w - 32, 200); g.fillStyle = '#333';
+  for (let l = 0; l < 6; l++) g.fillRect(-w / 2 + 30, h / 2 - 200 + l * 28, 260 + (l % 3) * 30, 9);
+  g.restore();
+  const r = App.recognizer.findCard(c); ok(r, 'aucune carte trouvée');
+  const want = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [300 + x * Math.cos(0.03) - y * Math.sin(0.03), 390 + x * Math.sin(0.03) + y * Math.cos(0.03)]);
+  const diag = Math.hypot(w, h), worst = Math.max(...r.quad.map(([x, y], j) => Math.hypot(x * 600 - want[j][0], y * 780 - want[j][1]))) / diag * 100;
+  ok(worst < 2, `pire coin à ${worst.toFixed(1)} % de la diagonale`);
+});

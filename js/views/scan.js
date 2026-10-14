@@ -99,6 +99,13 @@ App.views.scan = {
     return cut(m.l, m.r) || cut(m.t, m.b) ? null : r;
   },
 
+  /** Carte remise à plat d'après ses 4 coins (fractions de l'image : HG, HD, BD, BG) → canvas */
+  warpTo(img, quad) {
+    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height, q = quad.map(([x, y]) => [x * W, y * H]);
+    const qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
+    return App.recognizer.warpQuad(img, q, Math.min(900, Math.max(240, Math.round(qw))));
+  },
+
   /** « Set de Base (1999) » */
   setLabel(c) { return c.set ? `${c.set.name}${c.set.releaseDate ? ' (' + c.set.releaseDate.slice(0, 4) + ')' : ''}` : (c.setId || ''); },
 
