@@ -242,6 +242,10 @@ test('bords d’une carte (détecteur appris)', async (App) => {
   const want = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [300 + x * Math.cos(0.03) - y * Math.sin(0.03), 390 + x * Math.sin(0.03) + y * Math.cos(0.03)]);
   const diag = Math.hypot(w, h), worst = Math.max(...r.quad.map(([x, y], j) => Math.hypot(x * 600 - want[j][0], y * 780 - want[j][1]))) / diag * 100;
   ok(worst < 2, `pire coin à ${worst.toFixed(1)} % de la diagonale`);
+  // v3.20 : reclassement avec le cadre jaune de la caméra (carte seule) : même carte
+  const r2 = App.recognizer.bestCardIn(c, { x: 0.1, y: 0.1, w: 0.8, h: 0.8 }); ok(r2, 'bestCardIn : rien');
+  const worst2 = Math.max(...r2.quad.map(([x, y], j) => Math.hypot(x * 600 - want[j][0], y * 780 - want[j][1]))) / diag * 100;
+  ok(worst2 < 2, `bestCardIn : pire coin à ${worst2.toFixed(1)} %`);
 });
 // v3.19 : chaque carte d'une page de classeur sur son propre bord (recognizer-page.js) — page dessinée : coutures soudées
 // en pointillés clairs (comme les vraies feuilles), 9 cartes un peu décalées / tournées dans leur pochette, bandeau du
@@ -270,4 +274,28 @@ test('cartes d’une page de classeur, une par une', async (App) => {
   const diag = Math.hypot(w, h);
   const errs = r.cells.map((cell, k) => Math.max(...cell.quad.map(([x, y], m) => Math.hypot(x * 900 - want[k][m][0], y * 1200 - want[k][m][1]))) / diag * 100);
   ok(Math.max(...errs) < 3, `pire carte à ${Math.max(...errs).toFixed(1)} % (${errs.map((e) => e.toFixed(1)).join(' ')})`);
+});
+// v3.20 : classeur ouvert (2 pages de 3 × 3 côte à côte, photo en largeur) : chaque page cherchée seule (detectSpread),
+// 18 cartes, chacune à 4 % près de la diagonale ; cartes droites (rot 0)
+test('classeur ouvert, 2 pages cherchées une par une', async (App) => {
+  await App.need('reco');
+  const c = document.createElement('canvas'); c.width = 1500; c.height = 1000; const g = c.getContext('2d');
+  g.fillStyle = '#4a4a50'; g.fillRect(0, 0, 1500, 1000); g.fillStyle = '#18181c'; g.fillRect(735, 0, 30, 1000); // reliure
+  const pw = 225, ph = 315, w = 196, h = w * 88 / 63, want = [];
+  for (const ox of [30, 790]) {
+    g.fillStyle = '#9a9aa2';
+    for (let s = 1; s < 3; s++) { for (let y = 0; y < 1000; y += 9) g.fillRect(ox + s * (pw + 5) - 4, y, 3, 5); for (let x = ox; x < ox + 690; x += 9) g.fillRect(x, 15 + s * (ph + 5) - 4, 5, 3); }
+    for (let k = 0; k < 9; k++) {
+      const i = k % 3, j = (k / 3) | 0, cx = ox + i * (pw + 5) + pw / 2 + ((k * 13) % 5 - 2) * 2, cy = 15 + j * (ph + 5) + ph / 2 + ((k * 7) % 5 - 2) * 2;
+      g.fillStyle = '#121216'; g.beginPath(); g.roundRect(cx - w / 2, cy - h / 2, w, h, 9); g.fill();
+      g.fillStyle = `hsl(${k * 40 + ox} 55% 50%)`; g.fillRect(cx - w / 2 + 8, cy - h / 2 + 8, w - 16, h * 0.55);
+      g.fillStyle = '#c0282c'; g.fillRect(cx - w / 2 + 8, cy - h / 2 + 8 + h * 0.55, w - 16, 18);
+      g.fillStyle = '#efe8da'; g.fillRect(cx - w / 2 + 8, cy - h / 2 + 26 + h * 0.55, w - 16, h * 0.45 - 40);
+      want.push([[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]]);
+    }
+  }
+  const r = await App.recognizer.detectSpread(c); ok(r && r.cells.length === 18, 'pas 18 cartes'); eq(r.rot, 0);
+  const diag = Math.hypot(w, h), cen = (q) => [q.reduce((a, p) => a + p[0], 0) / 4, q.reduce((a, p) => a + p[1], 0) / 4];
+  const errs = want.map((t) => { const ct = cen(t); let b = null, bd = 1e9; for (const cell of r.cells) { const q = cell.quad.map(([x, y]) => [x * 1500, y * 1000]), d = Math.hypot(cen(q)[0] - ct[0], cen(q)[1] - ct[1]); if (d < bd) { bd = d; b = q; } } return Math.max(...b.map((p, m) => Math.hypot(p[0] - t[m][0], p[1] - t[m][1]))) / diag * 100; });
+  ok(Math.max(...errs) < 4, `pire carte à ${Math.max(...errs).toFixed(1)} %`);
 });

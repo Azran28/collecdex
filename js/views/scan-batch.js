@@ -181,15 +181,17 @@ Object.assign(App.views.scan, {
      * remplacent la grille (au moins 70 % trouvées). Abandonné si la photo change ou si la grille est touchée entre-temps.
      */
     async function refineCards(img) {
-      const [cols, rows] = FORMATS[S.fmt] || [];
-      if (S.fmt === 'double' || !cols || window.__noCards) return false;
+      const [cols, rows] = FORMATS[S.fmt] || [], dbl = S.fmt === 'double';
+      if (!cols || window.__noCards) return false;
       const token = S.gridToken = (S.gridToken || 0) + 1;
-      let r = null; try { r = await R.detectCards(img, cols, rows); } catch (e) { console.warn('cartes', e); }
+      // v3.20 : classeur ouvert = 2 pages de 9 cherchées séparément, cartes droites ou couchées (detectSpread)
+      let r = null; try { r = dbl ? await R.detectSpread(img) : await R.detectCards(img, cols, rows); } catch (e) { console.warn('cartes', e); }
       if (!S.photo || S.photo.img !== img || S.running || token !== S.gridToken || !r || r.found < Math.ceil(cols * rows * 0.7)) return false;
       // découpe habituelle (lecture prudente) sur la carte agrandie de 4 % ; la carte exacte en plus (snapped)
       const grow = (q, k) => { const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4; return q.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]); };
-      S.autoGrid = true; S.autoRot = 0; S.dimsOv = null;
-      S.autoCells = r.cells.map((c) => ({ ...c, snapped: true, gridQuad: grow(c.quad, 1.04), cards: true }));
+      // (cartes couchées : coins dans le sens de la carte ; rot0 = sens de départ, retourné si la 1re carte se lit mieux à l'envers)
+      S.autoGrid = true; S.autoRot = dbl ? r.rot : 0; S.dimsOv = dbl && r.rot ? [3, 6] : null;
+      S.autoCells = r.cells.map((c) => ({ ...c, snapped: true, gridQuad: grow(c.quad, 1.04), cards: true, rot0: S.autoRot }));
       const xs = r.cells.flatMap((c) => c.quad.map((p) => p[0])), ys = r.cells.flatMap((c) => c.quad.map((p) => p[1]));
       const cl = (v) => Math.max(0, Math.min(1, v)), x0 = cl(Math.min(...xs)), y0 = cl(Math.min(...ys));
       S.grid = { x: x0, y: y0, w: cl(Math.max(...xs)) - x0, h: cl(Math.max(...ys)) - y0 };
@@ -312,7 +314,7 @@ Object.assign(App.views.scan, {
             useDetection(r.grid, r.fmt); drawGrid();
           }
           // puis chaque carte sur son vrai bord (quelques secondes ; la grille reste affichée pendant ce temps)
-          if (S.fmt !== 'double') {
+          {
             const token = (S.gridToken || 0) + 1;
             auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} Je repère chaque carte…`;
             const done = await refineCards(img);
@@ -430,7 +432,8 @@ Object.assign(App.views.scan, {
       if (S.autoGrid && S.autoCells && S.autoCells[i] && S.autoCells[i].snapped) {
         // bords de la carte trouvés : on la découpe pile dessus, remise à plat
         try {
-          const q = S.autoCells[i].quad.map(([x, y]) => [x * NW, y * NH]);
+          const ac = S.autoCells[i], flip = ac.cards && rot !== ac.rot0, turn = (qq) => (flip ? [qq[2], qq[3], qq[0], qq[1]] : qq); // carte à l'envers : demi-tour
+          const q = turn(ac.quad).map(([x, y]) => [x * NW, y * NH]);
           const qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
           const c = R.warpQuad(img, q, Math.min(900, Math.round(qw)));
           const xs = q.map((p) => p[0] / NW), ys = q.map((p) => p[1] / NH);
@@ -439,7 +442,7 @@ Object.assign(App.views.scan, {
           // reconnue avec certitude et pas l'autre (mesuré : parfois bien meilleure, parfois trompée par les reflets)
           const snap = await new Promise((res) => c.toBlob((b) => res({ blob: b, auto: true, box }), 'image/jpeg', 0.9));
           try {
-            const o = R.cellCard(img, { ...S.autoCells[i], quad: S.autoCells[i].gridQuad }, rot);
+            const o = R.cellCard(img, { ...ac, quad: turn(ac.gridQuad) }, ac.cards ? 0 : rot);
             const habit = await new Promise((res) => o.canvas.toBlob((b) => res({ blob: b, auto: o.auto, box: o.box }), 'image/jpeg', 0.9));
             // v3.19 : cartes repérées une à une (recognizer-page.js) : la carte exacte d'abord, la découpe habituelle en secours
             if (S.autoCells[i].cards && !window.__habitFirst) return { ...snap, alt: habit };

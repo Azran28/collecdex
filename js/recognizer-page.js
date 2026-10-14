@@ -78,12 +78,20 @@ App.recognizerParts = App.recognizerParts || {};
   }
   /** Graines : carte de la case (si, sj) à plusieurs tailles ; taille trouvée cohérente avec la fenêtre ; 3 meilleures distinctes */
   async function seeds(img, cols, rows, si, sj, n, o = {}) {
-    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height, cx = (si + 0.5) / cols * W, cy = (sj + 0.5) / rows * H, all = [];
-    for (let hh = 0.22; hh <= 0.4701; hh += (o.hStep || 0.025)) {
-      const ch = hh * 3 / rows * H, cw = ch / RATIO, w = win(img, cx, cy, cw * 1.3, ch * 1.3);
-      const r = P.findCard(w.c, { n, lines: o.lines || 15 }); await pause(); if (!r) continue;
+    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height, all = [];
+    const tryAt = async (cx, cy, ch) => {
+      const cw = ch / RATIO, w = win(img, cx, cy, cw * 1.3, ch * 1.3);
+      const r = P.findCard(w.c, { n, lines: o.lines || 15 }); await pause(); if (!r) return;
       const q = w.back(r.quad), rel = sizeOf(q.map(([x, y]) => [x * W, y * H]))[1] / ch;
       if (rel >= 0.85 && rel <= 1.15) all.push({ quad: q, score: r.score });
+    };
+    // 1) au milieu de la photo (la page la remplit), plusieurs tailles
+    for (let hh = 0.22; hh <= 0.4701; hh += (o.hStep || 0.025)) await tryAt((si + 0.5) / cols * W, (sj + 0.5) / rows * H, hh * 3 / rows * H);
+    // 2) v3.20 : case du milieu de la grille (page décalée dans la photo : moitié d'un classeur ouvert, photo mal centrée)
+    if (o.gridSeed) {
+      let g = null; try { g = P.detectGrid(img, cols, rows); } catch (e) { /* */ }
+      const c = g && g.cells && g.cells[sj * cols + si];
+      if (c && g.fit >= 0.3) { const Q = c.quad.map(([x, y]) => [x * W, y * H]), [, h] = sizeOf(Q), m = center(Q); for (const k of [0.88, 0.95, 1.02]) await tryAt(m[0], m[1], h * k); }
     }
     all.sort((a, b) => b.score - a.score);
     const keep = [];
@@ -350,5 +358,47 @@ App.recognizerParts = App.recognizerParts || {};
     return { cells, found, score: g.total };
   }
 
-  Object.assign(P, { detectCards, trueRatio });
+  /**
+   * Classeur ouvert (2 pages de 3 × 3, v3.20) : chaque page cherchée seule (detectCards sur sa moitié de photo, un peu plus
+   * large), cartes droites ou couchées : le sens est celui où les cartes sont le mieux trouvées (avant : photo en hauteur =
+   * cartes couchées, faux pour une photo en hauteur aux pages l'une sur l'autre). Coins dans le sens de la CARTE (son coin
+   * haut-gauche d'abord). → { cells (18 : page 1 puis page 2, ordre de lecture), found, rot (0 ou −90) } ou null.
+   */
+  async function detectSpread(img, o = {}) {
+    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+    const view = (turn) => {
+      if (!turn) return { c: img, w: W, h: H, back: (x, y) => [x, y] };
+      // photo tournée d'un quart de tour (sens des aiguilles) : (x, y) → (H − y, x)
+      const c = document.createElement('canvas'); c.width = H; c.height = W;
+      const g = c.getContext('2d'); g.translate(H, 0); g.rotate(Math.PI / 2); g.drawImage(img, 0, 0);
+      return { c, w: H, h: W, back: (u, v) => [v, H - u] };
+    };
+    const half = async (V, side) => {
+      const ov = o.ov ?? 0.54, wide = V.w >= V.h, x0 = wide ? (side ? 1 - ov : 0) * V.w : 0, y0 = wide ? 0 : (side ? 1 - ov : 0) * V.h;
+      const w = wide ? ov * V.w : V.w, h = wide ? V.h : ov * V.h;
+      const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h);
+      c.getContext('2d').drawImage(V.c, x0, y0, w, h, 0, 0, c.width, c.height);
+      const r = await detectCards(c, 3, 3, { gridSeed: true }); if (!r) return null;
+      return { ...r, cells: r.cells.map((cl) => cl.quad.map(([x, y]) => { const [a, b] = V.back(x0 + x * w, y0 + y * h); return [a / W, b / H]; })) };
+    };
+    // sens des cartes : les deux essayés sur la 1re page ; photo en largeur = cartes droites sauf si « couchées » est nettement
+    // mieux noté (× 1,5 : en couchées, des demi-cartes nettes sont parfois bien notées), photo en hauteur = la meilleure note
+    const tries = []; let best = null;
+    for (const turn of [false, true]) {
+      const V = view(turn), a = await half(V, 0);
+      if (a) tries.push({ turn, V, a });
+      if (!turn && W >= H && a && a.found >= 8) break; // photo en largeur, cartes droites trouvées : pas d'essai « couchées » (plus rapide)
+    }
+    const up = tries.find((t) => !t.turn), down = tries.find((t) => t.turn), bias = W >= H ? 1.5 : 1;
+    best = !up ? down : !down ? up : down.a.score > up.a.score * bias ? down : up;
+    if (!best) return null;
+    const b = await half(best.V, 1); if (!b) return null;
+    const cells = [...best.a.cells, ...b.cells].map((q) => {
+      const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+      return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), quad: q };
+    });
+    return { cells, found: best.a.found + b.found, rot: best.turn ? -90 : 0 };
+  }
+
+  Object.assign(P, { detectCards, detectSpread, trueRatio });
 })();

@@ -245,6 +245,31 @@ App.recognizerParts = App.recognizerParts || {};
   }
 
   /**
+   * v3.20 — carte seule prise avec la caméra du site (zone = cadre jaune, fractions de la photo) : les 80 meilleurs cadres
+   * reclassés par un petit modèle appris (W_PICK, labo : 180 captures, validation croisée par photo) : note du détecteur,
+   * vraies proportions (perspective retirée), taille et position par rapport au cadre jaune, rang. Mesuré : cadres faux
+   * 49 → 38, à moins de 5 % 131 → 142 (Riftbound 28 → 21, One Piece 19 → 17, Pokémon 2 → 0). Null si rien de net (note < 10).
+   */
+  const W_PICK = [0.4388, -0.2307, -4.233, -0.5154, -1.4922, -0.9223, -0.0548, -0.8841, 0.4526];
+  function bestCardIn(src, zone) {
+    try {
+      const r = findCard(src, { top: 80 }); if (!r || r.score < 10 || !r.cands.length) return null; // (seuil plus bas que bestCard : le reclassement rattrape)
+      const W = src.naturalWidth || src.width, H = src.naturalHeight || src.height, tr = App.recognizerParts.trueRatio;
+      const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), px = (q) => q.map(([x, y]) => [x * W, y * H]), hgt = (q) => (d2(q[0], q[3]) + d2(q[1], q[2])) / 2;
+      const top = r.cands[0], bh = hgt(px(top.quad)), zh = zone.h * H;
+      let best = top, bs = -Infinity;
+      r.cands.forEach((cd, i) => {
+        const q = px(cd.quad), t = tr ? tr(q, W, H, 2 * Math.max(W, H)) : 0, dev = t > 0 ? Math.abs(Math.log(t / (88 / 63))) : 1, qh = hgt(q);
+        const cx = q.reduce((a, p) => a + p[0], 0) / 4 / W - 0.5, cy = q.reduce((a, p) => a + p[1], 0) / 4 / H - 0.5;
+        const F = [cd.score, dev * 10, Math.max(0, dev - 0.05) * 10, Math.log(qh / zh), Math.abs(Math.log(qh / zh)) * 10, Math.hypot(cx, cy) * 10, Math.log(qh / bh) * 10, Math.min(i, 20) / 20, cd.score - top.score];
+        let s = 0; for (let k = 0; k < F.length; k++) s += W_PICK[k] * F[k];
+        if (s > bs) { bs = s; best = cd; }
+      });
+      return { quad: best.quad, score: r.score };
+    } catch (e) { console.warn('bords', e); return null; }
+  }
+
+  /**
    * Coins approximatifs (carte reconnue à l'image, case de classeur) → vrais bords de la carte autour, ou null si rien de
    * proche (pire coin à plus de 12 % de la diagonale des coins attendus : on garde alors les coins donnés)
    */
@@ -261,5 +286,5 @@ App.recognizerParts = App.recognizerParts || {};
     } catch (e) { console.warn('bords', e); return null; }
   }
 
-  Object.assign(App.recognizerParts, { findCard, bestCard, snapQuad });
+  Object.assign(App.recognizerParts, { findCard, bestCard, bestCardIn, snapQuad });
 })();

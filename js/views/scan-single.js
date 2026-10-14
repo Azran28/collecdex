@@ -179,7 +179,8 @@ Object.assign(App.views.scan, {
           const img = await createImageBitmap(b), zone = cam.zone || { x: 0.115, y: 0.115, w: 0.77, h: 0.77 }, all = { x: 0.01, y: 0.01, w: 0.98, h: 0.98 };
           // v3.18 : d'abord le détecteur de bords appris au labo (R.bestCard, recognizer-edges.js), seulement s'il est sûr de lui ;
           // sinon l'ancien détourage (dans le cadre, puis dans toute la photo)
-          const nb = R.bestCard(img); // (pas de « sane » : il écartait les cartes décentrées, et les 4 coins sont déjà dans la photo)
+          // v3.20 : avec le cadre jaune de la caméra, les meilleurs cadres reclassés par un petit modèle appris (bestCardIn)
+          const nb = cam.zone ? R.bestCardIn(img, zone) : R.bestCard(img); // (pas de « sane » : il écartait les cartes décentrées, et les 4 coins sont déjà dans la photo)
           let cut = nb ? App.views.scan.warpTo(img, nb.quad) : null;
           if (!cut) {
             const sure = (r) => (r && r.fit >= 0.45 ? App.views.scan.sane(r) : null);
