@@ -340,7 +340,7 @@
    * « LC5D-FR088 »…) comparé à ce qui a été lu, lettre à lettre, avec O = 0, I = 1… (même un code mal lu, « RGB T-FROO7 »,
    * « ROBT-FR007 », désigne nettement la bonne). → [ids classés, meilleure note, écart avec la suivante]
    */
-  const canon = (s) => String(s).toUpperCase().replace(/\s+/g, '').replace(/[ODQ]/g, '0').replace(/[IL|]/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2').replace(/\//g, '7');
+  const canon = (s) => String(s).toUpperCase().replace(/\s+/g, '').replace(/[ODQ]/g, '0').replace(/[IJL|]/g, '1').replace(/S/g, '5').replace(/B/g, '8').replace(/Z/g, '2').replace(/\//g, '7');
   function printScores(texts, prints) {
     const lines = texts.join('\n').split('\n').map(canon).filter((l) => l.length >= 5);
     const scored = prints.map((c) => {
@@ -427,28 +427,38 @@
     return App.visual.quadCrop(blob, quad.map(([x, y]) => [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))]));
   }
   async function visualPass(blob, cands, codes, context = null, setId = '') {
-    const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
-    if (o && o.quad) { o.quad = fullQuad(o.quad); o.crop = await cropQuad(blob, o.quad).catch(() => null) || o.crop; }
-    const top = o && o.cands[0];
-    if (top && top.orb >= V.SURE) {
-      // impressions de la carte reconnue
+    const V = App.visual;
+    // carte reconnue à l'image → toutes ses impressions (même dessin), la plus probable d'abord
+    const expand = async (r) => {
+      const top = r && r.cands[0];
+      if (!(top && top.orb >= V.SURE)) return r;
       const pr = await printsOf(top, codes, setId), keep = top.orb, sure = !!top.confident;
       if (top.artId) for (const x of pr) { x.image = top.image; x.artId = top.artId; } // (illustration reconnue : celle de la photo)
       for (const x of pr) { x.orb = keep; delete x.confident; }
       const single = pr.length === 1 || codes.includes(pr[0].id) || (setId && pr[0].setId === setId && pr.filter((x) => x.setId === setId).length === 1);
       if (sure && single) pr[0].confident = true;
-      o.cands = [...pr, ...o.cands.filter((x) => x.passcode !== top.passcode)];
-    }
-    if (!context || !o) return o;
+      r.cands = [...pr, ...r.cands.filter((x) => x.passcode !== top.passcode)];
+      return r;
+    };
+    const o = await V.check(blob, cands, visualOpts(codes, setId));
+    if (o && o.quad) { o.quad = fullQuad(o.quad); o.crop = await cropQuad(blob, o.quad).catch(() => null) || o.crop; }
+    await expand(o);
+    const top = o && o.cands[0];
+    if (!context) return o;
     if (top && top.orb >= V.SURE) {
       const cq = o.url ? fullQuad(await V.quadOn(context, top, o.url).catch(() => null)) : null;
       if (cq) o.ctxQuad = cq;
       const crop = cq ? await cropQuad(context, cq).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
     }
+    // rien de net sur la découpe (trop serrée : photo d'Arnaud, Dragon Ultime aux Yeux Bleus coupé par le détourage) → les
+    // alentours ; v3.28 : gardés dès que l'image y est nette (avant : seulement « sûre », jamais le cas d'une carte réimprimée
+    // au même dessin → « Je n'ai pas reconnu la carte »)
     const w = await V.check(context, cands, visualOpts(codes, setId)).catch(() => null);
     if (w && w.quad) { w.quad = fullQuad(w.quad); w.crop = await cropQuad(context, w.quad).catch(() => null) || w.crop; w.ctxQuad = w.quad; }
-    return w && w.cands[0] && w.cands[0].confident ? w : o;
+    await expand(w);
+    const wt = w && w.cands[0];
+    return wt && (wt.confident || (wt.orb || 0) >= Math.max(V.SURE, (top && top.orb) || 0)) ? w : o;
   }
 
   /**
@@ -499,7 +509,7 @@
         // carte reconnue à l'image : reste à savoir laquelle de ses impressions (code relu sur la carte recadrée)
         if (e.cands[0] && (e.cands[0].orb || 0) >= App.visual.SURE) {
           const cands = choosePrint(e.cands, texts), top = cands[0];
-          return { info: { code: top.id, name: '', votes: {}, crop, ctxQuad: e.ctxQuad, orb: e.best, read: [top.numOk ? `code ${top.code.replace('-', '-FR')}` : '', 'reconnue à l’image ✓'].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+          return { info: { code: top.id, name: '', votes: {}, crop, ctxQuad: e.ctxQuad, orb: e.best, read: [top.numOk ? `code ${top.code}` : '', 'reconnue à l’image ✓'].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
         }
       }
     }
@@ -566,7 +576,7 @@
     if (orb && orb.crop) betterCrop = orb.crop;
     if (top && !top.confident) { cands = choosePrint(cands, texts); top = cands[0]; }
     const cropLater = !orb && early && top ? early.then((e) => (e && e.crop && e.cands[0] && e.cands[0].passcode === top.passcode ? e.crop : null), () => null) : null;
-    const readTxt = topKeys.length ? `code ${topKeys[0].replace('-', '-FR')}` : pcs.length ? `passcode ${pcs[0]}` : '';
+    const readTxt = topKeys.length ? `code ${topKeys[0]}` : pcs.length ? `passcode ${pcs[0]}` : '';
     return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
