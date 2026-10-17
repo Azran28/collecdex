@@ -278,6 +278,20 @@ Object.assign(App.views.scan, {
     // photo transmise par le mode « Une carte » (page de classeur détectée)
     if (App._pendingPage) { const b = App._pendingPage; App._pendingPage = null; setTimeout(() => startGrid(b, null), 0); }
 
+    // ---------- Attente du cadrage (v3.25, Arnaud : « une animation qui fait patienter pendant que tu recalcules le cadrage ») ----------
+    // voile + rayon de scan qui balaie la photo + étiquette ; le rayon et le cercle tournent même pendant les calculs qui occupent la page
+    // (animations de transformation, menées par le navigateur à part), le texte change toutes les 1,8 s quand la page respire
+    const FINDING = ['Je repère chaque carte…', 'Je cherche le bord de chaque carte…', 'J’ajuste le cadrage…', 'Presque prêt…'];
+    function finding(txt, rotate = false) {
+      const area = view.querySelector('.crop-area'); if (!area) return;
+      let o = area.querySelector('.b-finding');
+      if (!o) { o = document.createElement('div'); o.className = 'b-finding'; o.setAttribute('role', 'status'); o.innerHTML = '<i class="bf-line"></i><span class="bf-pill"><span class="bf-spin"></span><b class="bf-txt"></b></span>'; area.appendChild(o); }
+      o.querySelector('.bf-txt').textContent = txt;
+      clearInterval(S.findTimer); S.findTimer = null;
+      if (rotate) { let i = 0; S.findTimer = setInterval(() => { const t = o.isConnected && o.querySelector('.bf-txt'); if (!t) { clearInterval(S.findTimer); return; } i = Math.min(i + 1, FINDING.length - 1); t.textContent = FINDING[i]; }, 1800); }
+    }
+    function findingDone() { clearInterval(S.findTimer); S.findTimer = null; const o = view.querySelector('.b-finding'); if (o) o.remove(); }
+
     // ---------- Grille ajustable ----------
     function startGrid(blob, cert = null) {
       el.querySelector('#b-go').classList.add('hidden'); // la reconnaissance partira toute seule si la grille est sûre
@@ -297,6 +311,7 @@ Object.assign(App.views.scan, {
         drawGrid();
         el.querySelector('#b-actions').classList.add('hidden');
         el.querySelector('#b-gridbar').classList.remove('hidden');
+        finding('Je repère la page…'); // (affiché avant les calculs : le setTimeout laisse le temps de le dessiner)
         // on cherche la grille tout seul (format compris) ; si c'est sûr, la reconnaissance démarre d'elle-même
         setTimeout(async () => {
           let r = null;
@@ -305,7 +320,7 @@ Object.assign(App.views.scan, {
             if (S.fmtChosen) { const g = S.fmt === 'double' ? R.detectDouble(img) : R.detectGrid(img, ...FORMATS[S.fmt].slice(0, 2)); r = g ? { fmt: S.fmt, grid: g } : null; }
             else r = R.detectPage(img, PAGE_FORMATS, S.fmt === 'double' ? '3x3' : S.fmt);
           } catch (e) { console.warn('grille', e); }
-          if (!S.photo || S.photo.img !== img) return;
+          if (!S.photo || S.photo.img !== img) { findingDone(); return; }
           let found = r && r.grid && r.grid.fit >= 0.38 && r.grid.w > 0.2 && r.grid.h > 0.2;
           let ok = found && r.grid.fit >= 0.45; // assez sûr pour lancer la reconnaissance tout seul
           const auto = el.querySelector('#b-auto');
@@ -316,8 +331,10 @@ Object.assign(App.views.scan, {
           // puis chaque carte sur son vrai bord (quelques secondes ; la grille reste affichée pendant ce temps)
           {
             const token = (S.gridToken || 0) + 1;
-            auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} Je repère chaque carte…`;
+            auto.classList.add('hidden'); // (l'étiquette sur la photo le dit déjà)
+            finding(FINDING[0], true);
             const done = await refineCards(img);
+            findingDone();
             if (!S.photo || S.photo.img !== img || S.running || S.gridToken !== token) return; // autre photo, ou grille touchée
             if (done) found = ok = true;
           }
@@ -367,7 +384,7 @@ Object.assign(App.views.scan, {
     }
     view.addEventListener('pointerdown', (e) => {
       if (!S.photo || S.running || !e.target.closest('.crop-area')) return;
-      e.preventDefault(); cancelAuto();
+      e.preventDefault(); cancelAuto(); findingDone();
       S.gridToken = (S.gridToken || 0) + 1; // repérage des cartes en cours : abandonné (la grille est à la main maintenant)
       if (S.autoGrid && S.autoCells) { S.autoCells = null; S.autoGrid = false; drawGrid(); } // on repasse en grille réglable à la main
       S.autoGrid = false;

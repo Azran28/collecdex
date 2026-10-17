@@ -130,6 +130,9 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
   - **Rafale** : la licence est trouvée sur la 1re carte reconnue, puis gardée pour la rafale.
 - Choisir la licence reste **un peu plus rapide et plus sûr**. En « Toutes », la série de la carte ne se choisit pas (elle est devinée).
 
+## Classeur : attente du cadrage (v3.25)
+Juste après la photo d'une page, l'appli repère la page puis le bord de chaque carte (quelques secondes) : la photo est voilée, un rayon la balaie et une étiquette dit où elle en est. Ensuite, compte à rebours et reconnaissance comme avant.
+
 ## Importer ma collection (Collectr, Cardmarket, Pokellector, Dragon Shield, Excel)
 - **Mon Dex › Importer** (ou Paramètres › Sauvegarde › « Importer un fichier »).
 - Choisis d'où vient ton fichier pour voir comment l'obtenir :
