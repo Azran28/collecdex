@@ -14,6 +14,8 @@ App.badges = (() => {
   // Lorcana : personnage = nom avant « - » (« Belle - Étrange demoiselle ») ; princesses Disney présentes dans le jeu
   const hasLc = (ctx, name) => ctx.items.some((i) => i.game === 'lorcana' && N(String(i.snap.name).split(' - ')[0]) === name);
   const LC_PRINCESSES = ['ariel', 'cendrillon', 'belle', 'raiponce', 'aurore', 'blanche-neige', 'jasmine', 'mulan', 'pocahontas', 'tiana', 'vaiana', 'merida', 'anna', 'elsa'];
+  // Yu-Gi-Oh! : noms des cartes possédées (normalisés)
+  const ygNames = (ctx) => ctx.items.filter((i) => i.game === 'yugioh').map((i) => N(i.snap.name));
   const L = [
     // Taille de la collection
     ['c1', 'Premier pas', 'Ta première carte dans ton Dex', 'sparkles', 1, (x) => x.n >= 1],
@@ -72,6 +74,11 @@ App.badges = (() => {
     ['lc-princes', 'Royaume des princesses', '5 princesses différentes', 'crown', 2, (x) => LC_PRINCESSES.filter((n) => hasLc(x, n)).length >= 5],
     ['lc-villains', 'Côté obscur', 'Ursula, Maléfique, Jafar et Hadès', 'ink', 3, (x) => ['ursula', 'malefique', 'jafar', 'hades'].every((n) => hasLc(x, n))],
     ['lc-ench', 'Enchanteur', '3 cartes Enchantées', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'lorcana' && i.snap.rarity === 'en').length >= 3],
+    // Yu-Gi-Oh! (v3.26 ; noms français ou anglais, selon la carte)
+    ['yg-exodia', 'L’Interdit', 'Les 5 pièces d’Exodia', 'pyramid', 3, (x) => new Set(ygNames(x).filter((n) => /interdit|forbidden one/.test(n))).size >= 5],
+    ['yg-dragons', 'Yeux bleus, yeux rouges', 'Un Dragon Blanc aux Yeux Bleus et un Dragon Noir aux Yeux Rouges', 'pyramid', 2, (x) => ygNames(x).some((n) => /^(dragon blanc aux yeux bleus|blue eyes white dragon)$/.test(n)) && ygNames(x).some((n) => /^(dragon noir aux yeux rouges|red eyes black dragon|red eyes b dragon)$/.test(n))],
+    ['yg-dieux', 'Dieux égyptiens', 'Obélisk, Slifer et Râ', 'crown', 4, (x) => [/obelisk/, /slifer/, /dragon aile de ra|winged dragon of ra/].every((r) => ygNames(x).some((n) => r.test(n)))],
+    ['yg-secret', 'Rareté secrète', '3 cartes Secret Rare ou plus rares', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'yugioh' && App.games.get('yugioh') && App.games.get('yugioh').rarity.rank(i.snap.rarity) >= 8).length >= 3],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   const setsCache = {}; // séries de chaque licence

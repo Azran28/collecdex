@@ -105,10 +105,30 @@ App.battle = (() => {
       type: LC_INK[(card.inks || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: rush ? 1 : 0, ko: false, ...extra,
     };
   }
-  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana) */
-  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
+  /**
+   * Combattant Yu-Gi-Oh! (v3.26, même moteur, adapté légèrement) : seuls les monstres combattent (pas les Magies ni les Pièges).
+   * PV = 30 + DEF ÷ 40 + niveau × 5 ; type = attribut (Feu → Feu, Terre → Combat…) ; attaque = ATK ÷ 30, coût selon le niveau
+   * (1 à 3) ; « Position de défense » (1 énergie) si DEF > ATK ; monstres de l'Extra Deck (Fusion, Synchro, Xyz, Lien) = commencent
+   * avec 1 énergie. ATK / DEF « ? » (dieux égyptiens) = 4000.
+   */
+  const YG_ATTR = { fe: 'fire', ea: 'water', ve: 'grass', te: 'fighting', lu: 'lightning', tn: 'darkness', di: 'psychic' };
+  const isYgFighter = (card) => !!card.monster && card.atk != null && card.kind !== 'tk';
+  function fighterYG(card, extra = {}) {
+    const val = (v) => (v == null ? 0 : +v < 0 ? 4000 : +v);
+    const atk = val(card.atk), link = card.kind === 'l', def = link ? atk * 0.6 : val(card.def), lv = Math.max(1, +card.level || (link ? 2 : 4));
+    const extraDeck = ['f', 'sy', 'x', 'l', 'pf', 'psy', 'px'].includes(card.kind);
+    const hp = Math.min(260, Math.max(40, r10(30 + def / 40 + (link ? lv * 15 : lv * 5))));
+    const attacks = [{ name: 'Attaque', cost: Math.min(3, 1 + Math.floor((link ? lv * 2 : lv) / 4)), base: Math.max(10, r10(atk / 30)), mode: '', noDamage: false, text: '' }];
+    if (def > atk) attacks.unshift({ name: 'Position de défense', cost: 1, base: Math.max(10, r10(def / 60)), mode: '', noDamage: false, text: '' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'yugioh',
+      type: YG_ATTR[card.attribute] || 'colorless', weak: [], res: [], attacks, energy: extraDeck ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh!) */
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -219,11 +239,19 @@ App.battle = (() => {
     { n: 4, name: 'Grand Illumineur', desc: 'Personnages légendaires · une énergie d’avance', pool: ch1(21, 42, 59, 70, 82, 115, 147, 178), bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Légende', desc: 'Les plus grands méchants et héros · sors tes meilleures cartes', pool: ch1(113, 5, 192, 178, 21, 82, 115, 42), bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Yu-Gi-Oh! (v3.26 ; monstres des premières séries, data/yg-cartes.json)
+  const LEVELS_YG = [
+    { n: 1, name: 'Duelliste débutant', desc: 'Petits monstres de La Légende du Dragon Blanc · il joue un peu au hasard', pool: ['LOB-E019', 'MRD-E071', 'LOB-E088', 'MRD-E065', 'LOB-E007', 'LOB-009', 'MRD-E061', 'LOB-E054', 'MRD-E069', 'LOB-002'], bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Duelliste', desc: 'Monstres de niveau 4 · il attaque toujours au plus fort', pool: ['LOB-E005', 'LOB-E050', 'SDY-E002', 'SDK-E004', 'SDK-E024', 'MRD-E008', 'SDY-035', 'LOB-E085', 'SDK-E005', 'SDY-E003', 'MRD-E116', 'LOB-064'], bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Champion régional', desc: 'Monstres sacrifiés · il connaît tes points faibles', pool: ['LOB-E004', 'SDY-004', 'LOB-E053', 'LOB-003', 'MRD-E143', 'LOB-E102', 'MFC-000', 'PSV-E000'], bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Roi des Duellistes', desc: 'Les monstres légendaires · une énergie d’avance', pool: ['LOB-E001', 'LOB-E003', 'LOB-E056', 'PSV-E050', 'SYE-024', 'MRD-E018', 'MFC-105', 'FMR-001'], bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Pharaon', desc: 'Les dieux égyptiens et les dragons ultimes · sors tes meilleures cartes', pool: ['JMP-005_scr', 'JUMP-037', 'SD09-SS1', 'MRD-E000', 'LOB-E001', 'LOB-E003', 'MRD-E018', 'SYE-024'], bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, OP_COLOR, RB_DOMAIN, LC_INK, LEVELS_RB, LEVELS_LC, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, LEVELS_RB, LEVELS_LC, LEVELS_YG, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

@@ -17,8 +17,8 @@ App.games = (() => {
     { id: 'onepiece', name: 'One Piece', icon: 'anchor', status: 'actif', desc: 'Boosters, decks et promos, en français depuis OP-09.' },
     { id: 'riftbound', name: 'Riftbound', icon: 'rune', status: 'actif', desc: 'Le jeu de cartes League of Legends : toutes les extensions.' },
     { id: 'lorcana', name: 'Disney Lorcana', icon: 'ink', status: 'actif', desc: 'Tous les chapitres, quêtes et promos, en français.' },
+    { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: 'pyramid', status: 'actif', desc: 'Toutes les séries TCG, noms en français.' },
     { id: 'magic', name: 'Magic: The Gathering', icon: 'sparkles', status: 'bientôt', desc: 'Toutes les extensions, prix inclus.' },
-    { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: 'pyramid', status: 'bientôt', desc: 'Toutes les boîtes, prix inclus.' },
     { id: 'autres', name: 'Et au-delà…', icon: 'box', status: 'plus tard', desc: 'Figurines, Funko Pop, pièces, jeux vidéo…' },
   ];
   const adapters = {};

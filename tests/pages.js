@@ -35,6 +35,7 @@
   const PAGES = [
     ['#/', 'Accueil'], ['#/jeu/pokemon', 'Séries Pokémon'], ['#/jeu/onepiece', 'Séries One Piece'], ['#/jeu/riftbound', 'Séries Riftbound'], ['#/jeu/riftbound/serie/OGN', 'Série Origins (Riftbound)'],
     ['#/jeu/lorcana', 'Séries Lorcana'], ['#/jeu/lorcana/serie/1', 'Série Premier Chapitre (Lorcana)'], ['#/jeu/lorcana/serie/P1', 'Promos Lorcana'],
+    ['#/jeu/yugioh', 'Séries Yu-Gi-Oh!'], ['#/jeu/yugioh/serie/RGBT', 'Série Raging Battle (Yu-Gi-Oh!)'], ['#/jeu/yugioh/serie/LOB', 'Série La Légende du Dragon Blanc (Yu-Gi-Oh!)'],
     ['#/jeu/pokemon/serie/base1', 'Série Set de Base'], ['#/jeu/pokemon/hors-serie', 'Hors-série'],
     ['#/collection', 'Mon Dex'], ['#/objectifs', 'Objectifs'], ['#/importer', 'Importer'],
     ['#/compte', 'Vitrine'], ['#/amis', 'Amis'], ['#/connexion', 'Connexion'], ['#/parametres', 'Paramètres'],
@@ -43,6 +44,7 @@
     ['#/combat', 'Combat'], ['#/combat?jeu=pokemon', 'Combat Pokémon'], ['#/combat?jeu=pokemon&ecran=ordi', 'Combat contre l’ordinateur'],
     ['#/combat?jeu=pokemon&ecran=decks', 'Combat : équipes'], ['#/combat?jeu=onepiece', 'Combat One Piece'], ['#/combat?jeu=riftbound', 'Combat Riftbound'], ['#/scan?jeu=riftbound', 'Capturer Riftbound'],
     ['#/combat?jeu=lorcana', 'Combat Lorcana'], ['#/scan?jeu=lorcana', 'Capturer Lorcana'], ['#/scan?mode=classeur&jeu=lorcana', 'Capturer Lorcana (classeur)'],
+    ['#/combat?jeu=yugioh', 'Combat Yu-Gi-Oh!'], ['#/scan?jeu=yugioh', 'Capturer Yu-Gi-Oh!'], ['#/scan?mode=classeur&jeu=yugioh', 'Capturer Yu-Gi-Oh! (classeur)'],
     ['#/capsules', 'Capsules'],
   ];
   const size = (w, h) => { const f = frame(); f.style.width = w + 'px'; f.style.height = h + 'px'; };

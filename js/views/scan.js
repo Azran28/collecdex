@@ -206,8 +206,10 @@ App.views.scan = {
   },
   /** Points de chaque licence d'après un texte lu sur une carte (codes imprimés ×2, mots typiques) */
   textScores(T) {
-    const rb = App.games.get('riftbound'), lc = App.games.get('lorcana');
+    const rb = App.games.get('riftbound'), lc = App.games.get('lorcana'), yg = App.games.get('yugioh');
     return {
+      // Yu-Gi-Oh! (v3.26) : code « RGBT-FR007 » sous l'illustration, passcode et « ©1996 KAZUKI TAKAHASHI » en bas, ATK/DEF, [TYPE/EFFET]
+      yugioh: (yg && yg.codesIn && yg.codesIn(T).some(([c, w]) => w >= 0.9 && !/^#/.test(c)) ? 2 : 0) + [/konami/i, /kazuki|takahashi/i, /\bATK\s*[/|]/i, /\bDEF\s*[/|]/i, /carte\s+(magie|pi[eè]ge)|(spell|trap)\s+card/i, /\b(1re|1ère|1st)\s+[ée]dition/i, /\/\s*effe[ct]t?\s*\]|\[\s*[A-ZÉ-]+\s*\/\s*effe/i, /invoqu|summon/i].filter((r) => r.test(T)).length,
       // Lorcana (v3.21) : code « 25/204 • FR • 1 » en bas à gauche, « Disney Lorcana ©Disney » en bas à droite, Storyborn / Floodborn…
       lorcana: (lc && lc.codesIn && lc.codesIn(T).some(([, w]) => w >= 0.9) ? 2 : 0) + [/lorcana/i, /disney/i, /ravensburger/i, /\b(storyborn|floodborn|dreamborn)\b/i, /[ée]clats?\s+de\s+lore|\blore\b/i, /\b(chanson|song)\b/i, /\bm[ée]lomane\b|\bsinger\b/i, /\bd[ée]fi\b|\bchallenger\b/i].filter((r) => r.test(T)).length,
       riftbound: (rb && rb.codesIn && rb.codesIn(T).length ? 2 : 0) + [/\bRG[Il1]\b/, /\bUNIT[ÉE](?![A-Za-zÀ-ÿ])/, /\bL[ÉE]GENDE\b/, /\bRUNE\b/, /CHAMP\s+DE\s+BATAILLE|BATTLEFIELD/i, /comp[ée]tence|canalis/i, /\bSORT\b|\bSPELL\b/, /\bUNIT\b/].filter((r) => r.test(T)).length,

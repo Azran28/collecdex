@@ -1,4 +1,4 @@
-# Chaque lundi : remet à jour la liste des cartes Lorcana (data/lc-cartes.json, depuis LorcanaJSON),
+# Chaque lundi : remet à jour les listes des cartes Lorcana (data/lc-cartes.json, depuis LorcanaJSON) et Yu-Gi-Oh! (data/yg-cartes.json, YGOPRODeck),
 # ajoute les nouvelles cartes (nouvelles séries) à la base de référence des images (data/*-index),
 # publie, puis lance « Tests et mise en ligne » (le site n'est mis en ligne que si les tests réussissent).
 # Aussi lançable à la main : onglet Actions › Base de référence des images › Run workflow.
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
   push: # aussi quand l'outil lui-même change (pour le vérifier tout de suite)
     branches: [main]
-    paths: ['outils/index-maj.*', 'outils/ci/index-maj.mjs', 'outils/ci/lorcana-cartes.mjs', '.github/workflows/index.yml']
+    paths: ['outils/index-maj.*', 'outils/ci/index-maj.mjs', 'outils/ci/lorcana-cartes.mjs', 'outils/ci/yugioh-cartes.mjs', '.github/workflows/index.yml']
 
 concurrency:
   group: index-images
@@ -37,6 +37,11 @@ jobs:
         run: |
           node outils/ci/lorcana-cartes.mjs data/lc-cartes.json
           if git diff --quiet -- data/lc-cartes.json; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Liste des cartes Yu-Gi-Oh! (YGOPRODeck)
+        id: cartes_yg
+        run: |
+          node outils/ci/yugioh-cartes.mjs data/yg-cartes.json
+          if git diff --quiet -- data/yg-cartes.json; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
       - name: Ajouter les nouvelles cartes
         id: maj
         run: |
@@ -44,14 +49,14 @@ jobs:
           sleep 1
           node outils/ci/index-maj.mjs http://localhost:8080/
       - name: Publier
-        if: steps.maj.outputs.changed == 'true' || steps.cartes.outputs.changed == 'true'
+        if: steps.maj.outputs.changed == 'true' || steps.cartes.outputs.changed == 'true' || steps.cartes_yg.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "CollecDex (robot)"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/ js/visual.js js/games/onepiece.js js/games/riftbound.js js/games/lorcana.js
-          git commit -m "Nouvelles cartes : liste Lorcana et base de référence des images (robot)"
+          git add data/ js/visual.js js/games/onepiece.js js/games/riftbound.js js/games/lorcana.js js/games/yugioh.js
+          git commit -m "Nouvelles cartes : listes Lorcana et Yu-Gi-Oh!, base de référence des images (robot)"
           # numéro de version posé après avoir récupéré les derniers envois (pas de conflit sur index.html)
           git pull --rebase origin main
           sh outils/stamp.sh

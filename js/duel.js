@@ -28,6 +28,7 @@ App.duel = (() => {
   const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+\.jpg$/.test(v) || v === App.battleCards.DON_IMG
     || /^https:\/\/images\.weserv\.nl\/\?url=(fr|en)\.onepiece-cardgame\.com%2Fimages%2Fcardlist%2Fcard%2F[A-Za-z0-9_-]+\.(webp|png)(%3F\d+)?&w=\d{3}&output=webp$/.test(v)
     || /^https:\/\/images\.weserv\.nl\/\?url=https%3A%2F%2Fapi\.lorcana\.ravensburger\.com%2Fimages%2F(fr|en)%2F[a-z0-9]+%2F[A-Za-z0-9]+_[a-f0-9]{40}\.jpg&w=\d{3}&output=webp$/.test(v) || v === App.battleCards.INK_IMG
+    || /^https:\/\/images\.weserv\.nl\/\?url=https%3A%2F%2Fimages\.ygoprodeck\.com%2Fimages%2Fcards%2F\d{3,10}\.jpg&w=\d{3}&output=webp$/.test(v)
     || /^https:\/\/images\.weserv\.nl\/\?url=cmsassets\.rgpub\.io%2Fsanity%2Fimages%2F[a-z0-9]+%2Fgame_data_live%2F[a-f0-9]+-\d{3,4}x\d{3,4}\.png&w=\d{3}(&ro=270)?&output=webp$/.test(v)) ? v : ''); // hors-série : visuel du site ; One Piece et Riftbound : visuel relayé
   // licence du salon (supabase-v18.sql) ; null = serveur pas encore à jour
   const gameOf = (g) => (typeof g === 'string' && /^[a-z]{2,20}$/.test(g) && App.games.get(g) ? g : null);

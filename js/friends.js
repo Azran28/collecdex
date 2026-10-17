@@ -21,7 +21,8 @@ App.friends = (() => {
   const tcgImg = (v) => (typeof v === 'string' && (/^https:\/\/assets\.tcgdex\.net\/[A-Za-z0-9_./-]+$/.test(v) || /^img\/hors-serie\/[a-z0-9-]+$/.test(v)
     || /^https:\/\/(fr|en)\.onepiece-cardgame\.com\/images\/cardlist\/card\/[A-Za-z0-9_-]+\.(webp|png)(\?\d+)?$/.test(v)
     || /^https:\/\/cmsassets\.rgpub\.io\/sanity\/images\/[a-z0-9]+\/game_data_live\/[a-f0-9]+-\d{3,4}x\d{3,4}\.png(\?accountingTag=RB)?$/.test(v)
-    || /^https:\/\/api\.lorcana\.ravensburger\.com\/images\/(fr|en)\/[a-z0-9]+\/[A-Za-z0-9]+_[a-f0-9]{40}\.jpg$/.test(v)) ? v : '');
+    || /^https:\/\/api\.lorcana\.ravensburger\.com\/images\/(fr|en)\/[a-z0-9]+\/[A-Za-z0-9]+_[a-f0-9]{40}\.jpg$/.test(v)
+    || /^https:\/\/images\.ygoprodeck\.com\/images\/cards\/\d{3,10}\.jpg$/.test(v)) ? v : ''); // (Yu-Gi-Oh! : visuels de YGOPRODeck)
   const game = (v) => (typeof v === 'string' && App.games.get(v) ? v : null);
   const oneOf = (v, list, def) => (list.some(([k]) => k === v) ? v : def);
   const avatarPoke = (a) => { a = obj(a); const id = parseInt(a.id, 10); return id >= 1 && id <= App.pokedex.TOTAL ? { id, shiny: !!a.shiny } : null; };

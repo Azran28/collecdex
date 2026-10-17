@@ -204,7 +204,7 @@
     }
     const ok = [pg >= 0.012 && pg <= 0.2, pd >= 0.72, po <= 0.22, sym >= 0.5];
     // tout bon : 0,62 à 0,87 selon la symétrie ; sinon au plus 0,3 (seuil du dos : 0,55 en direct, 0,6 en classeur)
-    return ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (sym - 0.5) / 0.4) : 0.1 * ok.filter(Boolean).length;
+    return ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (sym - 0.5) / 0.4) : 0.08 * ok.filter(Boolean).length;
   }
   // Dos Lorcana (v3.21) : fond noir à volutes, grand rond doré au centre (étoile noire dedans), bordure noire. La comparaison 24 × 33
   // seule ne suffit pas (les faces ont aussi une bordure noire : jusqu'à 0,58) → en plus, sur 48 × 66 : part dorée dans le rond
@@ -264,7 +264,54 @@
     }
     return best;
   }
+  // Dos Yu-Gi-Oh! (v3.26) : large bordure cuivrée (brun orangé clair), intérieur sombre à tourbillon de filets orange et jaunes.
+  // Les faces ont une fine bordure sombre puis un cadre de couleur (orange, vert, violet…), une illustration et une zone de texte
+  // claire → mesure dédiée sur 48 × 66 : part cuivrée dans la bordure (« bord »), couleurs froides au centre (« cool » : bleu, vert,
+  // violet), zone de texte claire (« tb »). Le modèle 24 × 33 (comme Pokémon) n'y voit rien : les filets du tourbillon ne tombent
+  // jamais au même endroit (dos contre leur moyenne : 0,07 à 0,25). Photos d'Arnaud (_tests-scanner/yugioh/, banc yg-bench.js) :
+  // 11 dos occidentaux (classeur sous pochette brillante, en main) bord 0,37–0,90, cool ≤ 0,06, tb ≤ 0,29 ; 23 faces (FR, EN, JP) :
+  // bord ≤ 0,42 et alors cool ≥ 0,28, sauf « Dragon Fantôme » (cadre orange, illustration grise, cadrage un peu serré : bord 0,75) →
+  // aussi la bande juste à l’intérieur (« in2 ») : sombre sur un dos (bordure fine), cuivrée sur une face (cadre large) : bord − in2 ≥ 0,15.
+  // Dos japonais (OCG) : pas reconnu.
+  let ygCanvas = null;
+  function ygFeatures(src, SW, SH, sc, dx = 0, dy = 0) {
+    const W = 48, H = 66;
+    const c = ygCanvas || (ygCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.clearRect(0, 0, W, H); g.drawImage(src, SW * (0.5 + dx) - SW * sc / 2, SH * (0.5 + dy) - SH * sc / 2, SW * sc, SH * sc, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data;
+    let bn = 0, bw = 0, in2 = 0, iw = 0, n = 0, cool = 0, tbn = 0, tb = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), s = mx ? (mx - mn) / mx : 0;
+      let h = 0;
+      if (mx !== mn) { h = mx === r ? 60 * (((gg - b) / (mx - mn)) % 6) : mx === gg ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - gg) / (mx - mn) + 4); if (h < 0) h += 360; }
+      const fx = (x + 0.5) / W, fy = (y + 0.5) / H, e = Math.min(fx, 1 - fx, fy * 1.375, (1 - fy) * 1.375);
+      const cu = h >= 10 && h <= 45 && s >= 0.2 && mx >= 100;
+      if (e < 0.05) { bn++; if (cu) bw++; } else if (e >= 0.07 && e < 0.11) { in2++; if (cu) iw++; }
+      if (e > 0.12) { n++; if (s >= 0.12 && h > 55 && h < 340) cool++; if (fy > 0.7 && fy < 0.9) { tbn++; if (mx > 150 && s < 0.3) tb++; } }
+    }
+    return { bord: bw / bn, in2: iw / in2, cool: cool / n, tb: tb / tbn };
+  }
+  let ygSrc = null;
+  function ygBackScore(src, SW, SH, fast) {
+    if (!(src instanceof HTMLCanvasElement)) {
+      const k = Math.min(1, 900 / Math.max(SW, SH)), c = ygSrc || (ygSrc = document.createElement('canvas'));
+      c.width = Math.max(1, Math.round(SW * k)); c.height = Math.max(1, Math.round(SH * k)); c.getContext('2d').drawImage(src, 0, 0, SW, SH, 0, 0, c.width, c.height);
+      src = c; SW = c.width; SH = c.height;
+    }
+    let best = -1;
+    // (cadrages un peu plus serrés : case de classeur ou photo avec de la marge autour du dos)
+    const offs = fast ? [[0, 0]] : [[0, 0], [-0.03, 0], [0.03, 0], [0, -0.03], [0, 0.03]];
+    for (const sc of fast ? [1, 0.88] : [1, 0.94, 0.88, 0.82, 0.76]) for (const [dx, dy] of offs) {
+      const x = ygFeatures(src, SW, SH, sc, dx, dy), ok = [x.bord >= 0.35, x.bord - x.in2 >= 0.15, x.cool <= 0.08, x.tb <= 0.3];
+      // tout bon : 0,62 à 0,87 selon la part cuivrée de la bordure ; sinon au plus 0,3 (seuil du dos : 0,55 en direct, 0,6 en classeur)
+      const v = ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (x.bord - 0.35) / 0.45) : 0.08 * ok.filter(Boolean).length;
+      if (v > best) { best = v; ygBackScore.last = { sc, dx, dy, bord: +x.bord.toFixed(2), in2: +x.in2.toFixed(2), cool: +x.cool.toFixed(2), tb: +x.tb.toFixed(2) }; } // (détail : réglages au banc)
+    }
+    return best;
+  }
   function backScoreOf(src, SW, SH, fast = false, game = 'pokemon') {
+    if (game === 'yugioh') return ygBackScore(src, SW, SH, fast);
     if (game === 'riftbound') return rbBackScore(src, SW, SH);
     if (game === 'lorcana') return lcBackScore(src, SW, SH, fast);
     return corrScore(src, SW, SH, fast, game);
@@ -330,5 +377,5 @@
     return out;
   }
 
-  Object.assign(App.recognizerParts, { thumb, corr, corr1, looksEmpty, ART, AW, AH, artVec, artVariants, artMatch, trimBackground, vis01, officialThumbs, officialThumb, BACK, normRGB, backScore, backRefs, refsOf, backScoreOf, lcBackScore, looksLikeBack, wholeRefs, wholeCardScores });
+  Object.assign(App.recognizerParts, { thumb, corr, corr1, looksEmpty, ART, AW, AH, artVec, artVariants, artMatch, trimBackground, vis01, officialThumbs, officialThumb, BACK, normRGB, backScore, backRefs, refsOf, backScoreOf, lcBackScore, ygBackScore, looksLikeBack, wholeRefs, wholeCardScores });
 })();

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Dos de carte Yu-Gi-Oh! (carte cachée en combat Avancé), dessiné pour CollecDex : tourbillon sombre aux reflets de feu dans un cadre brun cuivré -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".5" r=".7">
+      <stop offset="0" stop-color="#160a06"/><stop offset=".55" stop-color="#3a1a0c"/><stop offset="1" stop-color="#1c0c06"/>
+    </radialGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c98a52"/><stop offset=".5" stop-color="#a0612f"/><stop offset="1" stop-color="#7a4520"/></linearGradient>
+  </defs>
+  <rect width="630" height="880" rx="28" fill="url(#b)"/>
+  <rect x="34" y="34" width="562" height="812" rx="10" fill="url(#f)" stroke="#5a2e12" stroke-width="5"/>
+  <g transform="translate(315 450)" fill="none" stroke-linecap="round">
+    <g stroke="#ff9a3c" opacity=".75" stroke-width="5">
+      <path d="M-230 -40C-210 -260 160 -300 240 -80"/><path d="M230 60C200 270 -170 300 -245 90"/>
+      <path d="M-190 -20C-170 -200 130 -230 200 -60"/><path d="M190 40C170 210 -140 240 -205 70"/>
+    </g>
+    <g stroke="#ffd36b" opacity=".55" stroke-width="3">
+      <path d="M-150 -10C-130 -150 100 -175 160 -40"/><path d="M150 25C130 160 -110 180 -165 50"/>
+      <path d="M-110 0C-95 -105 70 -120 115 -25"/><path d="M110 15C95 110 -80 125 -120 35"/>
+    </g>
+    <g stroke="#c2581e" opacity=".6" stroke-width="7">
+      <path d="M-265 -120C-200 -330 210 -340 275 -140"/><path d="M265 140C200 340 -210 350 -275 150"/>
+    </g>
+    <ellipse rx="70" ry="52" fill="#0d0503"/>
+  </g>
+</svg>

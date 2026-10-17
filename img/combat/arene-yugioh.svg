@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+  <!-- Décor des combats Yu-Gi-Oh!, dessiné pour CollecDex : arène de duel au crépuscule dans le désert, pyramides, terrain de duel lumineux -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b0f3a"/><stop offset=".45" stop-color="#5a2a5e"/><stop offset=".7" stop-color="#d0643a"/><stop offset="1" stop-color="#f2b25a"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9783f"/><stop offset="1" stop-color="#5e3418"/></linearGradient>
+    <linearGradient id="pyr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e3a964"/><stop offset=".5" stop-color="#c0803f"/><stop offset=".5" stop-color="#7d4a22"/><stop offset="1" stop-color="#5a3216"/></linearGradient>
+    <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff1c2"/><stop offset=".5" stop-color="#ffc861" stop-opacity=".8"/><stop offset="1" stop-color="#ff8a3c" stop-opacity="0"/></radialGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ff0ff" stop-opacity=".1"/><stop offset="1" stop-color="#5ff0ff" stop-opacity=".45"/></linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#sky)"/>
+  <g fill="#fff3d6" opacity=".8"><circle cx="120" cy="70" r="2"/><circle cx="300" cy="40" r="1.6"/><circle cx="520" cy="90" r="1.8"/><circle cx="760" cy="50" r="2"/><circle cx="980" cy="80" r="1.6"/><circle cx="1120" cy="35" r="2"/><circle cx="660" cy="130" r="1.4"/><circle cx="420" cy="150" r="1.2"/></g>
+  <circle cx="600" cy="360" r="170" fill="url(#sun)"/>
+  <!-- pyramides -->
+  <path d="M120 420 300 205 480 420z" fill="url(#pyr)"/>
+  <path d="M760 420 960 175 1160 420z" fill="url(#pyr)"/>
+  <path d="M470 420 560 318 650 420z" fill="url(#pyr)" opacity=".8"/>
+  <g stroke="#3a1d0b" stroke-width="2" opacity=".25"><path d="M210 312h180M165 366h270M865 305h190M815 362h290"/></g>
+  <!-- dunes -->
+  <path d="M0 430C200 395 360 445 600 418S1000 392 1200 428V700H0z" fill="url(#sand)"/>
+  <!-- obélisques -->
+  <g fill="#6a3a19" stroke="#2c1407" stroke-width="2"><path d="M70 470l14-150 14 150z"/><path d="M1102 470l14-150 14 150z"/></g>
+  <!-- terrain de duel lumineux -->
+  <g transform="translate(600 560)">
+    <ellipse rx="430" ry="95" fill="url(#field)" stroke="#9ff6ff" stroke-width="3" opacity=".7"/>
+    <g fill="none" stroke="#9ff6ff" stroke-width="2" opacity=".55">
+      <rect x="-330" y="-40" width="70" height="80" rx="4"/><rect x="-240" y="-40" width="70" height="80" rx="4"/><rect x="-150" y="-40" width="70" height="80" rx="4"/>
+      <rect x="80" y="-40" width="70" height="80" rx="4"/><rect x="170" y="-40" width="70" height="80" rx="4"/><rect x="260" y="-40" width="70" height="80" rx="4"/>
+      <path d="M0 -90v180"/>
+    </g>
+    <!-- œil au centre de l'arène -->
+    <path d="M-60 0c30-34 90-34 120 0-30 34-90 34-120 0z" fill="#2c1407" stroke="#ffd36b" stroke-width="3"/>
+    <circle r="12" fill="#ffd36b"/>
+  </g>
+</svg>

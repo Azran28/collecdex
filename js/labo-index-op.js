@@ -44,12 +44,13 @@
   const quant = (y) => { let m = 0; for (const t of y) m = Math.max(m, Math.abs(t)); m = m || 1; return { q: Int8Array.from(y, (t) => Math.round((t / m) * 127)), s: m / 127 }; };
   const O = window.__op = { cards: [], vecs: new Map(), done: 0, fail: 0, state: 'prêt' };
   /** Empreintes du réseau (MobileNet, comme le scanner) de toutes les cartes de la licence, par paquets de 48 */
-  const FILE = { onepiece: 'op-index', riftbound: 'rb-index', lorcana: 'lc-index' };
+  const FILE = { onepiece: 'op-index', riftbound: 'rb-index', lorcana: 'lc-index', yugioh: 'yg-index' };
   async function build(game = 'onepiece') {
     const ad = App.games.get(game), seen = new Set();
     O.cards = []; O.state = 'liste';
     for (const s of await ad.listSets()) {
-      try { for (const c of (await ad.getSet(s.id)).cards) if (!seen.has(c.id)) { seen.add(c.id); const url = ad.img.card(c, 'low'); if (url) O.cards.push({ id: c.id, set: s.id, url }); } } catch (e) { console.warn(s.id, e); }
+      // (Yu-Gi-Oh! : une seule image par carte, quelle que soit l'impression → id « #<passcode> »)
+      try { for (const c of (await ad.getSet(s.id)).cards) { const id = c.passcode ? '#' + c.passcode : c.id; if (!seen.has(id)) { seen.add(id); const url = ad.img.card(c, 'low'); if (url) O.cards.push({ id, set: s.id, url }); } } } catch (e) { console.warn(s.id, e); }
     }
     O.state = 'empreintes';
     for (let i = 0; i < O.cards.length && O.state === 'empreintes'; i += 48) {

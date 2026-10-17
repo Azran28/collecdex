@@ -11,7 +11,7 @@
   const gameOf = (it) => (it && it.game) || 'pokemon';
   const adOf = (it) => ad(gameOf(it)) || ad();
   // v2.99 : chaque licence a ses combats (decks, adversaires, salons en ligne) ; on choisit d'abord la licence
-  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound', 'lorcana'];
+  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound', 'lorcana', 'yugioh'];
   const TEAMS = 3, BAG_MAX = App.battleCards.DECK_MAX; // pioche du mode Avancé : 10 cartes (v2.80)
   const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -37,6 +37,11 @@
       bagKinds: 'Action / Chanson / Objet / Lieu', bagName: 'Grimoire', bagTitle: 'Ton grimoire', search: 'Rechercher un personnage…', place: 'Au Grand Illuminarium',
       tag: 'Défis au Grand Illuminarium', foeTag: 'Des apprentis aux Légendes',
     },
+    yugioh: {
+      name: 'Yu-Gi-Oh!', icon: 'pyramid', myTurn: 'À toi de jouer, duelliste !', champion: 'Tu es le Roi des Duellistes !', back: 'img/combat/dos-yugioh.svg',
+      bagKinds: 'Carte Magie / Carte Piège', bagName: 'Deck', bagTitle: 'Ton deck', search: 'Rechercher un monstre…', place: 'Dans l’arène du Royaume des Duellistes',
+      tag: 'Duels au Royaume des Duellistes', foeTag: 'Des débutants au Pharaon',
+    },
   };
   const lic = (game) => LIC[game] || LIC.pokemon;
   // icônes du sac (Pokémon : sac à dos) et du coffre (One Piece : coffre au trésor)
@@ -46,12 +51,17 @@
     // Riftbound : grimoire relié, rune lumineuse sur la couverture
     // Lorcana : flacon d'encre magique (hexagone de la réserve d'encre)
     lorcana: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M16 3.5 26.5 9.5v13L16 28.5 5.5 22.5v-13z" fill="#2a1f5c" stroke="#e7c36a" stroke-width="1.8"/><path d="M16 9.5c-2.6 3.6-4.3 6-4.3 8.2a4.3 4.3 0 0 0 8.6 0c0-2.2-1.7-4.6-4.3-8.2z" fill="#8f6bff" stroke="#e7c36a" stroke-width="1.3"/><circle cx="14.6" cy="17.6" r="1.1" fill="#e9e3ff"/></svg>',
+    // Yu-Gi-Oh! : boîte de deck dorée, œil d'Oudjat sur le couvercle
+    yugioh: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2" fill="#5a2a12" stroke="#2a1206" stroke-width="1.8"/><rect x="9.5" y="6.5" width="13" height="19" rx="1" fill="none" stroke="#e2b54a" stroke-width="1.4"/><path d="M10.5 16c2.8-3.2 8.2-3.2 11 0-2.8 3.2-8.2 3.2-11 0z" fill="#f4e2a8" stroke="#2a1206" stroke-width="1.1"/><circle cx="16" cy="16" r="1.8" fill="#2a1206"/><path d="M16 19.2v3.3M13.2 18.6l-1 2.6" stroke="#e2b54a" stroke-width="1.2" stroke-linecap="round"/></svg>',
     riftbound: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M7 5h17a2 2 0 0 1 2 2v20H9a2 2 0 0 1-2-2z" fill="#1d3f7a" stroke="#0b1530" stroke-width="1.8"/><path d="M7 25a2 2 0 0 1 2-2h17" fill="none" stroke="#c8a24a" stroke-width="1.8"/><path d="M16.5 8.5 21 14l-4.5 5.5L12 14z" fill="#5fe3ef" stroke="#0b1530" stroke-width="1.3"/><path d="M16.5 11v6" stroke="#0b1530" stroke-width="1.2"/></svg>',
   };
   /** Vocabulaire de la licence : en One Piece, on parle de personnages et de DON!! (pas de Pokémon ni d'énergie) ;
    *  en Riftbound, d'unités (l'énergie existe aussi dans ce jeu, elle garde son nom ; « de son type » = de son domaine) ;
    *  en Lorcana, de personnages et d'encre (« de son type » = de son encre) */
-  const say = (game, s) => (game === 'lorcana' ? String(s)
+  const say = (game, s) => (game === 'yugioh' ? String(s)
+    .replace(/ \(\+1 si l’énergie est de son type\)/g, '')
+    .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 monstres').replace(/Pokémon/g, 'monstre')
+    : game === 'lorcana' ? String(s)
     .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'l’encre').replace(/d’énergie/g, 'd’encre')
     .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 personnages').replace(/Pokémon/g, 'personnage')
     .replace(/(\d+) [ÉéE]nergies\b/g, '$1 encres').replace(/[ÉéE]nergies?/g, 'encre')
@@ -122,7 +132,7 @@
     const out = [];
     const ok = game === 'onepiece' ? (c) => /^(Événement|Lieu|Event|Stage)$/i.test(c)
       : game === 'riftbound' ? (c) => /^(Sort|Équipement|Rune|Champ de bataille)$/i.test(c)
-        : game === 'lorcana' ? (c) => /^(Action|Objet|Lieu)$/i.test(c) : (c) => !/pok/i.test(c);
+        : game === 'lorcana' ? (c) => /^(Action|Objet|Lieu)$/i.test(c) : game === 'yugioh' ? (c) => /^Carte (Magie|Piège)$/i.test(c) : (c) => !/pok/i.test(c);
     await App.util.pool(Object.keys(bySet), 4, async (sid) => {
       const set = await ad(game).getSet(sid).catch(() => null);
       const cat = new Map((set ? set.cards : []).map((c) => [c.id, c.category]));
@@ -144,7 +154,7 @@
       for (const it of bySet[k]) {
         const c = cat.get(it.id);
         if (op) { // (liste One Piece / Riftbound : catégorie seulement ; PV et type viennent de la fiche, en arrière-plan)
-          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : game === 'lorcana' ? /^Personnage$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
+          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : game === 'lorcana' ? /^Personnage$/i : game === 'yugioh' ? /^Monstre/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
           out.push(Object.assign(Object.create(it), { _hp: null, _type: null }));
           continue;
         }
@@ -188,12 +198,14 @@
   const RB_NAMES = { fire: 'Fureur', grass: 'Calme', water: 'Esprit', fighting: 'Corps', psychic: 'Chaos', lightning: 'Ordre', colorless: 'Sans domaine' };
   // Lorcana : l'encre de la carte tient lieu de type
   const LC_NAMES = { fire: 'Rubis', grass: 'Émeraude', water: 'Saphir', lightning: 'Ambre', psychic: 'Améthyste', metal: 'Acier', colorless: 'Sans encre' };
-  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : game === 'lorcana' ? Object.values(B().LC_INK) : Object.keys(B().TYPE_INFO));
-  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : game === 'lorcana' ? LC_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
+  // Yu-Gi-Oh! : l'attribut du monstre tient lieu de type
+  const YG_NAMES = { fire: 'Feu', water: 'Eau', grass: 'Vent', fighting: 'Terre', lightning: 'Lumière', darkness: 'Ténèbres', psychic: 'Divin', colorless: 'Sans attribut' };
+  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : game === 'lorcana' ? Object.values(B().LC_INK) : game === 'yugioh' ? Object.values(B().YG_ATTR) : Object.keys(B().TYPE_INFO));
+  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : game === 'lorcana' ? LC_NAMES[t] || '?' : game === 'yugioh' ? YG_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
   const typeChip = (t, game) => `<span class="bt-type" style="--tc:${typeColor(t)}">${esc(typeName(t, game))}</span>`;
   const pips = (n) => `<span class="bt-pips" title="${n} énergie${n > 1 ? 's' : ''}">${Array.from({ length: Math.min(n, 8) }, () => '<i></i>').join('')}${n > 8 ? `<b>+${n - 8}</b>` : ''}</span>`;
   const costPips = (n) => (n ? Array.from({ length: n }, () => '<i></i>').join('') : '<small>0</small>');
   const hpCls = (r) => (r < 0.3 ? 'low' : r < 0.6 ? 'mid' : '');
 
-  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, RB_NAMES, LC_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
+  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, RB_NAMES, LC_NAMES, YG_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
 })();

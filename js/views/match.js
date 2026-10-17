@@ -13,6 +13,14 @@
       'Mets K.O. les 3 personnages adverses pour gagner et débloquer le niveau suivant.',
       '<b>Avancé</b> (niveaux à part) : une pioche de 10 cartes Événement / Lieu au plus, plus 3 DON!! (sinon pioche de prêt), mélangée : 3 cartes en main au départ, 1 de plus à chacun de tes tours ; une carte par tour avant l’action. Effets simplifiés : [Contre] +X000 = protection, +X000 de puissance = dégâts en plus, KO = gros coup, renvoyer un personnage = Rafale, piocher = +1 DON!!, Lieu = +10 dégâts 3 tours.',
       'En Avancé, les personnages du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
+    ] : game === 'yugioh' ? [
+      '3 monstres par équipe (monstres Yu-Gi-Oh!, toutes raretés ; pas les Magies, Pièges ni Jetons) : un qui combat, deux sur le banc. Une case vide est remplie par un monstre de prêt.',
+      'Ta carte devient un combattant : PV = 30 + DEF ÷ 40 + niveau × 5, attaque = ATK ÷ 30, « Position de défense » si la DEF dépasse l’ATK, attribut = type ; monstres Fusion, Synchro, Xyz et Lien = 1 énergie dès le départ. Pas de faiblesse ni de résistance.',
+      'À ton tour, ton monstre gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> de monstre.',
+      'Une attaque coûte de l’énergie selon le niveau du monstre (1 à 3) ; l’énergie en plus reste pour la suite.',
+      'Mets K.O. les 3 monstres adverses pour gagner et débloquer le niveau suivant.',
+      '<b>Avancé</b> (niveaux à part) : un deck de 10 cartes Magie / Piège au plus (sinon deck de prêt), mélangé : 2 cartes en main au départ, puis 1 de plus tous les 2 tours ; une carte par tour avant l’action. Effets simplifiés : détruire des monstres = gros coup, « gagne N ATK » = dégâts en plus, Piège qui arrête l’attaque = protection, Invocation depuis le Cimetière = Réanimation, gagner des LP = soin, piocher (Pot de Cupidité) = +1 énergie, Terrain = Stade, Équipement = +20 PV.',
+      'En Avancé, les monstres du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
     ] : game === 'lorcana' ? [
       '3 personnages par équipe (personnages Lorcana, toutes raretés) : un qui combat, deux sur le banc. Une case vide est remplie par un personnage de prêt.',
       'Ta carte devient un combattant : PV = 30 + volonté × 15 (+ Résistance), attaque « Défi » = force × 10 (+ Offensif), « Riposte » si le personnage a Rempart ou Résistance, encre = type ; Charge = 1 encre dès le départ. Pas de faiblesse ni de résistance.',

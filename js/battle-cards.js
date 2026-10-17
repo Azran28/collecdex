@@ -117,8 +117,46 @@ App.battleCards = (() => {
     return mk('heal', 30);
   }
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana */
+  /**
+   * Effet simplifié d'une carte Yu-Gi-Oh! (Magie, Piège) : cartes célèbres par leur nom (français ou anglais), sinon d'après leur
+   * texte (français de YGOPRODeck) et leur genre : Terrain → Stade ; Équipement → +20 PV max ; détruire des monstres → gros coup ;
+   * « gagne N ATK » → dégâts en plus ; Piège qui arrête une attaque → protection ; Invocation depuis le Cimetière → Réanimation ;
+   * renvoyer / changer de position → Rafale ; gagner des LP → soin ; piocher → +1 énergie ; Piège quelconque → protection.
+   */
+  const isYgCard = (card) => !!card && card.passcode != null && /^carte (magie|piege)$/.test(norm(card.category));
+  const YG_BY_NAME = {
+    'pot de cupidite': ['charge'], 'pot of greed': ['charge'], polymerisation: ['charge'], polymerization: ['charge'], 'destruction de carte': ['charge'], 'card destruction': ['charge'],
+    'trou noir': ['power', 40], 'dark hole': ['power', 40], raigeki: ['power', 40], fissure: ['power', 30], hinotama: ['power', 20], 'charge intrepide': ['power', 30], 'rush recklessly': ['power', 30],
+    'monster reborn': ['revive'], 'renaissance du monstre': ['revive'], 'appel de l\'etre hante': ['revive'], 'call of the haunted': ['revive'],
+    'force de miroir': ['shield', 40], 'mirror force': ['shield', 40], waboku: ['shield', 40], 'annulation d\'attaque': ['shield', 40], 'negate attack': ['shield', 40],
+    'cylindre magique': ['shield', 30], 'magic cylinder': ['shield', 30], 'epees de revelation de la lumiere': ['shield', 30], 'swords of revealing light': ['shield', 30], 'chapeaux magiques': ['shield', 30], 'magical hats': ['shield', 30],
+    trappe: ['power', 30], 'trap hole': ['power', 30], 'medicament rouge': ['heal', 30], 'red medicine': ['heal', 30], 'dian keto le maitre guerisseur': ['heal', 50], 'dian keto the cure master': ['heal', 50],
+    'guerison de monstre': ['fullHeal'], 'monster recovery': ['fullHeal'], 'typhon d\'espace mystique': ['strip', 1], 'mystical space typhoon': ['strip', 1], 'le livre de la lune': ['gust'], 'book of moon': ['gust'],
+  };
+  function effectOfYG(card) {
+    const text = norm(card.text || ''), cat = norm(card.category), kind = norm(card.race), trap = /piege/.test(cat);
+    const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
+    const k = (v) => Math.min(40, Math.max(10, Math.round(+v / 25 / 10) * 10)); // 500 ATK → 20, 1000 → 40
+    const known = YG_BY_NAME[norm(card.name)] || YG_BY_NAME[norm(card.nameEn)];
+    if (known) return mk(known[0], known[1]);
+    let m;
+    if (kind === 'field') return mk('stadium', /gagne\w* \d+ (?:d')?atk|gain \d+ atk/.test(text) ? 20 : 10);
+    if (kind === 'equip') return mk('toolHp', 20);
+    if (/detruisez tous les monstres|detruisez \d+ monstres?|detruisez[- ]le|destroy all monsters|destroy (?:1|that|target) monster/.test(text)) return trap ? mk('shield', 40) : mk('power', 40);
+    if ((m = text.match(/gagne\w*\s+(\d+)\s+(?:d')?atk|gains?\s+(\d+)\s+atk/))) return mk('power', k(m[1] || m[2]));
+    if (/(?:cimetiere|graveyard).{0,80}invoqu|invoqu\w* specialement.{0,60}cimetiere|special summon.{0,60}graveyard/.test(text)) return mk('revive');
+    if ((m = text.match(/gagnez\s+(\d+)\s+(?:lp|points de vie)|gain\s+(\d+)\s+(?:lp|life points)/))) return mk('heal', Math.min(50, k(m[1] || m[2])));
+    if (/annulez l'attaque|negate (?:the|an) attack|terminez la battle phase|end the battle phase/.test(text)) return mk('shield', 40);
+    if (/renvoyez .{0,60}main|return .{0,40}to the hand|changez .{0,40}position|change .{0,40}battle position/.test(text)) return mk('gust');
+    if ((m = text.match(/perd\w*\s+(\d+)\s+(?:d')?atk|loses?\s+(\d+)\s+atk/))) return mk('shield', k(m[1] || m[2]));
+    if (/piochez|draw \d|draw (?:1|2) cards?/.test(text)) return mk('charge');
+    if (kind === 'counter' || trap) return mk('shield', 20);
+    return mk('heal', 30);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! */
   function effectOf(card) {
+    if (isYgCard(card)) return effectOfYG(card);
     if (isLcCard(card)) return effectOfLC(card); // (avant One Piece : « Lieu » existe dans les deux jeux)
     if (isOpCard(card)) return effectOfOP(card);
     if (isRbCard(card)) return effectOfRB(card);
@@ -163,6 +201,7 @@ App.battleCards = (() => {
     if (/onepiece-cardgame\.com\//.test(card.image || '')) return App.games.get('onepiece').img.card(card, 'high'); // One Piece : visuel relayé (Bandai bloque l'affichage direct)
     if (/^https:\/\/cmsassets\.rgpub\.io\//.test(card.image || '')) return App.games.get('riftbound').img.card(card, 'high'); // Riftbound : visuel relayé (réduit)
     if (/^https:\/\/api\.lorcana\.ravensburger\.com\//.test(card.image || '')) return App.games.get('lorcana').img.card(card, 'high'); // Lorcana : visuel relayé (réduit)
+    if (/^https:\/\/images\.ygoprodeck\.com\//.test(card.image || '')) return App.games.get('yugioh').img.card(card, 'high'); // Yu-Gi-Oh! : visuel relayé (réduit)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
     return m && card.localId ? `https://assets.tcgdex.net/en/${m[1]}/${m[2]}/${encodeURIComponent(card.localId)}/high.webp` : '';
@@ -279,8 +318,19 @@ App.battleCards = (() => {
     [[lc(169), 1], [lc(28), 1], [lc(200), 2], [lc(26), 1], [lc(62), 1], [lc(63), 1]],
     [[lc(169), 2], [lc(200), 2], [lc(130), 1], [lc(27), 1], [lc(62), 1], [lc(64), 1]],
   ];
+  // Yu-Gi-Oh! (premières séries) : Médicament Rouge / Dian Keto (soin), Charge Intrépide (+ATK), Épées de Révélation de la Lumière /
+  // Force de Miroir / Waboku (protection), Typhon d'Espace Mystique (énergie adverse en moins), Le Livre de la Lune (Rafale),
+  // Trou Noir / Raigeki (gros coup), Monster Reborn (Réanimation), Sogen (Terrain) ; pas de carte d'énergie : Pot de Cupidité (+1 énergie)
+  const AI_BAGS_YG = [
+    [['LOB-E043', 2]],
+    [['LOB-E043', 2], ['MRL-E043', 1]],
+    [['LOB-E043', 2], ['MRL-E043', 1], ['LOB-E081', 1], ['MRL-E047', 1]],
+    [['SDY-E021', 1], ['LOB-E043', 1], ['MRL-E043', 2], ['SDY-E036', 1], ['PGD-035', 1], ['LOB-E038', 1]],
+    [['SDY-E021', 2], ['LOB-E041', 1], ['MRD-E138', 1], ['LOB-E096', 1], ['PGD-035', 1], ['MRL-E047', 1], ['LOB-E042', 1]],
+  ];
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
-  const aiBag = (level, type, game) => (game === 'onepiece'
+  const aiBag = (level, type, game) => (game === 'yugioh' ? [...many(AI_BAGS_YG[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('LOB-119')]
+    : game === 'onepiece'
     ? [...many(AI_BAGS_OP[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('DON')]
     : game === 'riftbound' ? [...many(AI_BAGS_RB[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(runeFor(type))]
       : game === 'lorcana' ? [...many(AI_BAGS_LC[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('INK')]
@@ -289,7 +339,9 @@ App.battleCards = (() => {
   // (One Piece : 2 Guard Point, Four Thousand-Brick Fist, You Can Be My Samurai!!, Sables, 3 DON!! ;
   //  Riftbound : 2 Hextech Ray, Discipline, Rune Prison, Retreat, 3 runes ;
   //  Lorcana : 2 Lueur réparatrice, Il a un sabre !, Très mauvais caractère !, Emberlificotage, 3 encres)
-  const loanBag = (type, game) => (game === 'onepiece'
+  //  Yu-Gi-Oh! : 2 Médicament Rouge, Charge Intrépide, Épées de Révélation de la Lumière, Le Livre de la Lune, 3 Pot de Cupidité)
+  const loanBag = (type, game) => (game === 'yugioh' ? [...many([['LOB-E043', 2], ['MRL-E043', 1], ['LOB-E081', 1], ['PGD-035', 1]]), 'LOB-119', 'LOB-119', 'LOB-119']
+    : game === 'onepiece'
     ? [...many([['ST01-014', 2], ['OP05-020', 1], ['OP01-055', 1], ['ST03-015', 1]]), 'DON', 'DON', 'DON']
     : game === 'riftbound' ? [...many([[rb(9), 2], [rb(58), 1], [rb(50), 1], [rb(104), 1]]), ...Array(3).fill(runeFor(type))]
       : game === 'lorcana' ? [...many([[lc(28), 2], [lc(132), 1], [lc(26), 1], [lc(62), 1]]), 'INK', 'INK', 'INK']
@@ -304,5 +356,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, isRbCard, isLcCard, bagCard, donCard, inkCard, loadBag, DON_IMG, INK_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
+  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, bagCard, donCard, inkCard, loadBag, DON_IMG, INK_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

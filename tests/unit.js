@@ -30,6 +30,7 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('onepiece'), 'One Piece');
   ok(App.games.get('riftbound'), 'Riftbound');
   ok(App.games.get('lorcana'), 'Lorcana');
+  ok(App.games.get('yugioh'), 'Yu-Gi-Oh!');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -114,6 +115,7 @@ test('combat : niveaux de l’ordinateur', (App) => {
   ok(App.battle.levels('onepiece').length >= 1, 'niveaux One Piece');
   eq(App.battle.levels('riftbound').length, 5, 'niveaux Riftbound');
   eq(App.battle.levels('lorcana').length, 5, 'niveaux Lorcana');
+  eq(App.battle.levels('yugioh').length, 5, 'niveaux Yu-Gi-Oh!');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -266,6 +268,79 @@ test('Import : lignes Lorcana (Collectr, Cardmarket)', async (App) => {
   const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
   eq([m1.status, m1.card.id], ['ok', '1-1'], 'série + numéro');
   ok(m2.card && /^Stitch - Rock star$/i.test(m2.card.name), `par le nom anglais : ${m2.card && m2.card.name}`);
+});
+
+// ---------- Yu-Gi-Oh! (v3.26) : cartes (noms français), codes imprimés, combattant, cartes de pioche, dos, import ----------
+test('index Yu-Gi-Oh! (data/yg-index) cohérent', async () => {
+  const m = await checkIndex('yg-index');
+  ok(m.n > 13000 && m.ids.includes('#41160533') && m.ids.includes('#89631139'), 'une entrée par carte : Rose Tentaculaire, Dragon Blanc aux Yeux Bleus');
+});
+test('Yu-Gi-Oh! : cartes et séries (data/yg-cartes.json)', async (App) => {
+  const A = App.games.get('yugioh'), sets = await A.listSets();
+  ok(sets.length >= 900, `${sets.length} séries`);
+  const s = await A.getSet('RGBT');
+  eq([s.name, s.group && s.group.id], ['Raging Battle', 'yg-main']);
+  ok(s.cards.length >= 100, `${s.cards.length} cartes dans Raging Battle`);
+  const c = await A.getCard('RGBT-007');
+  eq([c.name, c.nameEn, c.localId, c.kind, c.attribute, c.atk, c.def, c.level], ['Rose Tentaculaire', 'Rose Tentacles', '007', 'e', 'te', 2200, 1200, 6]);
+  ok(/^https:\/\/images\.weserv\.nl\/\?url=https%3A%2F%2Fimages\.ygoprodeck\.com%2Fimages%2Fcards%2F41160533\.jpg/.test(A.img.card(c)), 'visuel relayé');
+  const lob = await A.getSet('LOB');
+  ok(lob.cards.some((x) => x.id === 'LOB-E001') && !lob.cards.some((x) => x.id === 'LOB-001'), 'LOB : numérotation européenne (celle des cartes françaises)');
+  const ra = (await A.byKey('RA04-087')).map((x) => x.rarity);
+  ok(ra.length >= 5 && ra[0] === 'sr', `autres raretés du même code : ${ra.join(', ')}`);
+  ok(A.isOfficial('007') && !A.isOfficial('087 ScR'), 'autres raretés en plus');
+});
+test('Yu-Gi-Oh! : code imprimé lu même mal reconnu', async (App) => {
+  const A = App.games.get('yugioh'); await A.listSets();
+  const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  eq(c('RGBT-FR007')[0], 'RGBT-007', '« RGBT-FR007 »');
+  eq(c('CRMS-FR067')[0], 'CRMS-067', '« CRMS-FR067 »');
+  eq(c('CRMS- FROO/')[0], 'CRMS-007', 'lettres lues à la place des chiffres (« O » = 0, « / » = 7)');
+  eq(c('LOB-F003')[0], 'LOB-E003', 'anciennes cartes européennes « LOB-F003 »');
+  ok(c('41160533').includes('#41160533'), 'passcode');
+  eq(c('Pikachu 25/165'), [], 'numéro Pokémon');
+  eq(c('OP09-004 Monkey D. Luffy'), [], 'code One Piece');
+  eq(c('Infligez 300 points de dommages à votre adversaire.'), [], 'pas de code dans un texte de carte');
+});
+test('Yu-Gi-Oh! : monstre → combattant, Magies et Pièges → cartes de pioche', async (App) => {
+  await App.need('match');
+  const A = App.games.get('yugioh'), bewd = await A.getCard('LOB-E001');
+  const f = App.battle.fighterYG(bewd);
+  eq([f.hp, f.type, f.attacks.length, f.attacks[0].base, f.attacks[0].cost], [130, 'lightning', 1, 100, 3]);
+  ok(App.battle.canFight(bewd, 'yugioh') && !App.battle.canFight(await A.getCard('LOB-E041'), 'yugioh'), 'seuls les monstres combattent');
+  const fx = async (id) => App.battleCards.effectOf(await A.getCard(id)).key;
+  eq([await fx('LOB-119'), await fx('LOB-E041'), await fx('MRD-E138'), await fx('LOB-E096'), await fx('LOB-E038'), await fx('MRL-E002')], ['charge', 'power', 'shield', 'revive', 'stadium', 'toolHp']);
+  eq(App.battle.levels('yugioh').length, 5, 'niveaux Yu-Gi-Oh!');
+  for (const lv of App.battle.levels('yugioh')) for (const id of lv.pool) ok(await A.getCard(id).then((c) => App.battle.canFight(c, 'yugioh'), () => false), `adversaire ${id}`);
+});
+test('Yu-Gi-Oh! : dos de carte reconnu (photo d’Arnaud réduite), pas une face', async (App) => {
+  await App.need('reco');
+  const back = await createImageBitmap(await (await fetch('tests/dos-yugioh.jpg')).blob());
+  // face : fine bordure sombre, cadre orange (monstre à effet), illustration, zone de texte claire
+  const f = document.createElement('canvas'); f.width = 126; f.height = 176; const g = f.getContext('2d');
+  g.fillStyle = '#222'; g.fillRect(0, 0, 126, 176); g.fillStyle = '#c8763a'; g.fillRect(4, 4, 118, 168);
+  for (let i = 0; i < 30; i++) { g.fillStyle = `hsl(${i * 37 % 360} 60% 45%)`; g.fillRect(16 + (i % 6) * 16, 32 + Math.floor(i / 6) * 18, 16, 18); }
+  g.fillStyle = '#e8d6aa'; g.fillRect(10, 130, 106, 34);
+  const s = (c, w, h) => App.recognizer.backScoreOf(c, w, h, false, 'yugioh');
+  ok(s(back, back.width, back.height) >= 0.6, `dos : ${s(back, back.width, back.height).toFixed(2)}`);
+  ok(s(f, 126, 176) < 0.4, `face : ${s(f, 126, 176).toFixed(2)}`);
+});
+test('Capturer « Toutes » : une carte Yu-Gi-Oh! reconnue sur son texte', async (App) => {
+  await App.need('reco', 'scan'); await App.games.get('yugioh').listSets();
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('ROSE TENTACULAIRE TERRE 1re Édition RGBT-FR007 [PLANTE/EFFET] ATK/2200 DEF/1200 41160533 ©1996 KAZUKI TAKAHASHI'), 'yugioh');
+  eq(S.otherGames('RGBT-FR007', 'pokemon')[0], 'yugioh', 'Yu-Gi-Oh! essayé d’abord quand son code se lit');
+});
+test('Import : lignes Yu-Gi-Oh! (Collectr, Cardmarket)', async (App) => {
+  await App.need('import');
+  const I = App.importer;
+  const rows = [['Product Name', 'Category', 'Set', 'Card Number', 'Rarity', 'Quantity'], ['Rose Tentacles', 'YuGiOh', 'Raging Battle', 'RGBT-EN007', 'Common', '1'], ['Blue-Eyes White Dragon', 'Yu-Gi-Oh!', 'Legend of Blue Eyes White Dragon', '', 'Ultra Rare', '1'], ['Pikachu', 'Pokemon', 'Base Set', '58/102', 'Common', '1']];
+  const det = I.detect(rows), list = I.rowsOf ? I.rowsOf(rows, det) : null;
+  ok(list && list.length === 3 && list[0].game === 'yugioh' && list[1].game === 'yugioh' && list[2].game !== 'yugioh', 'lignes reconnues comme Yu-Gi-Oh!');
+  const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
+  eq([m1.status, m1.card.id], ['ok', 'RGBT-007'], 'par le code');
+  ok(m2.card && m2.card.passcode === 89631139, `par le nom anglais : ${m2.card && m2.card.name}`);
 });
 
 // ---------- Riftbound : code imprimé lu sur la photo, combattant ----------

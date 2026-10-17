@@ -231,6 +231,8 @@
     // carte d'un autre jeu (Dragon Ball, Star Wars, One Piece, Wankul…) : mots typiques, et aucun mot typique d'une carte Pokémon
     const T = `${top}\n${bottom}\n${full}\n${atk}`;
     const OTHER = [/bandai/i, /\bBT\d{1,2}\s*[-‐–]\s*\d{2,3}/i, /dragon\s*ball/i, /\bLFL\b/, /\bFFG\b/, /\bSOR\s*[•·.*]?\s*(FR|EN)\b/i, /star\s*wars/i, /unlimited/i, /wankul/i, /konami/i, /yu-?gi-?oh/i, /lorcana/i, /disney/i, /one\s*piece/i, /\bOP\d{2}\s*-\s*\d{3}/i, /\bRGI\b/, /\b(OGN|OGS|SFD|UNL|VEN|RAD)\s*[•·.\-]\s*([0-9OIl]{3}|R\d\d|T\d\d)/, /champ\s+de\s+bataille|battlefield/i, /\briftbound\b/i, /\bUNIT[ÉE](?![A-Za-zÀ-ÿ])/, /comp[ée]tence|canalis|\brunes?\b|l[ée]gende(?![a-z])/i, /\bmagic\b/i, /wizards\s+of\s+the\s+coast/i, /digimon/i, /\bsaiyan/i,
+      // Yu-Gi-Oh! (v3.26) : mots imprimés sur les faces (« KONAMI » n'est que sur le dos)
+      /kazuki|takahashi/i, /\bATK\s*[/|]\s*\d{3,4}/i, /\bDEF\s*[/|]\s*\d{3,4}/i, /carte\s+(magie|pi[eè]ge)|(spell|trap)\s+card/i, /\b[A-Z0-9]{3,4}-(FR|EN|DE|IT)[0-9O]{3}\b/, /invoqu\w*\s+sp[ée]cialement|special\s+summon/i,
       /\b(son\s*)?(goku|gok[uû]|gohan|goten|vegeta|trunks|broly|piccolo|krilin|freezer|kamesennin|janemba|zenkai)\b/i, /\b(unit[ée]s?|terrestre|spatiale|am[ée]lioration|rebelle|imp[ée]rial|wookie|jedi|[ée]v[ée]nement|prot[ée]g[ée]e)\b/i];
     const POKE = [/\b(PV|HP)\s*\d{2,3}\b/, /\b\d{2,3}\s*(PV|HP)\b/, /pok[eé]mon/i, /nintendo/i, /game\s*freak/i, /faiblesse/i, /weakness/i, /r[ée]sistance/i, /retraite/i, /retreat/i];
     const neg = OTHER.filter((r) => r.test(T)).length, pos = POKE.filter((r) => r.test(T)).length;

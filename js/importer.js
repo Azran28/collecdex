@@ -313,6 +313,20 @@ App.importer = (() => {
         out.push(row);
         return;
       }
+      // Yu-Gi-Oh! (v3.26) : jeu indiqué (« Yu-Gi-Oh! », « YuGiOh ») ou code imprimé complet avec la langue (« RGBT-EN007 », « LOB-F003 »)
+      const ygTxt = `${get(r, 'number')} ${rawName}`, yg = App.games.get('yugioh');
+      const ygCode = yg && /\b[A-Z0-9]{2,5}-(EN|FR|DE|IT|SP|PT|E|F|G|I|S)[A-Z]?\d{2,3}\b/i.test(ygTxt) ? yg.codesIn(ygTxt).filter(([c]) => !/^#/.test(c)) : [];
+      if (/yu ?-?gi ?-?oh/.test(cat) || (ygCode.length && !/pok|one ?piece|riftbound|lorcana/.test(cat))) {
+        row.game = 'yugioh';
+        row.code = ygCode.length ? ygCode.sort((a, b) => b[1] - a[1])[0][0] : '';
+        row.rar = yg ? yg.rarity.key(String(get(r, 'rarity') || '').replace(/\s*\(.*\)$/, '')) || '' : '';
+        row.name = rawName.replace(/\s*[([][^)\]]*(edition|édition|limited|unlimited|illimit)[^)\]]*[)\]]/gi, '').replace(/\s*[-–]?\s*\b[A-Z0-9]{2,5}-[A-Z]{0,2}\d{2,3}\b.*$/i, '').trim() || row.name;
+        if (/japan|japon|ocg|korea|cor[ée]e/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise ou coréenne (pas encore prise en charge)';
+        else if (!ygCode.length && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
       if (cat && !/pok/.test(cat)) row.skip = 'autre jeu';
       else if (/japan|japon/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise (pas encore prise en charge)';
       else if (!num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
@@ -436,8 +450,27 @@ App.importer = (() => {
     return { status, ...wrap(pref[0]), cands: [...pref.slice(1), ...rest].slice(0, 11).map(wrap), why: status === 'ok' ? '' : pref.length > 1 ? 'plusieurs versions : choisis la tienne' : 'le nom ne correspond pas tout à fait au numéro' };
   }
 
+  /** Ligne Yu-Gi-Oh! : par le code (« RGBT-EN007 », rareté de la ligne), sinon le nom (français ou anglais) et la série */
+  async function matchYG(row) {
+    const yg = App.games.get('yugioh');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'yugioh' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    let list = row.code ? await yg.byKey(row.code) : [];
+    const byCode = list.length > 0;
+    if (!list.length && q.length >= 2) list = (await yg.search({ name: row.name })).filter((c) => nameScore(q, c.name, c.nameEn, c.baseName) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: row.code ? `code ${row.code} inconnu` : 'carte introuvable' };
+    if (row.setName) { const inSet = new Set(await yg.setIdsByName(row.setName)); const f = list.filter((c) => inSet.has(c.setId)); if (f.length) list = [...f, ...list.filter((c) => !inSet.has(c.setId))]; }
+    // rareté indiquée par la ligne (« Secret Rare ») : cette impression d'abord
+    if (row.rar) { const f = list.filter((c) => c.rarity === row.rar); if (f.length) list = [...f, ...list.filter((c) => c.rarity !== row.rar)]; }
+    const pref = byCode ? list.filter((c) => !row.rar || c.rarity === row.rar) : [];
+    const okName = !q || nameScore(q, list[0].name, list[0].nameEn, list[0].baseName) >= 0.6;
+    const status = byCode && pref.length === 1 ? (okName ? 'ok' : 'verif') : list.length === 1 ? 'verif' : 'choix';
+    return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'code de la carte non indiqué' : pref.length > 1 ? 'plusieurs raretés : choisis la tienne' : 'le nom ne correspond pas tout à fait au code' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
+    if (row.game === 'yugioh') return matchYG(row);
     if (row.game === 'onepiece') return matchOP(row);
     if (row.game === 'riftbound') return matchRB(row);
     if (row.game === 'lorcana') return matchLC(row);

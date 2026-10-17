@@ -49,7 +49,7 @@ App.views.sets = {
     ];
     const blocs = [...new Map([...sets].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '')).map((s) => [s.group.id, s.group.name]))];
     const years = [...new Set(sets.map((s) => (s.releaseDate || '').slice(0, 4)).filter(Boolean))].sort().reverse();
-    const isPromo = (s) => /promo|mcdonald|kit d/i.test(s.name) || s.group.id === 'op-promo';
+    const isPromo = (s) => /promo|mcdonald|kit d/i.test(s.name) || s.group.id === 'op-promo' || s.group.id === 'yg-promo';
     const details = {}; // séries dont on connaît les cartes (pour les raretés)
 
     el.innerHTML = `
@@ -123,7 +123,7 @@ App.views.sets = {
       list.innerHTML = (favRows.length ? `<section class="serie-block fav-block">
           <div class="serie-head"><span class="favdot">${App.icons.icon('star', 14)}</span><h2 style="margin:0">Mes séries favorites</h2><span class="muted small">${favRows.length}</span></div>
           <div class="grid-auto">${favRows.map(({ s, p }) => App.views.sets.setCard(game, s, p, true)).join('')}</div>
-        </section>` : '') + [...groups.values()].map(({ g, items }) => `
+        </section>` : '') + [...groups.values()].sort((a, b) => (a.g.order || 0) - (b.g.order || 0)).map(({ g, items }) => `
         <section class="serie-block">
           <div class="serie-head"><span class="era-dot"></span><h2 style="margin:0">${esc(g.name)}</h2><span class="muted small">${items.length} série${items.length > 1 ? 's' : ''}</span></div>
           <div class="grid-auto">${items.join('')}</div>

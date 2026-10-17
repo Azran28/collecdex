@@ -2924,6 +2924,54 @@ a.bt-choice:active { transform: scale(.985); }
 .bt-ov.g-lorcana .bt-sc em { color: #f1dc9c; }
 .bt-ov.g-lorcana .bt-sc.ok { border-color: #e7c36a; box-shadow: 0 0 16px rgba(231,195,106,.35); }
 
+/* ===== v3.26 : Yu-Gi-Oh! — même combat, habillage Égypte ancienne (or, cuivre, nuit pourpre), décor : arène de duel dans le désert ===== */
+.bt-lic-tile.g-yugioh { background-image: linear-gradient(100deg, rgba(28,12,8,.92) 15%, rgba(28,12,8,.45) 60%, rgba(28,12,8,.2)), url(../img/combat/arene-yugioh.svg); background-position: center 55%; }
+.g-yugioh .bt-lic-ic, .bt-hero.g-yugioh .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #fff1c2, #e2b54a 50%, #7a3b1d); color: #2a1206; box-shadow: 0 0 0 2px #5a2a12 inset, 0 6px 18px rgba(226,181,74,.45); }
+.g-yugioh .bt-lic-t b { color: #ffd36b; letter-spacing: .6px; text-transform: uppercase; text-shadow: 0 0 12px rgba(255,154,60,.5), 0 2px 10px rgba(0,0,0,.5); }
+.bt-page.g-yugioh { --acc: #a0612f; --acc2: #e2b54a; }
+.bt-hero.g-yugioh { background-image: linear-gradient(100deg, rgba(28,12,8,.9) 25%, rgba(28,12,8,.35)), url(../img/combat/arene-yugioh.svg); background-position: center 60%; }
+.bt-page.g-yugioh .bt-hero-t h1 { color: #ffd36b; text-transform: uppercase; letter-spacing: .6px; }
+.bt-ov.g-yugioh::before, .bt-ov.g-yugioh::after { display: none; }
+.bt-ov.g-yugioh > .bt-bg { background-image: linear-gradient(180deg, rgba(20,8,24,.55), rgba(20,8,24,.08) 22%, rgba(20,8,24,.05) 55%, rgba(28,12,8,.7) 92%), url(../img/combat/arene-yugioh.svg); }
+.bt-ov.g-yugioh.boss > .bt-bg { filter: brightness(.55) saturate(1.2) hue-rotate(-20deg); }
+/* mouvement léger : le terrain de duel s'illumine */
+.bt-ov.g-yugioh > .bt-bg::after { background: radial-gradient(ellipse 260px 50px at 50% 80%, rgba(95,240,255,.22), transparent 70%); animation: btDuel 4s ease-in-out infinite alternate; }
+@keyframes btDuel { to { opacity: .4; transform: scale(1.08); } }
+.bt-ov.g-yugioh .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-ov.g-yugioh .bt-lic { background: radial-gradient(circle at 35% 30%, #fff1c2, #e2b54a 50%, #7a3b1d); color: #2a1206; box-shadow: 0 0 0 2px #5a2a12 inset; }
+.bt-ov.g-yugioh .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(28,12,8,.6); }
+/* panneaux façon carte de monstre : cadre cuivré, nom en relief */
+.bt-ov.g-yugioh .bt-info { background: linear-gradient(180deg, #e9c48f, #c98a52); color: #2a1206; border: 3px solid #5a2e12; border-radius: 4px; box-shadow: 0 0 0 2px #e2b54a inset, 0 10px 24px rgba(0,0,0,.45); }
+.bt-ov.g-yugioh .bt-name b { font-family: Georgia, "Times New Roman", serif; font-variant: small-caps; font-weight: 800; letter-spacing: .3px; }
+.bt-ov.g-yugioh .bt-stats { color: #5a2e12; }
+.bt-ov.g-yugioh .bt-stats b { color: #2a1206; }
+.bt-ov.g-yugioh .bt-hp { background: #2a1206; border: 1px solid #e2b54a; }
+.bt-ov.g-yugioh .bt-loan { background: #f4e2a8; color: #5a2e12; }
+.bt-ov.g-yugioh .bt-tag { background: #f4e2a8; color: #5a2e12; }
+.bt-ov.g-yugioh .bt-tag.sh { background: #c9e6ef; color: #133a4a; }
+.bt-ov.g-yugioh .bt-tag.pw { background: #f2c4b0; color: #6e1d0b; }
+/* énergie = étoiles de niveau (ronds dorés) */
+.bt-ov.g-yugioh .bt-pips i { background: radial-gradient(circle at 35% 30%, #fff1c2, #ff9a3c 55%, #b5451a); box-shadow: 0 0 0 1px #5a2e12; }
+.bt-ov.g-yugioh .bt-pips b { color: #ffd36b; }
+.bt-ov.g-yugioh .bt-cost i { background: #ff9a3c; }
+.bt-ov.g-yugioh .bt-log { background: linear-gradient(180deg, rgba(42,18,6,.95), rgba(24,10,4,.95)); color: #f8e6c2; border: 2px solid #e2b54a; border-radius: 4px; }
+.bt-ov.g-yugioh .bt-log .bt-eff { color: #ffd36b; }
+.bt-ov.g-yugioh .bt-banner.me { background: linear-gradient(135deg, #fff1c2, #e2b54a 50%, #a0612f); color: #2a1206; border: 3px solid #5a2e12; text-transform: uppercase; letter-spacing: .6px; box-shadow: 0 10px 30px rgba(226,181,74,.45); }
+.bt-ov.g-yugioh .bt-banner.foe { background: #2a1206; border-color: #e2b54a; }
+.bt-ov.g-yugioh .bt-end.win .bt-end-box { border-color: #e2b54a; box-shadow: 0 0 40px rgba(226,181,74,.4); }
+.bt-ov.g-yugioh .bt-played div { border-color: rgba(255,154,60,.6); }
+.bt-ov.g-yugioh .bt-played small { color: #fff1c2; }
+/* deck (pioche du mode Avancé) */
+.bt-ov.g-yugioh .bt-bagbtn { background: linear-gradient(180deg, #7a3b1d, #3a1a0c); border: 2px solid #e2b54a; color: #f8e6c2; }
+.bt-ov.g-yugioh .bt-bagbtn .bt-bagic { background: #1c0c06; }
+.bt-ov.g-yugioh .bt-bagbtn small { color: #f4e2a8; }
+.bt-ov.g-yugioh .bt-sheet-box { background: linear-gradient(180deg, #5a2a12, #24100a); border: 3px solid #e2b54a; color: #f8e6c2; box-shadow: inset 0 0 0 4px #1c0c06, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-yugioh .bt-sheet-h b { color: #ffd36b; text-transform: uppercase; letter-spacing: .5px; }
+.bt-ov.g-yugioh .bt-sheet-h .bt-bagic { background: #1c0c06; }
+.bt-ov.g-yugioh .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-yugioh .bt-sc em { color: #ffd36b; }
+.bt-ov.g-yugioh .bt-sc.ok { border-color: #e2b54a; box-shadow: 0 0 16px rgba(226,181,74,.35); }
+
 /* ===== v3.11–v3.12 : Capturer — choix de la licence d'abord : grille compacte (d'autres licences arriveront) ===== */
 .lic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-width: 900px; }
 .lic-tile { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border-radius: 16px; text-decoration: none; color: var(--text);
