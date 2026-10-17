@@ -431,6 +431,9 @@
       else orb = await visualPass(blob, cands, [...codeIds], context, setId).catch((err) => { console.warn('vérification par l’image', err); return null; });
       if (orb) { cands = orb.cands; top = cands[0]; }
       if (top && top.confident && !codeIds.has(top.id) && (top.orb || 0) < IMG_SURE) delete top.confident;
+      // même dessin ailleurs (promo « 10/P2 » = « 29/204 • 6 », réimpression de Mulan) : le numéro lu sur la carte, confirmé par
+      // l'image, tranche (page 1 d'Arnaud : « Rangers du risque » restait « à vérifier » malgré « 29 · chapitre 6 » lu)
+      if (top && !top.confident && codeIds.has(top.id) && (top.orb || 0) >= App.visual.SURE) top.confident = true;
     }
     if (orb && orb.crop) betterCrop = orb.crop;
     const cropLater = !orb && early && top ? early.then((e) => (e && e.crop && e.cands[0] && e.cands[0].id === top.id ? e.crop : null), () => null) : null;

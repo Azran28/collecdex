@@ -168,7 +168,7 @@
   const backRefs = {};
   const refsOf = (game) => {
     if (backRefs[game]) return backRefs[game];
-    // (Riftbound : mesure dédiée, rbBackScore ; Lorcana v3.21 : js/games/lorcana-backs.js, tiré des photos d'Arnaud)
+    // (Riftbound : mesure dédiée, rbBackScore ; Lorcana v3.21 : js/games/lorcana-backs.js (photos d'Arnaud), complété par lcBackScore)
     const list = game === 'onepiece' ? App.onePieceBacks || [] : game === 'lorcana' ? App.lorcanaBacks || [] : [BACK];
     const dec = (t) => { const bin = atob(t.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return normRGB(a, t.w * t.h); };
     return (backRefs[game] = { refs: list.map(dec), scales: game === 'pokemon' ? [0.78, 0.84, 0.9] : [0.84, 0.92, 1] });
@@ -206,8 +206,51 @@
     // tout bon : 0,62 à 0,87 selon la symétrie ; sinon au plus 0,3 (seuil du dos : 0,55 en direct, 0,6 en classeur)
     return ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (sym - 0.5) / 0.4) : 0.1 * ok.filter(Boolean).length;
   }
+  // Dos Lorcana (v3.21) : fond noir à volutes, grand rond doré au centre (étoile noire dedans), bordure noire. La comparaison 24 × 33
+  // seule ne suffit pas (les faces ont aussi une bordure noire : jusqu'à 0,58) → en plus, sur 48 × 66 : part dorée dans le rond
+  // (centre 50 % × 38,5 %), bas de la carte sombre (une face y a sa zone de texte claire), peu de couleurs vives, rond doré
+  // symétrique gauche/droite. Photos d'Arnaud (_tests-scanner/lorcana/1 et 2, avec 0 à 18 % de marge) : 0,75–0,87 ;
+  // 508 faces officielles, ses photos de cartes, dos Pokémon / One Piece / Riftbound, carte « appli » au QR code : ≤ 0,35.
+  let lcCanvas = null;
+  function lcFeatures(src, SW, SH, sc) {
+    const W = 48, H = 66, N = W * H;
+    const c = lcCanvas || (lcCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.clearRect(0, 0, W, H); g.drawImage(src, (SW - SW * sc) / 2, (SH - SH * sc) / 2, SW * sc, SH * sc, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data, gold = new Uint8Array(N);
+    let dg = 0, dn = 0, od = 0, on = 0, bd = 0, bn = 0, col = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), s = mx ? (mx - mn) / mx : 0;
+      let h = 0;
+      if (mx !== mn) { h = mx === r ? 60 * (((gg - b) / (mx - mn)) % 6) : mx === gg ? 60 * ((b - r) / (mx - mn) + 2) : 60 * ((r - gg) / (mx - mn) + 4); if (h < 0) h += 360; }
+      const isGold = h >= 20 && h <= 60 && s >= 0.15 && s <= 0.7 && mx > 120, dark = mx < 95, vivid = s > 0.45 && mx > 110 && !isGold;
+      const ex = (x + 0.5) / W - 0.5, ey = (y + 0.5) / H - 0.385;
+      if ((ex / 0.22) ** 2 + (ey / 0.155) ** 2 <= 1) { dn++; if (isGold) { dg++; gold[i] = 1; } } else { on++; if (dark) od++; if (vivid) col++; }
+      const fy = (y + 0.5) / H; if (fy > 0.6 && fy < 0.95) { bn++; if (dark) bd++; }
+    }
+    let sym = 0, ng = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (!gold[y * W + x]) continue; ng++;
+      const xx = W - 1 - x; if ((xx > 0 && gold[y * W + xx - 1]) || gold[y * W + xx] || (xx < W - 1 && gold[y * W + xx + 1])) sym++;
+    }
+    return { disc: dg / dn, out: od / on, bot: bd / bn, col: col / on, sym: ng ? sym / ng : 0 };
+  }
+  function lcBackScore(src, SW, SH, fast) {
+    const k = corrScore(src, SW, SH, fast, 'lorcana');
+    let best = 0;
+    for (const sc of fast ? [1, 0.88] : [1, 0.92, 0.84]) {
+      const x = lcFeatures(src, SW, SH, sc), ok = [x.disc >= 0.25, x.bot >= 0.45, x.out >= 0.35, x.col <= 0.1, x.sym >= 0.6, k >= 0.6];
+      // tout bon : 0,62 à 0,87 selon la ressemblance au modèle ; sinon au plus 0,35 (seuil du dos : 0,55 en direct, 0,6 en classeur)
+      best = Math.max(best, ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (k - 0.6) / 0.3) : 0.07 * ok.filter(Boolean).length);
+    }
+    return best;
+  }
   function backScoreOf(src, SW, SH, fast = false, game = 'pokemon') {
     if (game === 'riftbound') return rbBackScore(src, SW, SH);
+    if (game === 'lorcana') return lcBackScore(src, SW, SH, fast);
+    return corrScore(src, SW, SH, fast, game);
+  }
+  function corrScore(src, SW, SH, fast, game) {
     if (!backRef) backRef = refsOf('pokemon').refs[0];
     const { refs, scales } = refsOf(game);
     if (!refs.length) return -1;

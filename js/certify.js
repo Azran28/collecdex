@@ -168,7 +168,7 @@ App.certify = (() => {
   // Seuils (à affiner avec les vraies captures : les mesures sont enregistrées avec chaque certification)
   const SCREEN_PEAK = 40;
   const BACK_T = 0.55, FRONT_T = 0.5; // dos : 0,71 à 0,95 mesurés ; faces jusqu'à 0,49
-  const LC_BACK = 0; // Lorcana (v3.21) : décalage du score de son dos (modèle de js/games/lorcana-backs.js), à régler sur les photos d'Arnaud
+  const LC_BACK = 0; // Lorcana (v3.21) : mesure dédiée (recognizer-image.js › lcBackScore) : dos 0,75–0,87, faces ≤ 0,35 → pas de décalage
 
   /**
    * Retournement réussi ? Analyse faite au moment de la photo, sur les images filmées depuis le dos.

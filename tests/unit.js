@@ -232,6 +232,17 @@ test('Lorcana : personnage → combattant, cartes de pioche', (App) => {
   ['power', 'power', 'shield', 'heal', 'stadium', 'toolHp']);
   eq(App.battleCards.inkCard().fx.key, 'energy', 'encre = énergie');
 });
+test('Lorcana : dos de carte reconnu (photo d’Arnaud réduite), pas une face', async (App) => {
+  await App.need('reco');
+  const back = await createImageBitmap(await (await fetch('tests/dos-lorcana.jpg')).blob());
+  const f = document.createElement('canvas'); f.width = 126; f.height = 176; const g = f.getContext('2d');
+  g.fillStyle = '#111'; g.fillRect(0, 0, 126, 176);
+  for (let i = 0; i < 40; i++) { g.fillStyle = `hsl(${i * 37 % 360} 70% 50%)`; g.fillRect(6 + (i % 6) * 19, 6 + Math.floor(i / 6) * 12, 19, 12); }
+  g.fillStyle = '#e8d6aa'; g.fillRect(6, 110, 114, 56); // (zone de texte claire d'une face)
+  const s = (c, w, h) => App.recognizer.backScoreOf(c, w, h, true, 'lorcana');
+  ok(s(back, 126, 176) >= 0.7, `dos : ${s(back, 126, 176).toFixed(2)}`);
+  ok(s(f, 126, 176) < 0.4, `face : ${s(f, 126, 176).toFixed(2)}`);
+});
 test('Capturer « Toutes » : une carte Lorcana reconnue sur son texte', async (App) => {
   await App.need('reco', 'scan'); await App.games.get('lorcana').listSets();
   const S = App.views.scan, R = App.recognizer, keep = R.readZones;

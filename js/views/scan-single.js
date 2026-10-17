@@ -434,7 +434,8 @@ Object.assign(App.views.scan, {
         // les cartes One Piece / Riftbound qu'il lit), puis les autres licences si la carte n'est pas sûre
         let autoSure = false;
         if (auto) {
-          const g = await App.views.scan.detectGame(blob, st);
+          // (rien de net sur la carte détourée : sur la photo d'origine, où le petit code du bas est parfois mieux lu — photo 10 d'Arnaud)
+          const g = await App.views.scan.detectGame(blob, st) || (pageBlob && pageBlob !== blob ? await App.views.scan.detectGame(pageBlob, st) : '');
           autoSure = !!g;
           if ((g || 'pokemon') !== game) switchGame(g || 'pokemon', !!g); // (essai : pas encore « reconnue »)
         }

@@ -112,13 +112,14 @@ App.views.scan = {
   /** Licences proposées dans Capturer (actives et branchées) */
   games() { return App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id)); },
   /**
-   * Autres licences à essayer pour une carte qui n'est pas de la licence choisie (sauf `except`), celles dont le code imprimé
-   * se lit dans le texte d'abord (« OGN · 013/298 » Riftbound, « 25/204 • FR • 1 » Lorcana), puis One Piece, puis les autres.
+   * Autres licences à essayer pour une carte qui n'est pas de la licence choisie (sauf `except`) : d'abord celle dont le texte
+   * lu parle (code imprimé « OGN · 013/298 », « 25/204 • FR • 1 », mots « Disney Lorcana », « BANDAI », « RGI »… : textScores),
+   * puis One Piece, puis les autres. (v3.21, photos d'Arnaud : sans les mots, Lorcana passait en dernier, 10 s par licence essayée)
    */
   otherGames(raw, except) {
-    const read = (id) => { const A = App.games.get(id); return A && A.codesIn ? Math.max(0, ...A.codesIn(raw || '').map(([, w]) => w)) : 0; };
+    const sc = App.views.scan.textScores(raw || '');
     return App.views.scan.games().map((g) => g.id).filter((id) => id !== except && id !== 'pokemon')
-      .map((id, i) => ({ id, w: read(id) >= 0.9 ? 2 : id === 'onepiece' ? 1 : 0, i })).sort((a, b) => (b.w - a.w) || (a.i - b.i)).map((x) => x.id);
+      .map((id, i) => ({ id, w: (sc[id] || 0) * 2 + (id === 'onepiece' ? 1 : 0), i })).sort((a, b) => (b.w - a.w) || (a.i - b.i)).map((x) => x.id);
   },
   /** Licence choisie : une licence, ou « auto » (toutes les licences, v3.11) */
   AUTO: 'auto',
@@ -199,16 +200,20 @@ App.views.scan = {
     st('Quelle licence ?');
     // carte entière + les deux petits codes du bas, très agrandis : One Piece en bas à droite (« OP10-001 »), Riftbound en bas à gauche
     const texts = await App.recognizer.readZones(blob, ['full', [0.93, 0.985, 7, 'sharp', 0.6, 0.97], [0.935, 0.99, 7, 'sharp', 0.02, 0.5]]).catch(() => ['']);
-    const T = texts.join('\n'), rb = App.games.get('riftbound'), lc = App.games.get('lorcana');
-    const score = {
+    const score = App.views.scan.textScores(texts.join('\n'));
+    const [best, second] = Object.entries(score).sort((a, b) => b[1] - a[1]);
+    return best[1] >= 2 && best[1] >= second[1] + 2 ? best[0] : '';
+  },
+  /** Points de chaque licence d'après un texte lu sur une carte (codes imprimés ×2, mots typiques) */
+  textScores(T) {
+    const rb = App.games.get('riftbound'), lc = App.games.get('lorcana');
+    return {
       // Lorcana (v3.21) : code « 25/204 • FR • 1 » en bas à gauche, « Disney Lorcana ©Disney » en bas à droite, Storyborn / Floodborn…
       lorcana: (lc && lc.codesIn && lc.codesIn(T).some(([, w]) => w >= 0.9) ? 2 : 0) + [/lorcana/i, /disney/i, /ravensburger/i, /\b(storyborn|floodborn|dreamborn)\b/i, /[ée]clats?\s+de\s+lore|\blore\b/i, /\b(chanson|song)\b/i, /\bm[ée]lomane\b|\bsinger\b/i, /\bd[ée]fi\b|\bchallenger\b/i].filter((r) => r.test(T)).length,
       riftbound: (rb && rb.codesIn && rb.codesIn(T).length ? 2 : 0) + [/\bRG[Il1]\b/, /\bUNIT[ÉE](?![A-Za-zÀ-ÿ])/, /\bL[ÉE]GENDE\b/, /\bRUNE\b/, /CHAMP\s+DE\s+BATAILLE|BATTLEFIELD/i, /comp[ée]tence|canalis/i, /\bSORT\b|\bSPELL\b/, /\bUNIT\b/].filter((r) => r.test(T)).length,
       onepiece: (/(OP|[0©(C]P|ST|EB|PRB)\s?[0-9OIS]{2}\s?[-–—_.]\s?[0-9OIS]{3}/i.test(T) ? 2 : 0) + [/\b(OP|ST|EB|PRB)\s?\d{2}\s?-\s?\d{3}\b/i, /bandai/i, /DON\s*!!/i, /\bCOUNTER\b|\bCONTRE\b/i, /\bLEADER\b/i, /d[ée]clenchement|trigger/i, /\b(personnage|character)\b/i].filter((r) => r.test(T)).length,
       pokemon: [/\b(PV|HP)\s*\d{2,3}\b|\b\d{2,3}\s*(PV|HP)\b/, /pok[eé]mon/i, /nintendo|game\s*freak|creatures/i, /faiblesse|weakness/i, /r[ée]sistance|resistance/i, /retraite|retreat/i, /\bdresseur\b|\btrainer\b/i, /[ée]nergie|energy/i].filter((r) => r.test(T)).length,
     };
-    const [best, second] = Object.entries(score).sort((a, b) => b[1] - a[1]);
-    return best[1] >= 2 && best[1] >= second[1] + 2 ? best[0] : '';
   },
 
   /**
