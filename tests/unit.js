@@ -210,6 +210,13 @@ test('Lorcana : cartes en français (data/lc-cartes.json)', async (App) => {
   ok(/^https:\/\/images\.weserv\.nl\/\?url=https%3A%2F%2Fapi\.lorcana\.ravensburger\.com%2Fimages%2Ffr%2F/.test(A.img.card(c)), 'visuel français relayé');
   ok(A.isOfficial('204', s1) && !A.isOfficial('205', s1) && !A.isOfficial('4a', s1), 'enchantées et variantes en plus des 204');
 });
+test('Lorcana : inserts puzzle (série par chapitre, images du site)', async (App) => {
+  const A = App.games.get('lorcana'), pz = await A.getSet('PZ6');
+  eq([pz.cards.length, pz.cards[0].category, pz.cards[0].rarity], [9, 'Insert puzzle', 'pz']);
+  ok(/\/data\/lc-puzzles\/\d+\.jpg$/.test(A.img.card(pz.cards[0])), 'image copiée dans le site');
+  const r = await fetch(A.img.card(pz.cards[4]), { cache: 'no-store' });
+  ok(r.ok, 'image de la pièce 5 présente');
+});
 test('Lorcana : code imprimé lu même mal reconnu', async (App) => {
   const A = App.games.get('lorcana'); await A.listSets();
   const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);

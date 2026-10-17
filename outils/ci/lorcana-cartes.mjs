@@ -81,6 +81,36 @@ export function build(fr, en) {
   return { m: new Date().toISOString().slice(0, 10), v: fr.metadata && fr.metadata.generatedOn, sets, cards };
 }
 
+// ---------- Inserts « puzzle » (v3.24, demande d'Arnaud : on les trouve dans les boosters) ----------
+// Une grande illustration en 9 morceaux (4 aux chapitres 1 et 2), sans numéro ni texte : absents de LorcanaJSON. Liste et prix :
+// TCGplayer (tcgcsv.com, catégorie 71, « … Puzzle Insert (Top Left) »). Images : photos TCGplayer copiées dans data/lc-puzzles/
+// (le relais d'images refuse TCGplayer, et la comparaison d'images a besoin de lire l'image). Les positions écrites par TCGplayer sont
+// parfois fausses (« Middle Center » de La Mer Azurite = la pièce du haut au milieu) : pièces numérotées 1 à 9, sans position.
+const TCG = 'https://tcgcsv.com/tcgplayer/71';
+const POS = ['top left', 'top middle', 'top right', 'middle left', 'middle center', 'middle right', 'bottom left', 'bottom middle', 'bottom right'];
+export async function puzzles(getJSON, sets) {
+  const groups = (await getJSON(`${TCG}/groups`)).results || [], out = { sets: [], cards: [], images: [] };
+  for (const g of groups) {
+    const ch = String(g.abbreviation || ''), chap = sets.find((s) => s.id === ch && s.type === 'main');
+    if (!chap) continue;
+    const prods = ((await getJSON(`${TCG}/${g.groupId}/products`)).results || []).filter((p) => /puzzle insert/i.test(p.name) && !/set of|complete/i.test(p.name));
+    for (const ver of ['', 'B']) {
+      const list = prods.filter((p) => (ver === 'B') === /version 2 of 2/i.test(p.name));
+      if (!list.length) continue;
+      const pos = (p) => { const m = String(p.name).toLowerCase().match(/\((top|middle|bottom) (left|middle|center|right)\)/); return m ? POS.indexOf(`${m[1]} ${m[2]}`) : 99; };
+      list.sort((a, b) => pos(a) - pos(b) || a.productId - b.productId);
+      const id = `PZ${ch}${ver}`, two = prods.some((p) => /version 2 of 2/i.test(p.name));
+      out.sets.push({ id, name: `Puzzle ${chap.name}${two ? ` (version ${ver ? 2 : 1})` : ''}`, en: `${chap.en} Puzzle Insert`, type: 'puzzle', date: chap.date, base: 0, of: ch });
+      list.forEach((p, i) => {
+        out.cards.push({ id: `${id.toLowerCase()}-${i + 1}`, s: id, o: ch, l: String(i + 1), n: 'Insert puzzle', v: `${chap.name}${two ? ` v${ver ? 2 : 1}` : ''}, pièce ${i + 1}`,
+          r: 'pz', t: 'pz', img: `data/lc-puzzles/${p.productId}.jpg`, f: 1, tp: p.productId, ne: p.name, of: list.length });
+        out.images.push(p.productId);
+      });
+    }
+  }
+  return out;
+}
+
 async function getJSON(url) {
   for (let i = 0; ; i++) {
     try { const r = await fetch(url, { headers: { 'User-Agent': 'CollecDex (github.com/Azran28/collecdex)' } }); if (r.ok) return await r.json(); throw new Error(`HTTP ${r.status} ${url}`); }
@@ -94,8 +124,31 @@ if (typeof process !== 'undefined' && process.argv[1] && import.meta.url.endsWit
     const [fr, en] = await Promise.all([getJSON(`${BASE}/fr/allCards.json`), getJSON(`${BASE}/en/allCards.json`)]);
     const r = build(fr, en);
     if (r.cards.length < 3000) throw new Error(`seulement ${r.cards.length} cartes : pas écrit`);
+    // inserts puzzle (TCGplayer) : en cas d'échec, ceux de la liste précédente sont gardés
+    const prev = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
+    try {
+      const pz = await puzzles(getJSON, r.sets);
+      if (!pz.cards.length) throw new Error('aucun insert puzzle');
+      mkdirSync('data/lc-puzzles', { recursive: true });
+      for (const pid of pz.images) {
+        const f = `data/lc-puzzles/${pid}.jpg`;
+        // (image déjà là : gardée — certaines photos de TCGplayer sont fausses et ont été remplacées à la main par une photo d'Arnaud :
+        //  706232 = pièce du centre de La Mer Azurite, que TCGplayer montre comme un doublon de la pièce 2 ; 706231 et 706234 = photos
+        //  TCGplayer floues, presque sans détails, remplacées aussi — photo d'Arnaud _tests-scanner/lorcana/11.webp)
+        if (existsSync(f)) continue;
+        const res = await fetch(`https://tcgplayer-cdn.tcgplayer.com/product/${pid}_400w.jpg`, { headers: { 'User-Agent': 'CollecDex (github.com/Azran28/collecdex)' } });
+        if (res.ok) writeFileSync(f, Buffer.from(await res.arrayBuffer()));
+      }
+      const have = new Set(pz.images.filter((pid) => existsSync(`data/lc-puzzles/${pid}.jpg`)));
+      // (pièce sans photo chez TCGplayer : chapitre tout récent, ajoutée un lundi suivant)
+      const pzCards = pz.cards.filter((k) => have.has(k.tp));
+      r.sets.push(...pz.sets.filter((s) => pzCards.some((k) => k.s === s.id))); r.cards.push(...pzCards);
+    } catch (e) {
+      console.log(`::warning title=Inserts puzzle Lorcana::${String(e && e.message || e).slice(0, 200)}`);
+      if (prev) { r.sets.push(...prev.sets.filter((s) => s.type === 'puzzle')); r.cards.push(...prev.cards.filter((k) => k.t === 'pz')); }
+    }
     // rien de nouveau (même liste qu'avant) : fichier laissé tel quel (pas d'envoi inutile du robot)
-    const old = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
+    const old = prev;
     const same = old && JSON.stringify({ ...old, m: '', v: '' }) === JSON.stringify({ ...r, m: '', v: '' });
     if (same) { console.log(`Cartes Lorcana : ${r.cards.length}, inchangées`); return; }
     mkdirSync(dirname(file), { recursive: true });

@@ -212,11 +212,11 @@
   // symétrique gauche/droite. Photos d'Arnaud (_tests-scanner/lorcana/1 et 2, avec 0 à 18 % de marge) : 0,75–0,87 ;
   // 508 faces officielles, ses photos de cartes, dos Pokémon / One Piece / Riftbound, carte « appli » au QR code : ≤ 0,35.
   let lcCanvas = null;
-  function lcFeatures(src, SW, SH, sc) {
+  function lcFeatures(src, SW, SH, sc, dx = 0, dy = 0) {
     const W = 48, H = 66, N = W * H;
     const c = lcCanvas || (lcCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
     const g = c.getContext('2d', { willReadFrequently: true });
-    g.clearRect(0, 0, W, H); g.drawImage(src, (SW - SW * sc) / 2, (SH - SH * sc) / 2, SW * sc, SH * sc, 0, 0, W, H);
+    g.clearRect(0, 0, W, H); g.drawImage(src, SW * (0.5 + dx) - SW * sc / 2, SH * (0.5 + dy) - SH * sc / 2, SW * sc, SH * sc, 0, 0, W, H);
     const d = g.getImageData(0, 0, W, H).data, gold = new Uint8Array(N);
     let dg = 0, dn = 0, od = 0, on = 0, bd = 0, bn = 0, col = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -228,20 +228,39 @@
       if ((ex / 0.22) ** 2 + (ey / 0.155) ** 2 <= 1) { dn++; if (isGold) { dg++; gold[i] = 1; } } else { on++; if (dark) od++; if (vivid) col++; }
       const fy = (y + 0.5) / H; if (fy > 0.6 && fy < 0.95) { bn++; if (dark) bd++; }
     }
-    let sym = 0, ng = 0;
+    // symétrie gauche/droite autour du centre du rond doré lui-même (v3.24 : carte pas centrée dans une case de classeur)
+    let sym = 0, ng = 0, cx = 0;
+    for (let i = 0; i < N; i++) if (gold[i]) { ng++; cx += i % W; }
+    cx = ng ? cx / ng : (W - 1) / 2;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      if (!gold[y * W + x]) continue; ng++;
-      const xx = W - 1 - x; if ((xx > 0 && gold[y * W + xx - 1]) || gold[y * W + xx] || (xx < W - 1 && gold[y * W + xx + 1])) sym++;
+      if (!gold[y * W + x]) continue;
+      const xx = Math.round(2 * cx - x); if ((xx > 0 && xx - 1 < W && gold[y * W + xx - 1]) || (xx >= 0 && xx < W && gold[y * W + xx]) || (xx + 1 >= 0 && xx < W - 1 && gold[y * W + xx + 1])) sym++;
     }
     return { disc: dg / dn, out: od / on, bot: bd / bn, col: col / on, sym: ng ? sym / ng : 0 };
   }
+  let lcSrc = null;
   function lcBackScore(src, SW, SH, fast) {
+    // (v3.24 : une image chargée directement (ImageBitmap) ne se dessine pas comme un canevas quand la zone demandée déborde
+    //  — décalages ci-dessous — : 0,35 au lieu de 0,65 sur la même case → copie dans un petit canevas d'abord)
+    if (!(src instanceof HTMLCanvasElement)) {
+      const k = Math.min(1, 900 / Math.max(SW, SH)), c = lcSrc || (lcSrc = document.createElement('canvas'));
+      c.width = Math.max(1, Math.round(SW * k)); c.height = Math.max(1, Math.round(SH * k)); c.getContext('2d').drawImage(src, 0, 0, SW, SH, 0, 0, c.width, c.height);
+      src = c; SW = c.width; SH = c.height;
+    }
     const k = corrScore(src, SW, SH, fast, 'lorcana');
     let best = 0;
-    for (const sc of fast ? [1, 0.88] : [1, 0.92, 0.84]) {
-      const x = lcFeatures(src, SW, SH, sc), ok = [x.disc >= 0.25, x.bot >= 0.45, x.out >= 0.35, x.col <= 0.1, x.sym >= 0.6, k >= 0.6];
+    // (v3.24 : décalages aussi — case de classeur qui garde un bout de pochette d'un côté, dos pas centré)
+    const offs = fast ? [[0, 0]] : [[0, 0], [-0.06, 0], [0.06, 0], [0, -0.05], [0, 0.05]];
+    for (const sc of fast ? [1, 0.88] : [1, 0.92, 0.84]) for (const [dx, dy] of offs) {
+      const x = lcFeatures(src, SW, SH, sc, dx, dy), shape = [x.disc >= 0.25, x.bot >= 0.45, x.out >= 0.35, x.col <= 0.1, x.sym >= 0.6];
+      // v3.24 (page 11 d'Arnaud : 2 dos en pochette ne ressemblaient au modèle qu'à 0,37 et 0,46, autre éclairage) : ressemblance
+      // moyenne acceptée si le rond doré est bien net et symétrique (dos 0,44–0,56 / 0,85–0,98 ; seule face proche, « Fauchage »
+      // Q3-34, toute sombre avec une lune dorée : rond 0,30)
+      // (case avec de la marge : modèle 0,25–0,29 mais rond très net ; case qui coupe un peu la carte : symétrie 0,7 ; « Fauchage » : rond 0,30)
+      const ok = [...shape, k >= 0.6 || (k >= 0.2 && x.disc >= 0.38 && x.sym >= 0.9) || (k >= 0.3 && x.disc >= 0.45 && x.sym >= 0.7)];
       // tout bon : 0,62 à 0,87 selon la ressemblance au modèle ; sinon au plus 0,35 (seuil du dos : 0,55 en direct, 0,6 en classeur)
-      best = Math.max(best, ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (k - 0.6) / 0.3) : 0.07 * ok.filter(Boolean).length);
+      const v = ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, Math.max(0.12, (k - 0.6) / 0.3)) : 0.07 * ok.filter(Boolean).length;
+      if (v > best) { best = v; lcBackScore.last = { k, sc, dx, dy, ...x }; } // (dernier détail : réglages au labo)
     }
     return best;
   }
@@ -311,5 +330,5 @@
     return out;
   }
 
-  Object.assign(App.recognizerParts, { thumb, corr, corr1, looksEmpty, ART, AW, AH, artVec, artVariants, artMatch, trimBackground, vis01, officialThumbs, officialThumb, BACK, normRGB, backScore, backRefs, refsOf, backScoreOf, looksLikeBack, wholeRefs, wholeCardScores });
+  Object.assign(App.recognizerParts, { thumb, corr, corr1, looksEmpty, ART, AW, AH, artVec, artVariants, artMatch, trimBackground, vis01, officialThumbs, officialThumb, BACK, normRGB, backScore, backRefs, refsOf, backScoreOf, lcBackScore, looksLikeBack, wholeRefs, wholeCardScores });
 })();

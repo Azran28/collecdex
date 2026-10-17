@@ -44,6 +44,7 @@
     en: [11, 'Enchantée',   'En', 'url(#rbw)'],
     i:  [12, 'Iconique',    'Ic', 'url(#gpk)'],
     p:  [10, 'Spéciale',    'S',  '#d9425f'],
+    pz: [0,  'Insert puzzle', 'Pz', '#7c8aa8'], // (v3.24 : morceaux d'une grande illustration, glissés dans les boosters)
   };
   const rkey = (r) => (RAR[r] ? r : Object.keys(RAR).find((k) => norm(RAR[k][1]) === norm(r) || norm(RAR[k][2]) === norm(r)) || null);
   const pillBg = (c) => (c === 'url(#rbw)' ? 'linear-gradient(90deg,#ff6ec4,#7873f5,#4ade80,#facc15)' : c === 'url(#gpk)' ? 'linear-gradient(90deg,#ffc53d,#ff6ec7)' : c);
@@ -62,9 +63,9 @@
   const variantsOf = (f) => (f === 2 ? { holo: true } : f === 3 ? { normal: true, holo: true } : { normal: true });
 
   // ---------- Séries ----------
-  const GROUPS = { main: { id: 'lc-main', name: 'Chapitres' }, quest: { id: 'lc-quest', name: 'Quêtes des Illumineurs' }, promo: { id: 'lc-promo', name: 'Promos' } };
+  const GROUPS = { main: { id: 'lc-main', name: 'Chapitres' }, quest: { id: 'lc-quest', name: 'Quêtes des Illumineurs' }, promo: { id: 'lc-promo', name: 'Promos' }, puzzle: { id: 'lc-puzzle', name: 'Inserts puzzle' } };
   const INK = { am: 'Ambre', amy: 'Améthyste', em: 'Émeraude', ru: 'Rubis', sa: 'Saphir', st: 'Acier' };
-  const TYPE = { ch: 'Personnage', ac: 'Action', it: 'Objet', lo: 'Lieu' };
+  const TYPE = { ch: 'Personnage', ac: 'Action', it: 'Objet', lo: 'Lieu', pz: 'Insert puzzle' };
   /** Nom affiché : « Ariel - Sur des jambes humaines » (comme sur les cartes et chez Ravensburger) */
   const nameOf = (k) => (k.v ? `${k.n} - ${k.v}` : k.n);
 
@@ -100,9 +101,10 @@
     const inks = (k.k || []).map((x) => INK[x] || x);
     const facts = [TYPE[k.t] || '', inks.join(' / '), k.co != null ? `Coût ${k.co}${k.iw ? ' (encrier)' : ''}` : '',
       k.sg != null ? `Force ${k.sg}` : '', k.wp != null ? `Volonté ${k.wp}` : '', k.lo ? `${k.lo} éclat${k.lo > 1 ? 's' : ''} de Lore` : '',
-      k.mv != null ? `Déplacement ${k.mv}` : '', (k.sb || []).join(' · '), k.st || '', k.o ? `Promo du chapitre ${k.o}` : ''].filter(Boolean);
+      k.mv != null ? `Déplacement ${k.mv}` : '', (k.sb || []).join(' · '), k.st || '',
+      k.t === 'pz' ? `Un des ${k.of || 9} morceaux d'une grande illustration, glissés dans les boosters du chapitre ${k.o}` : k.o ? `Promo du chapitre ${k.o}` : ''].filter(Boolean);
     return {
-      id: k.id, localId: k.l, name: nameOf(k), baseName: k.n, version: k.v || '', nameEn: k.ne || '', image: k.img ? 'https://api.lorcana.ravensburger.com/images/' + k.img : '',
+      id: k.id, localId: k.l, name: nameOf(k), baseName: k.n, version: k.v || '', nameEn: k.ne || '', image: !k.img ? '' : /^data\//.test(k.img) ? new URL(k.img, document.baseURI).href : 'https://api.lorcana.ravensburger.com/images/' + k.img, // (inserts puzzle : photo TCGplayer copiée dans le site)
       rarity: k.r, variants: variantsOf(k.f), category: TYPE[k.t] || '', kind: k.t || '', types: [], facts, text: k.x || '', illustrator: k.a || '',
       inks: k.k || [], cost: k.co, inkwell: !!k.iw, strength: k.sg, willpower: k.wp, lore: k.lo, moveCost: k.mv, subtypes: k.sb || [], story: k.st || '',
       tp: k.tp || 0, cm: k.cm || 0, enOnly: !!k.enOnly,
@@ -299,7 +301,7 @@
   }
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/lc-index ----------
-  const LC_INDEX_V = 1;
+  const LC_INDEX_V = 2;
   // seuil « sûre » par l'image seule, comme Riftbound (visuels officiels FRANÇAIS ici : même carte, mêmes textes)
   const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
@@ -324,8 +326,27 @@
     if (!quad || quad.some(([x, y]) => x < -0.06 || x > 1.06 || y < -0.06 || y > 1.06)) return null;
     return App.visual.quadCrop(blob, quad.map(([x, y]) => [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))]));
   }
+  /**
+   * Secours (v3.24) : pièces de puzzle presque sans détails (ciel, eau) — la vérification par points communs n'y trouve rien
+   * (pièce 4 de La Mer Azurite : 7 points), alors que le réseau de neurones la reconnaît très nettement (0,99, suivante 0,76).
+   * Rien de trouvé par les points et réseau net (≥ 0,93, 0,1 d'avance) → la carte est proposée ; « sûre » seulement pour une pièce
+   * de puzzle très nette (≥ 0,97, 0,15 d'avance).
+   */
+  async function netRescue(blob, o) {
+    if (o && o.cands[0] && (o.cands[0].orb || 0) >= 15) return o;
+    const qid = `lcnet:${Date.now()}:${Math.random()}`;
+    try {
+      const g = await App.visual.global(qid, blob, 5, { index: 'data/lc-index', v: LC_INDEX_V });
+      if (!g || !g[0] || g[0].s < 0.93 || g[0].s - ((g[1] && g[1].s) || 0) < 0.1) return o;
+      const [c] = await fromIds([g[0].id]);
+      if (!c) return o;
+      c.net = g[0].s;
+      if (c.kind === 'pz' && g[0].s >= 0.97 && g[0].s - ((g[1] && g[1].s) || 0) >= 0.15) { c.confident = true; c.orb = IMG_SURE; }
+      return { ...(o || {}), cands: [c, ...((o && o.cands) || []).filter((x) => x.id !== c.id)], best: (o && o.best) || 0 };
+    } catch (e) { return o; } finally { App.visual.forget(qid); }
+  }
   async function visualPass(blob, cands, codes, context = null, setId = '') {
-    const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
+    const V = App.visual, o = await netRescue(blob, await V.check(blob, cands, visualOpts(codes, setId)));
     const grow = async (r, img) => { if (r && r.quad) { r.quad = outerQuad(r.quad); r.crop = await cropQuad(img, r.quad).catch(() => null) || r.crop; } return r; };
     await grow(o, blob);
     const top = o && o.cands[0];
@@ -460,7 +481,7 @@
     cardmarketUrl: (card) => cm(card.nameEn || card.name),
     boosterUrl: (set) => cm((set.en || set.name) + ' booster'),
     isOfficial: (localId, set) => isOfficialIn(localId, memo && (memo.sets.find((s) => s.id === set.id) || {}).max),
-    logoText: (s) => (/^\d+$/.test(s.id) ? `Ch. ${s.id}` : s.id),
+    logoText: (s) => (/^\d+$/.test(s.id) ? `Ch. ${s.id}` : /^PZ\d+B?$/.test(s.id) ? `Puzzle ${s.id.slice(2).replace('B', ' v2')}` : s.id),
     extraLabel: 'enchantées, épiques et iconiques',
     priceNote: 'Prix : marché américain TCGplayer (cartes anglaises), converti en euros, mise à jour quotidienne.',
     rarity,
