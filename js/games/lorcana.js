@@ -310,43 +310,35 @@
     twinKey: (c) => c.id,
     tie: (a, b) => (codes.includes(b.id) - codes.includes(a.id)) || ((b.setId === setId) - (a.setId === setId)) || (a.alt - b.alt),
   });
-  /** Recadrage sur les vrais bords autour des coins trouvés par l'image (même principe que Riftbound, v3.14 / v3.18) */
-  async function edgeCrop(blob, quad) {
-    if (!quad) return null;
-    try {
-      const bmp = await createImageBitmap(blob), c = document.createElement('canvas');
-      c.width = bmp.width; c.height = bmp.height; c.getContext('2d').drawImage(bmp, 0, 0);
-      const cl = (v) => Math.min(1, Math.max(0, v));
-      const E = quad.map(([x, y]) => [cl(x), cl(y)]);
-      if (E.some(([x, y]) => x < 0.03 || x > 0.97 || y < 0.03 || y > 0.97)) return null; // (photo déjà recadrée sur la carte)
-      const sq = App.recognizer.snapQuad ? App.recognizer.snapQuad(c, E) : null;
-      if (sq) {
-        const q = sq.map(([x, y]) => [x * c.width, y * c.height]), qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
-        const out = App.recognizer.warpQuad(c, q, Math.min(900, Math.max(240, Math.round(qw))));
-        return await new Promise((res) => out.toBlob(res, 'image/jpeg', 0.92));
-      }
-      const xs = E.map((p) => p[0]), ys = E.map((p) => p[1]);
-      const r = App.recognizer.cutCard(c, { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }, { expect: E });
-      if (!r || !r.canvas || r.fit < 0.45 || !r.quad) return null;
-      if (r.quad.some((p, i) => Math.hypot(p[0] - E[i][0], p[1] - E[i][1]) > 0.12)) return null;
-      return await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92));
-    } catch (e) { return null; }
+  /**
+   * Vrais bords de la carte (v3.23, dessins d'Arnaud : cartes « trop zoomées, il n'y a pas les bords ») : les visuels de Ravensburger
+   * sont rognés plus serré que la carte imprimée (la bordure noire y est presque coupée) → les coins trouvés par l'image tombaient à
+   * l'intérieur de la bordure, et l'accroche sur le bord le plus net (Riftbound) prenait le cadre intérieur, car la bordure noire
+   * se confond avec la pochette noire. Mesuré sur 10 cartes dessinées à la main (page 13 et carte 15 d'Arnaud) : la vraie carte
+   * va de −5,2 % à 106,2 % de la largeur du visuel et de −5,1 % à 107,1 % de sa hauteur (écart d'une carte à l'autre ±1,5 %).
+   */
+  const OUTER = [[-0.052, -0.051], [1.062, -0.051], [1.062, 1.071], [-0.052, 1.071]];
+  const outerQuad = (q) => { if (!q) return null; const f = App.recognizerParts.squareToQuad(q); return OUTER.map(([u, v]) => f(u, v)); };
+  /** Carte remise à plat d'après ses coins (fractions de l'image) ; carte qui dépasse un peu de l'image : coins ramenés au bord */
+  async function cropQuad(blob, quad) {
+    if (!quad || quad.some(([x, y]) => x < -0.06 || x > 1.06 || y < -0.06 || y > 1.06)) return null;
+    return App.visual.quadCrop(blob, quad.map(([x, y]) => [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))]));
   }
   async function visualPass(blob, cands, codes, context = null, setId = '') {
     const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
+    const grow = async (r, img) => { if (r && r.quad) { r.quad = outerQuad(r.quad); r.crop = await cropQuad(img, r.quad).catch(() => null) || r.crop; } return r; };
+    await grow(o, blob);
     const top = o && o.cands[0];
-    const edge = top && top.orb >= V.SURE ? await edgeCrop(blob, o.quad) : null;
-    if (edge) o.crop = edge;
     if (!context || !o) return o;
     if (top && top.orb >= V.SURE) {
-      // coins de la carte dans les alentours de la case (ctxQuad) → recalage de la grille du classeur (scan-batch-realign.js)
-      const cq = o.url ? await V.quadOn(context, top, o.url).catch(() => null) : null;
+      // coins de la carte dans les alentours de la case (ctxQuad) → recalage de la grille du classeur (scan-batch-realign.js) ;
+      // la carte y est entière même quand la case l'a coupée : c'est elle qui donne la photo
+      const cq = o.url ? outerQuad(await V.quadOn(context, top, o.url).catch(() => null)) : null;
       if (cq) o.ctxQuad = cq;
-      if (edge) return o;
-      const crop = (cq && await edgeCrop(context, cq)) || (o.url ? await V.cropOn(context, top, o.url).catch(() => null) : null);
+      const crop = cq ? await cropQuad(context, cq).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
     }
-    const w = await V.check(context, cands, visualOpts(codes, setId)).catch(() => null);
+    const w = await grow(await V.check(context, cands, visualOpts(codes, setId)).catch(() => null), context);
     if (w && w.quad) w.ctxQuad = w.quad;
     return w && w.cands[0] && w.cands[0].confident ? w : o;
   }
