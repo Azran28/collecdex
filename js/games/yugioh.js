@@ -310,7 +310,7 @@
         if (w) { tries.push([fixDigits(tail2), w]); if (/^[A-Z]\w+$/.test(tail2)) tries.push([tail2[0] + fixDigits(tail2.slice(1)), w]); }
       }
       // « F003 » (anciennes européennes)
-      if (/^[EFGIS]/.test(rest) && rest.length === 4) tries.push(['E' + fixDigits(rest.slice(1)), 0.9]);
+      if (/^[EFGIS]/.test(rest) && rest.length === 4) { tries.push(['E' + fixDigits(rest.slice(1)), 0.9]); tries.push([fixDigits(rest.slice(1)), 0.7]); } // (« SDJ-F006 » : les données n'ont parfois que « SDJ-006 »)
       for (const pp of pres) for (const [n, w] of tries) { const k = `${pp}-${n}`; if (ok(k)) out.push([k, w * (pp === p ? 1 : 0.8)]); }
     }
     // passcode : 8 chiffres seuls (bas gauche) — seulement s'il désigne une carte connue
@@ -331,9 +331,9 @@
   const MORE_ZONES = (H) => [0.705, 0.735].map((y) => [y, y + 0.04, scaleFor(H), 'otsu', 0.5, 0.98])
     .concat([[0.775, 0.815, scaleFor(H), 'sharp', 0.03, 0.5], [0.94, 0.985, scaleFor(H), 'otsu', 0, 0.42]]);
   const NAME_ZONES = (H) => [[0.035, 0.115, scaleFor(H, 0.55), 'sharp', 0.05, 0.82], [0.035, 0.115, scaleFor(H, 0.55), 'invert', 0.05, 0.82]];
-  // carte recadrée sur ses vrais bords (par l'image) : le code est là où on l'attend, lu de plusieurs façons (Tesseract lit
+  // carte recadrée sur ses vrais bords (par l'image ; v3.27 : carte entière, code vers 0,72 de la hauteur) : le code est là où on l'attend, lu de plusieurs façons (Tesseract lit
   // mal cette petite police à empattements : « RGB T-FROO7 », « CRMSTROGI » ; chaque réglage se trompe autrement)
-  const CROP_ZONES = (H) => [0.705, 0.72, 0.735, 0.75].flatMap((y) => [[y, y + 0.04, scaleFor(H, 0.7), 'sharp', 0.5, 0.98], [y, y + 0.04, scaleFor(H, 0.5), 'gray', 0.5, 0.98], [y, y + 0.04, scaleFor(H, 0.5), 'otsu', 0.5, 0.98]])
+  const CROP_ZONES = (H) => [0.69, 0.7, 0.71, 0.72, 0.73, 0.74].flatMap((y) => [[y, y + 0.035, scaleFor(H, 0.7), 'sharp', 0.5, 0.98], [y, y + 0.035, scaleFor(H, 0.5), 'gray', 0.5, 0.98], [y, y + 0.035, scaleFor(H, 0.5), 'otsu', 0.5, 0.98]])
     .concat([0.93, 0.95].map((y) => [y, y + 0.045, scaleFor(H, 0.7), 'sharp', 0, 0.42]));
   /**
    * Carte déjà reconnue (image, passcode ou nom) : laquelle de ses impressions ? Le code imprimé de chacune (« RGBT-FR007 »,
@@ -344,7 +344,7 @@
   function printScores(texts, prints) {
     const lines = texts.join('\n').split('\n').map(canon).filter((l) => l.length >= 5);
     const scored = prints.map((c) => {
-      const [pre, num] = c.code.split('-'), want = /^E\d{3}$/.test(num) ? [`${pre}-F${num.slice(1)}`, `${pre}-E${num.slice(1)}`] : [`${pre}-FR${num}`, `${pre}-EN${num}`];
+      const [pre, num] = c.code.split('-'), want = /^E\d{3}$/.test(num) ? [`${pre}-F${num.slice(1)}`, `${pre}-E${num.slice(1)}`] : [`${pre}-FR${num}`, `${pre}-EN${num}`, ...(/^\d{3}$/.test(num) ? [`${pre}-F${num}`] : [])]; // (« SDJ-F006 » = « SDJ-006 »)
       let s = 0;
       for (const w of want.map(canon)) for (const l of lines) for (let i = -2; i <= l.length - w.length + 2; i++) {
         const part = l.slice(Math.max(0, i), Math.max(0, i) + w.length);
@@ -399,8 +399,36 @@
     const read = list.filter((id) => codes.includes(id)), inSet = list.filter((id) => (D.byId.get(id) || {}).s === setId);
     return fromIds([...new Set([...read, ...inSet, c.id, ...list])].slice(0, 40));
   }
+  /**
+   * Vrais bords de la carte (v3.27, traits jaunes d'Arnaud sur une page de 9 cartes et une carte seule, 18 oct.) : les coins
+   * trouvés par l'image (ORB) s'appuient sur l'illustration seule (texte anglais sur l'image de référence, français sur la carte) ;
+   * prolonger cette correspondance jusqu'aux coins de la carte amplifie la perspective (4,6 % de la diagonale en moyenne) →
+   * transformation affine ajustée sur la zone de l'illustration (`ART_GRID`), puis vrais bords = `OUTER` dans ce repère (les
+   * images de YGOPRODeck sont un peu plus serrées que la carte : −3 %…+3 % en largeur, −4 %…+2 % en hauteur). Mesuré sur les
+   * 10 cartes dessinées (validation croisée) : 1,9 % en moyenne, pire 3,3 % (bords recalés côté par côté, détecteur appris :
+   * essayés, pas mieux).
+   */
+  const ART_GRID = [0.15, 0.5, 0.85].flatMap((u) => [0.2, 0.425, 0.65].map((v) => [u, v]));
+  const OUTER = [[-0.0305, -0.0427], [1.0321, -0.0371], [1.0322, 1.018], [-0.0234, 1.0198]];
+  function fullQuad(q) {
+    if (!q) return null;
+    const f = App.recognizerParts.squareToQuad(q), dst = ART_GRID.map(([u, v]) => f(u, v));
+    // moindres carrés : x = a·u + b·v + c, y = d·u + e·v + g
+    const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], bx = [0, 0, 0], by = [0, 0, 0];
+    ART_GRID.forEach(([u, v], i) => { const r = [u, v, 1]; for (let a = 0; a < 3; a++) { for (let b = 0; b < 3; b++) M[a][b] += r[a] * r[b]; bx[a] += r[a] * dst[i][0]; by[a] += r[a] * dst[i][1]; } });
+    const solve = (b) => { const A = M.map((r, i) => [...r, b[i]]); for (let c = 0; c < 3; c++) { let p = c; for (let r = c + 1; r < 3; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r; [A[c], A[p]] = [A[p], A[c]]; for (let r = 0; r < 3; r++) if (r !== c) { const k = A[r][c] / A[c][c]; for (let j = c; j < 4; j++) A[r][j] -= k * A[c][j]; } } return A.map((r, i) => r[3] / r[i]); };
+    const ax = solve(bx), ay = solve(by);
+    if (![...ax, ...ay].every(Number.isFinite)) return q;
+    return OUTER.map(([u, v]) => [ax[0] * u + ax[1] * v + ax[2], ay[0] * u + ay[1] * v + ay[2]]);
+  }
+  /** Carte remise à plat d'après ses coins (fractions de l'image) ; carte qui dépasse un peu de l'image : coins ramenés au bord */
+  async function cropQuad(blob, quad) {
+    if (!quad || quad.some(([x, y]) => x < -0.06 || x > 1.06 || y < -0.06 || y > 1.06)) return null;
+    return App.visual.quadCrop(blob, quad.map(([x, y]) => [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))]));
+  }
   async function visualPass(blob, cands, codes, context = null, setId = '') {
     const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
+    if (o && o.quad) { o.quad = fullQuad(o.quad); o.crop = await cropQuad(blob, o.quad).catch(() => null) || o.crop; }
     const top = o && o.cands[0];
     if (top && top.orb >= V.SURE) {
       // impressions de la carte reconnue
@@ -413,13 +441,13 @@
     }
     if (!context || !o) return o;
     if (top && top.orb >= V.SURE) {
-      const cq = o.url ? await V.quadOn(context, top, o.url).catch(() => null) : null;
+      const cq = o.url ? fullQuad(await V.quadOn(context, top, o.url).catch(() => null)) : null;
       if (cq) o.ctxQuad = cq;
-      const crop = cq ? await V.quadCrop(context, cq).catch(() => null) : null;
+      const crop = cq ? await cropQuad(context, cq).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
     }
     const w = await V.check(context, cands, visualOpts(codes, setId)).catch(() => null);
-    if (w && w.quad) w.ctxQuad = w.quad;
+    if (w && w.quad) { w.quad = fullQuad(w.quad); w.crop = await cropQuad(context, w.quad).catch(() => null) || w.crop; w.ctxQuad = w.quad; }
     return w && w.cands[0] && w.cands[0].confident ? w : o;
   }
 
@@ -460,8 +488,8 @@
       // carte détourée trop court (bas sombre de la carte confondu avec la main : coins par l'image hors de la découpe) →
       // vrais bords cherchés sur la photo d'origine, où la carte est entière
       if (!crop && e && e.url && e.cands[0] && (e.cands[0].orb || 0) >= App.visual.SURE && (original || context)) {
-        const V = App.visual, src = context || original, q = await V.quadOn(src, e.cands[0], e.url).catch(() => null);
-        crop = q ? await V.quadCrop(src, q).catch(() => null) : null;
+        const V = App.visual, src = context || original, q = fullQuad(await V.quadOn(src, e.cands[0], e.url).catch(() => null));
+        crop = q ? await cropQuad(src, q).catch(() => null) : null;
         if (crop && context) e.ctxQuad = q;
       }
       if (crop) {
