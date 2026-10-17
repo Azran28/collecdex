@@ -240,6 +240,9 @@ App.importer = (() => {
     s = s.replace(/\[[^\]]*\]|\([^)]*\)/g, ' ').replace(/\s-\s.*$/, ' ').replace(/\b(reverse holo|reverse|holofoil|holo|1st edition|first edition|shadowless)\b/gi, ' ');
     return { name: s.replace(/\s+/g, ' ').trim(), num };
   }
+  // Lorcana : code imprimé complet (« 25/204 • EN • 1 », « 18/P1 • FR • 2 ») ; séries (noms anglais et français)
+  const LC_CODE = /\b\d{1,3}[a-e]?\s*\/\s*(\d{2,3}|P\d|C\d|D23|DIS|PD\d|RPH|CC\d)\s*[•·.-]\s*[A-Z]{2}\s*[•·.-]\s*(\d{1,2}|Q\d)\b/i;
+  const LC_SETS = /^(the first chapter|premier chapitre|rise of the floodborn|l.ascension des floodborn|into the inklands|les terres d.encres|ursula.s return|le retour d.ursula|shimmering skies|ciel scintillant|azurite sea|la mer azurite|archazia.s island|l.[iî]le d.archazia|(the )?reign of jafar|le r[èe]gne de jafar|fabled|fabuleux|whispers in the well|lueurs dans les profondeurs|winterspell|givresort|wilds unknown|contr[ée]es inconnues|attack of the vine!?|invasion [ée]pineuse ?!?|hyperia city|into the inkdark|entrez en encresombre|illumineer.s quest.*|qu[êe]te des illumineurs.*|lorcana.*|disney lorcana.*)$/i;
   const SEALED = /\b(booster|display|elite trainer|etb|coffret|box|bundle|tin|pokebox|blister|deck|theme deck|starter|collection box|pack|sleeve|binder|classeur|portfolio|playmat)\b/i;
 
   /** Lignes du fichier → lignes à importer ({ name, setName, num, qty, lang, cond, ver, skip }) */
@@ -290,6 +293,22 @@ App.importer = (() => {
         row.name = row.name.replace(/\s*[([]\s*(signature|alternate art|overnumbered|showcase|foil)\s*[)\]]/gi, '').trim() || row.name;
         if (/japan|japon|chin/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise ou chinoise (pas encore prise en charge)';
         else if (!rbCode && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
+      // Disney Lorcana (v3.21) : jeu indiqué (« Lorcana »), code imprimé (« 25/204 • EN • 1 ») ou série Lorcana (nom anglais ou français)
+      // (code complet seulement, avec la langue : « 4/102 » d'une carte Pokémon ne doit pas passer pour une carte Lorcana)
+      const lcTxt = `${get(r, 'number')} ${rawName}`, lcCode = LC_CODE.test(lcTxt) && App.games.get('lorcana') ? App.games.get('lorcana').codesIn(lcTxt) : [];
+      const lcSet = LC_SETS.test(String(get(r, 'set') || '').trim());
+      if (/lorcana/.test(cat) || (lcCode.length && !/pok|one ?piece|riftbound/.test(cat)) || (lcSet && !/pok|one ?piece|riftbound/.test(cat))) {
+        row.game = 'lorcana';
+        row.code = lcCode.length ? lcCode.sort((a, b) => b[1] - a[1])[0][0] : '';
+        row.ench = /enchant/i.test(`${rawName} ${get(r, 'version')} ${get(r, 'rarity')}`);
+        // (nom complet « Stitch - Rock Star » : cleanName, fait pour Pokémon, coupe au tiret)
+        row.name = rawName.replace(/\s*[([]\s*(enchanted|enchant[ée]e|foil|cold foil|promo)\s*[)\]]/gi, '').replace(/\s*[-–]?\s*\d{1,3}\s*\/\s*\d{3}.*$/, '').trim() || row.name;
+        if (/japan|japon|chin/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise ou chinoise (pas encore prise en charge)';
+        else if (!lcCode.length && !row.num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
         else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
         out.push(row);
         return;
@@ -392,10 +411,36 @@ App.importer = (() => {
     return { status, ...wrap(pref[0]), cands: [...pref.slice(1), ...rest].slice(0, 11).map(wrap), why: status === 'ok' ? '' : pref.length > 1 ? 'plusieurs versions : choisis la tienne' : 'le nom ne correspond pas tout à fait au numéro' };
   }
 
+  /** Ligne Lorcana : par le code (« 25/204 • EN • 1 »), sinon série + numéro, sinon le nom (français ou anglais : « Ariel - On Human Legs ») */
+  async function matchLC(row) {
+    const lc = App.games.get('lorcana');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'lorcana' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    let list = [], exact = '';
+    if (row.code) { const [s, n] = row.code.split('|'); exact = n; list = await lc.byCode(s, n); }
+    else if (row.num && row.setName) for (const s of await lc.setIdsByName(row.setName)) { exact = String(row.num.n).toLowerCase(); list.push(...await lc.byCode(s, exact)); }
+    if (!list.length && q.length >= 2) list = (await lc.search({ name: row.name })).filter((c) => nameScore(q, c.name, c.nameEn, c.baseName) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: row.code ? `code ${row.code.replace('|', ' · ')} inconnu` : 'carte introuvable' };
+    if (!exact) {
+      const inSet = row.setName ? new Set(await lc.setIdsByName(row.setName)) : null;
+      if (inSet && inSet.size) { const f = list.filter((c) => inSet.has(c.setId)); if (f.length) list = f; }
+      // même carte en version normale et enchantée (même nom) : celle que la ligne indique
+      const ench = list.filter((c) => c.rarity === 'en'), base = list.filter((c) => c.rarity !== 'en');
+      list = row.ench && ench.length ? [...ench, ...base] : [...base, ...ench];
+      return { status: list.length === 1 ? 'verif' : 'choix', ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: 'numéro de la carte non indiqué' };
+    }
+    const ex = list.filter((c) => String(c.localId) === String(exact).replace(/^0+(?=\d)/, ''));
+    const pref = ex.length ? ex : list, rest = list.filter((c) => !pref.includes(c));
+    const okName = !q || nameScore(q, pref[0].name, pref[0].nameEn, pref[0].baseName) >= 0.6;
+    const status = pref.length === 1 ? (okName ? 'ok' : 'verif') : 'choix';
+    return { status, ...wrap(pref[0]), cands: [...pref.slice(1), ...rest].slice(0, 11).map(wrap), why: status === 'ok' ? '' : pref.length > 1 ? 'plusieurs versions : choisis la tienne' : 'le nom ne correspond pas tout à fait au numéro' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
     if (row.game === 'onepiece') return matchOP(row);
     if (row.game === 'riftbound') return matchRB(row);
+    if (row.game === 'lorcana') return matchLC(row);
     const q = norm(row.name);
     const pick = async (setId, cardId) => { const st = await getSet(setId); const c = st && st.cards.find((x) => x.id === cardId); return c ? { card: c, set: st } : null; };
     const withNames = async (st) => { const en = await getEn(st.id); const enBy = Object.fromEntries(en.map((c) => [c.id, c.name])); return st.cards.map((c) => ({ c, s: nameScore(q, c.name, enBy[c.id]) })); };

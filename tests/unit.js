@@ -29,6 +29,7 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('pokemon'), 'Pokémon');
   ok(App.games.get('onepiece'), 'One Piece');
   ok(App.games.get('riftbound'), 'Riftbound');
+  ok(App.games.get('lorcana'), 'Lorcana');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -112,6 +113,7 @@ test('combat : niveaux de l’ordinateur', (App) => {
   ok(App.battle.levels('pokemon').length >= 5, 'niveaux Pokémon');
   ok(App.battle.levels('onepiece').length >= 1, 'niveaux One Piece');
   eq(App.battle.levels('riftbound').length, 5, 'niveaux Riftbound');
+  eq(App.battle.levels('lorcana').length, 5, 'niveaux Lorcana');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -190,6 +192,62 @@ test('index One Piece (data/op-index) cohérent', async () => { await checkIndex
 test('index Riftbound (data/rb-index) cohérent', async () => {
   const m = await checkIndex('rb-index');
   ok(m.ids.includes('ogn-013-298'), 'Poro ronchon (OGN 013) présent');
+});
+
+test('index Lorcana (data/lc-index) cohérent', async () => {
+  const m = await checkIndex('lc-index');
+  ok(m.ids.includes('1-1') && m.ids.includes('1-205') && m.ids.includes('p1-18'), 'Ariel (1-1), une enchantée (1-205), une promo (p1-18)');
+});
+
+// ---------- Lorcana (v3.21) : cartes en français, code imprimé, combattant, cartes de pioche, import ----------
+test('Lorcana : cartes en français (data/lc-cartes.json)', async (App) => {
+  const A = App.games.get('lorcana'), sets = await A.listSets();
+  ok(sets.length >= 20, `${sets.length} séries`);
+  const s1 = await A.getSet('1');
+  eq([s1.name, s1.cardCount.official], ['Premier Chapitre', 204]);
+  const c = await A.getCard('1-1');
+  eq([c.name, c.nameEn, c.rarity, c.category], ['Ariel - Sur des jambes humaines', 'Ariel - On Human Legs', 'u', 'Personnage']);
+  ok(/^https:\/\/images\.weserv\.nl\/\?url=https%3A%2F%2Fapi\.lorcana\.ravensburger\.com%2Fimages%2Ffr%2F/.test(A.img.card(c)), 'visuel français relayé');
+  ok(A.isOfficial('204', s1) && !A.isOfficial('205', s1) && !A.isOfficial('4a', s1), 'enchantées et variantes en plus des 204');
+});
+test('Lorcana : code imprimé lu même mal reconnu', async (App) => {
+  const A = App.games.get('lorcana'); await A.listSets();
+  const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  eq(c('1/204 • FR • 1')[0], '1|1', '« 1/204 • FR • 1 »');
+  eq(c('205/204 . FR . 1')[0], '1|205', 'enchantée, puces lues « . »');
+  eq(c('l2O/204 - EN - 7')[0], '7|120', 'lettres lues à la place des chiffres');
+  eq(c('18/P1 • FR • 2')[0], 'P1|18', 'promo « 18/P1 »');
+  eq(c('1/31 • FR • Q1')[0], 'Q1|1', 'quête « 1/31 • FR • Q1 »');
+  eq(c('4a/204 • FR • 3')[0], '3|4a', 'chiot dalmatien « 4a »');
+  eq(c('Infligez 2 dommages à chaque personnage adverse.'), [], 'pas de code dans un texte de carte');
+  eq(c('Pikachu 25/165'), [], 'numéro Pokémon (pas un total Lorcana)');
+});
+test('Lorcana : personnage → combattant, cartes de pioche', (App) => {
+  const f = App.battle.fighterLC({ id: 'x', name: 'Guimauve', kind: 'ch', category: 'Personnage', strength: 5, willpower: 5, cost: 6, inks: ['st'], text: 'Rempart (Ce personnage peut être épuisé…)\nRésistance +1' });
+  eq([f.hp, f.type, f.attacks.length, f.attacks[1].base], [120, 'metal', 2, 50]);
+  ok(App.battle.canFight({ kind: 'ch', category: 'Personnage', strength: 2 }, 'lorcana') && !App.battle.canFight({ kind: 'ac', category: 'Action' }, 'lorcana'), 'seuls les personnages combattent');
+  const fx = (category, text) => App.battleCards.effectOf({ id: 'y', name: 'z', category, text, inks: ['ru'] }).key;
+  eq([fx('Action', 'Choisissez un personnage et infligez-lui 3 dommages.'), fx('Action', 'Choisissez un personnage et bannissez-le.'), fx('Action', 'Choisissez un personnage, il subit -2 ¤ pour le reste de ce tour.'),
+    fx('Action', "Choisissez un personnage et retirez-lui jusqu'à 2 jetons Dommage."), fx('Lieu', 'Vos personnages ici gagnent +1 ¤.'), fx('Objet', 'Rien de connu.')],
+  ['power', 'power', 'shield', 'heal', 'stadium', 'toolHp']);
+  eq(App.battleCards.inkCard().fx.key, 'energy', 'encre = énergie');
+});
+test('Capturer « Toutes » : une carte Lorcana reconnue sur son texte', async (App) => {
+  await App.need('reco', 'scan'); await App.games.get('lorcana').listSets();
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('ARIEL Sur des jambes humaines Storyborn • Héros • Princesse 1/204 • FR • 1 Disney Lorcana ©Disney'), 'lorcana');
+  eq(S.otherGames('25/204 • FR • 1', 'pokemon')[0], 'lorcana', 'Lorcana essayée d’abord quand son code se lit');
+});
+test('Import : lignes Lorcana (Collectr, Cardmarket)', async (App) => {
+  await App.need('import');
+  const I = App.importer;
+  const rows = [['Product Name', 'Category', 'Set', 'Card Number', 'Quantity'], ['Ariel - On Human Legs', 'Lorcana', 'The First Chapter', '1/204', '1'], ['Stitch - Rock Star', 'Disney Lorcana', 'The First Chapter', '', '2']];
+  const det = I.detect(rows), list = I.rowsOf ? I.rowsOf(rows, det) : null;
+  ok(list && list.length === 2 && list.every((r) => r.game === 'lorcana'), 'lignes reconnues comme Lorcana');
+  const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
+  eq([m1.status, m1.card.id], ['ok', '1-1'], 'série + numéro');
+  ok(m2.card && /^Stitch - Rock star$/i.test(m2.card.name), `par le nom anglais : ${m2.card && m2.card.name}`);
 });
 
 // ---------- Riftbound : code imprimé lu sur la photo, combattant ----------

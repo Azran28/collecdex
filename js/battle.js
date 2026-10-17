@@ -85,10 +85,30 @@ App.battle = (() => {
       type: RB_DOMAIN[(card.domains || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: accel ? 1 : 0, ko: false, ...extra,
     };
   }
-  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound) */
-  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
+  /**
+   * Combattant Disney Lorcana (v3.21, même moteur, adapté légèrement) : seuls les personnages combattent.
+   * PV = 30 + volonté × 15 (+ Résistance) ; type = encre (Rubis → Feu…) ; attaque « Défi » = force × 10 (+ Offensif), coût selon le
+   * coût de la carte ; « Riposte » (1 énergie) si le personnage a Rempart ou Résistance ; Charge = commence avec 1 énergie.
+   */
+  const LC_INK = { ru: 'fire', em: 'grass', sa: 'water', am: 'lightning', amy: 'psychic', st: 'metal' };
+  const isLcFighter = (card) => (card.kind === 'ch' || /^Personnage$/i.test(card.category || '')) && card.strength != null;
+  function fighterLC(card, extra = {}) {
+    const str = Math.max(0, +card.strength || 0), will = Math.max(1, +card.willpower || 1), cost = +card.cost || 0, text = String(card.text || '');
+    const kw = (re) => { const m = text.match(re); return m ? +(m[1] || 1) : 0; };
+    const resist = kw(/(?:R[ée]sistance|Resist)\s*\+(\d+)/i), offensif = kw(/(?:Offensif|Challenger)\s*\+(\d+)/i);
+    const guard = /\b(Rempart|Bodyguard)\b/i.test(text), rush = /^(Charge|Rush)\b|\n(Charge|Rush)\b/i.test(text);
+    const hp = Math.min(260, Math.max(40, r10(30 + will * 15 + resist * 10)));
+    const attacks = [{ name: 'Défi', cost: Math.min(3, 1 + Math.floor(cost / 3)), base: Math.max(10, r10(str * 10 + offensif * 10)), mode: '', noDamage: false, text: offensif ? `Offensif +${offensif} : +${offensif * 10} dégâts` : '' }];
+    if (guard || resist) attacks.unshift({ name: 'Riposte', cost: 1, base: Math.max(10, r10(Math.max(1, str) * 5)), mode: '', noDamage: false, text: '' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'lorcana',
+      type: LC_INK[(card.inks || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: rush ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana) */
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -190,11 +210,20 @@ App.battle = (() => {
     { n: 4, name: 'Maître', desc: 'Champions épiques · une énergie d’avance', pool: og(34, 39, 76, 78, 79, 119, 162, 164, 202, 205, 243, 246), bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Légende', desc: 'Les monstres de Runeterra · sors tes meilleures cartes', pool: og(41, 158, 38, 82, 161, 148, 11, 88), bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Lorcana (v3.21 ; personnages du Premier Chapitre, data/lc-cartes.json)
+  const ch1 = (...n) => n.map((x) => `1-${x}`);
+  const LEVELS_LC = [
+    { n: 1, name: 'Apprenti', desc: 'Petits personnages du Premier Chapitre · il joue un peu au hasard', pool: ch1(7, 13, 19, 20, 22, 24, 36, 47, 60, 69, 77, 110), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Illumineur', desc: 'Personnages aguerris · il attaque toujours au plus fort', pool: ch1(1, 3, 11, 12, 15, 16, 17, 35, 40, 45, 46, 54, 57), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Héros', desc: 'Rares et très rares · il connaît tes points faibles', pool: ch1(5, 10, 23, 37, 43, 50, 51, 56, 75, 78), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Grand Illumineur', desc: 'Personnages légendaires · une énergie d’avance', pool: ch1(21, 42, 59, 70, 82, 115, 147, 178), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Légende', desc: 'Les plus grands méchants et héros · sors tes meilleures cartes', pool: ch1(113, 5, 192, 178, 21, 82, 115, 42), bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterRB, fighterOf, canFight, isOpFighter, isRbFighter, OP_COLOR, RB_DOMAIN, LEVELS_RB, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, OP_COLOR, RB_DOMAIN, LC_INK, LEVELS_RB, LEVELS_LC, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

@@ -91,8 +91,35 @@ App.battleCards = (() => {
     return mk('heal', 30);
   }
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound */
+  /**
+   * Effet simplifié d'une carte Disney Lorcana (Action, Chanson, Objet, Lieu) d'après son texte (français, ou anglais) :
+   * Encre → +1 énergie ; Lieu → Stade ; bannir un personnage → gros coup ; « infligez N dommages » / « +N ¤ » → dégâts en plus ;
+   * « −N ¤ » → protection ; retirer des dommages → soin ; renvoyer un personnage dans la main → Rafale ; épuiser un adversaire →
+   * énergie adverse en moins ; piocher / redresser → +1 énergie ; Objet sans effet reconnu → +20 PV max.
+   */
+  const isLcCard = (card) => !!card && (Array.isArray(card.inks) || card.id === 'INK') && /^(action|objet|lieu|encre)$/.test(norm(card.category));
+  function effectOfLC(card) {
+    const text = norm(card.text || '').replace(/bannissez cet objet|banish this item/g, ''), cat = norm(card.category);
+    const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
+    const k = (v) => Math.min(40, Math.max(10, +v * 10)); // 3 dommages → 30
+    let m;
+    if (cat === 'encre') return mk('energy', 1);
+    if (cat === 'lieu') return mk('stadium', /\+\d+\s*¤/.test(text) ? 20 : 10);
+    if ((m = text.match(/retire\w*(?:-lui)?\s+jusqu'a\s+(\d+)\s+jetons? dommage|remove up to (\d+) damage/))) return /chacun de vos personnages|each of your characters/.test(text) ? mk('healAll', k(m[1] || m[2])) : mk('heal', k(m[1] || m[2]));
+    if (/bannissez[- ]le|bannissez-la|et bannissez|bannissez tous|banish (?:chosen|that|all|them|it)/.test(text)) return mk('power', 40);
+    if ((m = text.match(/infligez(?:-lui)?\s+(\d+)\s+dommages?|deal (\d+) damage/))) return mk('power', k(m[1] || m[2]));
+    if ((m = text.match(/gagne\w*\s+\+(\d+)\s*¤|gets? \+(\d+)\s*¤/))) return mk('power', k(m[1] || m[2]));
+    if ((m = text.match(/[-−](\d+)\s*¤/))) return mk('shield', k(m[1]));
+    if (/renvoy\w*.{0,60}dans la main de son proprietaire|return .{0,40}to (?:their|its) (?:player|owner)'?s hand/.test(text)) return mk('gust');
+    if (/personnage adverse et epuisez|epuisez-le|exert chosen opposing/.test(text)) return mk('strip', 1);
+    if (/piochez|regardez les \d+ premieres|redressez|draw (?:a|\d) cards?|look at the top|ready chosen/.test(text)) return mk('charge');
+    if (cat === 'objet') return mk('toolHp', 20);
+    return mk('heal', 30);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana */
   function effectOf(card) {
+    if (isLcCard(card)) return effectOfLC(card); // (avant One Piece : « Lieu » existe dans les deux jeux)
     if (isOpCard(card)) return effectOfOP(card);
     if (isRbCard(card)) return effectOfRB(card);
     const name = norm(card.name), text = norm(card.effect || card.description || '');
@@ -135,19 +162,23 @@ App.battleCards = (() => {
     if (App.pokemonHorsSerie && App.pokemonHorsSerie.isLocalImage(card.image)) return `${card.image}.jpg`; // carte hors-série : visuel du site
     if (/onepiece-cardgame\.com\//.test(card.image || '')) return App.games.get('onepiece').img.card(card, 'high'); // One Piece : visuel relayé (Bandai bloque l'affichage direct)
     if (/^https:\/\/cmsassets\.rgpub\.io\//.test(card.image || '')) return App.games.get('riftbound').img.card(card, 'high'); // Riftbound : visuel relayé (réduit)
+    if (/^https:\/\/api\.lorcana\.ravensburger\.com\//.test(card.image || '')) return App.games.get('lorcana').img.card(card, 'high'); // Lorcana : visuel relayé (réduit)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
     return m && card.localId ? `https://assets.tcgdex.net/en/${m[1]}/${m[2]}/${encodeURIComponent(card.localId)}/high.webp` : '';
   }
   /** Carte du sac prête pour le combat (img peut être ta photo ; imgOff = visuel officiel, envoyé à l'adversaire) */
   function bagCard(card, extra = {}) {
-    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
+    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$|^encre$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
   }
   // carte DON!! One Piece : absente des listes de Bandai, on la dessine (img/combat/don.svg)
   const DON_IMG = 'img/combat/don.svg';
   const donCard = (extra = {}) => bagCard({ id: 'DON', name: 'DON!!', category: 'DON!!', image: '' }, { img: DON_IMG, imgOff: DON_IMG, ...extra });
-  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!! */
-  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra))
+  // encre Lorcana (v3.21) : pas de carte d'énergie dans ce jeu (n'importe quelle carte va dans la réserve d'encre) → on la dessine
+  const INK_IMG = 'img/combat/encre-lorcana.svg';
+  const inkCard = (extra = {}) => bagCard({ id: 'INK', name: 'Encre', category: 'Encre', image: '' }, { img: INK_IMG, imgOff: INK_IMG, ...extra });
+  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana */
+  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra))
     : App.games.get(game || 'pokemon').getCard(id).then((c) => bagCard(c, extra)).catch(() => null)))).then((l) => l.filter(Boolean));
 
   const B = () => App.battle;
@@ -237,17 +268,31 @@ App.battleCards = (() => {
   ];
   const RUNE_OF = { fire: rb(7), grass: rb(42), water: rb(89), fighting: rb(126), psychic: rb(166), lightning: rb(214) };
   const runeFor = (type) => RUNE_OF[type] || rb(7);
+  // Lorcana (Premier Chapitre) : Lueur réparatrice / Fleur aux pétales d'or (soin), Hakuna Matata (soin de tous), Il a un sabre ! (+2 ¤),
+  // Très mauvais caractère ! (−2 ¤), Gel (épuiser), Fracasser ! (3 dommages), Feu du dragon (bannir), Emberlificotage (renvoyer),
+  // Mes amis de l'au-delà (piocher), puis de l'encre
+  const lc = (n) => `1-${n}`;
+  const AI_BAGS_LC = [
+    [[lc(28), 2]],
+    [[lc(28), 2], [lc(132), 1]],
+    [[lc(28), 2], [lc(132), 1], [lc(26), 1], [lc(63), 1]],
+    [[lc(169), 1], [lc(28), 1], [lc(200), 2], [lc(26), 1], [lc(62), 1], [lc(63), 1]],
+    [[lc(169), 2], [lc(200), 2], [lc(130), 1], [lc(27), 1], [lc(62), 1], [lc(64), 1]],
+  ];
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
   const aiBag = (level, type, game) => (game === 'onepiece'
     ? [...many(AI_BAGS_OP[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('DON')]
     : game === 'riftbound' ? [...many(AI_BAGS_RB[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(runeFor(type))]
-      : [...many(AI_BAGS[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(energyFor(type))]);
+      : game === 'lorcana' ? [...many(AI_BAGS_LC[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('INK')]
+        : [...many(AI_BAGS[level - 1]), ...Array(AI_ENERGY[level - 1]).fill(energyFor(type))]);
   // deck de prêt (8 cartes) : 2 Potion, PlusPower, Défenseur, Transfert, 3 Énergies
   // (One Piece : 2 Guard Point, Four Thousand-Brick Fist, You Can Be My Samurai!!, Sables, 3 DON!! ;
-  //  Riftbound : 2 Hextech Ray, Discipline, Rune Prison, Retreat, 3 runes)
+  //  Riftbound : 2 Hextech Ray, Discipline, Rune Prison, Retreat, 3 runes ;
+  //  Lorcana : 2 Lueur réparatrice, Il a un sabre !, Très mauvais caractère !, Emberlificotage, 3 encres)
   const loanBag = (type, game) => (game === 'onepiece'
     ? [...many([['ST01-014', 2], ['OP05-020', 1], ['OP01-055', 1], ['ST03-015', 1]]), 'DON', 'DON', 'DON']
     : game === 'riftbound' ? [...many([[rb(9), 2], [rb(58), 1], [rb(50), 1], [rb(104), 1]]), ...Array(3).fill(runeFor(type))]
+      : game === 'lorcana' ? [...many([[lc(28), 2], [lc(132), 1], [lc(26), 1], [lc(62), 1]]), 'INK', 'INK', 'INK']
       : [...many([['base1-94', 2], ['base1-84', 1], ['base1-80', 1], ['base1-95', 1]]), ...Array(3).fill(energyFor(type))]);
   // v3.00 : pioche plus lente (2 cartes au départ, 1 tous les 2 tours, 4 en main au plus)
   const DECK_MAX = 10, HAND_START = 2, DRAW_EVERY = 2, HAND_MAX = 4;
@@ -259,5 +304,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, isRbCard, bagCard, donCard, loadBag, DON_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
+  return { effectOf, isOpCard, isRbCard, isLcCard, bagCard, donCard, inkCard, loadBag, DON_IMG, INK_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

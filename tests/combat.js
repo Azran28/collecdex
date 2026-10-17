@@ -43,4 +43,5 @@
   test('combat complet contre l’ordinateur (Pokémon, avancé avec pioche)', (App, W) => play(App, W, { game: 'pokemon', adv: true }), { net: true });
   test('combat complet contre l’ordinateur (One Piece)', (App, W) => play(App, W, { game: 'onepiece' }), { net: true });
   test('combat complet contre l’ordinateur (Riftbound, avancé avec grimoire)', (App, W) => play(App, W, { game: 'riftbound', adv: true }), { net: true });
+  test('combat complet contre l’ordinateur (Lorcana, avancé avec grimoire)', (App, W) => play(App, W, { game: 'lorcana', adv: true }), { net: true });
 })();

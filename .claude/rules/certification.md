@@ -13,6 +13,7 @@ paths:
 - **Carte seule** : certification **optionnelle** (`App.settings.certCarte`, interrupteur `#sc-certon`, encadré `.pc-off` si désactivée ; `certWanted` dans `shoot`) ; lampe toujours utilisée (`useLamp = true`, `tracker(…, { lamp, onLamp })`, grande consigne `.pc-big` pendant la phase `lampe`, `trk.lampStart` / `trk.LAMP_MS`). `LAMP_BLOCKS = true` (depuis v2.56).
 - **Rafale** : sans certification (`RAFALE_CERT = false`), sans lampe. **Page de classeur** : retirée (`PAGE_CERT = false` dans `batch`, le code reste ; `live(…, 'page')` refuse).
 - Encadré commun `App.views.scan.certBlock(mode, extra)` (`.pc-block`, ids `sc-cert-help` / `b-cert-help` / `r-cert-help`) ; `certSwitch(id, on, label)` = interrupteur vert/rouge ; `.action-dock` vide caché.
+- Lorcana (v3.21) : `App.lorcanaBacks` (vide tant qu'Arnaud n'a pas envoyé une photo du dos) + `LC_BACK`, voir `lorcana.md`.
 - Riftbound (v3.10) : `rbBackScore` (mesure dédiée or + fond + symétrie, voir `riftbound.md`), comptée dans `backOf` sans décalage.
 - One Piece : `App.onePieceBacks` (dos bleu + rouge) → `backScoreOf(…, game)` / `looksLikeBack(blob, game)`, `tracker(…, { game })` (+0,1 = seuil 0,45), `identity(blob, c, game)` = code lu. Suivi : tous les dos connus (Pokémon, One Piece + 0,05).
 

@@ -463,7 +463,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .g-riftbound { --g: linear-gradient(135deg, #3fd4e0, #1d4f9e); }
 .g-magic { --g: linear-gradient(135deg, #9b7bff, #4b2fb8); }
 .g-yugioh { --g: linear-gradient(135deg, #ffb347, #b35c00); }
-.g-lorcana { --g: linear-gradient(135deg, #34d5ff, #2f6bff); }
+.g-lorcana { --g: linear-gradient(135deg, #f0c25a, #6a3fb5); }
 .g-autres { --g: linear-gradient(135deg, #ff4fa3, #7c5cff); }
 
 /* Logos de séries (officiels ou générés) */
@@ -2579,6 +2579,10 @@ a.bt-choice:active { transform: scale(.985); }
 @media (max-width: 760px) {
   .game-pick, .sc-game { flex-wrap: nowrap; }
   .game-pick .chip, .sc-game .chip { flex: 1 1 0; justify-content: center; }
+  /* v3.21 : 4 licences ne tiennent plus sur la largeur → rangée qui défile de côté (jusqu'au bord de l'écran) */
+  .game-pick { overflow-x: auto; scrollbar-width: none; margin-right: -12px; padding-right: 12px; }
+  .game-pick::-webkit-scrollbar { display: none; }
+  .game-pick .chip { flex: 0 0 auto; white-space: nowrap; }
 }
 .logo-gen.logo-code { font-size: 1.35rem; letter-spacing: .02em; padding: 9px 16px; }
 .set-hero .logo-gen.logo-code { font-size: 2rem; padding: 14px 24px; }
@@ -2856,6 +2860,57 @@ a.bt-choice:active { transform: scale(.985); }
 .bt-ov.g-riftbound .bt-sc { background: rgba(0,0,0,.22); }
 .bt-ov.g-riftbound .bt-sc em { color: #9ff6ff; }
 .bt-ov.g-riftbound .bt-sc.ok { border-color: #5fe3ef; box-shadow: 0 0 16px rgba(95,227,239,.35); }
+
+/* ===== v3.21 : Lorcana — même combat, habillage livre de contes (nuit violette, encre magique, dorures), décor : le Grand Illuminarium ===== */
+.bt-lic-tile.g-lorcana { background-image: linear-gradient(100deg, rgba(16,11,40,.92) 15%, rgba(16,11,40,.45) 60%, rgba(16,11,40,.2)), url(../img/combat/illuminarium-lorcana.svg); background-position: center 45%; }
+.g-lorcana .bt-lic-ic, .bt-hero.g-lorcana .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #efe7ff, #8f6bff 50%, #2a1f5c); color: #fff6dc; box-shadow: 0 0 0 2px #e7c36a inset, 0 6px 18px rgba(143,107,255,.45); }
+.g-lorcana .bt-lic-t b { color: #f1dc9c; font-family: Georgia, "Times New Roman", serif; letter-spacing: .3px; text-shadow: 0 0 12px rgba(183,156,255,.5), 0 2px 10px rgba(0,0,0,.5); }
+.bt-page.g-lorcana { --acc: #6a3fb5; --acc2: #e7c36a; }
+.bt-hero.g-lorcana { background-image: linear-gradient(100deg, rgba(16,11,40,.9) 25%, rgba(16,11,40,.35)), url(../img/combat/illuminarium-lorcana.svg); background-position: center 40%; }
+.bt-page.g-lorcana .bt-hero-t h1, .bt-page.g-lorcana .bt-step { font-family: Georgia, "Times New Roman", serif; letter-spacing: .3px; }
+.bt-page.g-lorcana .bt-hero-t h1 { color: #f1dc9c; }
+.bt-ov.g-lorcana::before, .bt-ov.g-lorcana::after { display: none; }
+.bt-ov.g-lorcana > .bt-bg { background-image: linear-gradient(180deg, rgba(12,8,32,.6), rgba(12,8,32,.1) 22%, rgba(12,8,32,.08) 55%, rgba(12,8,32,.72) 92%), url(../img/combat/illuminarium-lorcana.svg); }
+.bt-ov.g-lorcana.boss > .bt-bg { filter: brightness(.6) saturate(.8) hue-rotate(-40deg); }
+/* mouvement léger : l'encre magique ondule */
+.bt-ov.g-lorcana > .bt-bg::after { background: radial-gradient(ellipse 220px 50px at 50% 62%, rgba(183,156,255,.25), transparent 70%); animation: btInk 6s ease-in-out infinite alternate; }
+@keyframes btInk { to { opacity: .35; transform: translateX(4%) scale(1.1); } }
+.bt-ov.g-lorcana .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-ov.g-lorcana .bt-lic { background: radial-gradient(circle at 35% 30%, #efe7ff, #8f6bff 50%, #2a1f5c); color: #fff6dc; box-shadow: 0 0 0 2px #e7c36a inset; }
+.bt-ov.g-lorcana .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(12,8,32,.6); }
+/* panneaux façon page de livre de contes : parchemin, filet doré */
+.bt-ov.g-lorcana .bt-info { background: linear-gradient(180deg, #f6ecd2, #e8d6aa); color: #2a1f5c; border: 2px solid #b58a2e; border-radius: 12px; box-shadow: 0 0 0 3px rgba(106,63,181,.25) inset, 0 10px 24px rgba(0,0,0,.4); }
+.bt-ov.g-lorcana .bt-name b { font-family: Georgia, "Times New Roman", serif; font-weight: 800; letter-spacing: .2px; }
+.bt-ov.g-lorcana .bt-stats { color: #5b4a7a; }
+.bt-ov.g-lorcana .bt-stats b { color: #2a1f5c; }
+.bt-ov.g-lorcana .bt-hp { background: #2a1f5c; border: 1px solid #b58a2e; }
+.bt-ov.g-lorcana .bt-loan { background: #d9c8ff; color: #2a1f5c; }
+.bt-ov.g-lorcana .bt-tag { background: #e3d3a6; color: #2a1f5c; }
+.bt-ov.g-lorcana .bt-tag.sh { background: #cfe0f2; color: #1d3f7a; }
+.bt-ov.g-lorcana .bt-tag.pw { background: #f2c4cf; color: #7a1a33; }
+/* encre = petits hexagones violets */
+.bt-ov.g-lorcana .bt-pips i { border-radius: 0; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: linear-gradient(135deg, #efe7ff, #8f6bff 55%, #4b2c9e); }
+.bt-ov.g-lorcana .bt-pips b { color: #6a3fb5; }
+.bt-ov.g-lorcana .bt-cost i { border-radius: 0; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: #8f6bff; }
+.bt-ov.g-lorcana .bt-log { background: linear-gradient(180deg, rgba(36,26,80,.95), rgba(22,15,54,.95)); color: #f6ecd2; border: 2px solid #e7c36a; border-radius: 10px; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-lorcana .bt-log .bt-eff { color: #f1dc9c; }
+.bt-ov.g-lorcana .bt-banner.me { background: linear-gradient(135deg, #efe7ff, #8f6bff 50%, #4b2c9e); color: #fff6dc; border: 3px solid #e7c36a; font-family: Georgia, "Times New Roman", serif; font-weight: 800; box-shadow: 0 10px 30px rgba(143,107,255,.45); }
+.bt-ov.g-lorcana .bt-banner.foe { background: #1a1440; border-color: #e7c36a; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-lorcana .bt-end-t { font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-lorcana .bt-end.win .bt-end-box { border-color: #e7c36a; box-shadow: 0 0 40px rgba(231,195,106,.4); }
+.bt-ov.g-lorcana .bt-played div { border-color: rgba(183,156,255,.6); }
+.bt-ov.g-lorcana .bt-played small { color: #efe7ff; }
+/* grimoire (pioche du mode Avancé) */
+.bt-ov.g-lorcana .bt-bagbtn { background: linear-gradient(180deg, #3a2a7a, #1a1440); border: 2px solid #e7c36a; color: #f6ecd2; }
+.bt-ov.g-lorcana .bt-bagbtn .bt-bagic { background: #120d2e; }
+.bt-ov.g-lorcana .bt-bagbtn small { color: #d9c8ff; }
+.bt-ov.g-lorcana .bt-sheet-box { background: linear-gradient(180deg, #2f2366, #160f36); border: 3px solid #e7c36a; color: #f6ecd2; box-shadow: inset 0 0 0 4px #120d2e, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-lorcana .bt-sheet-h b { font-family: Georgia, "Times New Roman", serif; color: #f1dc9c; }
+.bt-ov.g-lorcana .bt-sheet-h .bt-bagic { background: #120d2e; }
+.bt-ov.g-lorcana .bt-sheet-grid { padding: 10px; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, #4b3a96, #160f36); border: 2px solid rgba(231,195,106,.45); }
+.bt-ov.g-lorcana .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-lorcana .bt-sc em { color: #f1dc9c; }
+.bt-ov.g-lorcana .bt-sc.ok { border-color: #e7c36a; box-shadow: 0 0 16px rgba(231,195,106,.35); }
 
 /* ===== v3.11–v3.12 : Capturer — choix de la licence d'abord : grille compacte (d'autres licences arriveront) ===== */
 .lic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-width: 900px; }

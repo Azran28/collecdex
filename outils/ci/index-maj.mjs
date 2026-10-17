@@ -1,13 +1,13 @@
 // Robot de l'index d'images (GitHub Actions, .github/workflows/index.yml) : ouvre outils/index-maj.html dans Chromium,
-// ajoute les nouvelles cartes Pokémon, One Piece et Riftbound à data/*-index, augmente le numéro de version de l'index
-// (INDEX_V dans js/visual.js, OP_INDEX_V dans js/games/onepiece.js, RB_INDEX_V dans js/games/riftbound.js) pour que les téléphones le retéléchargent.
+// ajoute les nouvelles cartes Pokémon, One Piece, Riftbound et Lorcana à data/*-index, augmente le numéro de version de l'index
+// (INDEX_V dans js/visual.js, OP_INDEX_V dans js/games/onepiece.js, RB_INDEX_V dans js/games/riftbound.js, LC_INDEX_V dans js/games/lorcana.js) pour que les téléphones le retéléchargent.
 // Usage : node outils/ci/index-maj.mjs [adresse du site local]   → écrit « changed=true|false » dans $GITHUB_OUTPUT
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 
 const site = process.argv[2] || 'http://localhost:8080/';
 const FILES = { pokemon: ['data/vis-index', 'js/visual.js', /const INDEX_V = (\d+);/, 'INDEX_V'], onepiece: ['data/op-index', 'js/games/onepiece.js', /const OP_INDEX_V = (\d+);/, 'OP_INDEX_V'],
-  riftbound: ['data/rb-index', 'js/games/riftbound.js', /const RB_INDEX_V = (\d+);/, 'RB_INDEX_V'] };
+  riftbound: ['data/rb-index', 'js/games/riftbound.js', /const RB_INDEX_V = (\d+);/, 'RB_INDEX_V'], lorcana: ['data/lc-index', 'js/games/lorcana.js', /const LC_INDEX_V = (\d+);/, 'LC_INDEX_V'] };
 const out = (k, v) => { if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`); };
 const summary = (t) => { console.log(t); if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, t + '\n'); };
 

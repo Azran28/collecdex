@@ -11,7 +11,7 @@
   const gameOf = (it) => (it && it.game) || 'pokemon';
   const adOf = (it) => ad(gameOf(it)) || ad();
   // v2.99 : chaque licence a ses combats (decks, adversaires, salons en ligne) ; on choisit d'abord la licence
-  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound'];
+  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound', 'lorcana'];
   const TEAMS = 3, BAG_MAX = App.battleCards.DECK_MAX; // pioche du mode Avancé : 10 cartes (v2.80)
   const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -32,6 +32,11 @@
       bagKinds: 'Sort / Équipement / Rune / Champ de bataille', bagName: 'Grimoire', bagTitle: 'Ton grimoire', search: 'Rechercher une unité…', place: 'Sur la Faille',
       tag: 'Batailles sur la Faille de l’invocateur', foeTag: 'Des sbires aux Légendes',
     },
+    lorcana: {
+      name: 'Disney Lorcana', icon: 'ink', myTurn: 'À toi, Illumineur !', champion: 'Tu es une Légende de Lorcana !', back: 'img/combat/dos-lorcana.svg',
+      bagKinds: 'Action / Chanson / Objet / Lieu', bagName: 'Grimoire', bagTitle: 'Ton grimoire', search: 'Rechercher un personnage…', place: 'Au Grand Illuminarium',
+      tag: 'Défis au Grand Illuminarium', foeTag: 'Des apprentis aux Légendes',
+    },
   };
   const lic = (game) => LIC[game] || LIC.pokemon;
   // icônes du sac (Pokémon : sac à dos) et du coffre (One Piece : coffre au trésor)
@@ -39,11 +44,18 @@
     pokemon: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M11 8a5 5 0 0 1 10 0" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="6" y="8" width="20" height="20" rx="6" fill="#e3350d" stroke="#1a1a2e" stroke-width="2"/><path d="M6 15h20" stroke="#1a1a2e" stroke-width="2"/><rect x="10" y="18" width="12" height="7" rx="2" fill="#ffcb05" stroke="#1a1a2e" stroke-width="1.6"/><circle cx="16" cy="15" r="2.4" fill="#fff" stroke="#1a1a2e" stroke-width="1.6"/></svg>',
     onepiece: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M5 14a11 7 0 0 1 22 0v2H5z" fill="#8a5a32" stroke="#3b230f" stroke-width="1.8"/><rect x="5" y="15" width="22" height="12" rx="2" fill="#6b4423" stroke="#3b230f" stroke-width="1.8"/><path d="M5 19h22M10 9v18M22 9v18" stroke="#e8b04a" stroke-width="2"/><rect x="13.5" y="16" width="5" height="6" rx="1" fill="#ffd479" stroke="#3b230f" stroke-width="1.2"/></svg>',
     // Riftbound : grimoire relié, rune lumineuse sur la couverture
+    // Lorcana : flacon d'encre magique (hexagone de la réserve d'encre)
+    lorcana: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M16 3.5 26.5 9.5v13L16 28.5 5.5 22.5v-13z" fill="#2a1f5c" stroke="#e7c36a" stroke-width="1.8"/><path d="M16 9.5c-2.6 3.6-4.3 6-4.3 8.2a4.3 4.3 0 0 0 8.6 0c0-2.2-1.7-4.6-4.3-8.2z" fill="#8f6bff" stroke="#e7c36a" stroke-width="1.3"/><circle cx="14.6" cy="17.6" r="1.1" fill="#e9e3ff"/></svg>',
     riftbound: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M7 5h17a2 2 0 0 1 2 2v20H9a2 2 0 0 1-2-2z" fill="#1d3f7a" stroke="#0b1530" stroke-width="1.8"/><path d="M7 25a2 2 0 0 1 2-2h17" fill="none" stroke="#c8a24a" stroke-width="1.8"/><path d="M16.5 8.5 21 14l-4.5 5.5L12 14z" fill="#5fe3ef" stroke="#0b1530" stroke-width="1.3"/><path d="M16.5 11v6" stroke="#0b1530" stroke-width="1.2"/></svg>',
   };
   /** Vocabulaire de la licence : en One Piece, on parle de personnages et de DON!! (pas de Pokémon ni d'énergie) ;
-   *  en Riftbound, d'unités (l'énergie existe aussi dans ce jeu, elle garde son nom ; « de son type » = de son domaine) */
-  const say = (game, s) => (game === 'onepiece' ? String(s)
+   *  en Riftbound, d'unités (l'énergie existe aussi dans ce jeu, elle garde son nom ; « de son type » = de son domaine) ;
+   *  en Lorcana, de personnages et d'encre (« de son type » = de son encre) */
+  const say = (game, s) => (game === 'lorcana' ? String(s)
+    .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'l’encre').replace(/d’énergie/g, 'd’encre')
+    .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 personnages').replace(/Pokémon/g, 'personnage')
+    .replace(/(\d+) [ÉéE]nergies\b/g, '$1 encres').replace(/[ÉéE]nergies?/g, 'encre')
+    : game === 'onepiece' ? String(s)
     .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'le DON!!').replace(/d’énergie/g, 'de DON!!')
     .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 personnages').replace(/Pokémon/g, 'personnage')
     .replace(/[ÉéE]nergies?/g, 'DON!!')
@@ -109,7 +121,8 @@
     for (const it of items) (bySet[it.setId] = bySet[it.setId] || []).push(it);
     const out = [];
     const ok = game === 'onepiece' ? (c) => /^(Événement|Lieu|Event|Stage)$/i.test(c)
-      : game === 'riftbound' ? (c) => /^(Sort|Équipement|Rune|Champ de bataille)$/i.test(c) : (c) => !/pok/i.test(c);
+      : game === 'riftbound' ? (c) => /^(Sort|Équipement|Rune|Champ de bataille)$/i.test(c)
+        : game === 'lorcana' ? (c) => /^(Action|Objet|Lieu)$/i.test(c) : (c) => !/pok/i.test(c);
     await App.util.pool(Object.keys(bySet), 4, async (sid) => {
       const set = await ad(game).getSet(sid).catch(() => null);
       const cat = new Map((set ? set.cards : []).map((c) => [c.id, c.category]));
@@ -131,7 +144,7 @@
       for (const it of bySet[k]) {
         const c = cat.get(it.id);
         if (op) { // (liste One Piece / Riftbound : catégorie seulement ; PV et type viennent de la fiche, en arrière-plan)
-          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
+          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : game === 'lorcana' ? /^Personnage$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
           out.push(Object.assign(Object.create(it), { _hp: null, _type: null }));
           continue;
         }
@@ -154,9 +167,10 @@
     const off = App.battleCards.offImg(card);
     return B().fighterOf(card, game, { img: off, imgOff: off, ...extra });
   }
-  /** One Piece : les cartes DON!! ne se capturent pas → 3 DON!! s'ajoutent à ma pioche (dans la limite de 10 cartes) */
-  const withDon = (bag, game) => (game !== 'onepiece' || !bag.length ? bag
-    : [...bag, ...Array.from({ length: Math.max(0, Math.min(3, BAG_MAX - bag.length)) }, () => App.battleCards.donCard())]);
+  /** One Piece : les cartes DON!! ne se capturent pas → 3 DON!! s'ajoutent à ma pioche (dans la limite de 10 cartes) ;
+   *  Lorcana : pas de carte d'énergie → 3 encres, de la même façon */
+  const withDon = (bag, game) => (!['onepiece', 'lorcana'].includes(game) || !bag.length ? bag
+    : [...bag, ...Array.from({ length: Math.max(0, Math.min(3, BAG_MAX - bag.length)) }, () => (game === 'lorcana' ? App.battleCards.inkCard() : App.battleCards.donCard()))]);
   /** Mes combattants (complétés par des cartes de prêt de la licence) */
   async function myFighters(items, game) {
     const fs = (await Promise.all(items.map((it) => fromItem(it).catch(() => null)))).filter(Boolean);
@@ -172,12 +186,14 @@
   const OP_NAMES = { fire: 'Rouge', grass: 'Vert', water: 'Bleu', psychic: 'Violet', darkness: 'Noir', lightning: 'Jaune', colorless: 'Sans couleur' };
   // Riftbound : le domaine de la carte tient lieu de type
   const RB_NAMES = { fire: 'Fureur', grass: 'Calme', water: 'Esprit', fighting: 'Corps', psychic: 'Chaos', lightning: 'Ordre', colorless: 'Sans domaine' };
-  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : Object.keys(B().TYPE_INFO));
-  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
+  // Lorcana : l'encre de la carte tient lieu de type
+  const LC_NAMES = { fire: 'Rubis', grass: 'Émeraude', water: 'Saphir', lightning: 'Ambre', psychic: 'Améthyste', metal: 'Acier', colorless: 'Sans encre' };
+  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : game === 'lorcana' ? Object.values(B().LC_INK) : Object.keys(B().TYPE_INFO));
+  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : game === 'lorcana' ? LC_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
   const typeChip = (t, game) => `<span class="bt-type" style="--tc:${typeColor(t)}">${esc(typeName(t, game))}</span>`;
   const pips = (n) => `<span class="bt-pips" title="${n} énergie${n > 1 ? 's' : ''}">${Array.from({ length: Math.min(n, 8) }, () => '<i></i>').join('')}${n > 8 ? `<b>+${n - 8}</b>` : ''}</span>`;
   const costPips = (n) => (n ? Array.from({ length: n }, () => '<i></i>').join('') : '<small>0</small>');
   const hpCls = (r) => (r < 0.3 ? 'low' : r < 0.6 ? 'mid' : '');
 
-  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, RB_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
+  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, RB_NAMES, LC_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
 })();

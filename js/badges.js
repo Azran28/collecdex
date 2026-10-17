@@ -11,6 +11,9 @@ App.badges = (() => {
     'evelynn', 'ezreal', 'fiora', 'garen', 'heimerdinger', 'irelia', 'ivern', 'jarvan iv', 'jax', 'jayce', 'jhin', 'jinx', 'k\'sante', 'kai\'sa', 'karma', 'karthus', 'kayn', 'kennen',
     'kha\'zix', 'kog\'maw', 'leblanc', 'lee sin', 'leona', 'lillia', 'lucian', 'lux', 'malzahar', 'master yi', 'mel', 'miss fortune', 'nocturne', 'poppy', 'qiyana', 'rek\'sai', 'renata glasc',
     'rengar', 'rumble', 'sett', 'shen', 'sivir', 'sona', 'taric', 'teemo', 'tryndamere', 'twisted fate', 'udyr', 'vayne', 'vi', 'viktor', 'volibear', 'warwick', 'yasuo', 'yone', 'zed'].map(N));
+  // Lorcana : personnage = nom avant « - » (« Belle - Étrange demoiselle ») ; princesses Disney présentes dans le jeu
+  const hasLc = (ctx, name) => ctx.items.some((i) => i.game === 'lorcana' && N(String(i.snap.name).split(' - ')[0]) === name);
+  const LC_PRINCESSES = ['ariel', 'cendrillon', 'belle', 'raiponce', 'aurore', 'blanche-neige', 'jasmine', 'mulan', 'pocahontas', 'tiana', 'vaiana', 'merida', 'anna', 'elsa'];
   const L = [
     // Taille de la collection
     ['c1', 'Premier pas', 'Ta première carte dans ton Dex', 'sparkles', 1, (x) => x.n >= 1],
@@ -64,6 +67,11 @@ App.badges = (() => {
     ['rb-runes', 'Maître des runes', 'Les 6 runes : Fureur, Calme, Esprit, Corps, Chaos et Ordre', 'rune', 2, (x) => ['fury', 'calm', 'mind', 'body', 'chaos', 'order'].every((d) => x.items.some((i) => i.game === 'riftbound' && N(i.snap.name) === `${d} rune`))],
     ['rb-champs', 'Invocateur', '10 champions différents', 'crown', 3, (x) => new Set(x.items.filter((i) => i.game === 'riftbound').map((i) => N(String(i.snap.name).split(',')[0])).filter((n) => RB_CHAMPS.has(n))).size >= 10],
     ['rb-showcase', 'Vitrine dorée', '3 cartes Showcase', 'rune', 3, (x) => x.items.filter((i) => i.game === 'riftbound' && i.snap.rarity === 'showcase').length >= 3],
+    // Disney Lorcana (v3.21 : mêmes idées ; noms français « Ariel - Sur des jambes humaines », personnage avant le tiret)
+    ['lc-mickey', 'Ami de Mickey', '5 cartes Mickey Mouse différentes', 'ink', 2, (x) => x.items.filter((i) => i.game === 'lorcana' && N(i.snap.name).startsWith('mickey mouse')).length >= 5],
+    ['lc-princes', 'Royaume des princesses', '5 princesses différentes', 'crown', 2, (x) => LC_PRINCESSES.filter((n) => hasLc(x, n)).length >= 5],
+    ['lc-villains', 'Côté obscur', 'Ursula, Maléfique, Jafar et Hadès', 'ink', 3, (x) => ['ursula', 'malefique', 'jafar', 'hades'].every((n) => hasLc(x, n))],
+    ['lc-ench', 'Enchanteur', '3 cartes Enchantées', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'lorcana' && i.snap.rarity === 'en').length >= 3],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   const setsCache = {}; // séries de chaque licence

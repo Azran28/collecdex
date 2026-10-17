@@ -168,6 +168,7 @@ App.certify = (() => {
   // Seuils (à affiner avec les vraies captures : les mesures sont enregistrées avec chaque certification)
   const SCREEN_PEAK = 40;
   const BACK_T = 0.55, FRONT_T = 0.5; // dos : 0,71 à 0,95 mesurés ; faces jusqu'à 0,49
+  const LC_BACK = 0; // Lorcana (v3.21) : décalage du score de son dos (modèle de js/games/lorcana-backs.js), à régler sur les photos d'Arnaud
 
   /**
    * Retournement réussi ? Analyse faite au moment de la photo, sur les images filmées depuis le dos.
@@ -587,7 +588,7 @@ App.certify = (() => {
       // en mode Pokémon : « Dos pas reconnu ») — One Piece : dos mesurés 0,56 à 0,66 → seuil ramené à 0,50 (+0,05) ;
       // faces mesurées contre le modèle One Piece : One Piece ≤ 0,31, Pokémon ≤ 0,45 (d'où +0,05 et pas +0,1)
       // Riftbound (v3.10) : mesure dédiée (or + fond sombre + symétrie) : dos 0,62–0,87, faces ≤ 0,3
-      const backOf = (fast) => Math.max(App.recognizer.backScoreOf(cv, SW, SH, fast, 'pokemon'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'onepiece') + 0.05, App.recognizer.backScoreOf(cv, SW, SH, fast, 'riftbound'));
+      const backOf = (fast) => Math.max(App.recognizer.backScoreOf(cv, SW, SH, fast, 'pokemon'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'onepiece') + 0.05, App.recognizer.backScoreOf(cv, SW, SH, fast, 'lorcana') + LC_BACK, App.recognizer.backScoreOf(cv, SW, SH, fast, 'riftbound'));
       let b = backOf(true);
       if (b >= 0.4 && b < BACK_T) b = Math.max(b, backOf(false));
       const g = grayOf(cv, 0, 0, SW, SH, GW, GH), d = grayOf(cv, 0, 0, SW, SH, DW, DH);

@@ -1,4 +1,5 @@
-# Chaque lundi : ajoute les nouvelles cartes (nouvelles séries) à la base de référence des images (data/*-index),
+# Chaque lundi : remet à jour la liste des cartes Lorcana (data/lc-cartes.json, depuis LorcanaJSON),
+# ajoute les nouvelles cartes (nouvelles séries) à la base de référence des images (data/*-index),
 # publie, puis lance « Tests et mise en ligne » (le site n'est mis en ligne que si les tests réussissent).
 # Aussi lançable à la main : onglet Actions › Base de référence des images › Run workflow.
 name: Base de référence des images
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
   push: # aussi quand l'outil lui-même change (pour le vérifier tout de suite)
     branches: [main]
-    paths: ['outils/index-maj.*', 'outils/ci/index-maj.mjs', '.github/workflows/index.yml']
+    paths: ['outils/index-maj.*', 'outils/ci/index-maj.mjs', 'outils/ci/lorcana-cartes.mjs', '.github/workflows/index.yml']
 
 concurrency:
   group: index-images
@@ -31,6 +32,11 @@ jobs:
         run: |
           npm install --prefix outils/ci --no-audit --no-fund
           outils/ci/node_modules/.bin/playwright install --with-deps chromium
+      - name: Liste des cartes Lorcana (LorcanaJSON)
+        id: cartes
+        run: |
+          node outils/ci/lorcana-cartes.mjs data/lc-cartes.json
+          if git diff --quiet -- data/lc-cartes.json; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
       - name: Ajouter les nouvelles cartes
         id: maj
         run: |
@@ -38,14 +44,14 @@ jobs:
           sleep 1
           node outils/ci/index-maj.mjs http://localhost:8080/
       - name: Publier
-        if: steps.maj.outputs.changed == 'true'
+        if: steps.maj.outputs.changed == 'true' || steps.cartes.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "CollecDex (robot)"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/ js/visual.js js/games/onepiece.js js/games/riftbound.js
-          git commit -m "Base de référence des images : nouvelles cartes (robot)"
+          git add data/ js/visual.js js/games/onepiece.js js/games/riftbound.js js/games/lorcana.js
+          git commit -m "Nouvelles cartes : liste Lorcana et base de référence des images (robot)"
           # numéro de version posé après avoir récupéré les derniers envois (pas de conflit sur index.html)
           git pull --rebase origin main
           sh outils/stamp.sh

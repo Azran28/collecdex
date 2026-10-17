@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Carte « Encre » (dessinée pour les combats Lorcana de CollecDex : ce jeu n'a pas de carte d'énergie) -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".42" r=".75">
+      <stop offset="0" stop-color="#4b3a96"/><stop offset=".55" stop-color="#2a1f5c"/><stop offset="1" stop-color="#140f30"/>
+    </radialGradient>
+    <linearGradient id="e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9c8ff"/><stop offset=".5" stop-color="#8f6bff"/><stop offset="1" stop-color="#4b2c9e"/></linearGradient>
+  </defs>
+  <rect width="630" height="880" rx="30" fill="#140f30"/>
+  <rect x="18" y="18" width="594" height="844" rx="20" fill="url(#f)" stroke="#e7c36a" stroke-width="6"/>
+  <g transform="translate(315 390)">
+    <path d="M0 -230 L199 -115 L199 115 L0 230 L-199 115 L-199 -115 Z" fill="#e7c36a"/>
+    <path d="M0 -205 L177 -102 L177 102 L0 205 L-177 102 L-177 -102 Z" fill="#1a1440"/>
+    <path d="M0 -135 C-50 -65 -82 -18 -82 28 a82 82 0 0 0 164 0 c0 -46 -32 -93 -82 -163z" fill="url(#e)" stroke="#e7c36a" stroke-width="8"/>
+    <circle cx="-30" cy="24" r="18" fill="#f4efff" opacity=".85"/>
+  </g>
+  <rect x="70" y="700" width="490" height="90" rx="16" fill="#0b0820" opacity=".6"/>
+  <text x="315" y="760" text-anchor="middle" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#f1dc9c">+1 encre</text>
+</svg>

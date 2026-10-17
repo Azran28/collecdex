@@ -27,6 +27,12 @@ App.views.sets = {
     return `<div class="chips game-pick" role="tablist">${on.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/jeu/${g.id}" role="tab" aria-selected="${g.id === game}">${App.icons.icon(g.icon, 14)} ${App.util.esc(g.name)}</a>`).join('')}</div>`;
   },
 
+  /** Téléphone : la licence choisie visible dans la rangée qui défile (4 licences ne tiennent plus sur la largeur) */
+  showPick(el) {
+    const row = el.querySelector('.game-pick'), on = row && row.querySelector('.chip.on');
+    if (on && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, on.offsetLeft - row.offsetLeft - (row.clientWidth - on.offsetWidth) / 2);
+  },
+
   async render(el, { game }, alive) {
     const { esc, norm, debounce } = App.util;
     const ad = App.games.get(game);
@@ -69,6 +75,7 @@ App.views.sets = {
       </div>
       ${ad.horsSerie ? `<a class="hs-entry" href="#/jeu/${esc(game)}/hors-serie"><span class="hs-tag">Hors-série</span><span class="hs-entry-t"><b>Cartes hors-série</b><span class="small muted">Pikachu Illustrator, Pikachu Trophée… · ${ad.horsSerie().length} cartes, hors de toute série</span></span><span class="hs-entry-go">›</span></a>` : ""}
       <div id="s-list"></div>`;
+    App.views.sets.showPick(el);
 
     const list = el.querySelector('#s-list');
     const draw = () => {

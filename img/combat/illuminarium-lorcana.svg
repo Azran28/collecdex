@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
+  <!-- Le Grand Illuminarium la nuit : salle aux vitraux, livres et volutes d'encre magique (décor des combats Lorcana, dessiné pour CollecDex) -->
+  <defs>
+    <linearGradient id="ciel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f0b2a"/><stop offset=".55" stop-color="#2a1f5c"/><stop offset="1" stop-color="#4b3a96"/>
+    </linearGradient>
+    <linearGradient id="sol" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b2a1a"/><stop offset=".5" stop-color="#24180f"/><stop offset="1" stop-color="#120b06"/>
+    </linearGradient>
+    <radialGradient id="halo" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffe6a3" stop-opacity=".55"/><stop offset="1" stop-color="#ffe6a3" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="encre" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8f6bff" stop-opacity="0"/><stop offset=".5" stop-color="#b79cff" stop-opacity=".75"/><stop offset="1" stop-color="#8f6bff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="1000" fill="url(#ciel)"/>
+  <g fill="#fff3c9">
+    <circle cx="90" cy="80" r="2.5"/><circle cx="210" cy="150" r="1.8"/><circle cx="340" cy="60" r="2"/><circle cx="660" cy="90" r="2.4"/>
+    <circle cx="790" cy="170" r="1.6"/><circle cx="910" cy="70" r="2.2"/><circle cx="520" cy="140" r="1.5"/><circle cx="60" cy="260" r="1.5"/><circle cx="950" cy="280" r="1.8"/>
+  </g>
+  <!-- grandes arches de la salle -->
+  <g fill="#160f36" stroke="#e7c36a" stroke-width="5" stroke-opacity=".55">
+    <path d="M40 640V330a110 110 0 0 1 220 0v310z"/><path d="M740 640V330a110 110 0 0 1 220 0v310z"/>
+    <path d="M330 640V260a170 170 0 0 1 340 0v380z"/>
+  </g>
+  <!-- vitrail hexagonal au fond, éclairé -->
+  <circle cx="500" cy="330" r="190" fill="url(#halo)"/>
+  <g transform="translate(500 330)">
+    <path d="M0 -120 L104 -60 L104 60 L0 120 L-104 60 L-104 -60Z" fill="#3a2a7a" stroke="#e7c36a" stroke-width="8"/>
+    <path d="M0 -120V120M-104 -60L104 60M104 -60L-104 60" stroke="#e7c36a" stroke-width="3" opacity=".6"/>
+    <path d="M0 -62 C-22 -30 -36 -8 -36 12 a36 36 0 0 0 72 0 c0 -20 -14 -42 -36 -74z" fill="#b79cff" stroke="#e7c36a" stroke-width="4"/>
+  </g>
+  <!-- étagères de livres dans les arches latérales -->
+  <g>
+    <rect x="70" y="420" width="160" height="10" fill="#e7c36a" opacity=".5"/><rect x="70" y="520" width="160" height="10" fill="#e7c36a" opacity=".5"/>
+    <rect x="770" y="420" width="160" height="10" fill="#e7c36a" opacity=".5"/><rect x="770" y="520" width="160" height="10" fill="#e7c36a" opacity=".5"/>
+    <g fill="#7a3b3b"><rect x="78" y="370" width="16" height="50"/><rect x="118" y="380" width="14" height="40"/><rect x="170" y="365" width="18" height="55"/><rect x="800" y="372" width="16" height="48"/><rect x="860" y="365" width="18" height="55"/></g>
+    <g fill="#2f5b7a"><rect x="96" y="375" width="18" height="45"/><rect x="140" y="368" width="20" height="52"/><rect x="200" y="378" width="14" height="42"/><rect x="820" y="366" width="20" height="54"/><rect x="890" y="378" width="16" height="42"/></g>
+    <g fill="#5b7a2f"><rect x="84" y="470" width="18" height="50"/><rect x="150" y="476" width="16" height="44"/><rect x="784" y="474" width="18" height="46"/><rect x="846" y="468" width="20" height="52"/><rect x="900" y="478" width="14" height="42"/></g>
+    <g fill="#8a6a2a"><rect x="108" y="472" width="20" height="48"/><rect x="190" y="470" width="18" height="50"/><rect x="808" y="470" width="18" height="50"/><rect x="872" y="476" width="16" height="44"/></g>
+  </g>
+  <!-- sol de l'arène : parquet et cercle doré -->
+  <path d="M0 640H1000V1000H0z" fill="url(#sol)"/>
+  <ellipse cx="500" cy="790" rx="380" ry="110" fill="none" stroke="#e7c36a" stroke-width="6" opacity=".55"/>
+  <ellipse cx="500" cy="790" rx="300" ry="82" fill="#2a1f5c" opacity=".35"/>
+  <path d="M0 700L1000 700M0 780L1000 780M0 880L1000 880" stroke="#000" stroke-opacity=".2" stroke-width="3"/>
+  <!-- volutes d'encre magique -->
+  <path d="M-20 600 C150 540 260 650 420 590 S700 520 1020 600" fill="none" stroke="url(#encre)" stroke-width="16" stroke-linecap="round"/>
+  <path d="M-20 680 C200 640 330 720 520 670 S820 630 1020 690" fill="none" stroke="url(#encre)" stroke-width="9" stroke-linecap="round" opacity=".7"/>
+  <!-- livres qui flottent -->
+  <g fill="#e9dcb3" stroke="#3b2a1a" stroke-width="3">
+    <path d="M250 230l40-14 4 30-40 14z"/><path d="M720 200l44 10-6 30-44-10z"/><path d="M160 560l36-18 10 28-36 18z"/>
+  </g>
+</svg>

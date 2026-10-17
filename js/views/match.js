@@ -13,6 +13,14 @@
       'Mets K.O. les 3 personnages adverses pour gagner et débloquer le niveau suivant.',
       '<b>Avancé</b> (niveaux à part) : une pioche de 10 cartes Événement / Lieu au plus, plus 3 DON!! (sinon pioche de prêt), mélangée : 3 cartes en main au départ, 1 de plus à chacun de tes tours ; une carte par tour avant l’action. Effets simplifiés : [Contre] +X000 = protection, +X000 de puissance = dégâts en plus, KO = gros coup, renvoyer un personnage = Rafale, piocher = +1 DON!!, Lieu = +10 dégâts 3 tours.',
       'En Avancé, les personnages du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
+    ] : game === 'lorcana' ? [
+      '3 personnages par équipe (personnages Lorcana, toutes raretés) : un qui combat, deux sur le banc. Une case vide est remplie par un personnage de prêt.',
+      'Ta carte devient un combattant : PV = 30 + volonté × 15 (+ Résistance), attaque « Défi » = force × 10 (+ Offensif), « Riposte » si le personnage a Rempart ou Résistance, encre = type ; Charge = 1 encre dès le départ. Pas de faiblesse ni de résistance.',
+      'À ton tour, ton personnage gagne <b>1 encre</b>, puis une action : <b>défier</b>, <b>+1 encre</b> ou <b>changer</b> de personnage.',
+      'Un défi coûte de l’encre selon le coût de la carte ; l’encre en plus reste pour la suite.',
+      'Mets K.O. les 3 personnages adverses pour gagner et débloquer le niveau suivant.',
+      '<b>Avancé</b> (niveaux à part) : un grimoire de 10 cartes Action / Chanson / Objet / Lieu au plus, plus 3 encres (sinon grimoire de prêt), mélangé : 2 cartes en main au départ, puis 1 de plus tous les 2 tours ; une carte par tour avant l’action. Effets simplifiés : bannir = gros coup, « infligez N dommages » / « +N ¤ » = dégâts en plus, « −N ¤ » = protection, retirer des dommages = soin, renvoyer dans la main = Rafale, épuiser = encre adverse en moins, piocher = +1 encre, Lieu = Stade, Objet = +20 PV.',
+      'En Avancé, les personnages du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
     ] : game === 'riftbound' ? [
       '3 unités par équipe (unités Riftbound, champions compris) : une qui combat, deux sur le banc. Une case vide est remplie par une unité de prêt.',
       'Ta carte devient un combattant : PV = 40 + puissance × 16 (+ [Shield], [Tank], champion), attaque = puissance × 10 (+ [Assault]), « Riposte » si l’unité a [Shield] ou [Tank], domaine = type ; [Accelerate] = 1 énergie dès le départ. Pas de faiblesse ni de résistance.',

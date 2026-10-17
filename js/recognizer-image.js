@@ -168,9 +168,10 @@
   const backRefs = {};
   const refsOf = (game) => {
     if (backRefs[game]) return backRefs[game];
-    const list = game === 'onepiece' ? App.onePieceBacks || [] : [BACK]; // (Riftbound : mesure dédiée, rbBackScore)
+    // (Riftbound : mesure dédiée, rbBackScore ; Lorcana v3.21 : js/games/lorcana-backs.js, tiré des photos d'Arnaud)
+    const list = game === 'onepiece' ? App.onePieceBacks || [] : game === 'lorcana' ? App.lorcanaBacks || [] : [BACK];
     const dec = (t) => { const bin = atob(t.b64), a = new Float32Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return normRGB(a, t.w * t.h); };
-    return (backRefs[game] = { refs: list.map(dec), scales: game === 'onepiece' ? [0.84, 0.92, 1] : [0.78, 0.84, 0.9] });
+    return (backRefs[game] = { refs: list.map(dec), scales: game === 'pokemon' ? [0.78, 0.84, 0.9] : [0.84, 0.92, 1] });
   };
   /** Même mesure, directement sur une image déjà dessinée (canvas, image de la caméra) : sert à la certification en direct */
   // fast (suivi en direct de la certification, v2.48) : sans les petits décalages → 3 essais au lieu de 9 (la caméra

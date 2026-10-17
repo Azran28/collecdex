@@ -56,6 +56,7 @@ App.views.goals = {
           .map(([k, ic, l, sh, n]) => `<a class="goal-tab ${tab === k ? 'on' : ''}" href="#/objectifs?tab=${k}&jeu=${game}" role="tab">${App.icons.icon(ic, 16)}<span class="lg">${l}</span><span class="sh">${sh}</span>${n !== '' ? `<b>${n}</b>` : ''}</a>`).join('')}
       </div>
       <div id="g-body" class="goals-page"></div>`;
+    App.views.sets.showPick(el);
     const body = el.querySelector('#g-body');
 
     // ================= Objectifs =================

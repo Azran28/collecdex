@@ -66,7 +66,7 @@
       const drawTypes = () => {
         // les 11 types du jeu de cartes, toujours affichés (grisés si tu n'en as aucun)
         const cnt = {}; rows.forEach((r) => { if (r.type && !r.invalid) cnt[r.type] = (cnt[r.type] || 0) + 1; });
-        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">${game === 'onepiece' ? 'Toutes les couleurs' : game === 'riftbound' ? 'Tous les domaines' : 'Tous les types'}</button>` + typesOf(game).map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''} ${cnt[t] ? '' : 'none'}" data-t="${t}" style="--tc:${typeColor(t)}" ${cnt[t] ? '' : `disabled title="${say(game, 'Aucun Pokémon de ce type dans ta collection')}"`}><i></i>${esc(typeName(t, game))}${cnt[t] ? ` <small>${cnt[t]}</small>` : ''}</button>`).join('');
+        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">${game === 'onepiece' ? 'Toutes les couleurs' : game === 'riftbound' ? 'Tous les domaines' : game === 'lorcana' ? 'Toutes les encres' : 'Tous les types'}</button>` + typesOf(game).map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''} ${cnt[t] ? '' : 'none'}" data-t="${t}" style="--tc:${typeColor(t)}" ${cnt[t] ? '' : `disabled title="${say(game, 'Aucun Pokémon de ce type dans ta collection')}"`}><i></i>${esc(typeName(t, game))}${cnt[t] ? ` <small>${cnt[t]}</small>` : ''}</button>`).join('');
       };
       drawTypes();
 
@@ -158,6 +158,7 @@
       body = App.util.openModal('', () => end(null));
       const kinds = lic(game).bagKinds, loanTxt = game === 'onepiece' ? 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Guard Point, Four Thousand-Brick Fist, You Can Be My Samurai!!, Sables et 3 DON!!.'
         : game === 'riftbound' ? 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Hextech Ray, Discipline, Rune Prison, Retreat et 3 runes de ton domaine.'
+        : game === 'lorcana' ? 'Sans carte, tu joues avec un grimoire de prêt de 8 cartes : 2 Lueur réparatrice, Il a un sabre !, Très mauvais caractère !, Emberlificotage et 3 encres.'
         : 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Potion, PlusPower, Défenseur, Transfert et 3 Énergies du type de ton 1er Pokémon.';
       if (!list.length) {
         body.innerHTML = `<div class="bt-pick"><h2>Pioche · ${esc(name)}</h2><p class="muted">Tu n’as pas encore de carte ${esc(kinds)} dans ton Dex. ${loanTxt} Capture-les pour les utiliser !</p>

@@ -1,7 +1,7 @@
 # Tests automatiques, puis mise en ligne seulement s'ils sont tous réussis.
 # (GitHub › Settings › Pages › Source doit être « GitHub Actions ».)
 # Chaque matin, le site est aussi remis en ligne tel quel (sans refaire les tests : le code n'a pas changé)
-# pour rafraîchir les prix Riftbound (data/rb-prix.json, préparé par outils/ci/prix-riftbound.mjs).
+# pour rafraîchir les prix Riftbound et Lorcana (data/rb-prix.json, data/lc-prix.json, préparés par outils/ci/prix-*.mjs).
 name: Tests et mise en ligne
 
 on:
@@ -60,6 +60,8 @@ jobs:
             --exclude 'LISEZ-MOI.md' --exclude 'README.md' --exclude 'Lancer CollecDex.bat' ./ _site/
       - name: Prix Riftbound du jour (TCGplayer)
         run: node outils/ci/prix-riftbound.mjs _site/data/rb-prix.json
+      - name: Prix Lorcana du jour (TCGplayer)
+        run: node outils/ci/prix-lorcana.mjs _site/data/lc-prix.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
