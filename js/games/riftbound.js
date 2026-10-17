@@ -339,7 +339,7 @@
   }
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/rb-index ----------
-  const RB_INDEX_V = 1;
+  const RB_INDEX_V = 2;
   // seuil « sûre » par l'image seule, plus haut que le seuil commun (25) : la carte française est comparée au visuel anglais
   // (moins de points communs) — page d'Arnaud : Rayon Hextech pris « sûr » pour Abandon à 27 ; vraies cartes sûres ≥ 36
   const IMG_SURE = 30;
