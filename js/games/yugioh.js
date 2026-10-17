@@ -330,7 +330,9 @@
   // (Pendule : code à gauche sous la boîte de l'échelle ; bandes « otsu » en secours)
   const MORE_ZONES = (H) => [0.705, 0.735].map((y) => [y, y + 0.04, scaleFor(H), 'otsu', 0.5, 0.98])
     .concat([[0.775, 0.815, scaleFor(H), 'sharp', 0.03, 0.5], [0.94, 0.985, scaleFor(H), 'otsu', 0, 0.42]]);
-  const NAME_ZONES = (H) => [[0.035, 0.115, scaleFor(H, 0.55), 'sharp', 0.05, 0.82], [0.035, 0.115, scaleFor(H, 0.55), 'invert', 0.05, 0.82]];
+  // nom en haut ; bandes qui glissent (v3.29 : carte détourée trop serrée au téléphone, le titre tout en haut de la découpe : la
+  // bande fixe 0,035…0,115 le coupait ; l'image ne retrouvait pas la carte, le nom seul la donne)
+  const NAME_ZONES = (H) => [0, 0.02, 0.04, 0.06].flatMap((y) => [[y, y + 0.08, scaleFor(H, 0.55), 'sharp', 0.03, 0.85], [y, y + 0.08, scaleFor(H, 0.55), 'invert', 0.03, 0.85]]);
   // carte recadrée sur ses vrais bords (par l'image ; v3.27 : carte entière, code vers 0,72 de la hauteur) : le code est là où on l'attend, lu de plusieurs façons (Tesseract lit
   // mal cette petite police à empattements : « RGB T-FROO7 », « CRMSTROGI » ; chaque réglage se trompe autrement)
   const CROP_ZONES = (H) => [0.69, 0.7, 0.71, 0.72, 0.73, 0.74].flatMap((y) => [[y, y + 0.035, scaleFor(H, 0.7), 'sharp', 0.5, 0.98], [y, y + 0.035, scaleFor(H, 0.5), 'gray', 0.5, 0.98], [y, y + 0.035, scaleFor(H, 0.5), 'otsu', 0.5, 0.98]])
