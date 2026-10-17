@@ -89,3 +89,7 @@ Ordinateur **et** téléphone (375 × 812) : Explorer (rangée des licences), s�
 - Cache d'empreintes du navigateur (IndexedDB `collecdex-vis`) : une image remplacée sous la même adresse garde l'ancienne empreinte → vider avant de mesurer.
 - Serveur d'images qui refuse l'en-tête `Origin` (403) → toujours par le relais.
 - Le robot de tests GitHub peut échouer une fois sans raison (combat lent) : relancer avant de chercher.
+- **Le relais images.weserv.nl limite (~2 500 images par quart d'heure et par adresse)** : ne jamais construire l'index d'images par lui (Yu-Gi-Oh! : 10 703 échecs sur 14 103). Télécharger les petites images une fois sur le PC (scratchpad), les servir en local au calcul (`img.card` remplacé le temps du calcul), puis `pack`.
+- Une même illustration pour plusieurs impressions (Yu-Gi-Oh! : réimpressions, raretés) : index **par illustration**, l'image donne la carte et le code lu choisit l'impression (`yugioh.md › choosePrint`) ; penser aux **autres illustrations** d'une même carte (sinon la carte n'est jamais trouvée).
+- Tesseract lit mal les très grandes lettres : agrandissement des zones **d'après la taille de la photo** (lettres ~40 px), bandes fines qui glissent.
+- `stamp.sh` fait recharger les pages ouvertes (le site compare sa version) : pas de `stamp` pendant un long calcul dans le navigateur.
