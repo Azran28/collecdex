@@ -13,7 +13,7 @@ window.App = window.App || {};
 App.views = App.views || {};
 
 /*
- * v3.38 (Arnaud : classeur bloqué sur « Préparation de la page… ») : Chrome n'encode une image `canvas.toBlob` que
+ * v3.39 (Arnaud : classeur bloqué sur « Préparation de la page… ») : Chrome n'encode une image `canvas.toBlob` que
  * quand la page a un moment libre, et attend jusqu'à 1 s sinon — pendant le scan (lecteurs, vérification par l'image)
  * il n'y en a jamais : chaque découpe de carte coûtait 1 s, parfois bien plus sur téléphone. On encode donc tout de suite
  * (toDataURL : quelques millisecondes pour une carte), puis le rappel est appelé comme avant, de façon asynchrone.

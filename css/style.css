@@ -1546,6 +1546,11 @@ body.cap-lock { overflow: hidden; }
 .r-live { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 3; max-width: calc(100% - 20px); padding: 6px 12px; border-radius: 999px; background: rgba(10,11,22,.78); color: #fff; font-size: .82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; display: flex; align-items: center; gap: 6px; }
 .r-live.go { background: rgba(124,92,255,.9); }
 .r-live.ok { background: rgba(26,150,98,.92); }
+/* v3.38 : conseils de prise de vue (seulement si un vrai problème dure) — rafale (.r-live.warn), carte seule (.shot-tip), après la photo (.shot-warn) */
+.r-live.warn, .shot-tip { background: rgba(196,120,0,.94); color: #fff; white-space: normal; text-align: center; border-radius: 14px; }
+.shot-tip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 5; width: max-content; max-width: calc(100% - 24px); padding: 6px 12px; font-size: .82rem; font-weight: 700; line-height: 1.3; pointer-events: none; }
+.shot-warn { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,170,40,.14); border: 1px solid rgba(255,170,40,.55); font-size: .9rem; }
+.shot-warn > span { flex: 1 1 200px; }
 .scan-view.r-flash::after { content: ''; position: absolute; inset: 0; background: #fff; opacity: .75; animation: r-flash .26s ease-out forwards; pointer-events: none; z-index: 4; }
 @keyframes r-flash { to { opacity: 0; } }
 .r-cert { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; line-height: 1.35; }

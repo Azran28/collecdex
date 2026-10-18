@@ -507,7 +507,7 @@ Object.assign(App.views.scan, {
       try {
         for (let i = 0; i < n; i++) {
           if (S.stopped || !alive()) return;
-          S.prog = { step: 'Découpe des cartes', done: i, total: n }; X.drawSV(); // (v3.38 : on voit que ça avance)
+          S.prog = { step: 'Découpe des cartes', done: i, total: n }; X.drawSV(); // (v3.39 : on voit que ça avance)
           const { blob, auto, box, alt } = await cellBlob(i);
           if (!blob) throw new Error(`carte ${i + 1} : image vide`);
           const url = URL.createObjectURL(blob); urls.push(url);
@@ -515,7 +515,7 @@ Object.assign(App.views.scan, {
           const ctx = !S.autoRot ? await ctxBlob(i).catch(() => null) : null;
           S.cells.push({ i, blob, url, auto, box, alt, ctx, ctxRect: ctx ? ctxRect(i) : null, state: 'attente', cands: [], choice: '', info: null, mode: null });
         }
-      } catch (e) { // (v3.38 : avant, l'écran restait sur « Préparation de la page… » pour toujours)
+      } catch (e) { // (v3.39 : avant, l'écran restait sur « Préparation de la page… » pour toujours)
         console.error(e);
         S.running = false; S.prog = null; S.cells = [];
         ['#b-reset', '#b-fmt', '#b-go', '#b-set'].forEach((s) => { const b = el.querySelector(s); if (b) b.disabled = false; });
