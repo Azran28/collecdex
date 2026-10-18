@@ -316,6 +316,18 @@ test('Yu-Gi-Oh! : impression choisie par le code dessiné (v3.32)', async (App) 
   const m = await App.recognizerParts.codeMatch(blob, ['SDK-E032', 'SDY-E027', 'SDJ-029'].map((k) => [k, P.printedForms(k)]), P.CODE_BAND);
   eq(m && m.ranked[0][0], 'SDY-E027', 'code dessiné retrouvé');
 });
+test('Yu-Gi-Oh! : rareté d’après la couleur du nom (v3.34)', async (App) => {
+  const P = App.games.get('yugioh').parts;
+  const card = async (frame, ink) => {
+    const c = document.createElement('canvas'); c.width = 600; c.height = 838; const g = c.getContext('2d');
+    g.fillStyle = frame; g.fillRect(0, 0, 600, 838); g.fillStyle = ink; g.font = 'bold 40px Georgia, serif'; g.fillText('BLUE-EYES ULTIMATE', 50, 80);
+    return P.nameLook(await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9)));
+  };
+  eq(P.nameClass(await card('#9a7fb0', '#f2dfa0'), 'f'), 'gold', 'nom doré sur une Fusion');
+  eq(P.nameClass(await card('#c8714a', '#e6e2de'), 'e'), 'silver', 'nom argenté sur un monstre à effet');
+  eq(P.nameClass(await card('#c8714a', '#2a1a12'), 'e'), 'plain', 'nom noir');
+  eq(P.nameClass(await card('#2a9a90', '#f4f6f6'), 's'), null, 'nom blanc d’une Magie : on ne sait pas');
+});
 test('Yu-Gi-Oh! : monstre → combattant, Magies et Pièges → cartes de pioche', async (App) => {
   await App.need('match');
   const A = App.games.get('yugioh'), bewd = await A.getCard('LOB-E001');
