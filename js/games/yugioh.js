@@ -516,7 +516,8 @@
    * (`recognizerParts.codeMatch`), plus 0,3 × la ressemblance avec ce qu'a lu Tesseract ; « sûr » avec 0,1 d'avance. Code
    * nettement lu (`choosePrint`) : il garde la main. Banc de 26 cartes : 14 bonnes impressions (3 sûres) → 20 (14 sûres, 0 fausse).
    */
-  async function pickPrint(cands, texts, crop) {
+  async function pickPrint(cands, texts, crop) { return byRarity(await pickCode(cands, texts, crop), crop); }
+  async function pickCode(cands, texts, crop) {
     const top = cands[0], cm = App.recognizerParts && App.recognizerParts.codeMatch;
     if (!top || top.passcode == null || !crop || !cm) return choosePrint(cands, texts);
     const group = cands.filter((c) => c.passcode === top.passcode), rest = cands.filter((c) => c.passcode !== top.passcode);
@@ -534,6 +535,57 @@
     if (gap >= 0.1 && orb >= App.visual.SURE && order.filter((c) => baseKey(c.code) === win).length === 1) order[0].confident = true;
     return [...order, ...rest];
   }
+  /**
+   * Rareté d'après la couleur des lettres du nom (v3.33, Arnaud : Dragon Ultime aux Yeux Bleus JMP-EN005, Ultra Rare ou Secret
+   * Rare, même code). Nom doré = Ultra / Gold / Ultimate ; argenté = Rare, Secret, Platine, Ghost… ; noir (blanc sur Magie,
+   * Piège, Xyz) = Commune, Super Rare… Mesuré : lettres = les 12 % de pixels les plus loin du fond de la bande du nom, du côté
+   * le plus fourni (clair / sombre). **Doré** : lettres claires dont la teinte est à moins de 30° du jaune (55°) ET nettement
+   * plus jaune que le cadre (12°) — un nom argenté prend la teinte du cadre (orangé sur un cadre orange : 17–21°, doré 46–47°).
+   * Corriger l'éclairage par le cadre de l'image officielle : essayé, faux (cadres trop différents). Banc (33 cartes) : 5 noms
+   * dorés sur 5, aucune Rare / Secret / Commune prise pour dorée.
+   */
+  const NAME_GOLD = new Set(['ur', 'upr', 'dupr', 'urp', 'gur', 'pgr', 'gscr', 'utr']);
+  const NAME_SILVER = new Set(['r', 'drpr', 'scr', 'pscr', 'escr', 'uscr', 'plr', 'plscr', 'gr', 'ggr', 'qcsr', 'str', 'cr']);
+  const nameClassOf = (r) => (NAME_GOLD.has(r) ? 'gold' : NAME_SILVER.has(r) ? 'silver' : 'plain');
+  const hueOf = ([r, g, b]) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn || 1; let h = (mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60; return h < 0 ? h + 360 : h; };
+  async function nameLook(blob) {
+    const b = await createImageBitmap(blob), x0 = 0.06, x1 = 0.8, y0 = 0.035, y1 = 0.115, W = 300, H = Math.max(4, Math.round(b.height * (y1 - y0) * W / (b.width * (x1 - x0))));
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(b, b.width * x0, b.height * y0, b.width * (x1 - x0), b.height * (y1 - y0), 0, 0, W, H); b.close && b.close();
+    const d = g.getImageData(0, 0, W, H).data, n = W * H, L = new Float32Array(n);
+    for (let i = 0; i < n; i++) L[i] = 0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2];
+    const Lbg = Float32Array.from(L).sort()[n >> 1], dev = Array.from(L, (v) => v - Lbg), lim = dev.map(Math.abs).sort((p, q) => q - p)[Math.floor(n * 0.12)];
+    let up = 0, dn = 0; for (const v of dev) if (Math.abs(v) >= lim) (v > 0 ? up++ : dn++);
+    const light = up >= dn, t = [0, 0, 0], f = [0, 0, 0]; let nt = 0, nf = 0;
+    for (let i = 0; i < n; i++) {
+      const a = Math.abs(dev[i]);
+      if (a >= lim && (dev[i] > 0) === light) { for (let k = 0; k < 3; k++) t[k] += d[i * 4 + k]; nt++; } else if (a < lim * 0.3) { for (let k = 0; k < 3; k++) f[k] += d[i * 4 + k]; nf++; }
+    }
+    const lum = (p, m) => (0.3 * p[0] + 0.59 * p[1] + 0.11 * p[2]) / (m || 1);
+    return { light, h: hueOf(t.map((v) => v / (nt || 1))), fh: hueOf(f.map((v) => v / (nf || 1))), dL: lum(t, nt) - lum(f, nf) };
+  }
+  /** 'gold' | 'silver' | 'plain' | null (on ne sait pas) ; kind = genre de la carte (Magie, Piège, Xyz : nom blanc) */
+  function nameClass(look, kind) {
+    const yd = (h) => Math.min(Math.abs(h - 55), 360 - Math.abs(h - 55));
+    if (look.light && yd(look.h) <= 30 && yd(look.h) < yd(look.fh) - 12) return 'gold';
+    const white = ['s', 't', 'x', 'px'].includes(kind);
+    if (!look.light) return white ? null : 'plain';
+    return white || kind === 'l' || look.dL < 35 ? null : 'silver'; // (contraste faible : Grès, capture floue, nom sombre vu « clair »)
+  }
+  async function byRarity(list, crop) {
+    const top = list[0];
+    if (!top || !crop || top.passcode == null) return list;
+    const same = list.filter((c) => c.passcode === top.passcode && baseKey(c.code) === baseKey(top.code));
+    if (same.length < 2 || new Set(same.map((c) => nameClassOf(c.rarity))).size < 2) return list;
+    const look = await nameLook(crop).catch(() => null), cl = look && nameClass(look, top.kind);
+    const ok = cl ? same.filter((c) => nameClassOf(c.rarity) === cl) : [];
+    if (!ok.length) return list;
+    const codeSure = top.numOk || list.filter((c) => c.passcode === top.passcode).every((c) => baseKey(c.code) === baseKey(top.code));
+    for (const c of same) { delete c.confident; c.rarLook = cl; }
+    if (codeSure && ok.length === 1 && (top.orb || 0) >= App.visual.SURE) ok[0].confident = true;
+    return [...ok, ...same.filter((c) => !ok.includes(c)), ...list.filter((c) => !same.includes(c))];
+  }
+  const rarTxt = (c) => (c && c.rarLook ? `nom ${c.rarLook === 'gold' ? 'doré' : c.rarLook === 'silver' ? 'argenté' : 'sans dorure'}` : '');
 
   /**
    * Lit une photo de carte (déjà recadrée) : code (« RGBT-FR007 ») et passcode, nom (français ou anglais), puis vérification
@@ -567,7 +619,7 @@
         if (e.cands[0] && (e.cands[0].orb || 0) >= App.visual.SURE) {
           statusFn('Comparaison des codes possibles…');
           const cands = await pickPrint(e.cands, texts, crop), top = cands[0];
-          return { info: { code: top.id, name: '', votes: {}, crop, ctxQuad: e.ctxQuad, orb: e.best, read: [top.numOk ? `code ${top.code}` : '', 'reconnue à l’image ✓'].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+          return { info: { code: top.id, name: '', votes: {}, crop, ctxQuad: e.ctxQuad, orb: e.best, read: [top.numOk ? `code ${top.code}` : '', rarTxt(top), 'reconnue à l’image ✓'].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
         }
       }
     }
@@ -635,7 +687,7 @@
     if (top && !top.confident) { cands = await pickPrint(cands, texts, (orb && orb.crop) || betterCrop); top = cands[0]; }
     const cropLater = !orb && early && top ? early.then((e) => (e && e.crop && e.cands[0] && e.cands[0].passcode === top.passcode ? e.crop : null), () => null) : null;
     const readTxt = topKeys.length ? `code ${topKeys[0]}` : pcs.length ? `passcode ${pcs[0]}` : '';
-    return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+    return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', rarTxt(top), top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
   /** Recherche à la main (nom français ou anglais, ou code « RGBT-FR007 »), classée par ressemblance avec la photo */
@@ -667,6 +719,6 @@
     rarity,
     pullRates: () => null,
     source: { name: 'YGOPRODeck', url: 'https://ygoprodeck.com/' },
-    parts: { baseKey, FRAME, ATTR, RACE, data, visualPass, choosePrint, pickPrint, printScores, readScores, printedForms, CODE_BAND, CROP_ZONES, fullQuad, cropQuad, codesIn },
+    parts: { baseKey, FRAME, ATTR, RACE, data, visualPass, choosePrint, pickPrint, nameLook, nameClass, byRarity, printScores, readScores, printedForms, CODE_BAND, CROP_ZONES, fullQuad, cropQuad, codesIn },
   });
 })();
