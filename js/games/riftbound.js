@@ -522,6 +522,7 @@
     id: 'riftbound',
     name: 'Riftbound',
     listSets, getSet, getCard, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize, manual, codesIn, names,
+    visualIndex: { index: 'data/rb-index', v: RB_INDEX_V }, // (v3.32 : préparée d'avance par App.scanMemo.prepare)
     visualCheck: (blob) => (useVisual() ? visualPass(blob, [], []) : Promise.resolve(null)), // (« Toutes » : licence devinée à l'image)
     langFor: () => (App.settings && App.settings.lang === 'en' ? 'en' : 'fr'),
     cardmarketUrl: (card) => cm(card.baseName || String(card.name || '').replace(/,.*$/, '')),

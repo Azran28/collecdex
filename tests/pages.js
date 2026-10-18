@@ -64,6 +64,15 @@
     }
   }
 
+  // v3.32 : Paramètres › Scanner (préparation d'avance, carnet des scans ratés, corrections retenues)
+  test('Paramètres › Scanner', async (App, W) => {
+    await visit(W, '#/parametres');
+    const p = W.document.querySelector('#p-scan');
+    ok(p, 'section Scanner absente');
+    await until(() => p.querySelectorAll('.prep-row').length >= 3, 10000, 'liste des outils à préparer');
+    ok(/Pokémon/.test(p.textContent) && /Carnet des scans ratés/.test(p.textContent), 'contenu de la section');
+  });
+
   test('fiche d’une carte (Dracaufeu, Set de Base)', async (App, W) => {
     await visit(W, '#/jeu/pokemon/serie/base1');
     const tile = W.document.querySelector('#app [data-card="base1-4"], #app [data-id="base1-4"], #app a[href*="base1-4"]');

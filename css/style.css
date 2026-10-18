@@ -3114,3 +3114,14 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
   .bt-lic-cards > * + * { margin-left: -9px; }
   .bt-lic-go { grid-column: 4; font-size: 1.5rem; }
 }
+
+/* ===== Paramètres › Scanner (v3.32) : préparation, carnet des scans ratés ===== */
+.prep-list { display: grid; gap: 4px; }
+.prep-row { display: flex; gap: 6px; align-items: baseline; }
+.prep-row > span:first-child { width: 1.1em; text-align: center; color: var(--muted); }
+.prep-row.ok > span:first-child { color: var(--ok); font-weight: 700; }
+.log-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; margin: 6px 0; }
+.log-it { margin: 0; min-width: 0; }
+.log-it img { width: 100%; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 6px; background: rgba(255,255,255,.06); display: block; }
+.log-it figcaption { font-size: .7rem; line-height: 1.2; color: var(--muted); margin-top: 3px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sc-scanlbl.sc-confirm { top: auto; bottom: 14px; }

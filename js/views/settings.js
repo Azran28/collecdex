@@ -20,6 +20,20 @@ App.views.settings = {
           <p><label class="check"><input type="checkbox" id="p-visual"> Vérification par l’image des pages de classeur</label><br><span class="muted small">Bien plus juste, un peu plus lente ; la 1ʳᵉ fois, ~25 Mo d’outils sont téléchargés (plutôt en Wi‑Fi).</span></p>
           <p><label class="check"><input type="checkbox" id="p-timing"> Afficher le temps de chaque étape sous la liste (pour les tests)</label></p>
         </section>
+        <section class="panel" id="p-scan">
+          <h2>Scanner</h2>
+          <h3>Préparer le scanner</h3>
+          <p class="muted small">Télécharge d’avance les outils du scanner (lecteur de texte, reconnaissance par l’image, bases d’images de chaque licence, ≈ 55 Mo, plutôt en Wi‑Fi) : plus rien à attendre au premier scan, même avec une connexion faible. Les infos des cartes (noms, séries, prix) viennent toujours d’internet.</p>
+          <div id="p-prep" class="prep-list small"></div>
+          <div class="row" style="margin-top:8px"><button class="btn" id="p-prep-go">${App.icons.icon('download', 16)} Tout télécharger maintenant</button></div>
+          <p><label class="check"><input type="checkbox" id="p-prep-auto"> Le faire tout seul en Wi‑Fi</label></p>
+          <h3 style="margin-top:18px">Carnet des scans ratés</h3>
+          <p class="muted small">Chaque carte mal ou pas reconnue est gardée ici (les ${App.scanMemo.MAX} dernières, sur cet appareil seulement) avec ce que le scanner a lu. Envoie le carnet à Claude : ce sont de vraies photos de téléphone, idéales pour améliorer le scanner.</p>
+          <div id="p-log"></div>
+          <p><label class="check"><input type="checkbox" id="p-log-on"> Garder les scans ratés</label></p>
+          <h3 style="margin-top:18px">Corrections retenues</h3>
+          <p class="muted small" id="p-learn"></p>
+        </section>
         <section class="panel">
           <h2>Application</h2>
           <div id="p-install"></div>
@@ -67,6 +81,57 @@ App.views.settings = {
     $('#p-sound').onchange = (e) => { S.sound = e.target.checked; save(); if (S.sound) App.sfx.click(); };
     $('#p-visual').onchange = (e) => { S.visualCheck = e.target.checked; save(); };
     $('#p-timing').onchange = (e) => { S.showTiming = e.target.checked; save(); };
+
+    // ---- Scanner (v3.32) : préparation d'avance, carnet des scans ratés, corrections retenues ----
+    const M = App.scanMemo, esc = App.util.esc;
+    $('#p-prep-auto').checked = S.scanPrefetch !== false;
+    $('#p-prep-auto').onchange = (e) => { S.scanPrefetch = e.target.checked; save(); };
+    $('#p-log-on').checked = S.scanLog !== false;
+    $('#p-log-on').onchange = (e) => { S.scanLog = e.target.checked; save(); };
+    let gone = false;
+    const drawPrep = async () => {
+      const st = await M.prefetchState().catch(() => []);
+      if (gone) return;
+      $('#p-prep').innerHTML = st.map((g) => `<div class="prep-row ${g.ok ? 'ok' : ''}"><span>${g.ok ? '✓' : '○'}</span> ${esc(g.name)}${g.ok ? '' : ' <span class="muted">— pas encore</span>'}</div>`).join('');
+      $('#p-prep-go').hidden = st.length > 0 && st.every((g) => g.ok);
+    };
+    drawPrep();
+    $('#p-prep-go').onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      const r = await M.prefetch((name, i, n) => { if (!gone && name) b.textContent = `Téléchargement… ${name} (${i + 1}/${n})`; }).catch(() => ({ ok: false }));
+      if (gone) return;
+      b.disabled = false; b.innerHTML = `${App.icons.icon('download', 16)} Tout télécharger maintenant`;
+      App.util.toast(r.ok ? `Scanner prêt ✓${r.mb ? ` (${String(r.mb).replace('.', ',')} Mo téléchargés)` : ''}` : 'Une partie n’a pas pu être téléchargée (connexion ?) : réessaie plus tard', 4000);
+      drawPrep();
+    };
+    const drawLog = async () => {
+      const all = await M.list();
+      if (gone) return;
+      if (!all.length) { $('#p-log').innerHTML = '<p class="small muted">Aucun scan raté pour l’instant.</p>'; return; }
+      $('#p-log').innerHTML = `<div class="log-grid">${all.slice(0, 12).map((m) => `<figure class="log-it" title="${esc(M.KINDS[m.kind] || m.kind)}"><img data-log="${esc(m.id)}" alt=""><figcaption>${esc(M.KINDS[m.kind] || m.kind)}${m.chosen ? ` → ${esc(m.chosen.name)}` : ''}</figcaption></figure>`).join('')}</div>
+        <p class="small muted">${all.length} scan${all.length > 1 ? 's' : ''} raté${all.length > 1 ? 's' : ''} gardé${all.length > 1 ? 's' : ''}.</p>
+        <div class="row"><button class="btn primary" id="p-log-send">${App.icons.icon('share', 16)} Envoyer le carnet à Claude</button><button class="btn ghost sm" id="p-log-clear">Vider le carnet</button></div>`;
+      for (const im of el.querySelectorAll('[data-log]')) M.photoOf(im.dataset.log).then((b) => { if (b && !gone) { im.src = URL.createObjectURL(b); im.onload = () => URL.revokeObjectURL(im.src); } });
+      $('#p-log-send').onclick = async () => {
+        const r = await M.send().catch(() => 'erreur');
+        if (r === 'telecharge') App.util.toast('Fichier du carnet téléchargé ✓ : envoie-le à Claude (par e-mail, ou dépose-le dans le dossier _tests-scanner du PC)', 6000);
+        else if (r === 'partage') App.util.toast('Carnet envoyé ✓');
+        else if (r === 'erreur') App.util.toast('Envoi impossible');
+      };
+      $('#p-log-clear').onclick = async () => {
+        if (!await App.util.ask({ icon: 'trash', title: 'Vider le carnet ?', text: 'Les scans ratés gardés sur cet appareil seront effacés (tes cartes ne changent pas).', ok: 'Vider', danger: true })) return;
+        await M.clear(); drawLog();
+      };
+    };
+    drawLog();
+    const drawLearn = async () => {
+      const n = await M.learnedCount().catch(() => 0);
+      if (gone) return;
+      $('#p-learn').innerHTML = `Quand tu choisis une autre carte que la 1ʳᵉ proposée, elle est proposée en premier la fois suivante (à vérifier, jamais ajoutée toute seule). ${n ? `<b>${n} correction${n > 1 ? 's' : ''} retenue${n > 1 ? 's' : ''}</b>. <button class="linkbtn small" id="p-learn-clear">Tout oublier</button>` : 'Aucune pour l’instant.'}`;
+      const b = el.querySelector('#p-learn-clear');
+      if (b) b.onclick = async () => { await M.forgetAll(); App.util.toast('Corrections oubliées ✓'); drawLearn(); };
+    };
+    drawLearn();
 
     $('#p-export').onclick = async () => {
       const data = await App.col.exportAll();
@@ -116,6 +181,6 @@ App.views.settings = {
       await App.db.clear('items'); await App.db.clear('photos'); await App.db.del('kv', 'profile');
       location.reload();
     };
-    return () => { offInstall(); offNotify(); accOff.then((f) => { if (typeof f === 'function') f(); }); };
+    return () => { gone = true; offInstall(); offNotify(); accOff.then((f) => { if (typeof f === 'function') f(); }); };
   },
 };

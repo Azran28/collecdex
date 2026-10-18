@@ -17,7 +17,7 @@ App.visual = (() => {
       if (!p) return;
       if (m.op === 'progress') { if (p.onProgress) p.onProgress(m.done, m.total); return; }
       pend.delete(m.rid);
-      if (m.ok) p.resolve(m); else p.reject(new Error(m.error));
+      if (m.ok) { warmDone = true; p.resolve(m); } else p.reject(new Error(m.error)); // (toute réponse = outils chargés)
     };
     w.onerror = (e) => { console.warn('vérification par l’image indisponible', e.message); broken = true; stop(); };
     return w;
@@ -30,14 +30,18 @@ App.visual = (() => {
     });
   }
   /** Prépare les bibliothèques pendant que le texte est lu (le 1er chargement prend quelques secondes) → { ms, backend } */
-  function warm() {
+  // (v3.32) index : { index, v } = base d'images d'une licence chargée en même temps (ouverture de Capturer)
+  let warmDone = false;
+  function warm(idx = null) {
     if (!supported()) return Promise.resolve(null);
     return new Promise((resolve) => {
       const rid = ++seq;
-      pend.set(rid, { resolve, reject: () => resolve(null) });
-      worker().postMessage({ op: 'warm', rid });
+      pend.set(rid, { resolve: (m) => { warmDone = true; resolve(m); }, reject: () => resolve(null) });
+      worker().postMessage({ op: 'warm', rid, ...(idx ? { base: new URL(idx.index, location.href).href, qs: '?v=' + idx.v } : {}) });
     });
   }
+  /** Outils déjà chargés (réseau de neurones, OpenCV) : la vérification par l'image répond en 1 à 2 s */
+  const isWarm = () => warmDone && !!w;
   /** Demande au worker (op + données) → réponse */
   function ask(op, data) {
     return new Promise((resolve, reject) => {
@@ -192,9 +196,10 @@ App.visual = (() => {
   const embedBlob = (blob) => ask('embedBlob', { blob });
   const forget = (qid) => { if (w) w.postMessage({ op: 'forget', qid }); };
   function stop() {
-    if (w) { w.terminate(); w = null; }
+    if (w) { w.terminate(); w = null; } warmDone = false;
     for (const p of pend.values()) p.reject(new Error('arrêté'));
     pend.clear();
   }
-  return { SURE, supported, rank, warm, global, check, cropOn, quadOn, quadCrop, embed, embedBlob, forget, stop };
+  const POKEMON_INDEX = { index: INDEX, v: INDEX_V }; // (v3.32 : préparée d'avance, comme ad.visualIndex des autres licences)
+  return { SURE, supported, rank, warm, isWarm, POKEMON_INDEX, global, check, cropOn, quadOn, quadCrop, embed, embedBlob, forget, stop };
 })();

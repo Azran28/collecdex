@@ -29,7 +29,9 @@
    * Lecteurs de texte : 2 en même temps quand l'appareil a assez de cœurs (téléphones récents, PC) ;
    * worker.recognize(image) prend le premier lecteur libre.
    */
+  let stopTimer = null;
   async function getWorker() {
+    if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; } // (on s'en sert à nouveau : on les garde)
     if (worker) return worker;
     if (!workerP) {
       workerP = (async () => {
@@ -275,8 +277,12 @@
     return Promise.all(zones.map((z) => (z === 'full' ? w.recognize(blob) : w.recognize(band(img, z[0], z[1], z[2], z[3] || 'sharp', z[4] ?? 0, z[5] ?? 1), z[6])).then((r) => r.data.text || '', () => '')));
   }
 
-  function stop() { if (worker) { worker.terminate(); worker = null; workerP = null; } }
+  // v3.32 : en quittant Capturer, les lecteurs restent prêts 90 s (changer de mode ou revenir ne les recharge plus)
+  function stop() { clearTimeout(stopTimer); stopTimer = null; if (worker) { worker.terminate(); worker = null; workerP = null; } }
+  const stopLater = (ms = 90000) => { clearTimeout(stopTimer); stopTimer = setTimeout(stop, ms); };
+  /** Prépare les lecteurs d'avance (ouverture de Capturer) : la 1re photo n'attend plus leur chargement */
+  const warm = () => getWorker().then(() => true, () => false);
   const setOnStatus = (fn) => { onStatus = fn || null; }; // suivi d'une lecture (recognize, read, manual)
 
-  App.recognizerParts = { similarity, norm, game, ad, loadTesseract, traduire, status, setOnStatus, getWorker, band, fetchImage, loadImg, ocr, parse, knownPokemon, readZones, stop };
+  App.recognizerParts = { similarity, norm, game, ad, loadTesseract, traduire, status, setOnStatus, getWorker, band, fetchImage, loadImg, ocr, parse, knownPokemon, readZones, stop, stopLater, warm };
 })();

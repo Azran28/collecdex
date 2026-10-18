@@ -450,3 +450,46 @@ test('classeur ouvert, 2 pages cherchées une par une', async (App) => {
   const errs = want.map((t) => { const ct = cen(t); let b = null, bd = 1e9; for (const cell of r.cells) { const q = cell.quad.map(([x, y]) => [x * 1500, y * 1000]), d = Math.hypot(cen(q)[0] - ct[0], cen(q)[1] - ct[1]); if (d < bd) { bd = d; b = q; } } return Math.max(...b.map((p, m) => Math.hypot(p[0] - t[m][0], p[1] - t[m][1]))) / diag * 100; });
   ok(Math.max(...errs) < 4, `pire carte à ${Math.max(...errs).toFixed(1)} %`);
 });
+
+// v3.32 : corrections retenues et carnet des scans ratés (App.scanMemo) — les données de la personne sont remises telles quelles
+test('scanner : correction retenue, carnet des scans ratés', async (App) => {
+  const M = App.scanMemo, kv = (k) => App.db.get('kv', k);
+  const keep = { learn: await kv('scanLearn'), log: await kv('scanLog') };
+  const g = 'test-memo', A = { id: 'a1', name: 'Alpha', localId: '1' }, B = { id: 'b2', name: 'Bêta', localId: '2', set: { id: 's', name: 'Série' } };
+  try {
+    // 1re proposée A, choisie B : retenu → la fois suivante B passe devant, rien n'est « sûr »
+    let miss = await M.choose(g, [{ ...A }, { ...B }], B);
+    eq(miss && miss.id, 'a1', 'scan raté non signalé');
+    let r = await M.apply(g, [{ ...A, confident: true }, { id: 'c3' }]);
+    eq(r.cands.map((c) => c.id), ['b2', 'a1', 'c3'], 'carte choisie pas remise devant (même absente des propositions)');
+    ok(r.cands[0].learned && !r.cands.some((c) => c.confident), 'marquée apprise, plus rien de sûr');
+    eq(r.from, 'a1');
+    // la personne reprend A malgré la correction : oubliée
+    miss = await M.choose(g, r.cands, { ...A }, r.from);
+    eq(miss, null);
+    r = await M.apply(g, [{ ...A }]);
+    eq(r.from, null, 'correction pas oubliée');
+    // classeur : proposition d'origine gardée au 1er choix, comparée à l'enregistrement
+    const cell = { choice: 'a1', cands: [{ ...A }, { ...B }] };
+    M.markPick(cell); cell.choice = 'b2';
+    const before = (await M.list()).length;
+    const blob = await new Promise((res) => { const c = document.createElement('canvas'); c.width = 63; c.height = 88; c.toBlob(res, 'image/png'); });
+    cell.blob = blob;
+    await M.batchPicked(g, 'classeur', cell, B, 'n° 2/10');
+    const list = await M.list();
+    eq(list.length, Math.min(M.MAX, before + 1), 'scan raté pas gardé');
+    eq([list[0].kind, list[0].mode, list[0].chosen.id, list[0].cands[0].id], ['corrigee', 'classeur', 'b2', 'a1']);
+    ok(await M.photoOf(list[0].id), 'photo du scan raté absente');
+    eq((await M.apply(g, [{ ...A }])).cands[0].id, 'b2', 'correction du classeur pas retenue');
+    // fichier à envoyer : lisible, photo comprise
+    const { file, n } = await M.exportFile();
+    const data = JSON.parse(await file.text());
+    eq([data.type, data.scans.length], ['carnet-scans-rates', n]);
+    ok(/^data:image\//.test(data.scans[0].photo), 'photo absente du fichier');
+  } finally {
+    for (const m of (await M.list())) if (!(keep.log || []).some((x) => x.id === m.id)) await App.db.del('kv', 'scanLog:' + m.id);
+    await App.db.set('kv', 'scanLog', keep.log || []);
+    await M.forgetAll(); // (mémoire vidée : relue depuis la base au prochain usage)
+    await App.db.set('kv', 'scanLearn', keep.learn || {});
+  }
+});

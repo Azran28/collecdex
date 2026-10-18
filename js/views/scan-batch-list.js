@@ -18,6 +18,13 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       S.detected = null; drawResults();
     }
 
+    /** v3.32 : carte déjà corrigée à la main (même 1re proposition) → celle que la personne avait choisie passe devant, « à vérifier » */
+    async function learnt(cell, cands) {
+      const a = await App.scanMemo.apply(S.game, cands).catch(() => ({ cands, from: null }));
+      cell.learnFrom = a.from; cell.sys = null; // (sys : proposition d'origine, gardée au 1er choix à la main — App.scanMemo.markPick)
+      return a.cands;
+    }
+
     /** Lecture d'une pochette : vide, dos, autre jeu, ou carte Pokémon (candidats) */
     async function recogOne(cell, hint, st) {
       if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; return; }
@@ -25,8 +32,9 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       // (Événement en pochette : 0,61, vrais dos 0,53–0,58) → la carte est quand même lue, « dos » seulement si rien n’est reconnu
       const back = await R.looksLikeBack(cell.blob, S.game).catch(() => false);
       if (back && isPk()) { cell.state = 'dos'; return; } // (Lorcana, v3.24 : comme One Piece — une face très sombre à lune dorée, « Fauchage », ressemble au dos : lue quand même)
-      const { info, cands } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
+      const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
       cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
+      const cands = await learnt(cell, read);
       if (back && !(cands[0] && (cands[0].confident || cands[0].numOk || (cands[0].orb || 0) >= 25))) { cell.state = 'dos'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
       cell.info = info; cell.cands = cands;
       if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); } // meilleur cadrage (One Piece) : photo de la case
@@ -48,8 +56,9 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       try {
         if (!force && await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
         else {
-          const { info, cands } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
+          const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
           cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
+          const cands = await learnt(cell, read);
           cell.info = info; cell.cands = cands;
           if (info && info.crop) { cell.blob = info.crop; cell.url = URL.createObjectURL(info.crop); urls.push(cell.url); }
       if (info && info.cropLater) { const shown = cell.blob; info.cropLater.then((c) => { if (!c || cell.saved || cell.blob !== shown || !alive()) return; cell.blob = c; cell.url = URL.createObjectURL(c); urls.push(cell.url); drawResults(); }); } // (vrais bords, trouvés après coup)
@@ -184,7 +193,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
                 <span class="bphoto ${scan}"><img src="${c.url}" alt="Ta carte ${c.i + 1}">${scan ? `<i class="bscan"></i>${scan === 'scan-img' ? '<i class="bdot"></i>'.repeat(7) : ''}` : ''}</span>
                 ${cur ? `<img class="bofficial" src="${esc(ad.img.card(cur, 'low'))}" alt="Visuel officiel" data-alt="" title="Visuel officiel">` : '<span class="bnone">?</span>'}
               </div>
-              <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.visId && c.choice === c.visId ? ' <span class="muted">· image ✓</span>' : ''}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
+              <div class="bstate ${cls}">${c.i + 1}. ${lab}${c.visId && c.choice === c.visId ? ' <span class="muted">· image ✓</span>' : ''}${c.learnFrom && (c.cands.find((x) => x.id === c.choice) || {}).learned ? ' <span class="muted">· choisie par toi la dernière fois</span>' : ''}${c.info ? ` <span class="muted">· ${esc(R.readSummary(c.info))}</span>` : ''}</div>
               ${['attente', 'lecture', 'dos', 'autre', 'don'].includes(c.state) && !c.choice ? (['dos', 'autre', 'don'].includes(c.state) ? `<button class="btn sm" data-notback="${c.i}">${c.state === 'dos' ? 'Ce n’est pas un dos' : 'C’est une carte Pokémon'} : la reconnaître</button><button class="btn sm ghost" data-find="${c.i}">🔎 Chercher à la main</button>
                 <div class="bsearch hidden" data-box="${c.i}"><input type="text" placeholder="Nom" data-name="${c.i}"><input type="text" placeholder="N° ex. 025/165" data-num="${c.i}"><button class="btn sm" data-dosearch="${c.i}">OK</button></div>` : '') : `
                 <select data-choice="${c.i}">

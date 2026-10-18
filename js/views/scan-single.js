@@ -168,6 +168,7 @@ Object.assign(App.views.scan, {
         const b = await shotP; if (!b) return;
         const lbl = view.querySelector('.sc-scanlbl span'); if (lbl) lbl.textContent = 'Photo prise — détourage de la carte…';
         lastShot = b; pageBlob = b; cam.stop(); // (pageBlob : photo d'origine, relue autrement si la carte recadrée ne donne rien)
+        shooting = false; // (v3.32 : la carte peut s'afficher avant la fin de la lecture → « Réessayer » doit pouvoir reprendre une photo)
         await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 80); }); // qu'elle s'affiche avant les calculs (80 ms au plus : onglet caché)
         if (certWanted) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
         stopTrack();
@@ -192,7 +193,9 @@ Object.assign(App.views.scan, {
           if (cut) card = await new Promise((res) => cut.toBlob(res, 'image/jpeg', 0.92)) || b;
         } catch (e) { console.warn(e); }
         el.querySelector('#sc-actions').classList.remove('hidden');
+        const tk = scanTok + 1; // (numéro de ce scan, pris par analyse)
         await analyse(card);
+        if (cam.on || !alive() || scanTok !== tk) return; // (photo déjà reprise, ou carte déjà choisie pendant la lecture)
         const certLine = !cert ? '' : cert.passed
           ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— la carte sera certifiée à l’ajout.</span>`
           : `<span class="small">${App.icons.icon('shield', 14)} <b>Non certifiable</b> : ${App.util.esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même l’ajouter, ou reprendre la photo.</span></span>`;
@@ -201,8 +204,9 @@ Object.assign(App.views.scan, {
         const closeTip = tooClose ? `<div class="small close-tip" style="margin:6px 0">${App.icons.icon('capture', 13)} <b>Bords de la carte pas trouvés</b> : éloigne un peu la carte, elle doit tenir <b>entière</b> dans le cadre jaune (avec un peu de marge).</div>` : '';
         status.insertAdjacentHTML('afterbegin', `<div class="panel" style="margin-bottom:14px">${certLine}${lampHtml}${closeTip}${certLine && !closeTip ? '<br>' : ''}<button class="linkbtn small" id="sc-recrop">✂ Mal détourée ? Recadrer à la main</button></div>`);
       } finally {
-        shooting = false; shot.disabled = false; shot.classList.add('hidden'); shot.classList.remove('cert-ready');
-        shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`; camButtons(true);
+        shooting = false; shot.disabled = false; shot.classList.remove('cert-ready');
+        shot.innerHTML = `${App.icons.icon('capture', 16)} Prendre la photo`;
+        if (!cam.on) { shot.classList.add('hidden'); camButtons(true); } // (caméra rouverte par « Réessayer » pendant la lecture : on la laisse)
       }
     }
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
@@ -348,6 +352,7 @@ Object.assign(App.views.scan, {
               ${own ? `<br><span class="pill small">Déjà ×${own.qty} — ce sera un exemplaire de plus</span>` : ''}
               ${c.isTarget && !c.notRead ? '<br><span class="pill small" style="background:var(--ok);color:#063">Carte attendue ✓</span>' : ''}
               ${c.notRead ? '<br><span class="pill small" style="background:#7a4a00">Carte attendue, mais pas reconnue sur la photo</span>' : ''}
+              ${c.learned ? '<br><span class="pill small" style="background:var(--accent2)">Choisie par toi la dernière fois</span>' : ''}
               ${!c.isTarget && i === 0 && c.confident ? '<br><span class="pill small" style="background:var(--ok);color:#063">Meilleure correspondance</span>' : ''}${c.numOk && c.ofOk ? `<br><span class="small muted">${isPk() ? 'Numéro' : 'Code'} lu sur ta carte ✓</span>` : ''}${c.visual != null && !(c.numOk && c.ofOk && c.visual < 0.42) ? `<br><span class="small muted">Illustration : ${c.visual >= 0.7 ? 'identique' : c.visual >= 0.55 ? 'très proche' : c.visual >= 0.42 ? 'proche' : 'différente'}</span>` : ''}</div>
             <button class="btn primary sm" data-pick="${esc(c.id)}">✓ C’est elle</button>
           </div>`;
@@ -358,6 +363,7 @@ Object.assign(App.views.scan, {
         if (!cardBlob) return;
         const vb = e.target.closest('[data-versions]');
         if (vb) {
+          scanTok++; // (une lecture encore en cours ne remplace plus la liste)
           vb.disabled = true; vb.textContent = 'Chargement…';
           const list = await ad.versions(vb.dataset.versions).catch(() => []);
           target = null;
@@ -367,6 +373,7 @@ Object.assign(App.views.scan, {
         const dm = e.target.closest('[data-dupmode]');
         const b = e.target.closest('[data-pick]');
         if (!dm && !b) return;
+        scanTok++; // carte choisie : la suite d'une lecture encore en cours (texte après l'image) est ignorée
         const c = cands.find((x) => x.id === (dm ? dm.dataset.card : b.dataset.pick));
         const before = App.col.get(game, c.id);
         // carte déjà possédée : on demande s'il s'agit de la même carte ou d'un autre exemplaire
@@ -384,6 +391,10 @@ Object.assign(App.views.scan, {
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
         const key = await R.addScanned(c, cardBlob, mode, game);
+        // v3.32 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
+        pendingPick = false;
+        { const lid = logId, shown = recoCands, from = recoFrom, ph = cardBlob, orig = pageBlob, read = recoRead, g = game;
+          App.scanMemo.choose(g, shown, c, from).then((miss) => (lid ? App.scanMemo.update(lid, { chosen: c }) : miss ? App.scanMemo.log({ game: g, mode: 'carte', kind: 'corrigee', photo: ph, original: orig, read, cands: shown, chosen: c }) : null)).catch(() => {}); }
         App.col.refreshPrices([key], 'Prix');
         const it = App.col.byKey(key);
         const photoId = mode === 'rien' ? null : it.photos[it.photos.length - 1];
@@ -420,16 +431,35 @@ Object.assign(App.views.scan, {
         <div class="sc-scanlbl"><div class="spinner"></div><span>${esc(msg)}</span></div></div>`;
       if (!isUrl) view.querySelector('.bphoto').prepend(src);
     }
+    /**
+     * Propositions de la reconnaissance affichées (v3.32) : une carte déjà corrigée à la main passe devant (App.scanMemo.apply) ;
+     * recoCands / recoFrom servent ensuite à retenir le choix, recoRead au carnet des scans ratés
+     */
+    async function display(cands, summary, final = true) {
+      const a = await App.scanMemo.apply(game, cands).catch(() => ({ cands, from: null }));
+      if (!live()) return;
+      recoCands = a.cands.slice(); recoFrom = a.from; recoRead = summary || ''; pendingPick = !!a.cands.length;
+      if (a.from) summary = [summary, 'carte que tu avais choisie la dernière fois en 1ʳᵉ'].filter(Boolean).join(' · ');
+      // rien de reconnu : gardé dans le carnet (complété si la carte est ensuite trouvée à la main)
+      if (final && !a.cands.length && !donCard && !logId) logId = await App.scanMemo.log({ game, mode: 'carte', kind: 'aucune', photo: cardBlob, original: pageBlob, read: summary });
+      showCandidates(a.cands, summary);
+    }
+    let scanTok = 0, recoCands = [], recoFrom = null, recoRead = '', pendingPick = false, logId = null;
+    const live = (tok = scanTok) => alive() && tok === scanTok; // (un nouveau scan, ou une carte choisie : la suite de l'ancien est ignorée)
     async function analyse(blob) {
       if (!blob) return; // recadrage vide (image pas encore affichée)
+      const tok = ++scanTok; logId = null; recoCands = []; recoFrom = null; pendingPick = false;
+      const on = () => live(tok);
       cardBlob = blob;
       if (cardURL) URL.revokeObjectURL(cardURL);
       cardURL = URL.createObjectURL(blob);
+      // photo de la carte remplacée par un meilleur cadrage (seulement si ce scan est toujours le scan en cours)
+      const setCard = (b) => { if (!b || !on()) return; tooClose = false; cardBlob = b; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(b); };
       showScan(cardURL, 'Lecture de la carte…');
       results.innerHTML = ''; setStatus('');
       const vr = view.getBoundingClientRect(); // toute la carte visible pendant la recherche
       if (vr.top < 60 || vr.bottom > window.innerHeight) window.scrollTo({ top: Math.max(0, window.scrollY + vr.top - 70), behavior: 'smooth' });
-      const st = (m) => { const s = view.querySelector('.sc-scanlbl span'); if (s && alive()) s.textContent = m; };
+      const st = (m) => { const s = view.querySelector('.sc-scanlbl span'); if (s && on()) s.textContent = m; };
       try {
         // « Toutes » (v3.11) : la licence est devinée sur le texte de la carte ; pas nette → Pokémon d'abord (il reconnaît déjà
         // les cartes One Piece / Riftbound qu'il lit), puis les autres licences si la carte n'est pas sûre
@@ -447,7 +477,7 @@ Object.assign(App.views.scan, {
         const ctx = pageBlob && pageBlob !== blob ? pageBlob : null;
         if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob, context: ctx }) /* photo d'origine : autre cadrage si besoin */); summary = info.read;
           // la carte n'a été lue que sur un autre cadrage : c'est lui qui montre vraiment la carte → il devient sa photo
-          if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
+          if (info.crop) setCard(info.crop);
         }
         else {
           // vérification par l'image (comme One Piece et le classeur) — seulement si le texte n'est pas sûr (v2.96 : lancée en même
@@ -460,8 +490,26 @@ Object.assign(App.views.scan, {
             if (!t || !(t.orb >= V.SURE)) return null;
             return (ctx && o.url ? await V.cropOn(ctx, t, o.url).catch(() => null) : null) || o.crop || null;
           };
-          if (setId) { info = await R.read(blob, st, { atkBand: true }); cands = await R.inSet(blob, info, setId, st); }
-          else ({ info, cands } = await R.recognize(blob, st, { atkBand: true }));
+          // v3.32 (« Google Lens répond en 1 s ») : outils de l'image déjà prêts et appareil assez puissant → image et texte en
+          // même temps ; carte nettement reconnue à l'image = affichée tout de suite, le texte se lit ensuite et la corrige si besoin
+          // (v2.96 : sur un téléphone moins puissant, l'image prenait le processeur du texte même quand le texte suffisait)
+          const fast = useV && !setId && V.isWarm() && (navigator.hardwareConcurrency || 2) >= 6;
+          const textP = setId ? R.read(blob, st, { atkBand: true }).then(async (i) => ({ info: i, cands: await R.inSet(blob, i, setId, st) })) : R.recognize(blob, st, { atkBand: true });
+          const eP = fast ? V.check(blob, [], { tie }).catch(() => null) : null;
+          let early = null;
+          if (eP) {
+            const first = await Promise.race([eP.then((o) => ({ o })), textP.then(() => null, () => null)]);
+            const t = first && first.o && first.o.cands[0];
+            if (t && t.confident && on()) {
+              early = first.o;
+              setCard(await edgesOf(early));
+              view.innerHTML = `<img src="${cardURL}" alt="Ta carte"><div class="sc-scanlbl sc-confirm"><div class="spinner"></div><span>Je lis le texte pour confirmer…</span></div>`;
+              await display(early.cands.slice(), 'reconnue à l’image ✓', false);
+              App.sfx.click();
+            }
+          }
+          ({ info, cands } = await textP);
+          if (!on()) return; // (carte déjà choisie, ou nouvelle photo)
           summary = R.readSummary(info);
           // pas une carte Pokémon : c'est peut-être une carte One Piece (code « OP09-004 » lu) ou Riftbound (« OGN · 013/298 »)
           // → on bascule tout seul (la licence dont le code se lit dans le texte d'abord)
@@ -478,7 +526,10 @@ Object.assign(App.views.scan, {
             if (!(top && top.confident)) {
               // (avec les cartes du texte : Sulfura 27 ↔ 12, la jumelle au même dessin ne doit pas manquer)
               st('Vérification par l’image…');
-              let o = await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
+              // déjà faite en même temps que le texte (v3.32) : gardée si elle est sûre et qu'aucun numéro lu ne désigne une autre carte
+              const readNum = cands.find((c) => c.numOk && c.ofOk), e0 = eP && await eP, et = e0 && e0.cands[0];
+              let o = et && et.confident && (!readNum || readNum.id === et.id) ? e0
+                : await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
               // rien de sûr sur la carte détourée (mal coupée ?) : on cherche sur la photo d'origine
               if (ctx && !(o && o.cands[0] && o.cands[0].confident)) {
                 const w = await V.check(ctx, cands, { tie }).catch(() => null);
@@ -486,12 +537,14 @@ Object.assign(App.views.scan, {
               }
               if (o && o.cands[0] && o.cands[0].orb >= V.SURE) summary = [summary, 'reconnue à l’image ✓'].filter(Boolean).join(' · ');
               if (o) { cands = o.cands; const c = await edgesOf(o); if (c) info.crop = c; }
-            } else {
+            } else if (!(early && early.cands[0].id === top.id)) { // (image et texte d'accord : vrais bords déjà pris)
               // sûre par le texte : les propositions s'affichent tout de suite ; la carte est recadrée sur ses vrais bords ensuite
               info.cropLater = V.check(blob, cands.slice(0, 6), { tie }).then((o) => (o && o.cands[0] && o.cands[0].id === top.id ? edgesOf(o) : null), () => null);
             }
           }
-          if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
+          if (info.crop) setCard(info.crop);
+          // affichée d'après l'image, mais le texte désigne une autre carte : on le dit
+          if (early && cands[0] && cands[0].id !== early.cands[0].id) summary = [summary, 'corrigée par la lecture du texte'].filter(Boolean).join(' · ');
         }
         // « Toutes » : licence pas devinée et carte pas sûre → les autres licences, gardée si la carte y est sûre
         if (auto && !autoSure && !switched && !(cands[0] && cands[0].confident)) {
@@ -504,23 +557,23 @@ Object.assign(App.views.scan, {
             const t = r && r.cands[0];
             if (r && ((t && (t.confident || t.numOk || (t.orb || 0) >= 25)) || r.info.don)) {
               switchGame(g); ({ info, cands } = r); summary = info.read; switched = g;
-              if (info.crop) { tooClose = false; cardBlob = info.crop; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(info.crop); }
+              if (info.crop) setCard(info.crop);
               break;
             }
           }
         }
         if (auto && (autoSure || switched || (cands[0] && cands[0].confident))) App.views.scan.showAutoGame(el, game);
-        if (!alive()) return;
+        if (!on()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         setStatus(switched ? `<span class="small">${App.icons.icon(App.games.info(switched).icon, 14)} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b>${auto ? '' : ` : passage en ${esc(App.games.info(switched).name)}`}.</span>`
           : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre jeu ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '');
         donCard = !!info.don;
-        showCandidates(cands, summary);
+        await display(cands, summary);
         // carte recadrée sur ses vrais bords en arrière-plan (texte sûr : on n'a pas attendu) — seulement si rien n'a changé entre-temps
         if (info.cropLater) {
           const shown = cardBlob;
           info.cropLater.then((c) => {
-            if (!c || !alive() || cardBlob !== shown) return;
+            if (!c || !on() || cardBlob !== shown) return;
             tooClose = false; cardBlob = c; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(c);
             const im = view.querySelector('img'); if (im) im.src = cardURL;
             const tip = status.querySelector('.close-tip'); if (tip) tip.remove();
@@ -530,6 +583,7 @@ Object.assign(App.views.scan, {
         requestAnimationFrame(() => { const r = results.getBoundingClientRect(); if (r.top > window.innerHeight * 0.55) window.scrollTo({ top: Math.max(0, window.scrollY + r.top - 70), behavior: 'smooth' }); });
       } catch (e) {
         console.error(e);
+        if (!on()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         setStatus(`<b>La lecture a échoué.</b><br><span class="small muted">${esc(e.message)}</span>`);
         showCandidates([], '');
@@ -540,6 +594,9 @@ Object.assign(App.views.scan, {
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-retry]'); if (!b) return;
       e.stopPropagation();
+      // v3.32 : propositions affichées mais aucune choisie → photo reprise, gardée dans le carnet des scans ratés
+      if (pendingPick && recoCands.length && !logId && cardBlob) App.scanMemo.log({ game, mode: 'carte', kind: 'reprise', photo: cardBlob, original: pageBlob, read: recoRead, cands: recoCands });
+      scanTok++; pendingPick = false;
       if (b.dataset.retry === 'crop' && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; return; }
       cardBlob = null; cert = null; donCard = false; setStatus('');
       el.querySelector('#sc-manual').classList.add('hidden');
@@ -550,6 +607,7 @@ Object.assign(App.views.scan, {
     });
     el.querySelector('#sc-search').addEventListener('click', async () => {
       if (!cardBlob) return App.util.toast('Prends d’abord la carte en photo');
+      scanTok++; // (une lecture encore en cours ne remplace plus la liste)
       spin('Recherche…');
       try {
         const nameQ = el.querySelector('#sc-name').value, numQ = el.querySelector('#sc-num').value;

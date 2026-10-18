@@ -10,7 +10,7 @@
  */
 App.recognizer = (() => {
   const P = App.recognizerParts;
-  const { similarity, norm, ad, status, setOnStatus, ocr, parse, readZones, stop, locateCard, detectGrid, gridProfiles, cellCard, plausibleQuad, cutCard, warpQuad, snapCells, refineCell, cardPixels, detectPage, detectDouble, looksLikePage, findCard, bestCard, bestCardIn, snapQuad, detectCards, detectSpread, trueRatio, artVariants, artMatch, vis01, officialThumb, looksEmpty, backScore, backScoreOf, looksLikeBack, wholeCardScores, detectVariants, firstEditionStamp, foilIn } = P;
+  const { similarity, norm, ad, status, setOnStatus, ocr, parse, readZones, stop, stopLater, warm, locateCard, detectGrid, gridProfiles, cellCard, plausibleQuad, cutCard, warpQuad, snapCells, refineCell, cardPixels, detectPage, detectDouble, looksLikePage, findCard, bestCard, bestCardIn, snapQuad, detectCards, detectSpread, trueRatio, artVariants, artMatch, vis01, officialThumb, looksEmpty, backScore, backScoreOf, looksLikeBack, wholeCardScores, detectVariants, firstEditionStamp, foilIn } = P;
 
   async function nameSearch(words, known = []) {
     // noms de Pokémon reconnus dans le texte : 1 à 2 recherches précises, en même temps
@@ -310,5 +310,5 @@ App.recognizer = (() => {
     return out;
   }
 
-  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, readZones, plausibleQuad, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, findCard, bestCard, bestCardIn, snapQuad, detectCards, detectSpread, trueRatio, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, readZones, plausibleQuad, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, findCard, bestCard, bestCardIn, snapQuad, detectCards, detectSpread, trueRatio, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, stopLater, warm, RATIO: 63 / 88 };
 })();

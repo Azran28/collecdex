@@ -543,7 +543,7 @@ Object.assign(App.views.scan, {
             const test = { ...cell, blob: cell.alt.blob };
             await X.recogOne(test, hint, st);
             if (test.state === 'sure') {
-              Object.assign(cell, { blob: test.blob, box: cell.alt.box, auto: cell.alt.auto, info: test.info, cands: test.cands, choice: test.choice, state: test.state, checked: test.checked });
+              Object.assign(cell, { blob: test.blob, box: cell.alt.box, auto: cell.alt.auto, info: test.info, cands: test.cands, choice: test.choice, state: test.state, checked: test.checked, learnFrom: test.learnFrom });
               cell.url = URL.createObjectURL(cell.blob); urls.push(cell.url);
             }
             cell.alt = null;
@@ -562,7 +562,7 @@ Object.assign(App.views.scan, {
                   const nb = c === cell ? alt : await cellBlob(c.i);
                   c.blob = nb.blob; c.box = nb.box; c.auto = nb.auto; c.url = URL.createObjectURL(nb.blob); urls.push(c.url);
                 }
-                Object.assign(cell, { info: test.info, cands: test.cands, choice: test.choice, state: test.state, checked: test.checked });
+                Object.assign(cell, { info: test.info, cands: test.cands, choice: test.choice, state: test.state, checked: test.checked, learnFrom: test.learnFrom });
               }
             }
           }
@@ -625,6 +625,7 @@ Object.assign(App.views.scan, {
       if (vf) { const c = S.cells[+vf.dataset.vfe]; if (c.det) { c.det.fe = vf.checked; c.det.user = true; } X.drawResults(); return; }
       const s = e.target.closest('[data-choice]'); if (!s) return;
       const cell = S.cells[+s.dataset.choice];
+      App.scanMemo.markPick(cell); // (v3.32 : proposition d'origine gardée, pour retenir la correction)
       cell.choice = s.value; cell.mode = null; cell.checked = !!s.value; // choisir une carte à la main = la cocher
       X.drawResults();
     });
@@ -671,7 +672,7 @@ Object.assign(App.views.scan, {
           // One Piece : par le code (« OP10-001 ») s'il est donné, sinon par le nom
           const cands = isPk() ? await R.manual(cell.blob, nameQ, numQ) : await ad.manual(cell.blob, nameQ, numQ);
           if (!cands.length) { App.util.toast('Aucune carte trouvée'); }
-          else { cell.cands = cands; cell.choice = cands[0].id; cell.state = 'verifier'; cell.checked = true; }
+          else { App.scanMemo.markPick(cell); cell.cands = cands; cell.choice = cands[0].id; cell.state = 'verifier'; cell.checked = true; }
         } catch (err) { App.util.toast(err.message); }
         X.drawResults();
         return;
@@ -707,6 +708,8 @@ Object.assign(App.views.scan, {
           if (!cand) continue;
           const picked = c.det && c.det.id === cand.id ? X.versOf(c) : null; // version vue (et corrigée) dans la liste
           const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game);
+          // v3.32 : carte choisie à la main → correction retenue, scan raté gardé dans le carnet
+          if (c.sys) { let read = ''; try { read = c.info ? R.readSummary(c.info) : ''; } catch (err) { /* */ } App.scanMemo.batchPicked(S.game, burst ? 'rafale' : 'classeur', c, cand, read).catch(() => {}); }
           c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
           keys.push(key);
           const it = App.col.byKey(key);

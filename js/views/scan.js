@@ -276,9 +276,11 @@ App.views.scan = {
     // téléphone : mode d'emploi à la 1re visite, et bouton « ? » pour le revoir
     el.querySelector('#sc-help').addEventListener('click', () => App.onboarding.showScan());
     App.onboarding.maybeShowScan();
+    // v3.32 : lecteurs de texte et vérification par l'image préparés dès maintenant (avant : au 1er scan, plusieurs secondes)
+    App.scanMemo.prepare(params.query.jeu || 'pokemon');
     const cleanup = mode === 'carte' ? await App.views.scan.single(body, params, alive) : await App.views.scan.batch(body, params, alive, mode === 'rafale');
     const unfit = alive() ? App.views.scan.fitScreen(el) : () => {};
-    return () => { unfit(); if (cleanup) cleanup(); App.recognizer.stop(); };
+    return () => { unfit(); if (cleanup) cleanup(); App.recognizer.stopLater(); }; // (lecteurs gardés 90 s : changer de mode ne les recharge pas)
   },
 
   /**

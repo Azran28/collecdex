@@ -142,9 +142,13 @@ self.addEventListener('fetch', (e) => {
   // Polices et bibliothèques : copie gardée tout de suite, mise à jour en arrière-plan
   // (+ le modèle du réseau de neurones de la vérification par l'image, ~14 Mo, téléchargé une seule fois)
   if (/^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net|tessdata\.projectnaptha\.com)$/.test(u.hostname) || (u.hostname === 'storage.googleapis.com' && u.pathname.startsWith('/tfjs-models/'))) {
+    // v3.32 : bibliothèques à version figée (« @5.1.1 »), modèle et langue du lecteur ne changent jamais → la copie gardée
+    // suffit (avant : chaque scan retéléchargeait en arrière-plan ~25 Mo, OpenCV et le modèle compris)
+    const fixed = u.hostname !== 'fonts.googleapis.com' && u.hostname !== 'fonts.gstatic.com' && (u.hostname !== 'cdn.jsdelivr.net' || /@v?\d+\.\d+|\/\d+\.\d+\.\d+_/.test(u.pathname)); // (langue : …/fra/4.0.0_best_int/…)
     e.respondWith((async () => {
       const c = await caches.open(RUNTIME);
-      const hit = await c.match(req);
+      const hit = await c.match(req, { ignoreVary: true });
+      if (hit && fixed) return hit;
       const net = fetch(req).then((r) => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => null);
       if (hit) { e.waitUntil(net); return hit; }
       return (await net) || Response.error();

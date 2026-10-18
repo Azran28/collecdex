@@ -600,6 +600,7 @@
     id: 'yugioh',
     name: 'Yu-Gi-Oh!',
     listSets, getSet, getCard, search, versions, byCode, byKey, setIdsByName, price, img, recognize, manual, codesIn, names,
+    visualIndex: { index: 'data/yg-index', v: YG_INDEX_V }, // (v3.32 : préparée d'avance par App.scanMemo.prepare)
     visualCheck: (blob) => (useVisual() ? visualPass(blob, [], []) : Promise.resolve(null)), // (« Toutes » : licence devinée à l'image)
     langFor: () => 'fr',
     cardmarketUrl: (card) => cm(card.nameEn || card.name),

@@ -476,6 +476,7 @@
     id: 'lorcana',
     name: 'Disney Lorcana',
     listSets, getSet, getCard, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize, manual, codesIn, names,
+    visualIndex: { index: 'data/lc-index', v: LC_INDEX_V }, // (v3.32 : préparée d'avance par App.scanMemo.prepare)
     visualCheck: (blob) => (useVisual() ? visualPass(blob, [], []) : Promise.resolve(null)), // (« Toutes » : licence devinée à l'image)
     langFor: () => 'fr',
     cardmarketUrl: (card) => cm(card.nameEn || card.name),
