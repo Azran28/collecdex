@@ -514,25 +514,54 @@
    * Impression choisie (v3.32, Arnaud : « le numéro de carte a une importance bien plus élevée » qu'ailleurs, tant de cartes sont
    * réimprimées à l'identique) : chaque code possible de la carte est dessiné et superposé à la bande du code
    * (`recognizerParts.codeMatch`), plus 0,3 × la ressemblance avec ce qu'a lu Tesseract ; « sûr » avec 0,1 d'avance. Code
-   * nettement lu (`choosePrint`) : il garde la main. Banc de 26 cartes : 14 bonnes impressions (3 sûres) → 20 (14 sûres, 0 fausse).
+   * nettement lu (`choosePrint`) : il garde la main. Banc de 26 cartes : 14 bonnes impressions (3 sûres) → 20 (12 sûres, 0 fausse) ; v3.40 avec PaddleOCR : 25 (20 sûres).
    */
   async function pickPrint(cands, texts, crop) { return byRarity(await pickCode(cands, texts, crop), crop); }
+  // v3.40 : bandes fines qui glissent sur la carte recadrée, lues par PaddleOCR (labo : 12 bandes de 0,68 à 0,76, 3,5 % de haut)
+  const PICK_BANDS = Array.from({ length: 12 }, (_, i) => 0.68 + i * 0.0075).map((y) => [y, y + 0.035, 0.45, 0.99]);
+  /**
+   * v3.40 — code de chaque impression noté par PaddleOCR (probabilité que la bande contienne « RGBT-FR007 », « RGBT-EN007 »…,
+   * `codeOcr.best`) : 3 points d'avance → ce code (labo, 26 cartes : 25 bonnes, 20 sûres, 0 fausse ; code dessiné : 20 / 12).
+   * Sinon le code dessiné décide comme avant, et s'il désigne le même code que PaddleOCR (1 point d'avance), il est retenu.
+   * → { win, gap, ranked } ou null
+   */
+  async function ocrPick(crop, codes) {
+    const O = App.recognizerParts && App.recognizerParts.codeOcr;
+    if (!O || !crop) return null;
+    const rd = await O.read(crop, PICK_BANDS, { wait: 3000 }).catch(() => null);
+    const ranked = rd ? await O.best(rd, new Map(codes.map((k) => [k, printedForms(k)]))) : [];
+    const d = O.decide(ranked);
+    return d ? { win: d.key, gap: d.gap, sure: d.sure, ranked } : null;
+  }
+  function markCode(group, rest, win, sure, orb, score) {
+    const order = [...group].sort((a, b) => ((baseKey(b.code) === win) - (baseKey(a.code) === win)) || (a.alt - b.alt));
+    for (const c of order) { delete c.confident; if (orb) c.orb = orb; c.numOk = sure && baseKey(c.code) === win; c.ofOk = c.numOk; if (score && baseKey(c.code) === win) c.codeScore = score; }
+    if (sure && orb >= App.visual.SURE && order.filter((c) => baseKey(c.code) === win).length === 1) order[0].confident = true;
+    return [...order, ...rest];
+  }
   async function pickCode(cands, texts, crop) {
     const top = cands[0], cm = App.recognizerParts && App.recognizerParts.codeMatch;
-    if (!top || top.passcode == null || !crop || !cm) return choosePrint(cands, texts);
+    if (!top || top.passcode == null || !crop) return choosePrint(cands, texts);
     const group = cands.filter((c) => c.passcode === top.passcode), rest = cands.filter((c) => c.passcode !== top.passcode);
     const codes = [...new Set(group.map((c) => baseKey(c.code)))];
     if (codes.length < 2) return choosePrint(cands, texts);
     const old = printScores(texts, group);
     if ((old.best >= 0.75 && old.gap >= 0.12) || (old.best >= 0.65 && old.gap >= 0.25)) return choosePrint(cands, texts);
+    const orb0 = Math.max(...group.map((c) => c.orb || 0));
+    const op = await ocrPick(crop, codes);
+    if (op && op.sure) return markCode(group, rest, op.win, true, orb0, +op.ranked[0][1].toFixed(2));
+    if (!cm) return op ? markCode(group, rest, op.win, false, orb0) : choosePrint(cands, texts);
     const m = await cm(crop, codes.map((k) => [k, printedForms(k)]), CODE_BAND).catch((e) => { console.warn('code dessiné', e); return null; });
     if (!m) return choosePrint(cands, texts);
     const read = readScores(texts, codes), sc = new Map(codes.map((k) => [k, (m.per.get(k) ?? -1) + 0.3 * (read.get(k) || 0)]));
     const ranked = [...sc].sort((a, b) => b[1] - a[1]), gap = ranked[0][1] - ranked[1][1], win = ranked[0][0];
+    // (v3.40 : les deux méthodes d'accord → sûr ; code dessiné hésitant et PaddleOCR d'un autre avis → PaddleOCR, à vérifier)
+    if (op && op.win !== win && gap < 0.1) return markCode(group, rest, op.win, false, orb0);
+    const agree = !!op && op.win === win && op.gap >= 1;
     const order = [...group].sort((a, b) => (sc.get(baseKey(b.code)) - sc.get(baseKey(a.code))) || (a.alt - b.alt));
-    const orb = Math.max(...group.map((c) => c.orb || 0));
-    for (const c of order) { delete c.confident; if (orb) c.orb = orb; c.codeScore = +sc.get(baseKey(c.code)).toFixed(3); c.numOk = gap >= 0.1 && baseKey(c.code) === win; c.ofOk = c.numOk; }
-    if (gap >= 0.1 && orb >= App.visual.SURE && order.filter((c) => baseKey(c.code) === win).length === 1) order[0].confident = true;
+    const orb = orb0, ok = gap >= 0.1 || agree;
+    for (const c of order) { delete c.confident; if (orb) c.orb = orb; c.codeScore = +sc.get(baseKey(c.code)).toFixed(3); c.numOk = ok && baseKey(c.code) === win; c.ofOk = c.numOk; }
+    if (ok && orb >= App.visual.SURE && order.filter((c) => baseKey(c.code) === win).length === 1) order[0].confident = true;
     return [...order, ...rest];
   }
   /**
@@ -587,6 +616,39 @@
   }
   const rarTxt = (c) => (c && c.rarLook ? `nom ${c.rarLook === 'gold' ? 'doré' : c.rarLook === 'silver' ? 'argenté' : 'sans dorure'}` : '');
 
+  // v3.40 — bandes du code (sous l'illustration à droite, la carte n'est pas toujours recadrée au pixel près) et du passcode
+  const OCR_BANDS = [...Array.from({ length: 11 }, (_, i) => 0.68 + i * 0.01).map((y) => [y, y + 0.035, 0.45, 0.99]), [0.93, 0.975, 0, 0.42], [0.95, 0.995, 0, 0.42]];
+  let lexMemo = null;
+  /**
+   * Formes imprimées des codes connus (~150 000), rangées par préfixe de série → fonction texte lu → formes à essayer : celles
+   * des séries dont le préfixe ressemble à un morceau de la ligne (« IDGS » ≈ TDGS) ; tout comparer prenait ~4 s par carte.
+   */
+  async function lexicon() {
+    const D = await data();
+    if (lexMemo && lexMemo.D === D) return lexMemo.pick;
+    const by = new Map();
+    for (const k of D.byKey.keys()) { const pre = k.split('-')[0]; if (!by.has(pre)) by.set(pre, []); for (const f of printedForms(k)) by.get(pre).push([baseKey(k), f]); }
+    const pres = [...by.keys()], align = App.recognizerParts.codeOcr.align;
+    const pick = (t) => pres.filter((p) => align(p, t) / p.length <= 0.34).flatMap((p) => by.get(p));
+    lexMemo = { D, pick };
+    return pick;
+  }
+  /**
+   * Code lu par PaddleOCR → textes (pour codesIn / printScores) ; texts.snapped = [clé, poids] : la lecture rapprochée de la
+   * liste des codes existants (« IDGS-FROT6 » → TDGS-016), poids 1,2, seulement si nettement le meilleur (3 points d'avance, note ≥ −6).
+   */
+  async function ocrCodes(blob) {
+    const O = App.recognizerParts && App.recognizerParts.codeOcr, out = [];
+    const rd = O ? await O.read(blob, OCR_BANDS, { zones: [[0.69, 0.78, 0.5, 1]] }).catch(() => null) : null;
+    if (!rd) return out;
+    out.push(...rd.texts);
+    if (!out.some((t) => codesIn(t).some(([c]) => !/^#/.test(c)))) {
+      const d = O.decide(await O.snap(rd, await lexicon()), { min: -6 });
+      if (d && d.sure) out.snapped = [d.key, 1.2];
+    }
+    return out;
+  }
+
   /**
    * Lit une photo de carte (déjà recadrée) : code (« RGBT-FR007 ») et passcode, nom (français ou anglais), puis vérification
    * par l'image. Même déroulé que Lorcana. Renvoie { info: { code, name, read, crop… }, cands }.
@@ -596,9 +658,12 @@
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
     const H = await sizeOf(blob);
-    const texts = await R.readZones(blob, CODE_ZONES(H));
+    // v3.40 : PaddleOCR d'abord (labo : lecture brute 8/33 contre 0/33 pour Tesseract, avec la liste des codes 16/33), Tesseract en secours
+    const texts = await ocrCodes(blob);
     let read = texts.map(codesIn), betterCrop = null;
     const anyKey = () => read.some((r) => r.some(([c]) => !/^#/.test(c)));
+    if (texts.snapped) read.push([texts.snapped]);
+    if (!anyKey()) { const t = await R.readZones(blob, CODE_ZONES(H)); texts.push(...t); read.push(...t.map(codesIn)); }
     if (!anyKey()) { const t = await R.readZones(blob, [...MORE_ZONES(H), ...NAME_ZONES(H)]); texts.push(...t); read.push(...t.map(codesIn)); }
     if (early && !anyKey()) {
       const e = await early;
@@ -613,7 +678,9 @@
       }
       if (crop) {
         statusFn('Lecture du code (carte recadrée)…');
-        const Hc = await sizeOf(crop), t = await R.readZones(crop, CROP_ZONES(Hc)); texts.push(...t); read.push(...t.map(codesIn));
+        // (v3.40 : PaddleOCR ; Tesseract et ses 20 bandes, ~3 s, seulement si le lecteur de codes n'est pas là)
+        const t0 = await ocrCodes(crop); texts.push(...t0); read.push(...t0.map(codesIn)); if (t0.snapped) read.push([t0.snapped]);
+        if (!t0.length) { const Hc = await sizeOf(crop), t = await R.readZones(crop, CROP_ZONES(Hc)); texts.push(...t); read.push(...t.map(codesIn)); }
         if (anyKey()) betterCrop = crop;
         // carte reconnue à l'image : reste à savoir laquelle de ses impressions (code relu sur la carte recadrée)
         if (e.cands[0] && (e.cands[0].orb || 0) >= App.visual.SURE) {
@@ -720,6 +787,6 @@
     rarity,
     pullRates: () => null,
     source: { name: 'YGOPRODeck', url: 'https://ygoprodeck.com/' },
-    parts: { baseKey, FRAME, ATTR, RACE, data, visualPass, choosePrint, pickPrint, nameLook, nameClass, byRarity, printScores, readScores, printedForms, CODE_BAND, CROP_ZONES, fullQuad, cropQuad, codesIn },
+    parts: { baseKey, FRAME, ATTR, RACE, data, visualPass, choosePrint, pickPrint, nameLook, nameClass, byRarity, printScores, readScores, printedForms, CODE_BAND, CROP_ZONES, fullQuad, cropQuad, codesIn, lexicon, ocrCodes, OCR_BANDS },
   });
 })();

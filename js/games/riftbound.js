@@ -409,6 +409,13 @@
    * Lit une photo de carte (déjà recadrée) : code imprimé (« OGN · 013/298 »), nom, puis vérification par l'image.
    * Même déroulé que One Piece. Renvoie { info: { code, name, read, crop… }, cands }.
    */
+  // v3.40 : bandes fines du code (en bas à gauche) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
+  const OCR_BANDS = [0.925, 0.935, 0.945, 0.955].map((y) => [y, y + 0.045, 0.02, 0.5]);
+  async function ocrTexts(b) {
+    const O = App.recognizerParts && App.recognizerParts.codeOcr;
+    const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.935, 0.99, 0, 0.5]] }).catch(() => null) : null;
+    return rd ? rd.texts : [];
+  }
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
     const R = App.recognizer, D = await data();
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte
@@ -416,7 +423,9 @@
     statusFn('Lecture du code de la carte…');
     // (2 bandes seulement au premier passage : 4 s → 2 s par carte ; le nom n'est lu qu'avec la carte entière, en dernier recours :
     //  les cartes françaises ne peuvent pas être reconnues par leur nom, Riot ne publiant que les noms anglais)
-    const texts = await R.readZones(blob, CODE_ZONES.slice(0, 2));
+    // v3.40 : PaddleOCR d'abord (labo : 20 codes sur 22 contre 10 pour Tesseract), les 2 bandes Tesseract seulement s'il ne trouve rien
+    const texts = await ocrTexts(blob);
+    if (!texts.some((t) => codesIn(t).length)) texts.push(...(await R.readZones(blob, CODE_ZONES.slice(0, 2))));
     let read = texts.map(codesIn), betterCrop = null;
     const anyCode = () => read.some((r) => r.length);
     if (!anyCode() && !early) { const t = await R.readZones(blob, [...CODE_ZONES.slice(2), ...NAME_ZONES]); texts.push(...t); read.push(...t.map(codesIn)); }
@@ -427,7 +436,9 @@
       // code relu : sur la carte recadrée par l'image (vrais bords) s'il y en a une, sinon les 2 autres bandes sur la case
       const crop = e && e.crop;
       statusFn(crop ? 'Lecture du code (carte recadrée)…' : 'Lecture du code…');
-      const t = await R.readZones(crop || blob, crop ? CODE_ZONES : CODE_ZONES.slice(2)); texts.push(...t); read.push(...t.map(codesIn));
+      let t = crop ? await ocrTexts(crop) : [];
+      if (!t.some((x) => codesIn(x).length)) t = [...t, ...(await R.readZones(crop || blob, crop ? CODE_ZONES : CODE_ZONES.slice(2)))];
+      texts.push(...t); read.push(...t.map(codesIn));
       if (anyCode() && crop) betterCrop = crop;
     }
     // autres cadrages : carte seule et rafale ; pas en classeur (context), où la vérification par l'image fait mieux et plus vite

@@ -164,6 +164,27 @@
     i.src = url;
   });
 
+  /**
+   * v3.40 — numéro lu par PaddleOCR (recognizer-ocr.js) : bandes fines du bas, à gauche (cartes récentes) et à droite
+   * (anciennes) ; chaque lecture rapprochée des numéros possibles (« n/total » des vraies séries) et départagée par la
+   * probabilité de chaque numéro : « 517102 » → 31/102. Numéro nettement le meilleur : écrit deux fois (il compte comme lu
+   * deux fois). → textes (vide si le lecteur n'est pas là)
+   */
+  const NUM_BANDS = [0.885, 0.91, 0.935, 0.955].flatMap((y) => [[y, y + 0.045, 0, 0.55], [y, y + 0.045, 0.45, 1]]);
+  let numLex = null;
+  async function numbersByOcr(blob) {
+    const O = App.recognizerParts.codeOcr;
+    const rd = O ? await O.read(blob, NUM_BANDS, { zones: [[0.88, 0.995, 0, 1]] }).catch(() => null) : null;
+    if (!rd) return [];
+    const out = [...rd.texts];
+    if (validTotals.size) {
+      if (!numLex || numLex.n !== validTotals.size) { const l = []; for (const t of validTotals) if (t > 0) for (let n = 1; n <= t + 40; n++) l.push([`${n}/${t}`, `${n}/${t}`]); numLex = { n: validTotals.size, l }; }
+      const d = O.decide(await O.snap(rd, numLex.l), { min: -6 });
+      if (d && d.sure) out.push(d.key, d.key);
+    }
+    return out;
+  }
+
   /** Lit la carte : bande du nom (haut), plusieurs lectures du numéro (bas), texte complet */
   async function ocr(blob, { atkBand = false } = {}) {
     const w = await getWorker();
@@ -187,16 +208,19 @@
     // on s'arrête dès que le même numéro « n/total » (total d'une vraie série) a été lu deux fois : plus rapide
     const seen = {};
     let twice = false;
+    const count = (t) => {
+      for (const m of t.replace(/[Oo](?=\d)|(?<=\d)[Oo]/g, '0').matchAll(/(\d{1,3})\s*[\/⁄]\s*(\d{2,3})/g)) {
+        const of = parseInt(m[2], 10), k = parseInt(m[1], 10) + '/' + of;
+        if (!validTotals.has(of)) continue;
+        seen[k] = (seen[k] || 0) + 1; if (seen[k] >= 2) twice = true;
+      }
+    };
+    // v3.40 : PaddleOCR d'abord (labo, 31 cartes : 18 numéros justes contre 3 pour les lectures Tesseract ci-dessous) ;
+    // Tesseract seulement si le numéro n'y est pas deux fois
+    for (const t of await numbersByOcr(blob)) { bottom += t + '\n'; count(t); }
     for (let i = 0; i < reads.length && !twice; i += w.size) {
       const ts = await Promise.all(reads.slice(i, i + w.size).map((r) => txt(w.recognize(r))));
-      for (const t of ts) {
-        bottom += t + '\n';
-        for (const m of t.replace(/[Oo](?=\d)|(?<=\d)[Oo]/g, '0').matchAll(/(\d{1,3})\s*[\/⁄]\s*(\d{2,3})/g)) {
-          const of = parseInt(m[2], 10), k = parseInt(m[1], 10) + '/' + of;
-          if (!validTotals.has(of)) continue;
-          seen[k] = (seen[k] || 0) + 1; if (seen[k] >= 2) twice = true;
-        }
-      }
+      for (const t of ts) { bottom += t + '\n'; count(t); }
     }
     const [tops, full, atk] = await Promise.all([topP, fullP, atkP]);
     // (texte des attaques à part : dans les lignes du nom, « Soins », « Dégâts »… faisaient chercher des cartes Dresseur)

@@ -238,7 +238,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
         c.det.user = true; c.det.measuring = false;
         X.drawResults(); return drawSV();
       }
-      // v3.40 (Arnaud) : cartes validées depuis le récapitulatif → retour direct à un nouveau scan (voir #b-add, scan-batch.js)
+      // v3.41 (Arnaud) : cartes validées depuis le récapitulatif → retour direct à un nouveau scan (voir #b-add, scan-batch.js)
       if (a === 'save') { svClose(); const add = resultsEl.querySelector('#b-add'); if (add) { S.newAfterSave = true; add.click(); } }
     }
 

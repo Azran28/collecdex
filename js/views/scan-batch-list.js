@@ -146,7 +146,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
 
     function drawResults() {
       if (sv.open) X.drawSV(); // l'écran plein écran suit l'analyse (et les versions mesurées en arrière-plan)
-      if (!S.cells.length && !S.running) return; // (v3.40 : nouveau scan déjà affiché — la certification en arrière-plan ne l'efface pas)
+      if (!S.cells.length && !S.running) return; // (v3.41 : nouveau scan déjà affiché — la certification en arrière-plan ne l'efface pas)
       const [cols] = dims();
       const chosen = S.cells.filter((c) => c.choice && modeOf(c) !== 'rien');
       const savedN = S.cells.filter((c) => c.saved).length, leftN = S.cells.filter((c) => !c.saved && c.choice).length;

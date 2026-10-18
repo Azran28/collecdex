@@ -23,7 +23,7 @@ App.views.settings = {
         <section class="panel" id="p-scan">
           <h2>Scanner</h2>
           <h3>Préparer le scanner</h3>
-          <p class="muted small">Télécharge d’avance les outils du scanner (lecteur de texte, reconnaissance par l’image, bases d’images de chaque licence, ≈ 55 Mo, plutôt en Wi‑Fi) : plus rien à attendre au premier scan, même avec une connexion faible. Les infos des cartes (noms, séries, prix) viennent toujours d’internet.</p>
+          <p class="muted small">Télécharge d’avance les outils du scanner (lecteurs de texte et des numéros, reconnaissance par l’image, bases d’images de chaque licence, ≈ 70 Mo, plutôt en Wi‑Fi) : plus rien à attendre au premier scan, même avec une connexion faible. Les infos des cartes (noms, séries, prix) viennent toujours d’internet.</p>
           <div id="p-prep" class="prep-list small"></div>
           <div class="row" style="margin-top:8px"><button class="btn" id="p-prep-go">${App.icons.icon('download', 16)} Tout télécharger maintenant</button></div>
           <p><label class="check"><input type="checkbox" id="p-prep-auto"> Le faire tout seul en Wi‑Fi</label></p>

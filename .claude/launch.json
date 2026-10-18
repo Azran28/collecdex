@@ -10,6 +10,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "outils/serveur.ps1", "-NoBrowser", "-Port", "8766"],
       "port": 8766
+    },
+    {
+      "name": "collecdex-labo",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "outils/serveur.ps1", "-NoBrowser", "-Port", "8771"],
+      "port": 8771
     }
   ]
 }
