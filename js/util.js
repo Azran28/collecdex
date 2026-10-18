@@ -161,18 +161,20 @@ App.util = (() => {
       const r = Math.min(1, maxSize / Math.max(img.width, img.height));
       const c = document.createElement('canvas');
       c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; // (réduction plus fine, v3.30)
+      g.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
       c.toBlob((b) => (b ? resolve(b) : reject(new Error('Conversion impossible'))), type, quality);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image illisible')); };
     img.src = url;
   });
-  /** Photo de carte à garder : WebP (~30 Ko, moitié moins lourd que le JPEG pour le même rendu),
-   *  JPEG si le navigateur ne sait pas écrire le WebP (Safari renvoie alors du PNG, bien plus lourd) */
-  const photoBlob = async (file, maxSize = 800) => {
-    const b = await resizeImage(file, maxSize, 0.8, 'image/webp');
-    return b.type === 'image/webp' ? b : resizeImage(file, maxSize, 0.82);
+  /** Photo de carte à garder : WebP (moitié moins lourd que le JPEG pour le même rendu), JPEG si le navigateur ne sait
+   *  pas écrire le WebP (Safari renvoie alors du PNG, bien plus lourd). v3.30 : 1200 px et qualité 0,86 (avant 800 px,
+   *  0,8 : ~30 Ko mais flou dès qu'on agrandit) ; ~80 Ko, bien sous la limite de 1 Mo du stockage */
+  const photoBlob = async (file, maxSize = 1200) => {
+    const b = await resizeImage(file, maxSize, 0.86, 'image/webp');
+    return b.type === 'image/webp' ? b : resizeImage(file, maxSize, 0.88);
   };
 
   const blobToDataURL = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
