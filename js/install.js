@@ -23,6 +23,9 @@ App.install = (() => {
   window.addEventListener('online', () => { document.documentElement.classList.remove('offline'); App.util.toast('De retour en ligne ✓'); });
   if (navigator.onLine === false) document.documentElement.classList.add('offline');
 
+  // appli installée sur téléphone : toujours en hauteur (le manifeste le demande aussi ; dans le navigateur, écran « Tourne ton téléphone » en CSS)
+  if (standalone() && isMobile && screen.orientation && screen.orientation.lock) screen.orientation.lock('portrait').catch(() => {});
+
   /** 'installed' | 'prompt' (bouton direct) | 'ios' (instructions Safari) | 'manual' (menu du navigateur) */
   function state() {
     if (standalone()) return 'installed';
