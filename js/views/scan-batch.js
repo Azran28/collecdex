@@ -751,6 +751,14 @@ Object.assign(App.views.scan, {
           }
         })();
         App.util.toast(`${keys.length} carte${keys.length > 1 ? 's' : ''} enregistrée${keys.length > 1 ? 's' : ''} ✓`);
+        // v3.40 (Arnaud) : validées depuis le récapitulatif → pas de retour au récap ni à la liste, on repart sur un nouveau scan
+        // (la certification en arrière-plan continue : elle garde ses propres cartes)
+        if (S.newAfterSave) {
+          S.newAfterSave = false;
+          if (burst) X.resetBurst(); else el.querySelector('#b-reset').click();
+          window.scrollTo(0, 0);
+          return;
+        }
         X.drawResults();
         resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
