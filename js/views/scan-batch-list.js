@@ -18,7 +18,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       S.detected = null; drawResults();
     }
 
-    /** v3.32 : carte déjà corrigée à la main (même 1re proposition) → celle que la personne avait choisie passe devant, « à vérifier » */
+    /** v3.36 : carte déjà corrigée à la main (même 1re proposition) → celle que la personne avait choisie passe devant, « à vérifier » */
     async function learnt(cell, cands) {
       const a = await App.scanMemo.apply(S.game, cands).catch(() => ({ cands, from: null }));
       cell.learnFrom = a.from; cell.sys = null; // (sys : proposition d'origine, gardée au 1er choix à la main — App.scanMemo.markPick)

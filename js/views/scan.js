@@ -276,7 +276,7 @@ App.views.scan = {
     // téléphone : mode d'emploi à la 1re visite, et bouton « ? » pour le revoir
     el.querySelector('#sc-help').addEventListener('click', () => App.onboarding.showScan());
     App.onboarding.maybeShowScan();
-    // v3.32 : lecteurs de texte et vérification par l'image préparés dès maintenant (avant : au 1er scan, plusieurs secondes)
+    // v3.36 : lecteurs de texte et vérification par l'image préparés dès maintenant (avant : au 1er scan, plusieurs secondes)
     App.scanMemo.prepare(params.query.jeu || 'pokemon');
     const cleanup = mode === 'carte' ? await App.views.scan.single(body, params, alive) : await App.views.scan.batch(body, params, alive, mode === 'rafale');
     const unfit = alive() ? App.views.scan.fitScreen(el) : () => {};
@@ -293,7 +293,7 @@ App.views.scan = {
     let timer = 0;
     const idleView = () => {
       const v = el.querySelector('.scan-view');
-      if (!v || !v.querySelector('.scan-empty, video')) return null;
+      if (!v || !v.querySelector('.scan-empty, video, .sc-scanwrap')) return null; // (v3.35 : aussi la carte pendant sa recherche)
       const st = el.querySelector('#sc-status, #b-status'), res = el.querySelector('#sc-results, #b-results');
       if (st && st.children.length) return null; // message, attente…
       if (res && [...res.children].some((c) => !c.matches('.pc-block'))) return null; // (l'encadré « Certifier ? » ne compte pas)
@@ -313,7 +313,7 @@ App.views.scan = {
       // v3.16 : le cadre prend toute la place libre (grandit ou rétrécit) pour que les boutons arrivent juste au-dessus de la barre du bas
       // (mesuré sur le bas de la page : la barre des boutons « colle » au bas de l'écran, sa position ne compte pas)
       const main = el.closest('main') || el;
-      const delta = v.querySelector('.scan-empty') ? window.innerHeight - (main.getBoundingClientRect().bottom + window.scrollY) : -Math.max(0, over());
+      const delta = v.querySelector('.scan-empty, .sc-scanwrap') ? window.innerHeight - (main.getBoundingClientRect().bottom + window.scrollY) : -Math.max(0, over());
       if (Math.abs(delta) > 1) {
         const h = Math.min(760, v.getBoundingClientRect().height + delta);
         if (h < 180) return;
@@ -335,6 +335,7 @@ App.views.scan = {
   camera(view, { guide }) {
     let stream = null, base = {}, focusT = 0;
     const track = () => stream && stream.getVideoTracks()[0];
+    const within = (p, ms) => Promise.race([p, new Promise((res) => setTimeout(() => res(null), ms))]); // p, ou null après ms
     const caps = () => { try { const t = track(); return (t && t.getCapabilities && t.getCapabilities()) || {}; } catch (e) { return {}; } };
     // (réglages gardés ensemble : chaque applyConstraints remplace les précédents)
     const tune = (set) => { const t = track(); return t ? t.applyConstraints({ advanced: [Object.assign(base, set)] }).catch(() => {}) : Promise.resolve(); };
@@ -415,8 +416,8 @@ App.views.scan = {
        * Image du flux vidéo ; avec guide, la zone du cadre jaune + 15 % de marge (v2.92, demande d'Arnaud : une carte
        * un peu trop grande ou décalée n'est plus coupée). this.zone = position du cadre jaune dans l'image (fractions).
        */
-      frame(r) {
-        const v = view.querySelector('video'), { sx, sy, sw, sh } = r;
+      frame(r, vid) { // (vid : la vidéo, même retirée de la page — v3.35 : sinon plus rien après l'image figée)
+        const v = vid || view.querySelector('video'), { sx, sy, sw, sh } = r;
         const c = document.createElement('canvas'); c.width = sw; c.height = sh;
         c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
         return c;
@@ -449,25 +450,30 @@ App.views.scan = {
           for (let i = 0; i < 4 && stream; i++) {
             await new Promise((res) => setTimeout(res, 90));
             if (!stream || !v.videoWidth) break;
-            const c = this.frame(r), s = S.sharpness(c);
+            const c = this.frame(r, v), s = S.sharpness(c);
             if (s > bs) { best = c; bs = s; }
           }
           return { c: best, s: bs };
         })();
-        return (async () => {
-          const [st, fr] = await Promise.all([stillP, framesP]);
+        const toBlob = (c) => new Promise((res) => { try { c.toBlob(res, 'image/jpeg', 0.95); } catch (e) { res(null); } });
+        const work = (async () => {
+          // v3.35 : la vraie photo a 5,5 s au plus (alignement compris) ; sinon on garde l'image vidéo
+          const [st, fr] = await Promise.all([within(stillP, 5500), framesP]);
           // vraie photo gardée sauf si nettement plus floue que la meilleure image vidéo (carte bougée pendant la prise)
           const c = st && S.sharpness(st) >= 0.5 * fr.s ? st : fr.c;
           this.lastSource = c === st ? 'photo' : 'video';
-          return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
-        })();
+          return (await toBlob(c)) || (c !== first ? toBlob(first) : null);
+        })().catch((e) => { console.warn('Photo impossible, image figée utilisée', e); this.lastSource = 'video'; return toBlob(first); });
+        // filet de sécurité (v3.35 : sur certains téléphones, l'appareil photo ne répondait jamais → « photo en cours » sans fin)
+        return within(work, 7000).then((b) => b || toBlob(first));
       },
-      /** Vraie photo du capteur (Blob) ou null ; flash coupé (reflets sur la carte), 6 s au plus */
+      /** Vraie photo du capteur (Blob) ou null ; flash coupé (reflets sur la carte), 5 s au plus en tout */
       async still() {
         const t = track(); if (!t || !window.ImageCapture) return null;
         const ic = new ImageCapture(t), opts = {};
-        try { const pc = await ic.getPhotoCapabilities(); if ((pc.fillLightMode || []).includes('off')) opts.fillLightMode = 'off'; } catch (e) { /* */ }
-        const b = await Promise.race([ic.takePhoto(opts).catch(() => null), new Promise((res) => setTimeout(() => res(null), 6000))]);
+        // (getPhotoCapabilities ne répond jamais sur certains Android : 1 s au plus)
+        try { const pc = await within(ic.getPhotoCapabilities(), 1000); if (pc && (pc.fillLightMode || []).includes('off')) opts.fillLightMode = 'off'; } catch (e) { /* */ }
+        const b = await within(ic.takePhoto(opts).catch(() => null), 4000);
         return b && b.size > 50000 ? b : null;
       },
       /**

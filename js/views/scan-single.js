@@ -109,9 +109,9 @@ Object.assign(App.views.scan, {
     // Certification « dos d'abord » : le dos, on retourne, on tient immobile → la photo se prend toute seule
     let trk = null, trkTimer = null;
     const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.flip-hint'); if (h) h.remove(); const pc = view.querySelector('.page-cert'); if (pc) pc.remove(); };
-    el.querySelector('#sc-cam').addEventListener('click', async () => {
     // pendant la capture, seul « Prendre la photo » reste (demande d'Arnaud) : « Caméra » et « Choisir une photo » reviennent après
     const camButtons = (show) => { el.querySelector('#sc-cam').classList.toggle('hidden', !show); el.querySelector('#sc-file').closest('label').classList.toggle('hidden', !show); };
+    el.querySelector('#sc-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = guideC();
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
@@ -162,13 +162,14 @@ Object.assign(App.views.scan, {
       // l'animation de scan démarre À L'APPUI, sur l'image figée (avant : après l'encodage de la photo, la vérification
       // de la certification et le détourage, soit 1 à 2 s) ; elle continue ensuite sur la carte détourée.
       // (la vérification a déjà lu la vidéo ci-dessus : on peut la retirer de l'écran)
-      if (shotP && cam.lastCanvas) showScan(cam.lastCanvas, 'Ne bouge pas… photo en cours');
+      if (shotP && cam.lastCanvas) showScan(cam.lastCanvas, 'Photo prise — un instant…'); // (v3.35 : plus « Ne bouge pas » : l'image est déjà figée)
       try {
         cert = null;
-        const b = await shotP; if (!b) return;
+        const b = await shotP;
+        if (!b) { cam.stop(); stopTrack(); view.innerHTML = App.views.scan.empty('carte'); setStatus('<b>La photo n’a pas pu être prise.</b> <span class="small muted">Rallume la caméra et réessaie, ou utilise « Choisir une photo ».</span>'); return; }
         const lbl = view.querySelector('.sc-scanlbl span'); if (lbl) lbl.textContent = 'Photo prise — détourage de la carte…';
         lastShot = b; pageBlob = b; cam.stop(); // (pageBlob : photo d'origine, relue autrement si la carte recadrée ne donne rien)
-        shooting = false; // (v3.32 : la carte peut s'afficher avant la fin de la lecture → « Réessayer » doit pouvoir reprendre une photo)
+        shooting = false; // (v3.36 : la carte peut s'afficher avant la fin de la lecture → « Réessayer » doit pouvoir reprendre une photo)
         await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 80); }); // qu'elle s'affiche avant les calculs (80 ms au plus : onglet caché)
         if (certWanted) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };
         stopTrack();
@@ -391,7 +392,7 @@ Object.assign(App.views.scan, {
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
         const key = await R.addScanned(c, cardBlob, mode, game);
-        // v3.32 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
+        // v3.36 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
         pendingPick = false;
         { const lid = logId, shown = recoCands, from = recoFrom, ph = cardBlob, orig = pageBlob, read = recoRead, g = game;
           App.scanMemo.choose(g, shown, c, from).then((miss) => (lid ? App.scanMemo.update(lid, { chosen: c }) : miss ? App.scanMemo.log({ game: g, mode: 'carte', kind: 'corrigee', photo: ph, original: orig, read, cands: shown, chosen: c }) : null)).catch(() => {}); }
@@ -432,7 +433,7 @@ Object.assign(App.views.scan, {
       if (!isUrl) view.querySelector('.bphoto').prepend(src);
     }
     /**
-     * Propositions de la reconnaissance affichées (v3.32) : une carte déjà corrigée à la main passe devant (App.scanMemo.apply) ;
+     * Propositions de la reconnaissance affichées (v3.36) : une carte déjà corrigée à la main passe devant (App.scanMemo.apply) ;
      * recoCands / recoFrom servent ensuite à retenir le choix, recoRead au carnet des scans ratés
      */
     async function display(cands, summary, final = true) {
@@ -490,7 +491,7 @@ Object.assign(App.views.scan, {
             if (!t || !(t.orb >= V.SURE)) return null;
             return (ctx && o.url ? await V.cropOn(ctx, t, o.url).catch(() => null) : null) || o.crop || null;
           };
-          // v3.32 (« Google Lens répond en 1 s ») : outils de l'image déjà prêts et appareil assez puissant → image et texte en
+          // v3.36 (« Google Lens répond en 1 s ») : outils de l'image déjà prêts et appareil assez puissant → image et texte en
           // même temps ; carte nettement reconnue à l'image = affichée tout de suite, le texte se lit ensuite et la corrige si besoin
           // (v2.96 : sur un téléphone moins puissant, l'image prenait le processeur du texte même quand le texte suffisait)
           const fast = useV && !setId && V.isWarm() && (navigator.hardwareConcurrency || 2) >= 6;
@@ -526,7 +527,7 @@ Object.assign(App.views.scan, {
             if (!(top && top.confident)) {
               // (avec les cartes du texte : Sulfura 27 ↔ 12, la jumelle au même dessin ne doit pas manquer)
               st('Vérification par l’image…');
-              // déjà faite en même temps que le texte (v3.32) : gardée si elle est sûre et qu'aucun numéro lu ne désigne une autre carte
+              // déjà faite en même temps que le texte (v3.36) : gardée si elle est sûre et qu'aucun numéro lu ne désigne une autre carte
               const readNum = cands.find((c) => c.numOk && c.ofOk), e0 = eP && await eP, et = e0 && e0.cands[0];
               let o = et && et.confident && (!readNum || readNum.id === et.id) ? e0
                 : await V.check(blob, cands, { tie }).catch((err) => { console.warn('vérification par l’image', err); return null; });
@@ -594,7 +595,7 @@ Object.assign(App.views.scan, {
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-retry]'); if (!b) return;
       e.stopPropagation();
-      // v3.32 : propositions affichées mais aucune choisie → photo reprise, gardée dans le carnet des scans ratés
+      // v3.36 : propositions affichées mais aucune choisie → photo reprise, gardée dans le carnet des scans ratés
       if (pendingPick && recoCands.length && !logId && cardBlob) App.scanMemo.log({ game, mode: 'carte', kind: 'reprise', photo: cardBlob, original: pageBlob, read: recoRead, cands: recoCands });
       scanTok++; pendingPick = false;
       if (b.dataset.retry === 'crop' && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; return; }

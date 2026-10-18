@@ -301,6 +301,32 @@ test('Yu-Gi-Oh! : code imprimé lu même mal reconnu', async (App) => {
   eq(c('Pikachu 25/165'), [], 'numéro Pokémon');
   eq(c('OP09-004 Monkey D. Luffy'), [], 'code One Piece');
   eq(c('Infligez 300 points de dommages à votre adversaire.'), [], 'pas de code dans un texte de carte');
+  eq(c('SDK-C032')[0], 'SDK-E032', 'anciennes cartes françaises du Canada « SDK-C032 »');
+});
+test('Yu-Gi-Oh! : impression choisie par le code dessiné (v3.32)', async (App) => {
+  await App.need('reco'); const A = App.games.get('yugioh'), P = A.parts; await A.listSets();
+  ok(P.printedForms('SDK-E032').includes('SDK-C032') && P.printedForms('RGBT-007').includes('RGBT-FR007'), 'formes imprimées');
+  const r = P.readScores(['ROSE', 'DDK-C035'], ['SDK-E032', 'SDY-E027', 'SDJ-029']);
+  ok(r.get('SDK-E032') > r.get('SDY-E027') && r.get('SDK-E032') > r.get('SDJ-029'), '« DDK-C035 » lu = SDK-C032');
+  // fausse carte : fond clair, trait sous le code, « SDY-C027 » à sa place (aligné à droite sous l'illustration)
+  const c = document.createElement('canvas'); c.width = 600; c.height = 838; const g = c.getContext('2d');
+  g.fillStyle = '#c9a36b'; g.fillRect(0, 0, 600, 838); g.fillStyle = '#3a2a1a'; g.fillRect(40, 632, 520, 3);
+  g.font = '15px Georgia, serif'; g.textAlign = 'right'; g.fillText('SDY-C027', 555, 624); g.filter = 'blur(0.6px)'; g.drawImage(c, 0, 0);
+  const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+  const m = await App.recognizerParts.codeMatch(blob, ['SDK-E032', 'SDY-E027', 'SDJ-029'].map((k) => [k, P.printedForms(k)]), P.CODE_BAND);
+  eq(m && m.ranked[0][0], 'SDY-E027', 'code dessiné retrouvé');
+});
+test('Yu-Gi-Oh! : rareté d’après la couleur du nom (v3.34)', async (App) => {
+  const P = App.games.get('yugioh').parts;
+  const card = async (frame, ink) => {
+    const c = document.createElement('canvas'); c.width = 600; c.height = 838; const g = c.getContext('2d');
+    g.fillStyle = frame; g.fillRect(0, 0, 600, 838); g.fillStyle = ink; g.font = 'bold 40px Georgia, serif'; g.fillText('BLUE-EYES ULTIMATE', 50, 80);
+    return P.nameLook(await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9)));
+  };
+  eq(P.nameClass(await card('#9a7fb0', '#f2dfa0'), 'f'), 'gold', 'nom doré sur une Fusion');
+  eq(P.nameClass(await card('#c8714a', '#e6e2de'), 'e'), 'silver', 'nom argenté sur un monstre à effet');
+  eq(P.nameClass(await card('#c8714a', '#2a1a12'), 'e'), 'plain', 'nom noir');
+  eq(P.nameClass(await card('#2a9a90', '#f4f6f6'), 's'), null, 'nom blanc d’une Magie : on ne sait pas');
 });
 test('Yu-Gi-Oh! : monstre → combattant, Magies et Pièges → cartes de pioche', async (App) => {
   await App.need('match');
@@ -451,7 +477,7 @@ test('classeur ouvert, 2 pages cherchées une par une', async (App) => {
   ok(Math.max(...errs) < 4, `pire carte à ${Math.max(...errs).toFixed(1)} %`);
 });
 
-// v3.32 : corrections retenues et carnet des scans ratés (App.scanMemo) — les données de la personne sont remises telles quelles
+// v3.36 : corrections retenues et carnet des scans ratés (App.scanMemo) — les données de la personne sont remises telles quelles
 test('scanner : correction retenue, carnet des scans ratés', async (App) => {
   const M = App.scanMemo, kv = (k) => App.db.get('kv', k);
   const keep = { learn: await kv('scanLearn'), log: await kv('scanLog') };

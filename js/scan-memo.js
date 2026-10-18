@@ -1,5 +1,5 @@
 /*
- * Aides du scanner (v3.32), chargé au démarrage (Paramètres s'en sert aussi), toutes licences :
+ * Aides du scanner (v3.36), chargé au démarrage (Paramètres s'en sert aussi), toutes licences :
  *  - carnet des scans ratés (log, list, send, clear) : chaque carte mal ou pas reconnue est gardée sur l'appareil
  *    (photo, ce qui a été lu, les propositions, la bonne carte) ; « Envoyer » en fait un fichier à transmettre à Claude
  *    pour régler le scanner sur de vraies photos de téléphone ;

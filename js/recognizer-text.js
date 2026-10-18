@@ -277,7 +277,7 @@
     return Promise.all(zones.map((z) => (z === 'full' ? w.recognize(blob) : w.recognize(band(img, z[0], z[1], z[2], z[3] || 'sharp', z[4] ?? 0, z[5] ?? 1), z[6])).then((r) => r.data.text || '', () => '')));
   }
 
-  // v3.32 : en quittant Capturer, les lecteurs restent prêts 90 s (changer de mode ou revenir ne les recharge plus)
+  // v3.36 : en quittant Capturer, les lecteurs restent prêts 90 s (changer de mode ou revenir ne les recharge plus)
   function stop() { clearTimeout(stopTimer); stopTimer = null; if (worker) { worker.terminate(); worker = null; workerP = null; } }
   const stopLater = (ms = 90000) => { clearTimeout(stopTimer); stopTimer = setTimeout(stop, ms); };
   /** Prépare les lecteurs d'avance (ouverture de Capturer) : la 1re photo n'attend plus leur chargement */

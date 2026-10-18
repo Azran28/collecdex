@@ -330,7 +330,7 @@ self.onmessage = (e) => {
   if (m.op === 'warm') {
     chain = chain.then(async () => {
       const t0 = performance.now();
-      // (v3.32 : base d'images d'une licence aussi chargée d'avance, à l'ouverture de Capturer)
+      // (v3.36 : base d'images d'une licence aussi chargée d'avance, à l'ouverture de Capturer)
       try { await ready(); if (m.base) await loadIndex(m.base, m.qs).catch(() => null); postMessage({ rid: m.rid, ok: true, ms: performance.now() - t0, backend: tf.getBackend() }); }
       catch (err) { postMessage({ rid: m.rid, ok: false, error: String((err && err.message) || err) }); }
     });

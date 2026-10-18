@@ -625,7 +625,7 @@ Object.assign(App.views.scan, {
       if (vf) { const c = S.cells[+vf.dataset.vfe]; if (c.det) { c.det.fe = vf.checked; c.det.user = true; } X.drawResults(); return; }
       const s = e.target.closest('[data-choice]'); if (!s) return;
       const cell = S.cells[+s.dataset.choice];
-      App.scanMemo.markPick(cell); // (v3.32 : proposition d'origine gardée, pour retenir la correction)
+      App.scanMemo.markPick(cell); // (v3.36 : proposition d'origine gardée, pour retenir la correction)
       cell.choice = s.value; cell.mode = null; cell.checked = !!s.value; // choisir une carte à la main = la cocher
       X.drawResults();
     });
@@ -708,7 +708,7 @@ Object.assign(App.views.scan, {
           if (!cand) continue;
           const picked = c.det && c.det.id === cand.id ? X.versOf(c) : null; // version vue (et corrigée) dans la liste
           const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game);
-          // v3.32 : carte choisie à la main → correction retenue, scan raté gardé dans le carnet
+          // v3.36 : carte choisie à la main → correction retenue, scan raté gardé dans le carnet
           if (c.sys) { let read = ''; try { read = c.info ? R.readSummary(c.info) : ''; } catch (err) { /* */ } App.scanMemo.batchPicked(S.game, burst ? 'rafale' : 'classeur', c, cand, read).catch(() => {}); }
           c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
           keys.push(key);

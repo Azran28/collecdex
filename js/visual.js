@@ -30,7 +30,7 @@ App.visual = (() => {
     });
   }
   /** Prépare les bibliothèques pendant que le texte est lu (le 1er chargement prend quelques secondes) → { ms, backend } */
-  // (v3.32) index : { index, v } = base d'images d'une licence chargée en même temps (ouverture de Capturer)
+  // (v3.36) index : { index, v } = base d'images d'une licence chargée en même temps (ouverture de Capturer)
   let warmDone = false;
   function warm(idx = null) {
     if (!supported()) return Promise.resolve(null);
@@ -200,6 +200,6 @@ App.visual = (() => {
     for (const p of pend.values()) p.reject(new Error('arrêté'));
     pend.clear();
   }
-  const POKEMON_INDEX = { index: INDEX, v: INDEX_V }; // (v3.32 : préparée d'avance, comme ad.visualIndex des autres licences)
+  const POKEMON_INDEX = { index: INDEX, v: INDEX_V }; // (v3.36 : préparée d'avance, comme ad.visualIndex des autres licences)
   return { SURE, supported, rank, warm, isWarm, POKEMON_INDEX, global, check, cropOn, quadOn, quadCrop, embed, embedBlob, forget, stop };
 })();

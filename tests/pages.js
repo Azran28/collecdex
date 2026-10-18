@@ -64,7 +64,7 @@
     }
   }
 
-  // v3.32 : Paramètres › Scanner (préparation d'avance, carnet des scans ratés, corrections retenues)
+  // v3.36 : Paramètres › Scanner (préparation d'avance, carnet des scans ratés, corrections retenues)
   test('Paramètres › Scanner', async (App, W) => {
     await visit(W, '#/parametres');
     const p = W.document.querySelector('#p-scan');

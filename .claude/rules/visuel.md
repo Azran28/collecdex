@@ -15,6 +15,7 @@ paths:
 # Vérification par l'image (`js/visual.js`, `js/visual-worker.js`)
 
 ## Principe
+- v3.36 : `warm({ index, v })` charge aussi la base d'images d'une licence dans le worker (`m.base`) ; `isWarm()` = outils chargés ; `POKEMON_INDEX` ; chaque licence déclare `visualIndex` dans son adaptateur. Voir `scanner-ecran.md`.
 - `App.visual.rank(qid, blob, refs, { must, bonusSet, onProgress })`, `warm()`, `SURE = 25`, parle à `visual-worker.js` (Web Worker) : MobileNet v2 (`storage.googleapis.com/tfjs-models/savedmodel/mobilenet_v2_1.0_224`, nœud `…/Logits/AvgPool`) présélectionne 40 cartes (+ `must`), ORB (OpenCV.js) les vérifie (RANSAC) ; score ≈ points communs + cosinus ; `bonusSet` ×1,2.
 - **Pourquoi un worker** : OpenCV.js exige `eval`, interdit par la CSP ; le worker (sans CSP) charge les bibliothèques après avoir vérifié leur sha384 (`loadVerified` → Blob → `importScripts`), et ne fige pas la page.
 - Empreintes des visuels dans IndexedDB **`collecdex-vis`** (store `f`, clé `v1:<url>`, ~30 Ko ; visuel absent (404) → `{miss}` 2 jours). Visuel introuvable (adresse devinée, TCGdex répond sans CORS) : 2 essais (.webp, .png), puis `{miss}` 1 jour, sauf si 5 échecs d'affilée (panne). Service worker : modèle gardé (`/tfjs-models/`).

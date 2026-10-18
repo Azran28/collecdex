@@ -82,7 +82,7 @@ App.views.settings = {
     $('#p-visual').onchange = (e) => { S.visualCheck = e.target.checked; save(); };
     $('#p-timing').onchange = (e) => { S.showTiming = e.target.checked; save(); };
 
-    // ---- Scanner (v3.32) : préparation d'avance, carnet des scans ratés, corrections retenues ----
+    // ---- Scanner (v3.36) : préparation d'avance, carnet des scans ratés, corrections retenues ----
     const M = App.scanMemo, esc = App.util.esc;
     $('#p-prep-auto').checked = S.scanPrefetch !== false;
     $('#p-prep-auto').onchange = (e) => { S.scanPrefetch = e.target.checked; save(); };

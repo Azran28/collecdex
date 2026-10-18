@@ -176,7 +176,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       if (a === 'yes' && c) { c.checked = true; c.mode = null; return next(); }
       if (a === 'no' && c) { c.checked = false; return next(); }
       if (a === 'pick' && c) { // une autre proposition : on la montre en grand, il reste à confirmer
-        App.scanMemo.markPick(c); // (v3.32)
+        App.scanMemo.markPick(c); // (v3.36)
         c.choice = b.dataset.id; c.mode = null; c.checked = true; if (c.state === 'inconnue') c.state = 'verifier';
         X.drawResults(); return drawSV();
       }
