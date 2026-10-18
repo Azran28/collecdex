@@ -109,9 +109,9 @@ Object.assign(App.views.scan, {
     // Certification « dos d'abord » : le dos, on retourne, on tient immobile → la photo se prend toute seule
     let trk = null, trkTimer = null;
     const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.flip-hint'); if (h) h.remove(); const pc = view.querySelector('.page-cert'); if (pc) pc.remove(); };
-    el.querySelector('#sc-cam').addEventListener('click', async () => {
     // pendant la capture, seul « Prendre la photo » reste (demande d'Arnaud) : « Caméra » et « Choisir une photo » reviennent après
     const camButtons = (show) => { el.querySelector('#sc-cam').classList.toggle('hidden', !show); el.querySelector('#sc-file').closest('label').classList.toggle('hidden', !show); };
+    el.querySelector('#sc-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = guideC();
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
@@ -162,10 +162,11 @@ Object.assign(App.views.scan, {
       // l'animation de scan démarre À L'APPUI, sur l'image figée (avant : après l'encodage de la photo, la vérification
       // de la certification et le détourage, soit 1 à 2 s) ; elle continue ensuite sur la carte détourée.
       // (la vérification a déjà lu la vidéo ci-dessus : on peut la retirer de l'écran)
-      if (shotP && cam.lastCanvas) showScan(cam.lastCanvas, 'Ne bouge pas… photo en cours');
+      if (shotP && cam.lastCanvas) showScan(cam.lastCanvas, 'Photo prise — un instant…'); // (v3.35 : plus « Ne bouge pas » : l'image est déjà figée)
       try {
         cert = null;
-        const b = await shotP; if (!b) return;
+        const b = await shotP;
+        if (!b) { cam.stop(); stopTrack(); view.innerHTML = App.views.scan.empty('carte'); setStatus('<b>La photo n’a pas pu être prise.</b> <span class="small muted">Rallume la caméra et réessaie, ou utilise « Choisir une photo ».</span>'); return; }
         const lbl = view.querySelector('.sc-scanlbl span'); if (lbl) lbl.textContent = 'Photo prise — détourage de la carte…';
         lastShot = b; pageBlob = b; cam.stop(); // (pageBlob : photo d'origine, relue autrement si la carte recadrée ne donne rien)
         await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 80); }); // qu'elle s'affiche avant les calculs (80 ms au plus : onglet caché)
