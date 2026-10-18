@@ -309,8 +309,8 @@
         const w = LANGS.includes(lang2) ? 1 : /^[A-Z]{2}$/.test(lang2) ? 0.6 : 0;
         if (w) { tries.push([fixDigits(tail2), w]); if (/^[A-Z]\w+$/.test(tail2)) tries.push([tail2[0] + fixDigits(tail2.slice(1)), w]); }
       }
-      // « F003 » (anciennes européennes)
-      if (/^[EFGIS]/.test(rest) && rest.length === 4) { tries.push(['E' + fixDigits(rest.slice(1)), 0.9]); tries.push([fixDigits(rest.slice(1)), 0.7]); } // (« SDJ-F006 » : les données n'ont parfois que « SDJ-006 »)
+      // « F003 », « C032 » (anciennes européennes, françaises du Canada)
+      if (/^[CEFGIS]/.test(rest) && rest.length === 4) { tries.push(['E' + fixDigits(rest.slice(1)), 0.9]); tries.push([fixDigits(rest.slice(1)), 0.7]); } // (« SDJ-F006 » : les données n'ont parfois que « SDJ-006 »)
       for (const pp of pres) for (const [n, w] of tries) { const k = `${pp}-${n}`; if (ok(k)) out.push([k, w * (pp === p ? 1 : 0.8)]); }
     }
     // passcode : 8 chiffres seuls (bas gauche) — seulement s'il désigne une carte connue
@@ -346,7 +346,7 @@
   function printScores(texts, prints) {
     const lines = texts.join('\n').split('\n').map(canon).filter((l) => l.length >= 5);
     const scored = prints.map((c) => {
-      const [pre, num] = c.code.split('-'), want = /^E\d{3}$/.test(num) ? [`${pre}-F${num.slice(1)}`, `${pre}-E${num.slice(1)}`] : [`${pre}-FR${num}`, `${pre}-EN${num}`, ...(/^\d{3}$/.test(num) ? [`${pre}-F${num}`] : [])]; // (« SDJ-F006 » = « SDJ-006 »)
+      const [pre, num] = c.code.split('-'), want = /^E\d{3}$/.test(num) ? [`${pre}-F${num.slice(1)}`, `${pre}-E${num.slice(1)}`, `${pre}-C${num.slice(1)}`] : [`${pre}-FR${num}`, `${pre}-EN${num}`, ...(/^\d{3}$/.test(num) ? [`${pre}-F${num}`] : [])]; // (« SDJ-F006 » = « SDJ-006 »)
       let s = 0;
       for (const w of want.map(canon)) for (const l of lines) for (let i = -2; i <= l.length - w.length + 2; i++) {
         const part = l.slice(Math.max(0, i), Math.max(0, i) + w.length);
@@ -481,6 +481,61 @@
   }
 
   /**
+   * Formes imprimées d'un code des données : « RGBT-007 » → RGBT-FR007, RGBT-EN007, RGBT-007 ; anciennes européennes
+   * « SDK-E032 » → SDK-F032, SDK-C032 (françaises du Canada), SDK-E032…
+   */
+  function printedForms(code) {
+    const [pre, num = ''] = baseKey(code).split('-');
+    if (/^E\d{3}$/.test(num)) return ['F', 'C', 'E', 'G', 'I', 'S'].map((l) => `${pre}-${l}${num.slice(1)}`);
+    const f = [`${pre}-FR${num}`, `${pre}-EN${num}`, `${pre}-${num}`];
+    if (/^\d{3}$/.test(num)) f.push(`${pre}-F${num}`, `${pre}-C${num}`);
+    return f;
+  }
+  // lettres que Tesseract confond (O/0/D, I/1/L, S/5…) : presque gratuites dans la comparaison
+  const LOOK = new Set(['O0', 'D0', 'Q0', 'OD', 'OQ', 'DQ', 'I1', 'L1', 'J1', '|1', 'IL', 'I|', 'T1', 'S5', 'B8', 'Z2', 'G6', 'T7', '/7', 'EF', 'FP', 'CG', 'C0', 'CO', 'RK', 'RP', 'HN', 'MN', 'UV', '38', '56', '68', '69', '89', 'A4', 'E3', 'B3', 'GO', 'G0', 'DB', 'DO', 'CE', 'S8', 'S3', '74', '17'].flatMap((p) => [p, p[1] + p[0]]));
+  /** coût de w posé n'importe où dans la ligne t (début et fin libres) */
+  function alignCost(w, t) {
+    let prev = new Float32Array(t.length + 1), cur = new Float32Array(t.length + 1);
+    for (let i = 1; i <= w.length; i++) {
+      cur[0] = i * 0.7;
+      for (let j = 1; j <= t.length; j++) cur[j] = Math.min(prev[j - 1] + (w[i - 1] === t[j - 1] ? 0 : LOOK.has(w[i - 1] + t[j - 1]) ? 0.35 : 1), prev[j] + 0.7, cur[j - 1] + 0.7);
+      [prev, cur] = [cur, prev];
+    }
+    return Math.min(...prev);
+  }
+  /** code lu par Tesseract : note de chaque code possible (0…1, meilleure ligne) */
+  function readScores(texts, codes) {
+    const lines = texts.join('\n').toUpperCase().replace(/[‐-―–—]/g, '-').split('\n').map((l) => l.replace(/[^A-Z0-9\-|/]/g, '')).filter((l) => l.length >= 4);
+    return new Map(codes.map((k) => [k, Math.max(0, ...lines.flatMap((l) => printedForms(k).map((w) => 1 - alignCost(w, l) / w.length)))]));
+  }
+  // bande du code sur la carte recadrée (sous l'illustration, aligné à droite)
+  const CODE_BAND = { y0: 0.70, y1: 0.775, x0: 0.5, x1: 1, right: [0.87, 0.985] };
+  /**
+   * Impression choisie (v3.30, Arnaud : « le numéro de carte a une importance bien plus élevée » qu'ailleurs, tant de cartes sont
+   * réimprimées à l'identique) : chaque code possible de la carte est dessiné et superposé à la bande du code
+   * (`recognizerParts.codeMatch`), plus 0,3 × la ressemblance avec ce qu'a lu Tesseract ; « sûr » avec 0,1 d'avance. Code
+   * nettement lu (`choosePrint`) : il garde la main. Banc de 26 cartes : 14 bonnes impressions (3 sûres) → 20 (14 sûres, 0 fausse).
+   */
+  async function pickPrint(cands, texts, crop) {
+    const top = cands[0], cm = App.recognizerParts && App.recognizerParts.codeMatch;
+    if (!top || top.passcode == null || !crop || !cm) return choosePrint(cands, texts);
+    const group = cands.filter((c) => c.passcode === top.passcode), rest = cands.filter((c) => c.passcode !== top.passcode);
+    const codes = [...new Set(group.map((c) => baseKey(c.code)))];
+    if (codes.length < 2) return choosePrint(cands, texts);
+    const old = printScores(texts, group);
+    if ((old.best >= 0.75 && old.gap >= 0.12) || (old.best >= 0.65 && old.gap >= 0.25)) return choosePrint(cands, texts);
+    const m = await cm(crop, codes.map((k) => [k, printedForms(k)]), CODE_BAND).catch((e) => { console.warn('code dessiné', e); return null; });
+    if (!m) return choosePrint(cands, texts);
+    const read = readScores(texts, codes), sc = new Map(codes.map((k) => [k, (m.per.get(k) ?? -1) + 0.3 * (read.get(k) || 0)]));
+    const ranked = [...sc].sort((a, b) => b[1] - a[1]), gap = ranked[0][1] - ranked[1][1], win = ranked[0][0];
+    const order = [...group].sort((a, b) => (sc.get(baseKey(b.code)) - sc.get(baseKey(a.code))) || (a.alt - b.alt));
+    const orb = Math.max(...group.map((c) => c.orb || 0));
+    for (const c of order) { delete c.confident; if (orb) c.orb = orb; c.codeScore = +sc.get(baseKey(c.code)).toFixed(3); c.numOk = gap >= 0.1 && baseKey(c.code) === win; c.ofOk = c.numOk; }
+    if (gap >= 0.1 && orb >= App.visual.SURE && order.filter((c) => baseKey(c.code) === win).length === 1) order[0].confident = true;
+    return [...order, ...rest];
+  }
+
+  /**
    * Lit une photo de carte (déjà recadrée) : code (« RGBT-FR007 ») et passcode, nom (français ou anglais), puis vérification
    * par l'image. Même déroulé que Lorcana. Renvoie { info: { code, name, read, crop… }, cands }.
    */
@@ -510,7 +565,8 @@
         if (anyKey()) betterCrop = crop;
         // carte reconnue à l'image : reste à savoir laquelle de ses impressions (code relu sur la carte recadrée)
         if (e.cands[0] && (e.cands[0].orb || 0) >= App.visual.SURE) {
-          const cands = choosePrint(e.cands, texts), top = cands[0];
+          statusFn('Comparaison des codes possibles…');
+          const cands = await pickPrint(e.cands, texts, crop), top = cands[0];
           return { info: { code: top.id, name: '', votes: {}, crop, ctxQuad: e.ctxQuad, orb: e.best, read: [top.numOk ? `code ${top.code}` : '', 'reconnue à l’image ✓'].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
         }
       }
@@ -576,7 +632,7 @@
       if (top && top.confident && !codeIds.has(top.id) && (top.orb || 0) < IMG_SURE) delete top.confident;
     }
     if (orb && orb.crop) betterCrop = orb.crop;
-    if (top && !top.confident) { cands = choosePrint(cands, texts); top = cands[0]; }
+    if (top && !top.confident) { cands = await pickPrint(cands, texts, (orb && orb.crop) || betterCrop); top = cands[0]; }
     const cropLater = !orb && early && top ? early.then((e) => (e && e.crop && e.cands[0] && e.cands[0].passcode === top.passcode ? e.crop : null), () => null) : null;
     const readTxt = topKeys.length ? `code ${topKeys[0]}` : pcs.length ? `passcode ${pcs[0]}` : '';
     return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
@@ -611,6 +667,6 @@
     rarity,
     pullRates: () => null,
     source: { name: 'YGOPRODeck', url: 'https://ygoprodeck.com/' },
-    parts: { baseKey, FRAME, ATTR, RACE, data },
+    parts: { baseKey, FRAME, ATTR, RACE, data, visualPass, choosePrint, pickPrint, printScores, readScores, printedForms, CODE_BAND, CROP_ZONES, fullQuad, cropQuad, codesIn },
   });
 })();

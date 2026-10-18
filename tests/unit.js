@@ -301,6 +301,20 @@ test('Yu-Gi-Oh! : code imprimé lu même mal reconnu', async (App) => {
   eq(c('Pikachu 25/165'), [], 'numéro Pokémon');
   eq(c('OP09-004 Monkey D. Luffy'), [], 'code One Piece');
   eq(c('Infligez 300 points de dommages à votre adversaire.'), [], 'pas de code dans un texte de carte');
+  eq(c('SDK-C032')[0], 'SDK-E032', 'anciennes cartes françaises du Canada « SDK-C032 »');
+});
+test('Yu-Gi-Oh! : impression choisie par le code dessiné (v3.30)', async (App) => {
+  await App.need('reco'); const A = App.games.get('yugioh'), P = A.parts; await A.listSets();
+  ok(P.printedForms('SDK-E032').includes('SDK-C032') && P.printedForms('RGBT-007').includes('RGBT-FR007'), 'formes imprimées');
+  const r = P.readScores(['ROSE', 'DDK-C035'], ['SDK-E032', 'SDY-E027', 'SDJ-029']);
+  ok(r.get('SDK-E032') > r.get('SDY-E027') && r.get('SDK-E032') > r.get('SDJ-029'), '« DDK-C035 » lu = SDK-C032');
+  // fausse carte : fond clair, trait sous le code, « SDY-C027 » à sa place (aligné à droite sous l'illustration)
+  const c = document.createElement('canvas'); c.width = 600; c.height = 838; const g = c.getContext('2d');
+  g.fillStyle = '#c9a36b'; g.fillRect(0, 0, 600, 838); g.fillStyle = '#3a2a1a'; g.fillRect(40, 632, 520, 3);
+  g.font = '15px Georgia, serif'; g.textAlign = 'right'; g.fillText('SDY-C027', 555, 624); g.filter = 'blur(0.6px)'; g.drawImage(c, 0, 0);
+  const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+  const m = await App.recognizerParts.codeMatch(blob, ['SDK-E032', 'SDY-E027', 'SDJ-029'].map((k) => [k, P.printedForms(k)]), P.CODE_BAND);
+  eq(m && m.ranked[0][0], 'SDY-E027', 'code dessiné retrouvé');
 });
 test('Yu-Gi-Oh! : monstre → combattant, Magies et Pièges → cartes de pioche', async (App) => {
   await App.need('match');
