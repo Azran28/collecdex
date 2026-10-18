@@ -46,7 +46,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     function svScan() {
       const cur = S.cells.find((c) => c.vscan) || S.cells.find((c) => c.state === 'lecture');
       const p = S.prog, off = cur && cardOf(cur);
-      const step = !p ? 0 : /^Lecture des/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
+      const step = !p ? 0 : /^(Lecture des|Découpe)/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
       const steps = (burst ? ['Lecture'] : !isPk() ? ['Lecture + image', 'Série'] : ['Lecture', 'Série', 'Image']).map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
       return `
         <div class="sv-head">

@@ -25,6 +25,18 @@ test('chaque script de la page a le même numéro de version', async (App, W) =>
   eq(v.v, W.APP_VERSION, 'version.json');
 });
 
+// v3.38 : sans moment libre, Chrome attendait 1 s par image (classeur bloqué sur « Préparation de la page… »)
+test('une image de canevas est encodée tout de suite (toBlob)', async (App, W) => {
+  const c = W.document.createElement('canvas'); c.width = 400; c.height = 560;
+  const g = c.getContext('2d'); g.fillStyle = '#c33'; g.fillRect(0, 0, 400, 560);
+  const t = performance.now();
+  const b = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+  ok(b && b.size > 500 && b.type === 'image/jpeg', 'image JPEG attendue');
+  ok(performance.now() - t < 400, `trop lent : ${Math.round(performance.now() - t)} ms`);
+  const e = W.document.createElement('canvas'); e.width = 0;
+  eq(await new Promise((res) => e.toBlob(res)), null, 'canevas vide → null, comme avant');
+});
+
 test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('pokemon'), 'Pokémon');
   ok(App.games.get('onepiece'), 'One Piece');
