@@ -1,6 +1,8 @@
 ---
 paths:
   - "js/recognizer*.js"
+  - "js/ocr-worker.js"
+  - "data/ocr/**"
   - "js/views/scan*.js"
   - "_tests-scanner/**"
 ---
@@ -15,6 +17,25 @@ Tesseract.js pour le numéro et le nom, comparaison de l'illustration, détectio
 - Bancs : `compare.js` (`__compare(['02',…])`, voir `visuel.md`), `snapshow.js` (`__snapShow(['13'], 180, true)` = découpes), `single.js` (`__single(['22',…,'31'])`, captures d'écran du téléphone, carte découpée à des coordonnées fixes).
 - Hors ligne (espace cloud), grille, découpe, logo, dos se testent avec Playwright (tesseract local = anglais seulement).
 - Un « battement » `setInterval` de 100 ms qui note les écarts > 300 ms révèle les vrais blocages.
+
+## Lecteur des numéros : PaddleOCR (v3.37, `js/recognizer-ocr.js` + `js/ocr-worker.js`, toutes les licences)
+- Arnaud (18 oct.) : « le plus haut taux de réussite sur les numéros, surtout Yu-Gi-Oh! ». **Tesseract lit mal ces petits codes** ; remplacé pour les codes / numéros par **PaddleOCR** : modèle de lecture PP-OCRv5 « anglais mobile » (`data/ocr/ppocr5-en-rec.onnx`, 7,8 Mo, + `ppocr5-en-dict.txt`) et détecteur de lignes PP-OCRv4 (`data/ocr/ppocr4-det.onnx`, 4,7 Mo), exécutés par **onnxruntime-web 1.20.1** (jsDelivr, `ort.wasm.min.js` + `.mjs` + `.wasm` vérifiés par sha384 dans le worker, comme `visual-worker.js` ; le `.mjs` est importé depuis son adresse : depuis une adresse `blob:` il ne retrouve pas son `.wasm`, « Invalid URL »). Tesseract reste pour les noms, attaques, et en secours.
+- `App.recognizerParts.codeOcr` : `read(img, bands, { zones, wait })` (bandes [haut, bas, gauche, droite] lues telles quelles + zones où le détecteur cherche les lignes, agrandies à 240 px de haut) → `{ texts, ref }` ; `best(rd, Map clé → formes)` = **probabilité CTC** que la ligne contienne exactement chaque code (« TDGS-FR033 »…), début/fin libres, code qui commence/finit par un chiffre jamais collé à un autre chiffre (« 1/102 » ≠ « 31/102 »), +0,15 par caractère (à égalité le plus long : ligne coupée « 3/167 ») ; `snap(rd, lexique | fonction)` = lecture rapprochée des codes existants (`align`, lettres qui se ressemblent presque gratuites, 25 plus proches) puis `best` ; `decide(classement, { gap: 3, min })` → sûr si 3 points d'avance (+ note ≥ −6 pour une carte inconnue : sans elle 2 codes Yu-Gi-Oh! « sûrs » faux). `warm` avec les lecteurs Tesseract (`P.warm`), arrêt avec eux (`P.stop` / `stopLater`). `App.settings.codeOcr = false` → ancien déroulé (comparaisons). Worker : 8 dernières lectures gardées pour `score`.
+- Branché : Pokémon `recognizer-text › ocr` (`numbersByOcr` avant les lectures Tesseract du numéro, numéro sûr écrit 2 fois → compte comme lu 2 fois) ; Yu-Gi-Oh! `ocrCodes` (code + passcode, lexique par préfixe de série `lexicon()`, Tesseract seulement si rien) et `pickCode` (`ocrPick`, voir `yugioh.md`) ; One Piece, Riftbound, Lorcana `ocrTexts` avant les bandes Tesseract (sautées si un code est lu).
+- **Labo** (`_tests-scanner/ocr-lab.js` cartes à plat + `ocr-run.js` techniques et mesures + `ocr-paddle.js` PaddleOCR dans la page + `ocr-e2e.js` pages dans Capturer, ancien / nouveau ; modèles dans `_tests-scanner/paddle/`) : 105 cartes des photos d'Arnaud (Pokémon 31, Yu-Gi-Oh! 33, Riftbound 22, One Piece 12, Lorcana 7), carte à plat (coins `bords-verite.json`, sinon détecteur / recadrage par l'image), bonnes réponses : `reponses.txt`, identification à l'image vérifiée à l'œil (l'image se trompait sur 4 Riftbound). `__L.restore()` (cartes gardées dans IndexedDB de `localhost:8771`). Résultats (numéro exact) :
+  | Technique | PK | YG | RB | OP | LC | total |
+  |---|---|---|---|---|---|---|
+  | Tesseract, réglages actuels | 3 | 0 | 10 | 7 | 3 | 23 |
+  | Tesseract ligne seule (psm 7, bandes préparées, Sauvola…) | 1 | – | 9/19 | 1 | – | pire |
+  | PaddleOCR v4, bandes seules | 2 | 2 | 19 | 8 | 2 | 33 |
+  | PaddleOCR v4, bandes + détecteur | 13 | 4 | 20 | 9 | 5 | 51 |
+  | **PaddleOCR v5 anglais, bandes + détecteur** | 13 | 8–9 | 20 | 10 | 7 | **58–59** |
+  | v4 + v5 ensemble | 15 | 9 | 20 | 9 | 7 | 60 (2× plus lent) |
+  | v5 + lexique (`snap`) | 18 | 12–16 | 21 | 11 | 7 | 62–73 |
+  | série connue (`best` sur tous les numéros de la série) | 21 | 22 | 21 | 12 | 7 | — |
+  Sans détecteur (bandes seules) Pokémon 3, Lorcana 3 ; lignes trouvées par profil d'encre (sans modèle) : 28 au total → le détecteur est indispensable. Vitesse : ~0,6 s par carte (PC, panneau masqué) contre ~6 s pour Tesseract. Bandes resserrées sur leur encre (`trimOn`) : devant un grand fond uni le modèle invente du texte (« cYanmaGYlow ») ; neutre sur la lecture complète, +1 sur le choix d'impression Yu-Gi-Oh!.
+- **Bout en bout** (`ocr-e2e.js` : `__suite([[chemin, jeu, rot]], ['old','new'])`, même photo dans Capturer › Classeur ; le 1er passage paie les chargements → comparer avec l'ancien en premier) : justesse égale ou meilleure partout, jamais pire. Yu-Gi-Oh! 2 pages : sûres 5 → 7 et 2 → 7 (2 mauvaises impressions corrigées) ; Riftbound page 4 : 8/9 (1 fausse) → 9/9, 7 → 8 sûres, 120 → 54 s ; Pokémon 02 / 17 / 09, One Piece page 2, Lorcana page 5 : mêmes cartes (déjà sûres par l'image), numéros lus 2 → 6, 2 → 6, 0 → 2, 6 → 9, 1 → 4 ; temps égal ou plus court (One Piece 91 → 74 s, 09 130 → 126 s). Cartes seules Yu-Gi-Oh! (5) : mêmes réponses, ~16 s au lieu de ~25 s (panneau masqué), La Moitié ou Rien 24 → 2,5 s.
+- Pistes : série connue (classeur, `guessSeries`) → relire les numéros avec `best` sur tous les numéros de la série (labo Pokémon 13 → 21/31) ; passcode Yu-Gi-Oh! (8 chiffres) aussi par `best` ; le modèle « latin » (accents) pour les noms français à la place de Tesseract.
 
 ## Lecture du texte
 - **Vitesse (v2.28)** : 2 lecteurs Tesseract en parallèle (`getWorker` = petite file sur 2 workers si ≥ 4 cœurs, `worker.size`) ; `ocr` lance nom + carte entière d'un coup et lit le numéro par paires, arrêt dès que le même `n/total` valide est lu 2 fois (≈ 0,5–1 s par carte sur PC). Empreintes des visuels officiels dans IndexedDB (`cache`, clé `art1:<url>`, 1,5 Ko).

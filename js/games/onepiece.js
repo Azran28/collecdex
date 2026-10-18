@@ -398,13 +398,23 @@
     const w = await V.check(context, cands, visualOpts(codes)).catch(() => null);
     return w && w.cands[0] && w.cands[0].confident ? w : o;
   }
+  // v3.37 : bandes fines du code (en bas à droite) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
+  const OCR_BANDS = [0.925, 0.935, 0.945, 0.955].map((y) => [y, y + 0.04, 0.55, 0.98]);
+  async function ocrTexts(b) {
+    const O = App.recognizerParts && App.recognizerParts.codeOcr;
+    const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.93, 0.99, 0.55, 1]] }).catch(() => null) : null;
+    return rd ? rd.texts : [];
+  }
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
     const R = App.recognizer;
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte (v2.94) : si elle est sûre et que
     // le code n'est pas lisible, on ne relit pas d'autres cadrages (≈ 4 à 8 s gagnées)
     const early = useVisual() ? visualPass(blob, [], [], context).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
-    const texts = await R.readZones(blob, [...CODE_ZONES, ...NAME_ZONES]);
+    // v3.37 : code lu par PaddleOCR d'abord (labo : 10 codes sur 12 contre 7 pour Tesseract) ; Tesseract lit toujours le nom,
+    // et le code seulement si PaddleOCR ne l'a pas trouvé
+    const pt = await ocrTexts(blob);
+    const texts = [...pt, ...(await R.readZones(blob, pt.some((t) => codesIn(t).codes.length) ? NAME_ZONES : [...CODE_ZONES, ...NAME_ZONES]))];
     let read = texts.map(codesIn), betterCrop = null;
     const DON_RE = /CARTE\s*D[O0]N\s*!|votre\s+tour\s*\+\s*1\s*[0O]\s*[0O]\s*[0O]/i;
     // (« 1 carte DON!! redressée… » est écrit sur beaucoup d'Événements : God Thread et Little Black Bears d'Arnaud passaient pour des DON!!
@@ -420,7 +430,9 @@
       // (v3.02 : bien plus sûr et plus rapide que les autres cadrages, ~7 s par carte gagnées en classeur)
       if (e && e.crop) {
         statusFn('Lecture du code (carte recadrée)…');
-        const t = await R.readZones(e.crop, CODE_ZONES); texts.push(...t); read.push(...t.map(codesIn));
+        let t = await ocrTexts(e.crop);
+        if (!t.some((x) => codesIn(x).codes.length)) t = [...t, ...(await R.readZones(e.crop, CODE_ZONES))];
+        texts.push(...t); read.push(...t.map(codesIn));
         if (read.some((r) => r.codes.length)) betterCrop = e.crop;
       }
     }

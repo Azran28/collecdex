@@ -368,11 +368,20 @@
    * Lit une photo de carte (déjà recadrée) : code imprimé (« 1/204 • FR • 1 »), nom (français ou anglais), puis vérification
    * par l'image. Même déroulé que Riftbound. Renvoie { info: { code, name, read, crop… }, cands }.
    */
+  // v3.37 : bandes fines du code (en bas à gauche, texte blanc sur noir) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
+  const OCR_BANDS = [0.93, 0.938, 0.946, 0.955].map((y) => [y, y + 0.04, 0.01, 0.45]);
+  async function ocrTexts(b) {
+    const O = App.recognizerParts && App.recognizerParts.codeOcr;
+    const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.92, 1, 0, 0.5]] }).catch(() => null) : null;
+    return rd ? rd.texts : [];
+  }
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
     const R = App.recognizer, D = await data();
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
-    const texts = await R.readZones(blob, CODE_ZONES.slice(0, 2));
+    // v3.37 : PaddleOCR d'abord (labo : 7 codes sur 7 contre 3 pour Tesseract), les 2 bandes Tesseract seulement s'il ne trouve rien
+    const texts = await ocrTexts(blob);
+    if (!texts.some((t) => codesIn(t).length)) texts.push(...(await R.readZones(blob, CODE_ZONES.slice(0, 2))));
     let read = texts.map(codesIn), betterCrop = null;
     const anyCode = () => read.some((r) => r.length);
     if (!anyCode() && !early) { const t = await R.readZones(blob, [...CODE_ZONES.slice(2), ...NAME_ZONES]); texts.push(...t); read.push(...t.map(codesIn)); }
@@ -382,7 +391,9 @@
       if (e && e.cands[0] && e.cands[0].confident && (e.cands[0].orb || 0) >= IMG_SURE) return { info: { code: e.cands[0].id, name: '', votes: {}, crop: e.crop, ctxQuad: e.ctxQuad, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
       const crop = e && e.crop;
       statusFn(crop ? 'Lecture du code (carte recadrée)…' : 'Lecture du code…');
-      const t = await R.readZones(crop || blob, crop ? CODE_ZONES : [...CODE_ZONES.slice(2), ...(context ? [] : NAME_ZONES)]); texts.push(...t); read.push(...t.map(codesIn));
+      let t = crop ? await ocrTexts(crop) : [];
+      if (!t.some((x) => codesIn(x).length)) t = [...t, ...(await R.readZones(crop || blob, crop ? CODE_ZONES : [...CODE_ZONES.slice(2), ...(context ? [] : NAME_ZONES)]))];
+      texts.push(...t); read.push(...t.map(codesIn));
       if (anyCode() && crop) betterCrop = crop;
     }
     if (original && !context && !anyCode()) {

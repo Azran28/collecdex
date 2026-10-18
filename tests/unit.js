@@ -358,6 +358,24 @@ test('Capturer « Toutes » : une carte Yu-Gi-Oh! reconnue sur son texte', async
   eq(await guess('ROSE TENTACULAIRE TERRE 1re Édition RGBT-FR007 [PLANTE/EFFET] ATK/2200 DEF/1200 41160533 ©1996 KAZUKI TAKAHASHI'), 'yugioh');
   eq(S.otherGames('RGBT-FR007', 'pokemon')[0], 'yugioh', 'Yu-Gi-Oh! essayé d’abord quand son code se lit');
 });
+// v3.37 : lecteur des numéros (PaddleOCR dans js/ocr-worker.js, modèles data/ocr/)
+test('lecteur des numéros : lit un code et choisit le bon parmi les possibles', async (App, W) => {
+  await App.need('reco');
+  const O = App.recognizerParts.codeOcr;
+  ok(O && O.supported(), 'lecteur indisponible dans ce navigateur');
+  ok(await O.warm(), 'lecteur non chargé (bibliothèque, modèles data/ocr/ ?)');
+  const c = W.document.createElement('canvas'); c.width = 420; c.height = 60;
+  const g = c.getContext('2d'); g.fillStyle = '#e9e4d8'; g.fillRect(0, 0, 420, 60); g.fillStyle = '#222'; g.font = '30px Georgia, serif'; g.fillText('RGBT-FR007', 20, 42);
+  const rd = await O.read(c, [[0, 1, 0, 1]]);
+  ok(rd && /RGBT.?FR0{0,2}7/.test(rd.texts[0].replace(/O/g, '0')), `lu : ${rd && rd.texts[0]}`);
+  const r = await O.best(rd, new Map([['RGBT-007', ['RGBT-FR007']], ['RGBT-070', ['RGBT-FR070']], ['LC5D-088', ['LC5D-FR088']]]));
+  eq(r[0][0], 'RGBT-007', 'meilleur code');
+  ok(O.decide(r).sure, `écart ${(r[0][1] - r[1][1]).toFixed(1)}`);
+  // numéro collé à un autre chiffre : « 3/167 » n'est pas dans « 113/167 »
+  g.fillStyle = '#e9e4d8'; g.fillRect(0, 0, 420, 60); g.fillStyle = '#222'; g.font = '30px Arial, sans-serif'; g.fillText('113/167', 20, 42);
+  const rd2 = await O.read(c, [[0, 1, 0, 1]]), r2 = await O.best(rd2, new Map([['113/167', ['113/167']], ['3/167', ['3/167']], ['13/167', ['13/167']]]));
+  eq(r2[0][0], '113/167', `lu : ${rd2.texts[0]}`);
+}, { net: true });
 test('Import : lignes Yu-Gi-Oh! (Collectr, Cardmarket)', async (App) => {
   await App.need('import');
   const I = App.importer;
