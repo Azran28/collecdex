@@ -114,7 +114,7 @@ Object.assign(App.views.scan, {
     el.querySelector('#sc-cam').addEventListener('click', async () => {
       try {
         await cam.start(); el.querySelector('#sc-shot').classList.remove('hidden'); camButtons(false); results.innerHTML = guideC();
-        // v3.37 : conseil sur l'image seulement si un vrai problème dure (trop sombre, reflet, flou) ; rien pendant la lampe
+        // v3.38 : conseil sur l'image seulement si un vrai problème dure (trop sombre, reflet, flou) ; rien pendant la lampe
         if (stopTips) stopTips();
         stopTips = App.views.scan.tipWatch(cam, view, () => shooting || !!(trk && trkTimer && trk.phase === 'lampe'));
         // la vidéo et le bouton photo entiers à l'écran, sans avoir à faire défiler
@@ -150,7 +150,7 @@ Object.assign(App.views.scan, {
     // photo certifiable si le dos a été vu (dans les 15 dernières secondes) et la carte retournée depuis
     el.querySelector('#sc-shot').addEventListener('click', () => shoot(!!(trk && trkTimer && trk.phase !== 'attente')));
     let shooting = false, lastShot = null, tooClose = false, stopTips = null;
-    // v3.37 : photo ratée (floue, reflet, trop sombre) dite tout de suite, avec de quoi la reprendre ; retiré si la carte est quand même sûre
+    // v3.38 : photo ratée (floue, reflet, trop sombre) dite tout de suite, avec de quoi la reprendre ; retiré si la carte est quand même sûre
     const POOR = { flou: 'Photo floue', reflet: 'Reflet sur la carte', sombre: 'Photo trop sombre' };
     const poorHtml = (k) => (POOR[k] ? `<div class="shot-warn"><span>${App.icons.icon('camera', 15)} <b>${POOR[k]}</b> : la carte risque de ne pas être reconnue.</span><button class="btn sm" data-retry="photo">Reprendre la photo</button></div>` : '');
     async function shoot(flipped) {
@@ -197,7 +197,7 @@ Object.assign(App.views.scan, {
             cut = (cz || ca) ? (cz || ca).canvas : null;
           }
           tooClose = !cut; // bords pas trouvés avec assurance : photo entière (et conseil d'éloigner un peu la carte)
-          try { poor = App.views.scan.problem(App.views.scan.quality(cut || img)); } catch (e) { /* */ } // (v3.37 : la carte elle-même)
+          try { poor = App.views.scan.problem(App.views.scan.quality(cut || img)); } catch (e) { /* */ } // (v3.38 : la carte elle-même)
           if (cut) card = await new Promise((res) => cut.toBlob(res, 'image/jpeg', 0.92)) || b;
         } catch (e) { console.warn(e); }
         el.querySelector('#sc-actions').classList.remove('hidden');
@@ -454,7 +454,7 @@ Object.assign(App.views.scan, {
     }
     let scanTok = 0, recoCands = [], recoFrom = null, recoRead = '', pendingPick = false, logId = null;
     const live = (tok = scanTok) => alive() && tok === scanTok; // (un nouveau scan, ou une carte choisie : la suite de l'ancien est ignorée)
-    async function analyse(blob, poor = '') { // poor : problème de la photo qui vient d'être prise (v3.37)
+    async function analyse(blob, poor = '') { // poor : problème de la photo qui vient d'être prise (v3.38)
       if (!blob) return; // recadrage vide (image pas encore affichée)
       const tok = ++scanTok; logId = null; recoCands = []; recoFrom = null; pendingPick = false;
       const on = () => live(tok);

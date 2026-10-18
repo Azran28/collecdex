@@ -514,7 +514,7 @@ App.views.scan = {
   },
 
   /**
-   * v3.37 (« Qualité photos », points 2 et 3) : qualité d'une image de carte, mesurée sur 200 px de large (r = zone en pixels de
+   * v3.38 (« Qualité photos », points 2 et 3) : qualité d'une image de carte, mesurée sur 200 px de large (r = zone en pixels de
    * la source, toute l'image sinon). `sharp` = Σ|laplacien| / Σ|gradient| : ne dépend ni de la lumière ni du contraste —
    * mesuré : 0,69–1,26 sur les vraies photos nettes (Pokémon, One Piece, Riftbound, Lorcana, Yu-Gi-Oh!), 0,54–0,62 avec un flou
    * de 2 px à 600 px de large, où la lecture échoue déjà (1,5 px aussi). `mean` = luminosité, `sd` = contraste (< 16 : pas de
@@ -560,7 +560,7 @@ App.views.scan = {
     flou: 'Image floue : recule un peu la carte, ou touche l’écran',
   },
   /**
-   * v3.37 : conseil sur la caméra (carte seule), seulement quand il le faut : le même problème vu pendant 1,2 s (le flou
+   * v3.38 : conseil sur la caméra (carte seule), seulement quand il le faut : le même problème vu pendant 1,2 s (le flou
    * seulement si la carte est immobile : bouger rend flou, c'est normal) ; retiré dès qu'il est réglé.
    * skip() vrai = aucun conseil (photo en cours, lampe de la certification). Renvoie la fonction qui l'arrête.
    */

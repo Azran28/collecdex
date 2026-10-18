@@ -41,14 +41,14 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
         rHint(sd < 16 ? 'Montre le <b>dos</b> d’une carte dans le cadre' : 'Montre d’abord le <b>dos</b>, puis retourne la carte');
         return;
       }
-      // v3.37 : pièce vraiment trop sombre (1 s de suite) : dit à la place de « Présente une carte »
+      // v3.38 : pièce vraiment trop sombre (1 s de suite) : dit à la place de « Présente une carte »
       S.rDark = mean < 40 ? (S.rDark || 0) + 1 : 0;
       if (S.rDark >= 10) { S.rStable = 0; rHint(App.views.scan.TIPS.sombre, 'warn'); return; }
       if (sd < 16) { S.rStable = 0; rHint('Présente une carte dans le cadre'); return; }
       if (diff > 4 + sd * 0.08) { S.rStable = 0; S.rWait = 0; rHint('Tiens la carte immobile…'); return; }
       if (++S.rStable < 4) { rHint('Ne bouge plus…', 'go'); return; }
       if (S.rLast && sameCard(S.rLast, F)) { rHint(`Carte ${S.cells.length} prise ✓ — passe à la suivante`, 'ok'); return; }
-      // v3.37 (point 4) : carte immobile mais image floue ou reflet → on attend que ça s'arrange (mise au point, carte inclinée),
+      // v3.38 (point 4) : carte immobile mais image floue ou reflet → on attend que ça s'arrange (mise au point, carte inclinée),
       // 1,5 s au plus, puis elle est prise quand même ; le conseil n'apparaît qu'après 0,5 s d'attente
       const pb = App.views.scan.problem(App.views.scan.quality(cam.video, cam.region(0)), 0.55);
       if (pb && pb !== 'sombre' && (S.rWait = (S.rWait || 0) + 1) < 15) { if (S.rWait >= 5) rHint(App.views.scan.TIPS[pb], 'warn'); return; }
@@ -61,7 +61,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
       App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ }
       try {
-        // v3.37 (point 4 de « Qualité photos ») : comme en carte seule, la vraie photo du capteur quand le téléphone la donne,
+        // v3.38 (point 4 de « Qualité photos ») : comme en carte seule, la vraie photo du capteur quand le téléphone la donne,
         // sinon l'image vidéo la plus nette des 0,4 s qui suivent ; la vraie photo n'est plus essayée si elle n'a pas marché
         // ou a pris plus de 2,5 s (la rafale doit rester rapide)
         const t0 = Date.now(), b = await cam.shot(0.15, { useStill: !S.rNoStill });

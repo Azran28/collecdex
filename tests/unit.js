@@ -520,7 +520,7 @@ test('scanner : correction retenue, carnet des scans ratés', async (App) => {
   }
 });
 
-// v3.37 : qualité de la photo (conseils avant la photo, contrôle juste après) — netteté indépendante de la lumière
+// v3.38 : qualité de la photo (conseils avant la photo, contrôle juste après) — netteté indépendante de la lumière
 test('scanner : photo floue, sombre, reflet', async (App) => {
   await App.need('scan');
   const S = App.views.scan;
