@@ -3114,3 +3114,15 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
   .bt-lic-cards > * + * { margin-left: -9px; }
   .bt-lic-go { grid-column: 4; font-size: 1.5rem; }
 }
+
+/* ===== v3.33 : appli toujours en hauteur — téléphone tenu en largeur → « Tourne ton téléphone » (le manifeste verrouille l'appli installée) ===== */
+.rotate-msg { display: none; }
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .rotate-msg { display: flex; position: fixed; inset: 0; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; text-align: center;
+    background: radial-gradient(ellipse at 50% 30%, #241d4d, #0c0e19 70%); color: var(--text); }
+  .rotate-msg b { font-family: var(--display); font-size: 1.3rem; }
+  .rotate-msg span:last-child { color: var(--muted); font-size: .9rem; }
+  .rot-phone { width: 34px; height: 58px; margin-bottom: 10px; border-radius: 8px; border: 3px solid #fff; box-shadow: 0 0 0 3px rgba(124,92,255,.5); animation: rotPhone 2.4s ease-in-out infinite; }
+  @keyframes rotPhone { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
+  html, body { overflow: hidden; }
+}

@@ -316,7 +316,7 @@ test('Yu-Gi-Oh! : impression choisie par le code dessiné (v3.32)', async (App) 
   const m = await App.recognizerParts.codeMatch(blob, ['SDK-E032', 'SDY-E027', 'SDJ-029'].map((k) => [k, P.printedForms(k)]), P.CODE_BAND);
   eq(m && m.ranked[0][0], 'SDY-E027', 'code dessiné retrouvé');
 });
-test('Yu-Gi-Oh! : rareté d’après la couleur du nom (v3.33)', async (App) => {
+test('Yu-Gi-Oh! : rareté d’après la couleur du nom (v3.34)', async (App) => {
   const P = App.games.get('yugioh').parts;
   const card = async (frame, ink) => {
     const c = document.createElement('canvas'); c.width = 600; c.height = 838; const g = c.getContext('2d');

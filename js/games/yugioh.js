@@ -536,7 +536,7 @@
     return [...order, ...rest];
   }
   /**
-   * Rareté d'après la couleur des lettres du nom (v3.33, Arnaud : Dragon Ultime aux Yeux Bleus JMP-EN005, Ultra Rare ou Secret
+   * Rareté d'après la couleur des lettres du nom (v3.34, Arnaud : Dragon Ultime aux Yeux Bleus JMP-EN005, Ultra Rare ou Secret
    * Rare, même code). Nom doré = Ultra / Gold / Ultimate ; argenté = Rare, Secret, Platine, Ghost… ; noir (blanc sur Magie,
    * Piège, Xyz) = Commune, Super Rare… Mesuré : lettres = les 12 % de pixels les plus loin du fond de la bande du nom, du côté
    * le plus fourni (clair / sombre). **Doré** : lettres claires dont la teinte est à moins de 30° du jaune (55°) ET nettement
