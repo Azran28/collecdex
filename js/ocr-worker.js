@@ -1,5 +1,5 @@
 /*
- * Lecture des codes et numéros de carte en arrière-plan (Web Worker, v3.37) : PaddleOCR PP-OCRv5 (modèle de lecture
+ * Lecture des codes et numéros de carte en arrière-plan (Web Worker, v3.40) : PaddleOCR PP-OCRv5 (modèle de lecture
  * « anglais mobile », ONNX, data/ocr/) exécuté par onnxruntime-web. Choisi au labo (_tests-scanner/ocr-*.js, 18 oct. 2026,
  * 105 cartes des photos d'Arnaud, 5 licences) : lecture brute 58 bonnes contre 23 pour Tesseract, ~0,4 s par carte contre ~6 s.
  *

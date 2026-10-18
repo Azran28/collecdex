@@ -1,5 +1,5 @@
 /*
- * Lecture des codes et numéros de carte par PaddleOCR (v3.37, worker js/ocr-worker.js) — toutes les licences.
+ * Lecture des codes et numéros de carte par PaddleOCR (v3.40, worker js/ocr-worker.js) — toutes les licences.
  * Labo (_tests-scanner/ocr-lab.js, ocr-run.js, ocr-paddle.js ; 18 oct. 2026) : 105 cartes des photos d'Arnaud (Pokémon 31,
  * Yu-Gi-Oh! 33, Riftbound 22, One Piece 12, Lorcana 7), carte à plat, zone du numéro :
  *  - Tesseract (réglages actuels) 23 numéros justes ; Tesseract en ligne seule (psm 7, bandes préparées) encore moins ;

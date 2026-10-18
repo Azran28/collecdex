@@ -514,13 +514,13 @@
    * Impression choisie (v3.32, Arnaud : « le numéro de carte a une importance bien plus élevée » qu'ailleurs, tant de cartes sont
    * réimprimées à l'identique) : chaque code possible de la carte est dessiné et superposé à la bande du code
    * (`recognizerParts.codeMatch`), plus 0,3 × la ressemblance avec ce qu'a lu Tesseract ; « sûr » avec 0,1 d'avance. Code
-   * nettement lu (`choosePrint`) : il garde la main. Banc de 26 cartes : 14 bonnes impressions (3 sûres) → 20 (12 sûres, 0 fausse) ; v3.37 avec PaddleOCR : 25 (20 sûres).
+   * nettement lu (`choosePrint`) : il garde la main. Banc de 26 cartes : 14 bonnes impressions (3 sûres) → 20 (12 sûres, 0 fausse) ; v3.40 avec PaddleOCR : 25 (20 sûres).
    */
   async function pickPrint(cands, texts, crop) { return byRarity(await pickCode(cands, texts, crop), crop); }
-  // v3.37 : bandes fines qui glissent sur la carte recadrée, lues par PaddleOCR (labo : 12 bandes de 0,68 à 0,76, 3,5 % de haut)
+  // v3.40 : bandes fines qui glissent sur la carte recadrée, lues par PaddleOCR (labo : 12 bandes de 0,68 à 0,76, 3,5 % de haut)
   const PICK_BANDS = Array.from({ length: 12 }, (_, i) => 0.68 + i * 0.0075).map((y) => [y, y + 0.035, 0.45, 0.99]);
   /**
-   * v3.37 — code de chaque impression noté par PaddleOCR (probabilité que la bande contienne « RGBT-FR007 », « RGBT-EN007 »…,
+   * v3.40 — code de chaque impression noté par PaddleOCR (probabilité que la bande contienne « RGBT-FR007 », « RGBT-EN007 »…,
    * `codeOcr.best`) : 3 points d'avance → ce code (labo, 26 cartes : 25 bonnes, 20 sûres, 0 fausse ; code dessiné : 20 / 12).
    * Sinon le code dessiné décide comme avant, et s'il désigne le même code que PaddleOCR (1 point d'avance), il est retenu.
    * → { win, gap, ranked } ou null
@@ -555,7 +555,7 @@
     if (!m) return choosePrint(cands, texts);
     const read = readScores(texts, codes), sc = new Map(codes.map((k) => [k, (m.per.get(k) ?? -1) + 0.3 * (read.get(k) || 0)]));
     const ranked = [...sc].sort((a, b) => b[1] - a[1]), gap = ranked[0][1] - ranked[1][1], win = ranked[0][0];
-    // (v3.37 : les deux méthodes d'accord → sûr ; code dessiné hésitant et PaddleOCR d'un autre avis → PaddleOCR, à vérifier)
+    // (v3.40 : les deux méthodes d'accord → sûr ; code dessiné hésitant et PaddleOCR d'un autre avis → PaddleOCR, à vérifier)
     if (op && op.win !== win && gap < 0.1) return markCode(group, rest, op.win, false, orb0);
     const agree = !!op && op.win === win && op.gap >= 1;
     const order = [...group].sort((a, b) => (sc.get(baseKey(b.code)) - sc.get(baseKey(a.code))) || (a.alt - b.alt));
@@ -616,7 +616,7 @@
   }
   const rarTxt = (c) => (c && c.rarLook ? `nom ${c.rarLook === 'gold' ? 'doré' : c.rarLook === 'silver' ? 'argenté' : 'sans dorure'}` : '');
 
-  // v3.37 — bandes du code (sous l'illustration à droite, la carte n'est pas toujours recadrée au pixel près) et du passcode
+  // v3.40 — bandes du code (sous l'illustration à droite, la carte n'est pas toujours recadrée au pixel près) et du passcode
   const OCR_BANDS = [...Array.from({ length: 11 }, (_, i) => 0.68 + i * 0.01).map((y) => [y, y + 0.035, 0.45, 0.99]), [0.93, 0.975, 0, 0.42], [0.95, 0.995, 0, 0.42]];
   let lexMemo = null;
   /**
@@ -658,7 +658,7 @@
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
     const H = await sizeOf(blob);
-    // v3.37 : PaddleOCR d'abord (labo : lecture brute 8/33 contre 0/33 pour Tesseract, avec la liste des codes 16/33), Tesseract en secours
+    // v3.40 : PaddleOCR d'abord (labo : lecture brute 8/33 contre 0/33 pour Tesseract, avec la liste des codes 16/33), Tesseract en secours
     const texts = await ocrCodes(blob);
     let read = texts.map(codesIn), betterCrop = null;
     const anyKey = () => read.some((r) => r.some(([c]) => !/^#/.test(c)));
@@ -678,7 +678,7 @@
       }
       if (crop) {
         statusFn('Lecture du code (carte recadrée)…');
-        // (v3.37 : PaddleOCR ; Tesseract et ses 20 bandes, ~3 s, seulement si le lecteur de codes n'est pas là)
+        // (v3.40 : PaddleOCR ; Tesseract et ses 20 bandes, ~3 s, seulement si le lecteur de codes n'est pas là)
         const t0 = await ocrCodes(crop); texts.push(...t0); read.push(...t0.map(codesIn)); if (t0.snapped) read.push([t0.snapped]);
         if (!t0.length) { const Hc = await sizeOf(crop), t = await R.readZones(crop, CROP_ZONES(Hc)); texts.push(...t); read.push(...t.map(codesIn)); }
         if (anyKey()) betterCrop = crop;

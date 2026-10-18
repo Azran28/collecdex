@@ -368,7 +368,7 @@
    * Lit une photo de carte (déjà recadrée) : code imprimé (« 1/204 • FR • 1 »), nom (français ou anglais), puis vérification
    * par l'image. Même déroulé que Riftbound. Renvoie { info: { code, name, read, crop… }, cands }.
    */
-  // v3.37 : bandes fines du code (en bas à gauche, texte blanc sur noir) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
+  // v3.40 : bandes fines du code (en bas à gauche, texte blanc sur noir) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
   const OCR_BANDS = [0.93, 0.938, 0.946, 0.955].map((y) => [y, y + 0.04, 0.01, 0.45]);
   async function ocrTexts(b) {
     const O = App.recognizerParts && App.recognizerParts.codeOcr;
@@ -379,7 +379,7 @@
     const R = App.recognizer, D = await data();
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
-    // v3.37 : PaddleOCR d'abord (labo : 7 codes sur 7 contre 3 pour Tesseract), les 2 bandes Tesseract seulement s'il ne trouve rien
+    // v3.40 : PaddleOCR d'abord (labo : 7 codes sur 7 contre 3 pour Tesseract), les 2 bandes Tesseract seulement s'il ne trouve rien
     const texts = await ocrTexts(blob);
     if (!texts.some((t) => codesIn(t).length)) texts.push(...(await R.readZones(blob, CODE_ZONES.slice(0, 2))));
     let read = texts.map(codesIn), betterCrop = null;

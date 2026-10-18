@@ -25,6 +25,18 @@ test('chaque script de la page a le même numéro de version', async (App, W) =>
   eq(v.v, W.APP_VERSION, 'version.json');
 });
 
+// v3.39 : sans moment libre, Chrome attendait 1 s par image (classeur bloqué sur « Préparation de la page… »)
+test('une image de canevas est encodée tout de suite (toBlob)', async (App, W) => {
+  const c = W.document.createElement('canvas'); c.width = 400; c.height = 560;
+  const g = c.getContext('2d'); g.fillStyle = '#c33'; g.fillRect(0, 0, 400, 560);
+  const t = performance.now();
+  const b = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.9));
+  ok(b && b.size > 500 && b.type === 'image/jpeg', 'image JPEG attendue');
+  ok(performance.now() - t < 400, `trop lent : ${Math.round(performance.now() - t)} ms`);
+  const e = W.document.createElement('canvas'); e.width = 0;
+  eq(await new Promise((res) => e.toBlob(res)), null, 'canevas vide → null, comme avant');
+});
+
 test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('pokemon'), 'Pokémon');
   ok(App.games.get('onepiece'), 'One Piece');
@@ -358,7 +370,7 @@ test('Capturer « Toutes » : une carte Yu-Gi-Oh! reconnue sur son texte', async
   eq(await guess('ROSE TENTACULAIRE TERRE 1re Édition RGBT-FR007 [PLANTE/EFFET] ATK/2200 DEF/1200 41160533 ©1996 KAZUKI TAKAHASHI'), 'yugioh');
   eq(S.otherGames('RGBT-FR007', 'pokemon')[0], 'yugioh', 'Yu-Gi-Oh! essayé d’abord quand son code se lit');
 });
-// v3.37 : lecteur des numéros (PaddleOCR dans js/ocr-worker.js, modèles data/ocr/)
+// v3.40 : lecteur des numéros (PaddleOCR dans js/ocr-worker.js, modèles data/ocr/)
 test('lecteur des numéros : lit un code et choisit le bon parmi les possibles', async (App, W) => {
   await App.need('reco');
   const O = App.recognizerParts.codeOcr;
@@ -536,4 +548,31 @@ test('scanner : correction retenue, carnet des scans ratés', async (App) => {
     await M.forgetAll(); // (mémoire vidée : relue depuis la base au prochain usage)
     await App.db.set('kv', 'scanLearn', keep.learn || {});
   }
+});
+
+// v3.38 : qualité de la photo (conseils avant la photo, contrôle juste après) — netteté indépendante de la lumière
+test('scanner : photo floue, sombre, reflet', async (App) => {
+  await App.need('scan');
+  const S = App.views.scan;
+  const card = (f) => {
+    const c = document.createElement('canvas'); c.width = 400; c.height = 560;
+    const g = c.getContext('2d'); g.filter = f.blur ? `blur(${f.blur}px)` : 'none';
+    g.fillStyle = '#e8d070'; g.fillRect(0, 0, 400, 560); g.fillStyle = '#c8402a'; g.fillRect(24, 24, 352, 512);
+    g.fillStyle = '#ece6d4'; g.fillRect(40, 300, 320, 200); g.fillStyle = '#123'; // (zone de texte claire, pas blanc pur)
+    for (let y = 320; y < 490; y += 14) for (let x = 50; x < 350; x += 9) g.fillRect(x, y, 5 + ((x * y) % 3), 8); // « texte »
+    g.fillStyle = '#3a7'; for (let i = 0; i < 40; i++) g.fillRect(40 + (i * 37) % 300, 50 + (i * 53) % 220, 14, 22);
+    g.filter = 'none';
+    if (f.glare) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(200, 160, 120, 80, 0, 0, 7); g.fill(); }
+    if (f.dark) { g.fillStyle = `rgba(0,0,0,${f.dark})`; g.fillRect(0, 0, 400, 560); }
+    return c;
+  };
+  const pb = (f) => S.problem(S.quality(card(f)));
+  eq(pb({}), '', 'carte nette prise pour ratée');
+  eq(pb({ blur: 4 }), 'flou');
+  eq(pb({ dark: 0.85 }), 'sombre');
+  eq(pb({ glare: 1 }), 'reflet');
+  eq(S.problem(S.quality(card({ dark: 0.5 }))), '', 'un peu sombre mais lisible : pas de conseil');
+  const blank = document.createElement('canvas'); blank.width = 300; blank.height = 400; blank.getContext('2d').fillStyle = '#777'; blank.getContext('2d').fillRect(0, 0, 300, 400);
+  eq(S.problem(S.quality(blank)), '', 'pas de carte : pas de conseil');
+  ok(S.TIPS.flou && S.TIPS.reflet && S.TIPS.sombre, 'phrases des conseils');
 });

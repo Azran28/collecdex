@@ -165,7 +165,7 @@
   });
 
   /**
-   * v3.37 — numéro lu par PaddleOCR (recognizer-ocr.js) : bandes fines du bas, à gauche (cartes récentes) et à droite
+   * v3.40 — numéro lu par PaddleOCR (recognizer-ocr.js) : bandes fines du bas, à gauche (cartes récentes) et à droite
    * (anciennes) ; chaque lecture rapprochée des numéros possibles (« n/total » des vraies séries) et départagée par la
    * probabilité de chaque numéro : « 517102 » → 31/102. Numéro nettement le meilleur : écrit deux fois (il compte comme lu
    * deux fois). → textes (vide si le lecteur n'est pas là)
@@ -215,7 +215,7 @@
         seen[k] = (seen[k] || 0) + 1; if (seen[k] >= 2) twice = true;
       }
     };
-    // v3.37 : PaddleOCR d'abord (labo, 31 cartes : 18 numéros justes contre 3 pour les lectures Tesseract ci-dessous) ;
+    // v3.40 : PaddleOCR d'abord (labo, 31 cartes : 18 numéros justes contre 3 pour les lectures Tesseract ci-dessous) ;
     // Tesseract seulement si le numéro n'y est pas deux fois
     for (const t of await numbersByOcr(blob)) { bottom += t + '\n'; count(t); }
     for (let i = 0; i < reads.length && !twice; i += w.size) {

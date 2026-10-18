@@ -176,7 +176,7 @@ App.scanMemo = (() => {
     const idx = (i) => (i ? [`${i.index}.json?v=${i.v}`, `${i.index}.bin?v=${i.v}`] : []);
     return [
       { id: 'texte', name: 'Lecteur de texte', urls: [TESS + 'tesseract.min.js', 'https://cdn.jsdelivr.net/npm/tesseract.js@v5.1.1/dist/worker.min.js', CORE + (simd() ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'), 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/fra/4.0.0_best_int/fra.traineddata.gz'] },
-      // v3.37 : lecteur des codes et numéros (PaddleOCR, js/ocr-worker.js)
+      // v3.40 : lecteur des codes et numéros (PaddleOCR, js/ocr-worker.js)
       { id: 'codes', name: 'Lecteur des numéros de carte', urls: ['js/ocr-worker.js?v=' + encodeURIComponent(window.APP_VERSION || '1'), ...['ort.wasm.min.js', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'].map((f) => 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/' + f), 'data/ocr/ppocr5-en-rec.onnx?v=1', 'data/ocr/ppocr5-en-dict.txt?v=1', 'data/ocr/ppocr4-det.onnx?v=1'] },
       { id: 'image', name: 'Reconnaissance par l’image', model: true, urls: ['js/visual-worker.js?v=' + encodeURIComponent(window.APP_VERSION || '1'), 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js', 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js', MODEL + 'model.json'] },
       ...games.map((g) => ({ id: g.id, name: `Base d’images ${g.name}`, urls: [...idx(indexOf(g.id)), ...({ lorcana: ['data/lc-cartes.json'], yugioh: ['data/yg-cartes.json'] }[g.id] || [])] })).filter((g) => g.urls.length),

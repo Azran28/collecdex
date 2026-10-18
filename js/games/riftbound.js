@@ -409,7 +409,7 @@
    * Lit une photo de carte (déjà recadrée) : code imprimé (« OGN · 013/298 »), nom, puis vérification par l'image.
    * Même déroulé que One Piece. Renvoie { info: { code, name, read, crop… }, cands }.
    */
-  // v3.37 : bandes fines du code (en bas à gauche) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
+  // v3.40 : bandes fines du code (en bas à gauche) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
   const OCR_BANDS = [0.925, 0.935, 0.945, 0.955].map((y) => [y, y + 0.045, 0.02, 0.5]);
   async function ocrTexts(b) {
     const O = App.recognizerParts && App.recognizerParts.codeOcr;
@@ -423,7 +423,7 @@
     statusFn('Lecture du code de la carte…');
     // (2 bandes seulement au premier passage : 4 s → 2 s par carte ; le nom n'est lu qu'avec la carte entière, en dernier recours :
     //  les cartes françaises ne peuvent pas être reconnues par leur nom, Riot ne publiant que les noms anglais)
-    // v3.37 : PaddleOCR d'abord (labo : 20 codes sur 22 contre 10 pour Tesseract), les 2 bandes Tesseract seulement s'il ne trouve rien
+    // v3.40 : PaddleOCR d'abord (labo : 20 codes sur 22 contre 10 pour Tesseract), les 2 bandes Tesseract seulement s'il ne trouve rien
     const texts = await ocrTexts(blob);
     if (!texts.some((t) => codesIn(t).length)) texts.push(...(await R.readZones(blob, CODE_ZONES.slice(0, 2))));
     let read = texts.map(codesIn), betterCrop = null;

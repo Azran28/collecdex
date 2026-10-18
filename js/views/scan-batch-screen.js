@@ -8,7 +8,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     // La liste détaillée reste disponible (« Voir la liste »), et l'analyse continue pendant ce temps.
     const svBox = () => el.querySelector('#b-sv');
     const lockScroll = (on) => document.documentElement.classList.toggle('sv-lock', on);
-    function svOpen(mode, extra = {}) { Object.assign(sv, { open: true, mode, single: false }, extra); lockScroll(true); drawSV(); }
+    function svOpen(mode, extra = {}) { Object.assign(sv, { open: true, mode, single: false }, mode === 'recap' ? { filter: '' } : {}, extra); lockScroll(true); drawSV(); }
     function svClose() { sv.open = false; lockScroll(false); drawSV(); X.drawResults(); }
     /** Cartes qui méritent un coup d'œil : pas sûres, ou pas reconnues */
     const toCheck = () => S.cells.filter((c) => !c.saved && ['verifier', 'inconnue'].includes(c.state)).map((c) => c.i);
@@ -19,14 +19,17 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
      * La page en vignettes : chaque pochette montre ta photo (grisée en attente), puis le visuel officiel une fois la carte
      * trouvée ; bordure selon l'état ; la carte en cours clignote. Classeur ouvert : les 2 pages côte à côte.
      */
-    function miniPage(cur) {
+    function miniPage(cur, tap = false) { // tap (récapitulatif) : toucher une vignette ouvre la carte
       const per = S.cells.length > 9 && dims()[0] === 6 ? 9 : S.cells.length, cols = per === 9 ? 3 : dims()[0], parts = [];
       for (let s = 0; s < S.cells.length; s += per) parts.push(S.cells.slice(s, s + per));
       const rows = Math.ceil(per / cols);
       const th = (c) => {
         const x = cardOf(c), st = c.saved ? 'saved' : c.state, done = ['sure', 'verifier'].includes(st) || c.saved;
-        const src = done && x ? visOf(x) : c.url;
-        return `<span class="sv-th st-${st}${c === cur ? ' cur' : ''}${c.found && Date.now() - c.found < 1500 ? ' pop' : ''}" title="Carte ${c.i + 1}">${['vide', 'dos', 'autre', 'don'].includes(st) ? '' : `<img src="${src}" alt="">`}${st === 'sure' || c.saved ? '<b>✓</b>' : st === 'verifier' ? '<b>?</b>' : ''}</span>`;
+        const src = done && x ? visOf(x) : c.url, empty = ['vide', 'dos', 'autre', 'don'].includes(st);
+        const off = tap && !c.saved && (!c.choice || !c.checked) ? ' off' : '', btn = tap && !empty && !c.saved;
+        const inner = `${empty ? '' : `<img src="${src}" alt="">`}${off ? '' : st === 'sure' || c.saved ? '<b>✓</b>' : st === 'verifier' ? '<b>?</b>' : ''}`;
+        return btn ? `<button class="sv-th st-${st}${off}" data-sv="open" data-i="${c.i}" title="Carte ${c.i + 1}">${inner}</button>`
+          : `<span class="sv-th st-${st}${off}${c === cur ? ' cur' : ''}${c.found && Date.now() - c.found < 1500 ? ' pop' : ''}" title="Carte ${c.i + 1}">${inner}</span>`;
       };
       return `<div class="sv-board" style="--cols:${cols * parts.length};--rows:${rows}">${parts.map((p) => `<div style="grid-template-columns:repeat(${cols},1fr)">${p.map(th).join('')}</div>`).join('')}</div>`;
     }
@@ -43,7 +46,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     function svScan() {
       const cur = S.cells.find((c) => c.vscan) || S.cells.find((c) => c.state === 'lecture');
       const p = S.prog, off = cur && cardOf(cur);
-      const step = !p ? 0 : /^Lecture des/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
+      const step = !p ? 0 : /^(Lecture des|Découpe)/.test(p.step) ? 1 : /^Série/.test(p.step) ? 2 : 3;
       const steps = (burst ? ['Lecture'] : !isPk() ? ['Lecture + image', 'Série'] : ['Lecture', 'Série', 'Image']).map((s, k) => `<span class="${k + 1 === step ? 'on' : k + 1 < step ? 'past' : ''}">${k + 1 < step ? '✓' : k + 1} ${s}</span>`).join('');
       return `
         <div class="sv-head">
@@ -125,24 +128,54 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       const label = measured ? `${X.VN[base] || '—'}${v.includes('firstEdition') ? ' · 1ʳᵉ éd.' : ''}` : 'Version…';
       return `<button class="sv-vpill ${doubt ? 'doubt' : ''}" data-sv="vcycle" data-i="${c.i}" title="Touche pour passer à la version suivante">${label}${doubt && measured ? ' ?' : ''} <span aria-hidden="true">↻</span></button>`;
     }
+    /** Ce que deviendra la carte à l'enregistrement : [clé, étiquette] */
+    const recapTag = (c) => {
+      if (c.saved) return ['ok', 'Enregistrée ✓'];
+      if (!c.choice || !c.checked) return ['off', 'Pas ajoutée'];
+      const m = X.modeOf(c);
+      return m === 'nouvelle' ? ['new', 'Nouvelle'] : m === 'doublon' ? ['dup', 'Doublon'] : m === 'photo' ? ['dup', 'Nouvelle photo'] : ['own', 'Déjà dans ton Dex'];
+    };
+    const RECAP_F = { new: 'Nouvelles', dup: 'Doublons', own: 'Déjà dans ton Dex', off: 'Pas ajoutées', ok: 'Enregistrées' };
+    /**
+     * Récapitulatif (v3.37, Arnaud : « bordélique quand il y a beaucoup de cartes, dans le même format que l'analyse ») :
+     * en-tête et page en vignettes comme l'écran d'analyse (toucher une vignette = la carte), compteurs qui filtrent,
+     * puis une ligne par carte (visuel, nom, série · numéro, ce qu'elle devient, version) au lieu de grandes tuiles.
+     */
     function svRecap() {
       const shown = S.cells.filter((c) => c.choice || !['vide', 'dos', 'autre', 'don', 'erreur'].includes(c.state));
       const ign = S.cells.length - shown.length;
       const chosen = S.cells.filter((c) => c.choice && !c.saved && X.modeOf(c) !== 'rien');
-      const tag = (c) => {
-        if (c.saved) return ['ok', 'Enregistrée ✓'];
-        if (!c.choice || !c.checked) return ['off', 'Pas ajoutée'];
-        const m = X.modeOf(c);
-        return m === 'nouvelle' ? ['new', 'Nouvelle'] : m === 'doublon' ? ['dup', 'Doublon'] : m === 'photo' ? ['dup', 'Nouvelle photo'] : ['own', 'Déjà dans ton Dex'];
+      const counts = {}; shown.forEach((c) => { const k = recapTag(c)[0]; counts[k] = (counts[k] || 0) + 1; });
+      if (sv.filter && !counts[sv.filter]) sv.filter = '';
+      const list = sv.filter ? shown.filter((c) => recapTag(c)[0] === sv.filter) : shown;
+      const doubt = (c) => !c.saved && c.choice && c.state === 'verifier';
+      const row = (c) => {
+        const cur = cardOf(c), [k, t] = recapTag(c), vp = !c.saved && cur ? versPill(c, cur) : '';
+        return `<div class="sv-row ${k}">
+          <button class="sv-row-open" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}>
+            <span class="sv-row-img"><img src="${cur ? visOf(cur) : c.url}" alt="" loading="lazy"></span>
+            <span class="sv-row-txt"><b>${cur ? esc(cur.name) : 'Non reconnue'}</b>
+              <span class="muted">${cur ? `${esc(App.views.scan.setLabel(cur))} · ${esc(cur.localId)}` : 'Touche pour la chercher'}</span>
+              </span></button>
+          <span class="sv-row-side"><span class="sv-tag">${t}</span>${doubt(c) ? '<span class="sv-tag warn">à vérifier ?</span>' : ''}${vp}</span></div>`;
       };
-      return `${svTop('<b>Récapitulatif de la page</b>', S.pageDur ? `<span class="muted small">analyse : ${durTxt(S.pageDur)}</span>` : '')}${svCert()}
-        <div class="sv-recap">${shown.map((c) => { const cur = cardOf(c), [k, t] = tag(c), vp = !c.saved && cur ? versPill(c, cur) : ''; return `<div class="sv-rc ${k}">
-          <button class="sv-rc-open vfx vfx-${cur ? vfxOf(c, cur) : ''}" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}><img src="${cur ? visOf(cur) : c.url}" alt=""><span class="sv-badge">${t}</span></button>
-          ${vp}<span class="sv-rn">${cur ? esc(cur.name) : 'Non reconnue'}</span></div>`; }).join('')}</div>
-        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer, ou son étiquette de version (<b class="warn">?</b> = pas sûre) pour passer à la suivante.</div>
+      const chips = Object.keys(RECAP_F).filter((k) => counts[k]);
+      return `
+        <div class="sv-head">
+          <div class="sv-rtitle"><b>Récapitulatif</b><span class="muted small">${S.pageDur ? `analyse : ${durTxt(S.pageDur)}` : burst ? 'rafale' : 'page'}</span></div>
+          <div class="sv-count"><b>${shown.length}</b><span>carte${shown.length > 1 ? 's' : ''}</span></div>
+        </div>
+        <div class="bprog-bar done"><i style="width:100%"></i></div>
+        ${svCert()}
+        ${miniPage(null, true)}
+        ${chips.length > 1 ? `<div class="sv-filters">
+          <button class="sv-f ${sv.filter ? '' : 'on'}" data-sv="filter" data-f="">Toutes <b>${shown.length}</b></button>
+          ${chips.map((k) => `<button class="sv-f f-${k} ${sv.filter === k ? 'on' : ''}" data-sv="filter" data-f="${k}">${RECAP_F[k]} <b>${counts[k]}</b></button>`).join('')}</div>` : ''}
+        <div class="sv-rows">${list.map(row).join('')}</div>
+        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer, ou sa version (<b class="warn">?</b> = pas sûre) pour passer à la suivante.</div>
         <div class="sv-acts sv-final">
           <button class="btn primary" data-sv="save" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
-          <button class="btn" data-sv="close">Voir la liste détaillée</button>
+          <button class="linkbtn" data-sv="close">Voir la liste détaillée</button>
         </div>`;
     }
     function drawSV() {
@@ -173,6 +206,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       };
       if (a === 'close') return svClose();
       if (a === 'prev') { sv.idx = Math.max(0, sv.idx - 1); return drawSV(); }
+      if (a === 'filter') { sv.filter = b.dataset.f; return drawSV(); } // (récapitulatif : seulement les nouvelles, les doublons…)
       if (a === 'yes' && c) { c.checked = true; c.mode = null; return next(); }
       if (a === 'no' && c) { c.checked = false; return next(); }
       if (a === 'pick' && c) { // une autre proposition : on la montre en grand, il reste à confirmer

@@ -398,7 +398,7 @@
     const w = await V.check(context, cands, visualOpts(codes)).catch(() => null);
     return w && w.cands[0] && w.cands[0].confident ? w : o;
   }
-  // v3.37 : bandes fines du code (en bas à droite) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
+  // v3.40 : bandes fines du code (en bas à droite) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
   const OCR_BANDS = [0.925, 0.935, 0.945, 0.955].map((y) => [y, y + 0.04, 0.55, 0.98]);
   async function ocrTexts(b) {
     const O = App.recognizerParts && App.recognizerParts.codeOcr;
@@ -411,7 +411,7 @@
     // le code n'est pas lisible, on ne relit pas d'autres cadrages (≈ 4 à 8 s gagnées)
     const early = useVisual() ? visualPass(blob, [], [], context).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
     statusFn('Lecture du code de la carte…');
-    // v3.37 : code lu par PaddleOCR d'abord (labo : 10 codes sur 12 contre 7 pour Tesseract) ; Tesseract lit toujours le nom,
+    // v3.40 : code lu par PaddleOCR d'abord (labo : 10 codes sur 12 contre 7 pour Tesseract) ; Tesseract lit toujours le nom,
     // et le code seulement si PaddleOCR ne l'a pas trouvé
     const pt = await ocrTexts(blob);
     const texts = [...pt, ...(await R.readZones(blob, pt.some((t) => codesIn(t).codes.length) ? NAME_ZONES : [...CODE_ZONES, ...NAME_ZONES]))];

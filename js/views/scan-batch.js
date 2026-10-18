@@ -504,12 +504,25 @@ Object.assign(App.views.scan, {
       S.detected = null;
       if (S.auto && !burst) { S.gameSet = false; S.triedAll = false; S.reread = null; } // (« Toutes » : chaque page a sa licence)
       S.cells = [];
-      for (let i = 0; i < n; i++) {
-        const { blob, auto, box, alt } = await cellBlob(i);
-        const url = URL.createObjectURL(blob); urls.push(url);
-        // (la case et ses alentours, pour la vérification par l'image : vrais bords d'une carte coupée ; pas en classeur ouvert couché)
-        const ctx = !S.autoRot ? await ctxBlob(i).catch(() => null) : null;
-        S.cells.push({ i, blob, url, auto, box, alt, ctx, ctxRect: ctx ? ctxRect(i) : null, state: 'attente', cands: [], choice: '', info: null, mode: null });
+      try {
+        for (let i = 0; i < n; i++) {
+          if (S.stopped || !alive()) return;
+          S.prog = { step: 'Découpe des cartes', done: i, total: n }; X.drawSV(); // (v3.39 : on voit que ça avance)
+          const { blob, auto, box, alt } = await cellBlob(i);
+          if (!blob) throw new Error(`carte ${i + 1} : image vide`);
+          const url = URL.createObjectURL(blob); urls.push(url);
+          // (la case et ses alentours, pour la vérification par l'image : vrais bords d'une carte coupée ; pas en classeur ouvert couché)
+          const ctx = !S.autoRot ? await ctxBlob(i).catch(() => null) : null;
+          S.cells.push({ i, blob, url, auto, box, alt, ctx, ctxRect: ctx ? ctxRect(i) : null, state: 'attente', cands: [], choice: '', info: null, mode: null });
+        }
+      } catch (e) { // (v3.39 : avant, l'écran restait sur « Préparation de la page… » pour toujours)
+        console.error(e);
+        S.running = false; S.prog = null; S.cells = [];
+        ['#b-reset', '#b-fmt', '#b-go', '#b-set'].forEach((s) => { const b = el.querySelector(s); if (b) b.disabled = false; });
+        el.querySelector('.fmt-pick').classList.remove('off');
+        X.svClose();
+        setStatus(`<div class="small warn" style="text-align:center">Les cartes de la photo n’ont pas pu être découpées (${esc(e.message || 'erreur')}). Réessaie, ou reprends la photo.</div>`);
+        return;
       }
       X.drawResults();
       // « Toutes » (v3.11) : licence de la page votée sur ses premières cartes (texte lu, ~3 s par carte) avant la lecture —

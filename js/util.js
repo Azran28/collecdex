@@ -11,6 +11,28 @@ if (window.top !== window.self && !sameTop) {
 
 window.App = window.App || {};
 App.views = App.views || {};
+
+/*
+ * v3.39 (Arnaud : classeur bloqué sur « Préparation de la page… ») : Chrome n'encode une image `canvas.toBlob` que
+ * quand la page a un moment libre, et attend jusqu'à 1 s sinon — pendant le scan (lecteurs, vérification par l'image)
+ * il n'y en a jamais : chaque découpe de carte coûtait 1 s, parfois bien plus sur téléphone. On encode donc tout de suite
+ * (toDataURL : quelques millisecondes pour une carte), puis le rappel est appelé comme avant, de façon asynchrone.
+ */
+(() => {
+  const P = window.HTMLCanvasElement && HTMLCanvasElement.prototype, native = P && P.toBlob;
+  if (!native) return;
+  P.toBlob = function toBlob(cb, type, quality) {
+    let blob = null;
+    try {
+      if (this.width && this.height) {
+        const url = this.toDataURL(type, quality), i = url.indexOf(','), bin = atob(url.slice(i + 1)), a = new Uint8Array(bin.length);
+        for (let k = 0; k < bin.length; k++) a[k] = bin.charCodeAt(k);
+        blob = new Blob([a], { type: url.slice(5, url.indexOf(';')) });
+      }
+    } catch (e) { return native.call(this, cb, type, quality); } // (canevas « sali » par une image d'un autre site : comportement d'origine)
+    setTimeout(() => cb(blob), 0);
+  };
+})();
 // numéro de version de cette mise en ligne (posé par stamp.ps1 / stamp.sh dans index.html)
 window.APP_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || '';
 
