@@ -78,7 +78,7 @@ App.col = (() => {
   // ---------- Photos perso ----------
   async function addPhoto(k, fileOrBlob, { makeDisplay = true } = {}) {
     const it = items[k]; if (!it) throw new Error('Carte non possédée');
-    const blob = await App.util.photoBlob(fileOrBlob, 800); // ~30 Ko (WebP) : assez net, et léger pour le stockage en ligne
+    const blob = await App.util.photoBlob(fileOrBlob); // 1200 px (v3.30, avant 800 : trop flou en grand), ~80 Ko en WebP
     const id = 'ph_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     await App.db.set('photos', id, blob);
     // seul le visuel part dans le compte (c'est la seule photo que voient les amis et la vitrine) ;
@@ -101,7 +101,7 @@ App.col = (() => {
   /** Remplace le contenu d'une photo (ex. après recadrage), en gardant sa place dans la carte */
   async function replacePhoto(k, id, blob) {
     const it = items[k]; if (!it) return;
-    const small = await App.util.photoBlob(blob, 800);
+    const small = await App.util.photoBlob(blob);
     await App.db.set('photos', id, small);
     if (photoURLs[id]) { URL.revokeObjectURL(photoURLs[id]); delete photoURLs[id]; }
     if (isOnlinePhoto(it, id)) cloud().markPhoto(id);

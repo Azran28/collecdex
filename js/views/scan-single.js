@@ -151,7 +151,7 @@ Object.assign(App.views.scan, {
       if (shooting) return; // un seul appui compte (le défi de certification ne sert qu'une fois)
       shooting = true;
       // l'image est figée À L'INSTANT de l'appui (la suite peut prendre 1 à 2 s : on peut bouger)
-      const shotP = cam.capture();
+      const shotP = cam.shot(); // v3.30 : vraie photo du capteur (sinon l'image vidéo la plus nette), voir scan.js
       const certWanted = App.certify.available() && App.settings.certCarte !== false;
       if (certWanted && flipped) { try { trk.step(); } catch (e) { /* */ } } // image fraîche au moment de l'appui (sinon la dernière, jusqu'à 90 ms plus tôt, montrait parfois encore le dos)
       const proofP = certWanted && flipped ? trk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
@@ -162,10 +162,11 @@ Object.assign(App.views.scan, {
       // l'animation de scan démarre À L'APPUI, sur l'image figée (avant : après l'encodage de la photo, la vérification
       // de la certification et le détourage, soit 1 à 2 s) ; elle continue ensuite sur la carte détourée.
       // (la vérification a déjà lu la vidéo ci-dessus : on peut la retirer de l'écran)
-      if (shotP && cam.lastCanvas) showScan(cam.lastCanvas, 'Photo prise — détourage de la carte…');
+      if (shotP && cam.lastCanvas) showScan(cam.lastCanvas, 'Ne bouge pas… photo en cours');
       try {
         cert = null;
         const b = await shotP; if (!b) return;
+        const lbl = view.querySelector('.sc-scanlbl span'); if (lbl) lbl.textContent = 'Photo prise — détourage de la carte…';
         lastShot = b; pageBlob = b; cam.stop(); // (pageBlob : photo d'origine, relue autrement si la carte recadrée ne donne rien)
         await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 80); }); // qu'elle s'affiche avant les calculs (80 ms au plus : onglet caché)
         if (certWanted) cert = proofP ? await proofP : { passed: false, reasons: ['photo prise sans montrer le dos de la carte d’abord'] };

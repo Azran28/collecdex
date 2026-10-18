@@ -103,7 +103,7 @@ App.views.scan = {
   warpTo(img, quad) {
     const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height, q = quad.map(([x, y]) => [x * W, y * H]);
     const qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
-    return App.recognizer.warpQuad(img, q, Math.min(900, Math.max(240, Math.round(qw))));
+    return App.recognizer.warpQuad(img, q, Math.min(1000, Math.max(240, Math.round(qw)))); // (v3.30 : 1000 px, la photo gardée fait 1200 px de haut)
   },
 
   /** « Set de Base (1999) » */
@@ -331,10 +331,31 @@ App.views.scan = {
 
   /* ================= Caméra (partagée par les deux modes) ================= */
   camera(view, { guide }) {
-    let stream = null;
-    return {
+    let stream = null, base = {}, focusT = 0;
+    const track = () => stream && stream.getVideoTracks()[0];
+    const caps = () => { try { const t = track(); return (t && t.getCapabilities && t.getCapabilities()) || {}; } catch (e) { return {}; } };
+    // (réglages gardés ensemble : chaque applyConstraints remplace les précédents)
+    const tune = (set) => { const t = track(); return t ? t.applyConstraints({ advanced: [Object.assign(base, set)] }).catch(() => {}) : Promise.resolve(); };
+    const poiOk = () => { try { return !!navigator.mediaDevices.getSupportedConstraints().pointsOfInterest; } catch (e) { return false; } };
+    // v3.30 (Arnaud : « très rarement net, Google Lens 10× plus net ») : toucher l'image = mise au point à cet endroit
+    const onTap = (e) => {
+      const v = view.querySelector('video'); if (!stream || !v || !v.videoWidth || e.target.closest('button, a, input')) return;
+      const modes = caps().focusMode || []; if (!modes.length) return;
+      const vr = v.getBoundingClientRect(), p = cam.toVideo(e.clientX, e.clientY); if (!p) return;
+      const ring = document.createElement('i'); ring.className = 'focus-ring';
+      ring.style.left = (e.clientX - view.getBoundingClientRect().left) + 'px'; ring.style.top = (e.clientY - view.getBoundingClientRect().top) + 'px';
+      view.appendChild(ring); setTimeout(() => ring.remove(), 900);
+      const poi = poiOk() && vr.width ? { pointsOfInterest: [{ x: p.x, y: p.y }] } : {};
+      clearTimeout(focusT);
+      if (modes.includes('single-shot')) {
+        tune({ ...poi, focusMode: 'single-shot' });
+        if (modes.includes('continuous')) focusT = setTimeout(() => { if (stream) tune({ focusMode: 'continuous' }); }, 3000); // puis le suivi reprend, centré sur ce point
+      } else if (modes.includes('continuous')) tune({ ...poi, focusMode: 'continuous' });
+    };
+    const cam = {
       async start() {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
+        base = {};
         view.innerHTML = `<video autoplay playsinline muted></video>${guide ? '<div class="scan-guide"></div>' : ''}`;
         const v = view.querySelector('video');
         v.srcObject = stream;
@@ -343,7 +364,34 @@ App.views.scan = {
         v.addEventListener('loadedmetadata', () => {
           if (guide) view.classList.add('live-cover');
           else { view.classList.add('live-fit'); view.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`; view.style.setProperty('--vr', v.videoHeight / v.videoWidth); }
+          setTimeout(() => cam.sharpen(), 60); // (après la mise en page : le centre du cadre jaune doit être connu)
         }, { once: true });
+        view.addEventListener('click', onTap);
+      },
+      /**
+       * v3.30 : réglages de netteté. Mise au point continue, centrée sur le cadre jaune ; avec le cadre (une carte),
+       * zoom ×2 quand le téléphone le permet : on tient la carte 2× plus loin, à une distance où l'objectif sait faire
+       * le point (de près, la plupart des téléphones n'y arrivent pas : c'est ce que font Google Lens et l'appareil photo)
+       */
+      sharpen() {
+        const c = caps(), set = {};
+        if ((c.focusMode || []).includes('continuous')) set.focusMode = 'continuous';
+        if (guide && c.zoom && c.zoom.max >= 1.5) set.zoom = Math.max(c.zoom.min || 1, Math.min(2, c.zoom.max));
+        const g = guide && view.querySelector('.scan-guide');
+        if (g && poiOk() && set.focusMode) {
+          const r = g.getBoundingClientRect(), p = cam.toVideo(r.left + r.width / 2, r.top + r.height / 2);
+          if (p) set.pointsOfInterest = [{ x: p.x, y: p.y }];
+        }
+        if (Object.keys(set).length) tune(set);
+      },
+      /** Point de l'écran → position dans l'image de la caméra (fractions 0…1) */
+      toVideo(x, y) {
+        const v = view.querySelector('video'); if (!v || !v.videoWidth) return null;
+        const vr = v.getBoundingClientRect();
+        const scale = (view.classList.contains('live-cover') ? Math.max : Math.min)(vr.width / v.videoWidth, vr.height / v.videoHeight);
+        const ox = vr.left + (vr.width - v.videoWidth * scale) / 2, oy = vr.top + (vr.height - v.videoHeight * scale) / 2;
+        const cl = (t) => Math.min(1, Math.max(0, t));
+        return { x: cl((x - ox) / scale / v.videoWidth), y: cl((y - oy) / scale / v.videoHeight) };
       },
       get video() { return view.querySelector('video'); },
       /** Zone du cadre jaune (+ marge) dans la vidéo, en pixels de la vidéo */
@@ -365,35 +413,172 @@ App.views.scan = {
        * Image du flux vidéo ; avec guide, la zone du cadre jaune + 15 % de marge (v2.92, demande d'Arnaud : une carte
        * un peu trop grande ou décalée n'est plus coupée). this.zone = position du cadre jaune dans l'image (fractions).
        */
-      capture(m = 0.15) {
-        const v = view.querySelector('video'), r = this.region(m); if (!r) return null;
-        const { sx, sy, sw, sh, g } = r;
+      frame(r) {
+        const v = view.querySelector('video'), { sx, sy, sw, sh } = r;
         const c = document.createElement('canvas'); c.width = sw; c.height = sh;
         c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, sw, sh);
+        return c;
+      },
+      capture(m = 0.15) {
+        const r = this.region(m); if (!r) return null;
+        const { sx, sy, sw, sh, g } = r, c = this.frame(r);
         this.lastCanvas = c; // (affichable tout de suite, avant l'encodage JPEG qui prend jusqu'à 1 s)
         this.zone = g ? { x: (g.x - sx) / sw, y: (g.y - sy) / sh, w: g.w / sw, h: g.h / sh } : { x: 0, y: 0, w: 1, h: 1 };
         return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+      },
+      /**
+       * v3.30 : photo d'une carte (carte seule), la plus nette possible. Même cadrage que capture() (cadre + 15 %,
+       * this.lastCanvas et this.zone tout de suite) mais : (1) vraie photo du capteur (ImageCapture, Chrome Android :
+       * traitement de l'appareil photo, 3 à 6× plus de pixels sur la carte), ramenée sur le cadre par alignStill ;
+       * (2) sinon (iPhone, photo pas alignée ou floue), l'image la plus nette parmi les 400 ms qui suivent l'appui
+       * (l'appui sur l'écran fait bouger le téléphone : la 1ʳᵉ image est souvent floue).
+       */
+      shot(m = 0.15) {
+        const v = view.querySelector('video'), r = this.region(m); if (!r) return null;
+        const first = this.frame(r), { sx, sy, sw, sh, g } = r, vw = v.videoWidth, vh = v.videoHeight;
+        this.lastCanvas = first;
+        this.zone = g ? { x: (g.x - sx) / sw, y: (g.y - sy) / sh, w: g.w / sw, h: g.h / sh } : { x: 0, y: 0, w: 1, h: 1 };
+        const S = App.views.scan;
+        const stillP = this.still().then((b) => (b ? S.alignStill(b, first, vw, vh, r) : null)).catch((e) => { console.warn('Photo pleine résolution impossible', e); return null; });
+        const framesP = (async () => {
+          let best = first, bs = S.sharpness(first);
+          // (l'écran remplace la vidéo par l'image figée : une vidéo retirée de la page se met en pause, on la relance)
+          setTimeout(() => { if (stream && v.paused) v.play().catch(() => {}); }, 0);
+          for (let i = 0; i < 4 && stream; i++) {
+            await new Promise((res) => setTimeout(res, 90));
+            if (!stream || !v.videoWidth) break;
+            const c = this.frame(r), s = S.sharpness(c);
+            if (s > bs) { best = c; bs = s; }
+          }
+          return { c: best, s: bs };
+        })();
+        return (async () => {
+          const [st, fr] = await Promise.all([stillP, framesP]);
+          // vraie photo gardée sauf si nettement plus floue que la meilleure image vidéo (carte bougée pendant la prise)
+          const c = st && S.sharpness(st) >= 0.5 * fr.s ? st : fr.c;
+          this.lastSource = c === st ? 'photo' : 'video';
+          return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.95));
+        })();
+      },
+      /** Vraie photo du capteur (Blob) ou null ; flash coupé (reflets sur la carte), 6 s au plus */
+      async still() {
+        const t = track(); if (!t || !window.ImageCapture) return null;
+        const ic = new ImageCapture(t), opts = {};
+        try { const pc = await ic.getPhotoCapabilities(); if ((pc.fillLightMode || []).includes('off')) opts.fillLightMode = 'off'; } catch (e) { /* */ }
+        const b = await Promise.race([ic.takePhoto(opts).catch(() => null), new Promise((res) => setTimeout(() => res(null), 6000))]);
+        return b && b.size > 50000 ? b : null;
       },
       /**
        * Vraie photo en pleine résolution (capteur complet, ex. 12 Mpx) quand le navigateur le permet
        * (Chrome Android) ; sinon, image du flux vidéo. Indispensable pour une page de 9 cartes.
        */
       async photo() {
-        const track = stream && stream.getVideoTracks()[0];
-        if (track && window.ImageCapture) {
-          try {
-            const ic = new ImageCapture(track);
-            const b = await ic.takePhoto();
-            if (b && b.size > 50000) return b;
-          } catch (e) { console.warn('Photo pleine résolution impossible, image vidéo utilisée', e); }
-        }
+        try { const b = await this.still(); if (b) return b; } catch (e) { console.warn('Photo pleine résolution impossible, image vidéo utilisée', e); }
         return this.capture();
       },
       stop() {
+        clearTimeout(focusT); view.removeEventListener('click', onTap);
         if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
         view.classList.remove('live-cover', 'live-fit'); view.style.aspectRatio = ''; view.style.removeProperty('--vr');
       },
       get on() { return !!stream; },
     };
+    return cam;
+  },
+
+  /** Netteté d'une image (variance du laplacien sur sa version de 360 px de large, centre 80 %) */
+  sharpness(src) {
+    const W = src.width, H = src.height; if (!W || !H) return 0;
+    const w = Math.min(360, W), h = Math.max(8, Math.round(H * w / W));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0, w, h);
+    const d = g.getImageData(0, 0, w, h).data, L = new Float32Array(w * h);
+    for (let i = 0, j = 0; j < L.length; i += 4, j++) L[j] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+    let n = 0, s = 0, s2 = 0;
+    for (let y = Math.round(h * 0.1); y < h * 0.9 - 1; y++) {
+      for (let x = Math.round(w * 0.1); x < w * 0.9 - 1; x++) {
+        const k = y * w + x, l = 4 * L[k] - L[k - 1] - L[k + 1] - L[k - w] - L[k + w];
+        n++; s += l; s2 += l * l;
+      }
+    }
+    return n ? s2 / n - (s / n) ** 2 : 0;
+  },
+
+  /**
+   * v3.30 : vraie photo (blob) → la même zone que `ref` (image vidéo de la zone r, vidéo vw × vh), en pleine résolution
+   * (2400 px au plus). La photo n'a pas toujours le même sens ni le même champ que la vidéo (4:3 contre 16:9, vidéo
+   * stabilisée = un peu plus serrée) : sens (0/180° ou 90/270°) et champ cherchés en comparant avec `ref` ;
+   * null si rien ne correspond nettement (on garde alors la vidéo).
+   */
+  async alignStill(blob, ref, vw, vh, r, maxSide = 2400) {
+    const bmp = await createImageBitmap(blob);
+    try {
+      const G = 64, GH = Math.max(8, Math.min(192, Math.round(G * r.sh / r.sw)));
+      // image en gris réduite une seule fois (≈ 2 pixels par case), puis cases lues par interpolation (rapide)
+      const grayImg = (draw, w, h) => {
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; draw(g);
+        const d = g.getImageData(0, 0, w, h).data, o = new Float32Array(w * h);
+        for (let i = 0, j = 0; j < o.length; i += 4, j++) o[j] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+        return { d: o, w, h };
+      };
+      const grayOf = (im, x, y, w, h) => {
+        const o = new Float32Array(G * GH);
+        for (let j = 0; j < GH; j++) {
+          const py = Math.min(im.h - 1.001, Math.max(0, y + (j + 0.5) * h / GH - 0.5)), yi = py | 0, fy = py - yi;
+          for (let i = 0; i < G; i++) {
+            const px = Math.min(im.w - 1.001, Math.max(0, x + (i + 0.5) * w / G - 0.5)), xi = px | 0, fx = px - xi, a = yi * im.w + xi;
+            o[j * G + i] = (im.d[a] * (1 - fx) + im.d[a + 1] * fx) * (1 - fy) + (im.d[a + im.w] * (1 - fx) + im.d[a + im.w + 1] * fx) * fy;
+          }
+        }
+        return o;
+      };
+      const corr = (a, b) => {
+        let ma = 0, mb = 0; for (let i = 0; i < a.length; i++) { ma += a[i]; mb += b[i]; } ma /= a.length; mb /= b.length;
+        let ab = 0, aa = 0, bb = 0; for (let i = 0; i < a.length; i++) { const x = a[i] - ma, y = b[i] - mb; ab += x * y; aa += x * x; bb += y * y; }
+        return aa && bb ? ab / Math.sqrt(aa * bb) : 0;
+      };
+      const want = grayOf(grayImg((g) => g.drawImage(ref, 0, 0, 2 * G, 2 * GH), 2 * G, 2 * GH), 0, 0, 2 * G, 2 * GH);
+      const land = bmp.width >= bmp.height, vland = vw >= vh;
+      let best = null;
+      for (const rot of land === vland ? [0, 180] : [90, 270]) {
+        const W = rot % 180 ? bmp.height : bmp.width, H = rot % 180 ? bmp.width : bmp.height;
+        const k = Math.min(1, 2 * G / (r.sw * Math.min(W / vw, H / vh) * 0.8));
+        const sm = grayImg((g) => { g.scale(k, k); App.views.scan.drawRot(g, bmp, rot, W, H); }, Math.round(W * k), Math.round(H * k));
+        const tryAt = (z, dx = 0, dy = 0) => {
+          const s = Math.min(W / vw, H / vh) * z, ox = (W - vw * s) / 2 + dx * W, oy = (H - vh * s) / 2 + dy * H;
+          const rect = { x: ox + r.sx * s, y: oy + r.sy * s, w: r.sw * s, h: r.sh * s };
+          const c = corr(want, grayOf(sm, rect.x * k, rect.y * k, rect.w * k, rect.h * k));
+          const o = { c, rot, rect, W, H, z, dx, dy };
+          if (!best || c > best.c) best = o;
+          return o;
+        };
+        // champ grossier (vidéo stabilisée = 0 à 20 % plus serrée), puis affiné (champ et petit décalage)
+        let top = null;
+        for (const z of [1, 0.96, 0.92, 0.88, 0.84, 0.8]) for (const dx of [-0.02, 0, 0.02]) for (const dy of [-0.02, 0, 0.02]) { const o = tryAt(z, dx, dy); if (!top || o.c > top.c) top = o; }
+        for (const st of [0.01, 0.005, 0.0025, 0.00125]) {
+          for (let pass = 0; pass < 4; pass++) {
+            const c0 = top;
+            for (const dz of [-1, 0, 1]) for (const ex of [-1, 0, 1]) for (const ey of [-1, 0, 1]) {
+              if (dz || ex || ey) { const o = tryAt(c0.z + dz * st, c0.dx + ex * st, c0.dy + ey * st); if (o.c > top.c) top = o; }
+            }
+            if (top === c0) break;
+          }
+        }
+      }
+      if (!best || best.c < 0.6) { console.warn('Photo pas alignée sur la vidéo', best && best.c); return null; }
+      const { rect, rot, W, H } = best, k = Math.min(1, maxSide / Math.max(rect.w, rect.h));
+      const out = document.createElement('canvas'); out.width = Math.round(rect.w * k); out.height = Math.round(rect.h * k);
+      const og = out.getContext('2d'); og.imageSmoothingQuality = 'high';
+      og.scale(k, k); og.translate(-rect.x, -rect.y); App.views.scan.drawRot(og, bmp, rot, W, H);
+      out.alignScore = best.c;
+      return out;
+    } finally { if (bmp.close) bmp.close(); }
+  },
+  /** Dessine `img` tournée de `rot` degrés (sens horaire) dans un repère W × H (taille une fois tournée) */
+  drawRot(g, img, rot, W, H) {
+    g.save();
+    if (rot === 90) { g.translate(W, 0); g.rotate(Math.PI / 2); } else if (rot === 180) { g.translate(W, H); g.rotate(Math.PI); } else if (rot === 270) { g.translate(0, H); g.rotate(-Math.PI / 2); }
+    g.drawImage(img, 0, 0); g.restore();
   },
 };
