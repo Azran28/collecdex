@@ -32,18 +32,19 @@ App.views.home = {
 
       <section class="h-lic">
       <div class="section-title"><h2>Licences</h2></div>
-      <div class="grid-auto licences hscroll">
+      <div class="grid-auto licences">
         ${App.games.list.map((g) => {
           const on = g.status === 'actif';
           const n = items.filter((i) => i.game === g.id).length;
+          // téléphone : grille compacte (icône, nom, nombre de cartes), toutes les licences d'un coup d'œil
           return `
           <a class="game-tile g-${g.id} ${on ? '' : 'soon'}" href="${on ? `#/jeu/${g.id}` : '#/'}">
             <div class="gicon">${App.icons.icon(g.icon, 26)}</div>
             <div class="gtxt">
               <h3>${esc(g.name)}</h3>
-              <div class="muted small">${on ? `<b style="color:var(--text)">${n}</b> carte${n > 1 ? 's' : ''} · ` : ''}${esc(g.desc)}</div>
+              <div class="muted small">${on ? `<b style="color:var(--text)">${n}</b> carte${n > 1 ? 's' : ''}<span class="m-hide"> · </span>` : `<span class="d-hide">${esc(g.status)}</span>`}<span class="m-hide">${esc(g.desc)}</span></div>
             </div>
-            <span class="pill tag">${on ? 'dispo' : esc(g.status)}</span>
+            <span class="pill tag m-hide">${on ? 'dispo' : esc(g.status)}</span>
           </a>`;
         }).join('')}
       </div>

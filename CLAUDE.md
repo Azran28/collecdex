@@ -23,7 +23,7 @@ Ce fichier ne garde que l'essentiel. Le détail technique est dans **`.claude/ru
 | `collection.md` | `App.col`, valeur, prix, photos dans le compte, souhaits/objectifs |
 | `import.md` | import de fichiers (Collectr, Cardmarket…) |
 | `appli-mobile.md` | CSS téléphone, présentation, lancement, version Play Store, service worker, effets |
-Documents non chargés automatiquement (à lire seulement si besoin) : `.claude/docs/git-premiere-fois.md`, `docs/FEUILLE-DE-ROUTE.md`, `LISEZ-MOI.md`.
+Documents non chargés automatiquement (à lire seulement si besoin) : `.claude/docs/git-premiere-fois.md`, `docs/FEUILLE-DE-ROUTE.md`, `docs/LICENCES.md` (toutes les licences à intégrer : facilité, source de données, ce qu'Arnaud possède, ordre conseillé), `LISEZ-MOI.md`.
 **Nouvelle licence (Magic, Star Wars Unlimited…)** → skill `nouvel-univers` (`.claude/skills/nouvel-univers/SKILL.md`) : toutes les étapes faites pour Riftbound et Lorcana.
 **Nouvelle connaissance à noter → dans la règle du sujet** (courte, sans historique inutile), pas ici. Nouveau sujet → nouvelle règle avec ses `paths:` + une ligne dans ce tableau.
 

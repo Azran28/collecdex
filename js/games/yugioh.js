@@ -511,7 +511,7 @@
   // bande du code sur la carte recadrée (sous l'illustration, aligné à droite)
   const CODE_BAND = { y0: 0.70, y1: 0.775, x0: 0.5, x1: 1, right: [0.87, 0.985] };
   /**
-   * Impression choisie (v3.30, Arnaud : « le numéro de carte a une importance bien plus élevée » qu'ailleurs, tant de cartes sont
+   * Impression choisie (v3.32, Arnaud : « le numéro de carte a une importance bien plus élevée » qu'ailleurs, tant de cartes sont
    * réimprimées à l'identique) : chaque code possible de la carte est dessiné et superposé à la bande du code
    * (`recognizerParts.codeMatch`), plus 0,3 × la ressemblance avec ce qu'a lu Tesseract ; « sûr » avec 0,1 d'avance. Code
    * nettement lu (`choosePrint`) : il garde la main. Banc de 26 cartes : 14 bonnes impressions (3 sûres) → 20 (14 sûres, 0 fausse).

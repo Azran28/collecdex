@@ -303,7 +303,7 @@ test('Yu-Gi-Oh! : code imprimé lu même mal reconnu', async (App) => {
   eq(c('Infligez 300 points de dommages à votre adversaire.'), [], 'pas de code dans un texte de carte');
   eq(c('SDK-C032')[0], 'SDK-E032', 'anciennes cartes françaises du Canada « SDK-C032 »');
 });
-test('Yu-Gi-Oh! : impression choisie par le code dessiné (v3.30)', async (App) => {
+test('Yu-Gi-Oh! : impression choisie par le code dessiné (v3.32)', async (App) => {
   await App.need('reco'); const A = App.games.get('yugioh'), P = A.parts; await A.listSets();
   ok(P.printedForms('SDK-E032').includes('SDK-C032') && P.printedForms('RGBT-007').includes('RGBT-FR007'), 'formes imprimées');
   const r = P.readScores(['ROSE', 'DDK-C035'], ['SDK-E032', 'SDY-E027', 'SDJ-029']);

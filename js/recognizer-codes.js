@@ -1,5 +1,5 @@
 /*
- * Code imprimé « dessiné » (v3.30, Yu-Gi-Oh!) : la carte est déjà reconnue, il reste à choisir entre ses impressions
+ * Code imprimé « dessiné » (v3.32, Yu-Gi-Oh!) : la carte est déjà reconnue, il reste à choisir entre ses impressions
  * (« SDK-C032 », « SDY-C027 », « SDJ-029 »…). Le code est souvent trop petit et trop flou pour Tesseract (page de classeur :
  * lettres de 6 à 10 pixels) ; au lieu de le lire, chaque code possible est dessiné dans une police à empattements et superposé
  * à la bande du code (corrélation normalisée) : le plus ressemblant l'emporte.

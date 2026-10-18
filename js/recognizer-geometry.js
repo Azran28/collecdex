@@ -504,9 +504,14 @@
     const f = squareToQuad(q), fh = Math.round(fw * 88 / 63);
     const bx0 = Math.max(0, Math.floor(Math.min(...q.map((p) => p[0])))), by0 = Math.max(0, Math.floor(Math.min(...q.map((p) => p[1]))));
     const bx1 = Math.min(NW, Math.ceil(Math.max(...q.map((p) => p[0])))), by1 = Math.min(NH, Math.ceil(Math.max(...q.map((p) => p[1]))));
-    const SW = Math.max(1, bx1 - bx0), SH = Math.max(1, by1 - by0);
+    // v3.30 : photo bien plus grande que la carte voulue (vraie photo du capteur) → réduite d'abord par le navigateur
+    // (lissage de qualité) : l'interpolation ci-dessous ne lit que 4 pixels et donnait des contours crénelés
+    const qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
+    const k = Math.min(1, 1.2 * fw / Math.max(1, qw));
+    const W0 = Math.max(1, bx1 - bx0), H0 = Math.max(1, by1 - by0), SW = Math.max(1, Math.round(W0 * k)), SH = Math.max(1, Math.round(H0 * k));
     const sc = document.createElement('canvas'); sc.width = SW; sc.height = SH;
-    sc.getContext('2d').drawImage(img, bx0, by0, SW, SH, 0, 0, SW, SH);
+    const sg = sc.getContext('2d'); sg.imageSmoothingQuality = 'high';
+    sg.drawImage(img, bx0, by0, W0, H0, 0, 0, SW, SH);
     const src = sc.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, SW, SH).data;
     const out = document.createElement('canvas'); out.width = fw; out.height = fh;
     const og = out.getContext('2d'), od = og.createImageData(fw, fh), D = od.data;
@@ -514,7 +519,7 @@
       const v = e + (py + 0.5) / fh * (1 - 2 * e);
       for (let pxl = 0; pxl < fw; pxl++) {
         const u = e + (pxl + 0.5) / fw * (1 - 2 * e);
-        let [x, y] = f(u, v); x -= bx0 + 0.5; y -= by0 + 0.5;
+        let [x, y] = f(u, v); x = (x - bx0) * k - 0.5; y = (y - by0) * k - 0.5;
         x = Math.min(SW - 1, Math.max(0, x)); y = Math.min(SH - 1, Math.max(0, y));
         const xi = x | 0, yi = y | 0, fx = x - xi, fy = y - yi, x2 = Math.min(SW - 1, xi + 1), y2 = Math.min(SH - 1, yi + 1);
         const i00 = (yi * SW + xi) * 4, i10 = (yi * SW + x2) * 4, i01 = (y2 * SW + xi) * 4, i11 = (y2 * SW + x2) * 4;
