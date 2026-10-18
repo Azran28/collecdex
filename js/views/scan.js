@@ -436,13 +436,14 @@ App.views.scan = {
        * (2) sinon (iPhone, photo pas alignée ou floue), l'image la plus nette parmi les 400 ms qui suivent l'appui
        * (l'appui sur l'écran fait bouger le téléphone : la 1ʳᵉ image est souvent floue).
        */
-      shot(m = 0.15) {
+      // (useStill = faux : seulement l'image vidéo la plus nette — rafale, quand la vraie photo n'a pas marché une fois)
+      shot(m = 0.15, { useStill = true } = {}) {
         const v = view.querySelector('video'), r = this.region(m); if (!r) return null;
         const first = this.frame(r), { sx, sy, sw, sh, g } = r, vw = v.videoWidth, vh = v.videoHeight;
         this.lastCanvas = first;
         this.zone = g ? { x: (g.x - sx) / sw, y: (g.y - sy) / sh, w: g.w / sw, h: g.h / sh } : { x: 0, y: 0, w: 1, h: 1 };
         const S = App.views.scan;
-        const stillP = this.still().then((b) => (b ? S.alignStill(b, first, vw, vh, r) : null)).catch((e) => { console.warn('Photo pleine résolution impossible', e); return null; });
+        const stillP = !useStill ? Promise.resolve(null) : this.still().then((b) => (b ? S.alignStill(b, first, vw, vh, r) : null)).catch((e) => { console.warn('Photo pleine résolution impossible', e); return null; });
         const framesP = (async () => {
           let best = first, bs = S.sharpness(first);
           // (l'écran remplace la vidéo par l'image figée : une vidéo retirée de la page se met en pause, on la relance)
@@ -510,6 +511,83 @@ App.views.scan = {
       }
     }
     return n ? s2 / n - (s / n) ** 2 : 0;
+  },
+
+  /**
+   * v3.37 (« Qualité photos », points 2 et 3) : qualité d'une image de carte, mesurée sur 200 px de large (r = zone en pixels de
+   * la source, toute l'image sinon). `sharp` = Σ|laplacien| / Σ|gradient| : ne dépend ni de la lumière ni du contraste —
+   * mesuré : 0,69–1,26 sur les vraies photos nettes (Pokémon, One Piece, Riftbound, Lorcana, Yu-Gi-Oh!), 0,54–0,62 avec un flou
+   * de 2 px à 600 px de large, où la lecture échoue déjà (1,5 px aussi). `mean` = luminosité, `sd` = contraste (< 16 : pas de
+   * carte), `glare` = part de pixels brûlés (presque blancs), `L` = l'image en gris (pour voir si la carte bouge).
+   */
+  quality(src, r = null) {
+    const sx = r ? r.sx : 0, sy = r ? r.sy : 0, sw = r ? r.sw : (src.videoWidth || src.width), sh = r ? r.sh : (src.videoHeight || src.height);
+    if (!sw || !sh) return null;
+    const w = 200, h = Math.max(16, Math.round(sh * w / sw));
+    const c = App.views.scan._qc || (App.views.scan._qc = document.createElement('canvas'));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(src, sx, sy, sw, sh, 0, 0, w, h);
+    const d = g.getImageData(0, 0, w, h).data, L = new Float32Array(w * h);
+    let m = 0, m2 = 0, burnt = 0;
+    for (let i = 0, j = 0; j < L.length; i += 4, j++) {
+      const v = L[j] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      m += v; m2 += v * v; if (d[i] >= 240 && d[i + 1] >= 240 && d[i + 2] >= 240) burnt++;
+    }
+    let sl = 0, sg = 0;
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1, k = y * w + 1; x < w - 1; x++, k++) {
+        sl += Math.abs(4 * L[k] - L[k - 1] - L[k + 1] - L[k - w] - L[k + w]);
+        sg += Math.hypot(L[k + 1] - L[k - 1], L[k + w] - L[k - w]);
+      }
+    }
+    m /= L.length;
+    return { sharp: sg ? sl / sg : 0, mean: m, sd: Math.sqrt(Math.max(0, m2 / L.length - m * m)), glare: burnt / L.length, L };
+  },
+  /**
+   * Problème d'une image (quality) qui vaut un conseil, sinon '' — seulement les cas où la carte risque vraiment de ne pas être
+   * reconnue (Arnaud : « que si c'est primordial, il ne faut pas que ça devienne envahissant »). blur = seuil de netteté.
+   */
+  problem(q, blur = 0.6) {
+    if (!q) return '';
+    if (q.mean < 40) return 'sombre';
+    if (q.sd < 16) return ''; // (pas de carte dans le cadre)
+    if (q.glare > 0.05 && q.glare < 0.6) return 'reflet'; // (plus de 60 % : une surface blanche, pas un reflet)
+    return q.sharp < blur ? 'flou' : '';
+  },
+  TIPS: {
+    sombre: 'Trop sombre : approche-toi d’une lampe',
+    reflet: 'Reflet sur la carte : incline-la un peu',
+    flou: 'Image floue : recule un peu la carte, ou touche l’écran',
+  },
+  /**
+   * v3.37 : conseil sur la caméra (carte seule), seulement quand il le faut : le même problème vu pendant 1,2 s (le flou
+   * seulement si la carte est immobile : bouger rend flou, c'est normal) ; retiré dès qu'il est réglé.
+   * skip() vrai = aucun conseil (photo en cours, lampe de la certification). Renvoie la fonction qui l'arrête.
+   */
+  tipWatch(cam, view, skip = () => false) {
+    const S = App.views.scan;
+    let prev = null, still = 0, cand = '', n = 0, shown = '';
+    const show = (k) => {
+      if (k === shown) return; shown = k;
+      let t = view.querySelector('.shot-tip');
+      if (!k) { if (t) t.remove(); return; }
+      if (!t) { t = document.createElement('div'); t.className = 'shot-tip'; t.setAttribute('role', 'status'); view.appendChild(t); }
+      t.textContent = S.TIPS[k];
+    };
+    const tick = () => {
+      const v = cam.on && !skip() ? cam.video : null, r = v && v.videoWidth ? cam.region(0) : null;
+      if (!r) { prev = null; still = 0; n = 0; show(''); return; }
+      const q = S.quality(v, r); if (!q) return;
+      let diff = 99;
+      if (prev && prev.length === q.L.length) { diff = 0; for (let i = 0; i < q.L.length; i += 7) diff += Math.abs(q.L[i] - prev[i]); diff /= Math.ceil(q.L.length / 7); }
+      prev = q.L; still = diff < 4 + q.sd * 0.08 ? still + 1 : 0;
+      let k = S.problem(q, 0.55); // (vidéo : un peu moins nette qu'une photo)
+      if (k === 'flou' && still < 3) k = '';
+      if (k !== cand) { cand = k; n = 0; }
+      if (++n >= 4) show(k); else if (k !== shown) show(''); // (réglé, ou autre problème pas encore confirmé)
+    };
+    const timer = setInterval(tick, 300);
+    return () => { clearInterval(timer); show(''); };
   },
 
   /**

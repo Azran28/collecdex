@@ -519,3 +519,30 @@ test('scanner : correction retenue, carnet des scans ratés', async (App) => {
     await App.db.set('kv', 'scanLearn', keep.learn || {});
   }
 });
+
+// v3.37 : qualité de la photo (conseils avant la photo, contrôle juste après) — netteté indépendante de la lumière
+test('scanner : photo floue, sombre, reflet', async (App) => {
+  await App.need('scan');
+  const S = App.views.scan;
+  const card = (f) => {
+    const c = document.createElement('canvas'); c.width = 400; c.height = 560;
+    const g = c.getContext('2d'); g.filter = f.blur ? `blur(${f.blur}px)` : 'none';
+    g.fillStyle = '#e8d070'; g.fillRect(0, 0, 400, 560); g.fillStyle = '#c8402a'; g.fillRect(24, 24, 352, 512);
+    g.fillStyle = '#ece6d4'; g.fillRect(40, 300, 320, 200); g.fillStyle = '#123'; // (zone de texte claire, pas blanc pur)
+    for (let y = 320; y < 490; y += 14) for (let x = 50; x < 350; x += 9) g.fillRect(x, y, 5 + ((x * y) % 3), 8); // « texte »
+    g.fillStyle = '#3a7'; for (let i = 0; i < 40; i++) g.fillRect(40 + (i * 37) % 300, 50 + (i * 53) % 220, 14, 22);
+    g.filter = 'none';
+    if (f.glare) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(200, 160, 120, 80, 0, 0, 7); g.fill(); }
+    if (f.dark) { g.fillStyle = `rgba(0,0,0,${f.dark})`; g.fillRect(0, 0, 400, 560); }
+    return c;
+  };
+  const pb = (f) => S.problem(S.quality(card(f)));
+  eq(pb({}), '', 'carte nette prise pour ratée');
+  eq(pb({ blur: 4 }), 'flou');
+  eq(pb({ dark: 0.85 }), 'sombre');
+  eq(pb({ glare: 1 }), 'reflet');
+  eq(S.problem(S.quality(card({ dark: 0.5 }))), '', 'un peu sombre mais lisible : pas de conseil');
+  const blank = document.createElement('canvas'); blank.width = 300; blank.height = 400; blank.getContext('2d').fillStyle = '#777'; blank.getContext('2d').fillRect(0, 0, 300, 400);
+  eq(S.problem(S.quality(blank)), '', 'pas de carte : pas de conseil');
+  ok(S.TIPS.flou && S.TIPS.reflet && S.TIPS.sombre, 'phrases des conseils');
+});
