@@ -1,0 +1,292 @@
+<title>Licences CollecDex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Mise en page : une colonne de fiches par catégorie, filtres collés en haut ; mêmes couleurs que l'appli (sombre d'abord) */
+:root {
+  --bg: #0f1420; --bg2: #161d2d; --surface: #1c2538; --line: #2e3a55;
+  --text: #eef2fb; --muted: #95a1bd; --accent: #e3350d; --accent2: #ffcb05;
+  --gA: #3ecf8e; --gB: #6fb7ff; --gC: #f0a33a; --gD: #e0625a;
+  --display: "Fredoka", "Segoe UI", system-ui, sans-serif;
+  --body: "Inter", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #f3f5fa; --bg2: #e8ecf5; --surface: #ffffff; --line: #d5dbe8;
+  --text: #141a28; --muted: #5b6680; --accent: #c92a08; --accent2: #b88a00;
+  --gA: #138a57; --gB: #1f6fc0; --gC: #b36a00; --gD: #b8352d; color-scheme: light } }
+:root[data-theme="light"] {
+  --bg: #f3f5fa; --bg2: #e8ecf5; --surface: #ffffff; --line: #d5dbe8;
+  --text: #141a28; --muted: #5b6680; --accent: #c92a08; --accent2: #b88a00;
+  --gA: #138a57; --gB: #1f6fc0; --gC: #b36a00; --gD: #b8352d; color-scheme: light }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; margin: 0; text-wrap: balance; }
+h1 { font-size: 2rem; } h1 span { color: var(--accent); }
+.intro { color: var(--muted); max-width: 65ch; margin: .4rem 0 1.2rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: .85rem; color: var(--muted); margin-bottom: 1.4rem; }
+.legend b { color: var(--text); }
+.grade { display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; padding: 0 .35em; border-radius: 6px; font-weight: 700; font-size: .85rem; color: var(--bg); }
+.gA { background: var(--gA); } .gB { background: var(--gB); } .gC { background: var(--gC); } .gD { background: var(--gD); } .g- { background: var(--line); color: var(--text); }
+.order { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 1.6rem; }
+.order h2 { font-size: 1.2rem; margin-bottom: .6rem; }
+.order ol { margin: 0; padding-left: 1.4rem; display: grid; gap: 6px; }
+.order li::marker { font-family: var(--display); font-weight: 600; color: var(--accent2); }
+.order small { color: var(--muted); }
+.filters { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+.filters input, .filters select { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.filters input { flex: 1 1 200px; }
+.filters select { flex: 0 1 auto; }
+.filters label { flex: none; white-space: nowrap; display: flex; align-items: center; gap: 6px; font-size: .9rem; padding: 0 4px; }
+:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+.count { font-size: .85rem; color: var(--muted); margin: 0 0 1rem; font-variant-numeric: tabular-nums; }
+section { margin-bottom: 1.8rem; }
+section h2 { font-size: 1.25rem; margin-bottom: .2rem; }
+section > p { color: var(--muted); font-size: .9rem; margin: 0 0 .7rem; max-width: 70ch; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.card.own { border-color: color-mix(in srgb, var(--accent2) 55%, var(--line)); }
+.top { display: flex; align-items: flex-start; gap: 10px; }
+.top h3 { font-size: 1.05rem; flex: 1; min-width: 0; }
+.ed { color: var(--muted); font-size: .82rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .8rem; }
+.stars { color: var(--accent2); letter-spacing: 1px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); }
+.chip.mine { border-color: var(--accent2); color: var(--accent2); font-weight: 600; }
+.row { font-size: .85rem; overflow-wrap: anywhere; }
+.row span { color: var(--muted); }
+.go { justify-self: start; margin-top: 2px; font-size: .85rem; font-weight: 600; color: var(--accent); text-decoration: none; }
+.go:hover { text-decoration: underline; }
+.go.search { color: var(--muted); font-weight: 500; }
+.empty { color: var(--muted); font-style: italic; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
+</style>
+
+<div class="wrap">
+  <h1>Licences <span>CollecDex</span></h1>
+  <p class="intro">Tous les jeux de cartes à collectionner connus, et les autres cartes qui se collectionnent, avec ce qu'il faut pour les ajouter à l'appli. Liste du 18 oct. 2026 : une source de données peut changer, on la vérifie au moment d'intégrer la licence.</p>
+
+  <div class="legend">
+    <span><span class="grade gA">A</span> source gratuite et complète</span>
+    <span><span class="grade gB">B</span> source incomplète (prix, français…)</span>
+    <span><span class="grade gC">C</span> robot sur le site officiel</span>
+    <span><span class="grade gD">D</span> rien, liste à faire nous-mêmes</span>
+    <span><b>« X/Y »</b> = numéro idéal pour le scanner</span>
+  </div>
+
+  <div class="order">
+    <h2>Ordre conseillé pour les prochaines licences</h2>
+    <ol>
+      <li><b>Final Fantasy TCG</b> <small>tu en as · B · prix par le robot</small></li>
+      <li><b>Star Wars: Unlimited</b> <small>un peu · A · « 001/252 »</small></li>
+      <li><b>Dragon Ball Super Fusion World</b> <small>un peu · C · comme One Piece</small></li>
+      <li><b>Cartes de supermarché</b> <small>Dreamworks complète · D · construites à partir de tes photos</small></li>
+      <li><b>Wankul</b> <small>tu en as · C/D · très populaire en France</small></li>
+      <li><b>Digimon</b> <small>à retrouver · B</small></li>
+      <li><b>Magic</b> <small>A · le plus facile, mais pas de cartes pour tester</small></li>
+      <li>Ensuite, le reste par popularité, en commençant par les A et les B.</li>
+    </ol>
+  </div>
+
+  <div class="filters">
+    <input id="q" type="search" placeholder="Chercher une licence, un éditeur…" aria-label="Chercher">
+    <select id="fac" aria-label="Facilité">
+      <option value="">Toutes facilités</option>
+      <option value="A">A seulement</option><option value="B">A et B</option><option value="C">A à C</option>
+    </select>
+    <select id="cat" aria-label="Catégorie"><option value="">Toutes catégories</option></select>
+    <label><input id="own" type="checkbox"> J'en ai</label>
+  </div>
+  <p class="count" id="count"></p>
+  <div id="list"></div>
+</div>
+
+<script>
+const CATS = {
+  app: ['Déjà dans l\'appli', ''],
+  grand: ['Grands TCG actuels', 'Les jeux occidentaux joués aujourd\'hui.'],
+  japon: ['TCG japonais et anime', 'Souvent construits comme One Piece : codes de série sans total, sites officiels à lire.'],
+  lcg: ['Jeux de cartes évolutifs (LCG)', 'Boîtes fixes, pas de boosters. Les bases de fans sont très complètes.'],
+  avenir: ['Nouveaux ou à venir', ''],
+  vintage: ['TCG arrêtés mais encore collectionnés', 'En général pas d\'API : sites de fans ou listes à faire.'],
+  autres: ['Autres cartes à collectionner', 'Pas des TCG, mais même logique dans l\'appli (« X/Y », photo, progression). Presque jamais de source de données.'],
+  num: ['Exclus : jeux 100 % numériques', 'Pas de carte physique, donc rien à scanner.']
+};
+// [catégorie, nom, éditeur, popularité 0-5, facilité, source, numéro, note, possédé]
+const L = [
+ ['app','Pokémon','The Pokémon Company',5,'A','TCGdex','« X/Y »','Toutes les séries en français','oui'],
+ ['app','One Piece','Bandai',5,'B','optcgapi.com','OP01-001','Français depuis OP-09','oui'],
+ ['app','Riftbound','Riot / UVS Games',4,'B','Galerie Riot + robot pour les prix','« 013/298 »','Noms anglais','oui'],
+ ['app','Disney Lorcana','Ravensburger',4,'A','Lorcast / LorcanaJSON','« 12/204 »','En français (v3.21)','oui'],
+ ['app','Yu-Gi-Oh!','Konami',5,'A','YGOPRODeck','LOB-FR001','Noms en français (v3.26)','oui'],
+
+ ['grand','Magic: The Gathering','Wizards of the Coast',5,'A','Scryfall : complet, images HD, prix €/$, français','n° de collection + code de série','~100 000 cartes : charger par série',''],
+ ['grand','Star Wars: Unlimited','Fantasy Flight Games',3,'A','swu-db.com (API)','« 001/252 »','Prix moins bien couverts','peu'],
+ ['grand','Flesh and Blood','Legend Story Studios',3,'B','Base GitHub « the-fab-cube » (JSON complet)','WTR001','Pas de prix',''],
+ ['grand','Final Fantasy TCG','Square Enix',2,'B','Recherche du site officiel','1-001H','Pas de prix','oui'],
+ ['grand','Grand Archive','Weebs of the Shore',2,'A','API officielle (index.gatcg.com)','code de série','Petite communauté',''],
+ ['grand','Sorcery: Contested Realm','Erik\'s Curiosa',2,'B','curiosa.io, API officielle (à vérifier)','—','Très belles illustrations',''],
+ ['grand','Altered','Equinox (France)',2,'B','api.altered.gg (officielle, en français)','—','Éditeur en difficulté : avenir à vérifier',''],
+ ['grand','Wankul','Wankil Studio',3,'C','Site officiel ou sites de fans (à vérifier)','numérotées par collection','Très populaire chez les jeunes en France','oui'],
+ ['grand','Force of Will','Force of Will Co.',2,'C','Sites de fans','code de série','',''],
+ ['grand','KeyForge','Ghost Galaxy',2,'B','Archon Arcana, Decks of KeyForge','—','Chaque deck est unique : on collectionne des decks',''],
+ ['grand','Vampire: The Eternal Struggle','Black Chantry',1,'B','KRCG / VEKN (fans, complet)','—','Réimprimé depuis 2018',''],
+ ['grand','MetaZoo','MetaZoo Games',1,'C','Site officiel','« X/Y »','Arrêté ou en pause (à vérifier)',''],
+ ['grand','Elestrals','Elestrals LLC',1,'C','Site officiel','« X/Y »','',''],
+ ['grand','Akora','Akora TCG',1,'C','Site officiel','« X/Y »','Style très proche de Pokémon',''],
+ ['grand','Alpha Clash','Alpha Clash',1,'C','Site officiel','—','',''],
+ ['grand','UniVersus (ex-UFS)','UVS Games',1,'C','Sites de fans','—','Même éditeur que Riftbound en anglais',''],
+ ['grand','Panzer Perfume Phantasm','à vérifier',1,'D','Rien de connu','?','À regarder avec tes cartes','peu'],
+
+ ['japon','Dragon Ball Super Fusion World','Bandai',4,'C','Site officiel (dbs-cardgame.com/fw)','FB01-001','Même logique que One Piece','peu'],
+ ['japon','Dragon Ball Super Card Game (Masters)','Bandai',3,'C','Site officiel, sites de fans','BT1-001','Toujours joué',''],
+ ['japon','Digimon','Bandai',3,'B','digimoncard.io (API gratuite, anglais)','BT1-001','Peu de prix','?'],
+ ['japon','Gundam Card Game','Bandai',3,'C','Site officiel (gundam-gcg.com)','GD01-001','Sorti en 2025, construit comme One Piece',''],
+ ['japon','Union Arena','Bandai',3,'C','Site officiel','UA01BT/…','Plein de licences anime dans un seul jeu',''],
+ ['japon','Weiss Schwarz','Bushiroad',3,'C','EncoreDecks (API de fans), ws-tcg.com','XXX/W01-001','Énorme : des centaines de séries anime',''],
+ ['japon','Cardfight!! Vanguard','Bushiroad',2,'C','Site officiel, wiki de fans','D-BT01/001','',''],
+ ['japon','Shadowverse: Evolve','Bushiroad / Cygames',2,'C','Site officiel','BP01-001','',''],
+ ['japon','hololive Official Card Game','Bushiroad / COVER',2,'C','Site officiel','hBP01-001','Sorti en 2024',''],
+ ['japon','Battle Spirits Saga','Bandai',1,'C','Site officiel','BSS01-001','Arrêté en occident (à vérifier)',''],
+ ['japon','Duel Masters','Takara Tomy',3,'D','Wiki japonais','—','Uniquement au Japon',''],
+ ['japon','WIXOSS','Takara Tomy',2,'C','Wiki de fans','WX01-001','',''],
+ ['japon','Yu-Gi-Oh! Rush Duel','Konami',3,'C','YGOPRODeck (en partie)','—','Version simplifiée de Yu-Gi-Oh!',''],
+ ['japon','Ultraman Card Game','Tsuburaya / Bandai',2,'C','Site officiel','—','Sorti en 2024',''],
+ ['japon','Z/X -Zillions of enemy X-','Broccoli',1,'D','Wiki japonais','—','',''],
+ ['japon','Lycee Overture','Visual Arts',1,'D','Wiki japonais','—','',''],
+ ['japon','Fire Emblem Cipher','Nintendo / Intelligent Systems',1,'D','Wiki de fans','—','Arrêté en 2020',''],
+ ['japon','Gate Ruler','Furyu',1,'D','—','—','Arrêté',''],
+
+ ['lcg','Marvel Champions','Fantasy Flight Games',3,'A','MarvelCDB (API)','« X/Y »','',''],
+ ['lcg','Horreur à Arkham (JCE)','Fantasy Flight Games',3,'A','ArkhamDB (API)','« X/Y »','',''],
+ ['lcg','Le Seigneur des Anneaux JCE','Fantasy Flight Games',2,'A','RingsDB (API)','« X/Y »','',''],
+ ['lcg','Netrunner','FFG puis Null Signal Games',2,'A','NetrunnerDB (API)','« X/Y »','',''],
+ ['lcg','Le Trône de Fer JCE','Fantasy Flight Games',1,'A','ThronesDB (API)','« X/Y »','Arrêté',''],
+ ['lcg','Legend of the Five Rings LCG','Fantasy Flight Games',1,'A','FiveRingsDB','« X/Y »','Arrêté',''],
+ ['lcg','Star Wars: The Card Game','Fantasy Flight Games',1,'B','Sites de fans','—','Arrêté',''],
+ ['lcg','Ashes Reborn','Plaid Hat Games',1,'B','ashes.live','—','',''],
+
+ ['avenir','TCG Cyberpunk','à vérifier',null,'-','À voir à sa sortie','?','Annoncé pour 2026 ; tu en auras bientôt','bientot'],
+ ['avenir','Palworld TCG','à vérifier',null,'-','—','?','Annoncé (à vérifier)',''],
+ ['avenir','Echoes of Astra, Origins TCG, Neuroscape','divers',null,'-','—','?','Cités par la presse pour 2026, non confirmés',''],
+
+ ['vintage','Star Wars CCG','Decipher · 1995–2001',1,'B','Base JSON du Players Committee (GitHub)','—','',''],
+ ['vintage','Le Seigneur des Anneaux TCG','Decipher · 2001–2007',1,'C','Sites de fans','—','',''],
+ ['vintage','Star Trek CCG','Decipher · 1994–2007',1,'C','trekcc.org','—','',''],
+ ['vintage','Young Jedi','Decipher · 1999–2001',1,'C','Sites de fans','—','',''],
+ ['vintage','Harry Potter TCG','Wizards of the Coast · 2001–2002',2,'C','Sites de fans','« X/Y »','',''],
+ ['vintage','Neopets TCG','Wizards of the Coast · 2003–2005',1,'C','Sites de fans','—','',''],
+ ['vintage','Kaijudo / Duel Masters (occident)','Wizards of the Coast · 2004–2014',1,'C','Wikis','—','',''],
+ ['vintage','Dragon Ball Z TCG','Score puis Panini · 2000–2018',2,'C','Sites de fans','—','',''],
+ ['vintage','Dragon Ball GT TCG','Score · 2003–2005',1,'C','Sites de fans','—','',''],
+ ['vintage','Naruto CCG','Bandai · 2006–2011',2,'C','Wikis','—','',''],
+ ['vintage','Bleach TCG','Score · 2007–2009',1,'C','Wikis','—','',''],
+ ['vintage','One Piece CCG (premier jeu)','Bandai · 2003–2006',1,'C','Wikis','—','',''],
+ ['vintage','Digimon Digi-Battle','Bandai · 1999–2003',1,'C','Wikis','—','',''],
+ ['vintage','Yu Yu Hakusho TCG','Score · 2003–2006',1,'C','Wikis','—','',''],
+ ['vintage','Shaman King TCG','Upper Deck · 2005',1,'C','Wikis','—','',''],
+ ['vintage','Zatch Bell!','Bandai · 2005–2007',1,'C','Wikis','—','',''],
+ ['vintage','Avatar TCG','Upper Deck · 2006',1,'C','Wikis','—','',''],
+ ['vintage','World of Warcraft TCG','Upper Deck / Cryptozoic · 2006–2013',2,'C','Wikis','—','',''],
+ ['vintage','Vs. System','Upper Deck · 2004–…',1,'C','Sites de fans','—','Relancé en 2PCG',''],
+ ['vintage','Chaotic','4Kids · 2007–2010',1,'C','Wikis','—','',''],
+ ['vintage','Bakugan TCG','Spin Master · 2008–2012',1,'C','Wikis','—','',''],
+ ['vintage','Huntik','Upper Deck · 2009',1,'C','Wikis','—','',''],
+ ['vintage','Wakfu TCG','Ankama (France) · 2008–2014',1,'C','Sites de fans français','—','',''],
+ ['vintage','Transformers TCG','Hasbro / Wizards · 2018–2020',1,'C','Wikis','—','',''],
+ ['vintage','Star Wars: Destiny','Fantasy Flight Games · 2016–2020',1,'B','swdestinydb (API)','—','',''],
+ ['vintage','Legend of the Five Rings CCG','AEG · 1995–2015',1,'C','Oracle of the Void','—','',''],
+ ['vintage','Spellfire','TSR · 1994–1997',1,'C','Sites de fans','—','',''],
+ ['vintage','My Little Pony CCG','Enterplay · 2013–2019',1,'C','Sites de fans','—','',''],
+ ['vintage','Mortal Kombat Kard Game','Classic Cards · 1995',1,'D','—','—','',''],
+ ['vintage','Doctor Who, Highlander, Babylon 5, X-Files…','divers · années 90',1,'C','Sites de fans','—','',''],
+ ['vintage','Rage, Jyhad, Shadowfist, Warhammer 40k CCG…','divers · années 90–2000',1,'C','Sites de fans','—','',''],
+ ['vintage','Monsterpocalypse','Privateer Press',1,'D','—','—','',''],
+
+ ['autres','Cartes de supermarché','Carrefour (Dreamworks, Disney, Pixar…), Leclerc, Auchan, Intermarché, Lidl, Super U…',3,'D','À construire à partir de tes photos','souvent « X/Y »','Petites collections (100–200 cartes) : très bon candidat. Dreamworks complète chez toi','oui'],
+ ['autres','Topps (football)','Topps',4,'D','—','—','Match Attax, Topps Chrome, Bowman ; nouvelle collection chaque saison','oui'],
+ ['autres','Panini','Panini',4,'D','—','sans total sur la vignette','Adrenalyn XL, albums de stickers (foot, Disney, séries)','peu'],
+ ['autres','Cartes de sport US','Upper Deck, Leaf, Futera, Panini Prizm',3,'D','—','—','Basket, NFL, hockey… marché énorme aux États-Unis',''],
+ ['autres','Kayou','Kayou',3,'D','—','—','Naruto, Harry Potter, Ultraman, Marvel… cartes chinoises très populaires',''],
+ ['autres','Dérivés Pokémon','—',2,'D','Listes à faire','—','Stickers, stacks, waps : sous Pokémon comme « objets à part »','oui'],
+ ['autres','Dérivés Yu-Gi-Oh!','—',1,'D','Listes à faire','—','Waps : sous Yu-Gi-Oh!','oui'],
+ ['autres','Cartes « arcade » japonaises','Bandai…',2,'D','—','—','Dragon Ball Heroes, Carddass, Pokémon Tretta / Ga-Olé, Mushiking',''],
+ ['autres','Cartes classiques','divers',1,'D','—','—','Garbage Pail Kids, cartes Marvel/DC, cartes de films',''],
+
+ ['num','Pokémon TCG Pocket','The Pokémon Company',null,'-','—','—','Numérique',''],
+ ['num','Hearthstone, Marvel Snap, Legends of Runeterra, Gwent','divers',null,'-','—','—','Numérique',''],
+ ['num','Magic Arena, Yu-Gi-Oh! Master Duel, Shadowverse','divers',null,'-','—','—','Numérique','']
+];
+// Où voir les cartes de chaque licence ; sinon, une recherche « liste des cartes »
+const LINKS = {
+ 'Pokémon': 'https://www.pokecardex.com',
+ 'One Piece': 'https://en.onepiece-cardgame.com/cardlist/',
+ 'Riftbound': 'https://riftbound.leagueoflegends.com/en-us/card-gallery/',
+ 'Disney Lorcana': 'https://lorcast.com',
+ 'Yu-Gi-Oh!': 'https://www.db.yugioh-card.com/yugiohdb/?request_locale=fr',
+ 'Magic: The Gathering': 'https://scryfall.com',
+ 'Star Wars: Unlimited': 'https://www.swu-db.com',
+ 'Flesh and Blood': 'https://fabrary.net/cards',
+ 'Final Fantasy TCG': 'https://fftcg.square-enix-games.com/en/card-browser',
+ 'Grand Archive': 'https://index.gatcg.com',
+ 'Sorcery: Contested Realm': 'https://curiosa.io',
+ 'Altered': 'https://www.altered.gg',
+ 'KeyForge': 'https://decksofkeyforge.com',
+ 'Dragon Ball Super Fusion World': 'https://www.dbs-cardgame.com/fw/en/cardlist/',
+ 'Dragon Ball Super Card Game (Masters)': 'https://www.dbs-cardgame.com/us-en/cardlist/',
+ 'Digimon': 'https://digimoncard.io',
+ 'Gundam Card Game': 'https://www.gundam-gcg.com/en/cards/',
+ 'Weiss Schwarz': 'https://www.encoredecks.com',
+ 'Cardfight!! Vanguard': 'https://en.cf-vanguard.com/cardlist/',
+ 'Marvel Champions': 'https://marvelcdb.com',
+ 'Horreur à Arkham (JCE)': 'https://arkhamdb.com',
+ 'Le Seigneur des Anneaux JCE': 'https://ringsdb.com',
+ 'Netrunner': 'https://netrunnerdb.com',
+ 'Le Trône de Fer JCE': 'https://thronesdb.com',
+ 'Legend of the Five Rings LCG': 'https://fiveringsdb.com',
+ 'Ashes Reborn': 'https://ashes.live',
+ 'Star Wars: Destiny': 'https://swdestinydb.com',
+ 'Star Trek CCG': 'https://www.trekcc.org'
+};
+const linkOf = x => LINKS[x[1]] ? [LINKS[x[1]], 'Voir les cartes']
+  : x[0] === 'num' ? null
+  : ['https://www.google.com/search?q=' + encodeURIComponent(x[1] + ' liste des cartes'), 'Chercher les cartes'];
+const OWN = { oui: 'J\'en ai', peu: 'J\'en ai un peu', bientot: 'Bientôt', '?': 'À retrouver' };
+const RANK = { A: 1, B: 2, C: 3, D: 4, '-': 5 };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+for (const [k, [t]] of Object.entries(CATS)) $('cat').insertAdjacentHTML('beforeend', `<option value="${k}">${esc(t)}</option>`);
+
+function card(x) {
+  const [, name, ed, pop, fac, src, num, note, own] = x, link = linkOf(x);
+  const stars = pop == null ? '' : `<span class="stars" title="Popularité ${pop}/5">${'★'.repeat(pop)}<span style="opacity:.3">${'★'.repeat(5 - pop)}</span></span>`;
+  return `<article class="card${own === 'oui' || own === 'peu' ? ' own' : ''}">
+    <div class="top"><h3>${esc(name)}</h3><span class="grade g${fac}" title="Facilité">${fac === '-' ? '?' : fac}</span></div>
+    <div class="ed">${esc(ed)}</div>
+    <div class="meta">${stars}${own ? `<span class="chip mine">${OWN[own]}</span>` : ''}${num && num !== '—' ? `<span class="chip">${esc(num)}</span>` : ''}</div>
+    ${src && src !== '—' ? `<div class="row"><span>Source : </span>${esc(src)}</div>` : ''}
+    ${note ? `<div class="row">${esc(note)}</div>` : ''}
+    ${link ? `<a class="go${LINKS[name] ? '' : ' search'}" href="${esc(link[0])}" target="_blank" rel="noopener">${link[1]} ↗</a>` : ''}
+  </article>`;
+}
+function render() {
+  const q = $('q').value.trim().toLowerCase(), fac = $('fac').value, cat = $('cat').value, own = $('own').checked;
+  let n = 0, html = '';
+  for (const [k, [title, sub]] of Object.entries(CATS)) {
+    if (cat && cat !== k) continue;
+    const rows = L.filter(x => x[0] === k
+      && (!q || (x[1] + ' ' + x[2] + ' ' + x[7]).toLowerCase().includes(q))
+      && (!fac || RANK[x[4]] <= RANK[fac])
+      && (!own || x[8]))
+      .sort((a, b) => RANK[a[4]] - RANK[b[4]] || (b[3] || 0) - (a[3] || 0));
+    if (!rows.length) continue;
+    n += rows.length;
+    html += `<section><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}<div class="cards">${rows.map(card).join('')}</div></section>`;
+  }
+  $('list').innerHTML = html || '<p class="empty">Aucune licence ne correspond à ces filtres.</p>';
+  $('count').textContent = `${n} licence${n > 1 ? 's' : ''} affichée${n > 1 ? 's' : ''} · triées par facilité puis popularité`;
+}
+['q', 'fac', 'cat', 'own'].forEach(id => $(id).addEventListener('input', render));
+render();
+</script>
