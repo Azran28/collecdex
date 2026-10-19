@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Dos de carte Final Fantasy (carte cachée en combat Avancé), dessiné pour CollecDex : carte noire mate, cristal argenté au centre -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".45" r=".75"><stop offset="0" stop-color="#2a2d36"/><stop offset=".6" stop-color="#121318"/><stop offset="1" stop-color="#07080b"/></radialGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4f6fb"/><stop offset=".5" stop-color="#b9c0cf"/><stop offset=".5" stop-color="#7c8496"/><stop offset="1" stop-color="#4a5163"/></linearGradient>
+  </defs>
+  <rect width="630" height="880" rx="28" fill="#0b0c10"/>
+  <rect x="26" y="26" width="578" height="828" rx="14" fill="url(#f)"/>
+  <g transform="translate(315 430)">
+    <path d="M0 -190 80 -45 0 190 -80 -45z" fill="url(#s)" stroke="#f4f6fb" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M-80 -45H80M0 -190V190M0 -190-30 -45 0 190 30 -45z" fill="none" stroke="#f4f6fb" stroke-width="2.5" opacity=".55" stroke-linejoin="round"/>
+    <path d="M-210 255H210" stroke="#b9c0cf" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+  </g>
+</svg>

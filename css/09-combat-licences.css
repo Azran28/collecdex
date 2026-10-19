@@ -445,3 +445,51 @@ a.bt-choice:active { transform: scale(.985); }
 .bt-ov.g-yugioh .bt-sc em { color: #ffd36b; }
 .bt-ov.g-yugioh .bt-sc.ok { border-color: #e2b54a; box-shadow: 0 0 16px rgba(226,181,74,.35); }
 
+
+/* ===== v3.43 : Final Fantasy — même combat, habillage cristal (bleu nuit, argent, cristal lumineux), décor : sanctuaire du Cristal ===== */
+.bt-lic-tile.g-finalfantasy { background-image: linear-gradient(100deg, rgba(5,11,36,.92) 15%, rgba(5,11,36,.45) 60%, rgba(5,11,36,.2)), url(../img/combat/sanctuaire-finalfantasy.svg); background-position: center 40%; }
+.g-finalfantasy .bt-lic-ic, .bt-hero.g-finalfantasy .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #e6f8ff, #5fb4f0 50%, #173f86); color: #fff; box-shadow: 0 0 0 2px #b9c0cf inset, 0 6px 18px rgba(95,180,240,.45); }
+.g-finalfantasy .bt-lic-t b { color: #e6f2ff; letter-spacing: 1.2px; text-transform: uppercase; text-shadow: 0 0 12px rgba(95,180,240,.6), 0 2px 10px rgba(0,0,0,.5); }
+.bt-page.g-finalfantasy { --acc: #2a6fc0; --acc2: #9fdcff; }
+.bt-hero.g-finalfantasy { background-image: linear-gradient(100deg, rgba(5,11,36,.9) 25%, rgba(5,11,36,.35)), url(../img/combat/sanctuaire-finalfantasy.svg); background-position: center 35%; }
+.bt-page.g-finalfantasy .bt-hero-t h1 { color: #e6f2ff; text-transform: uppercase; letter-spacing: 1.2px; }
+.bt-ov.g-finalfantasy::before, .bt-ov.g-finalfantasy::after { display: none; }
+.bt-ov.g-finalfantasy > .bt-bg { background-image: linear-gradient(180deg, rgba(5,11,36,.55), rgba(5,11,36,.08) 22%, rgba(5,11,36,.05) 55%, rgba(5,11,36,.72) 92%), url(../img/combat/sanctuaire-finalfantasy.svg); }
+.bt-ov.g-finalfantasy.boss > .bt-bg { filter: brightness(.55) saturate(1.1) hue-rotate(180deg); }
+/* mouvement léger : le cristal respire */
+.bt-ov.g-finalfantasy > .bt-bg::after { background: radial-gradient(ellipse 200px 160px at 50% 36%, rgba(191,232,255,.25), transparent 70%); animation: btCrystal 5s ease-in-out infinite alternate; }
+@keyframes btCrystal { to { opacity: .45; transform: scale(1.06); } }
+.bt-ov.g-finalfantasy .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-ov.g-finalfantasy .bt-lic { background: radial-gradient(circle at 35% 30%, #e6f8ff, #5fb4f0 50%, #173f86); color: #fff; box-shadow: 0 0 0 2px #b9c0cf inset; }
+.bt-ov.g-finalfantasy .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(5,11,36,.6); }
+/* panneaux façon fenêtre de menu des jeux : dégradé bleu, cadre argenté */
+.bt-ov.g-finalfantasy .bt-info { background: linear-gradient(180deg, #2a4f9a, #0f2257); color: #fff; border: 2px solid #d9dee8; border-radius: 6px; box-shadow: 0 0 0 1px #0b1430 inset, 0 10px 24px rgba(0,0,0,.45); }
+.bt-ov.g-finalfantasy .bt-name b { letter-spacing: .4px; font-weight: 800; text-shadow: 1px 1px 0 #0b1430; }
+.bt-ov.g-finalfantasy .bt-stats { color: #c8d6f0; }
+.bt-ov.g-finalfantasy .bt-stats b { color: #fff; }
+.bt-ov.g-finalfantasy .bt-hp { background: #0b1430; border: 1px solid #b9c0cf; }
+.bt-ov.g-finalfantasy .bt-loan { background: #d9e8ff; color: #0f2257; }
+.bt-ov.g-finalfantasy .bt-tag { background: #d9e8ff; color: #0f2257; }
+.bt-ov.g-finalfantasy .bt-tag.sh { background: #c9eef5; color: #0e3a46; }
+.bt-ov.g-finalfantasy .bt-tag.pw { background: #f5d3c6; color: #6e1d0b; }
+/* énergie = petits cristaux (losanges) */
+.bt-ov.g-finalfantasy .bt-pips i { border-radius: 2px; transform: rotate(45deg) scale(.85); background: linear-gradient(135deg, #e6f8ff, #5fb4f0 55%, #173f86); box-shadow: 0 0 0 1px #0b1430; }
+.bt-ov.g-finalfantasy .bt-pips b { color: #bfe8ff; }
+.bt-ov.g-finalfantasy .bt-cost i { background: #5fb4f0; }
+.bt-ov.g-finalfantasy .bt-log { background: linear-gradient(180deg, rgba(42,79,154,.95), rgba(15,34,87,.95)); color: #fff; border: 2px solid #d9dee8; border-radius: 6px; }
+.bt-ov.g-finalfantasy .bt-log .bt-eff { color: #bfe8ff; }
+.bt-ov.g-finalfantasy .bt-banner.me { background: linear-gradient(135deg, #e6f8ff, #5fb4f0 50%, #2a6fc0); color: #0b1430; border: 2px solid #d9dee8; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 10px 30px rgba(95,180,240,.45); }
+.bt-ov.g-finalfantasy .bt-banner.foe { background: #0f2257; border-color: #d9dee8; }
+.bt-ov.g-finalfantasy .bt-end.win .bt-end-box { border-color: #9fdcff; box-shadow: 0 0 40px rgba(95,180,240,.4); }
+.bt-ov.g-finalfantasy .bt-played div { border-color: rgba(159,220,255,.6); }
+.bt-ov.g-finalfantasy .bt-played small { color: #e6f2ff; }
+/* deck (pioche du mode Avancé) */
+.bt-ov.g-finalfantasy .bt-bagbtn { background: linear-gradient(180deg, #2a4f9a, #0f2257); border: 2px solid #d9dee8; color: #fff; }
+.bt-ov.g-finalfantasy .bt-bagbtn .bt-bagic { background: #0b1430; }
+.bt-ov.g-finalfantasy .bt-bagbtn small { color: #c8d6f0; }
+.bt-ov.g-finalfantasy .bt-sheet-box { background: linear-gradient(180deg, #2a4f9a, #0f2257); border: 2px solid #d9dee8; color: #fff; box-shadow: inset 0 0 0 4px #0b1430, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-finalfantasy .bt-sheet-h b { color: #e6f2ff; text-transform: uppercase; letter-spacing: .8px; }
+.bt-ov.g-finalfantasy .bt-sheet-h .bt-bagic { background: #0b1430; }
+.bt-ov.g-finalfantasy .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-finalfantasy .bt-sc em { color: #bfe8ff; }
+.bt-ov.g-finalfantasy .bt-sc.ok { border-color: #9fdcff; box-shadow: 0 0 16px rgba(95,180,240,.35); }

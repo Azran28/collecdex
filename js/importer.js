@@ -242,6 +242,8 @@ App.importer = (() => {
   }
   // Lorcana : code imprimé complet (« 25/204 • EN • 1 », « 18/P1 • FR • 2 ») ; séries (noms anglais et français)
   const LC_CODE = /\b\d{1,3}[a-e]?\s*\/\s*(\d{2,3}|P\d|C\d|D23|DIS|PD\d|RPH|CC\d)\s*[•·.-]\s*[A-Z]{2}\s*[•·.-]\s*(\d{1,2}|Q\d)\b/i;
+  // Final Fantasy (v3.43) : code imprimé avec sa rareté (« 16-006C »), promo / réimpression (« PR-112 », « Re-006C »)
+  const FF_CODE = /(?<![A-Z0-9])(\d{1,2}-\d{3}[CRHLSB]|PR-\d{3}|Re-\d{3}[CRHLSB]?)(?![0-9])/i;
   const LC_SETS = /^(the first chapter|premier chapitre|rise of the floodborn|l.ascension des floodborn|into the inklands|les terres d.encres|ursula.s return|le retour d.ursula|shimmering skies|ciel scintillant|azurite sea|la mer azurite|archazia.s island|l.[iî]le d.archazia|(the )?reign of jafar|le r[èe]gne de jafar|fabled|fabuleux|whispers in the well|lueurs dans les profondeurs|winterspell|givresort|wilds unknown|contr[ée]es inconnues|attack of the vine!?|invasion [ée]pineuse ?!?|hyperia city|into the inkdark|entrez en encresombre|illumineer.s quest.*|qu[êe]te des illumineurs.*|lorcana.*|disney lorcana.*)$/i;
   const SEALED = /\b(booster|display|elite trainer|etb|coffret|box|bundle|tin|pokebox|blister|deck|theme deck|starter|collection box|pack|sleeve|binder|classeur|portfolio|playmat)\b/i;
 
@@ -309,6 +311,20 @@ App.importer = (() => {
         row.name = rawName.replace(/\s*[([]\s*(enchanted|enchant[ée]e|foil|cold foil|promo)\s*[)\]]/gi, '').replace(/\s*[-–]?\s*\d{1,3}\s*\/\s*\d{3}.*$/, '').trim() || row.name;
         if (/japan|japon|chin/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise ou chinoise (pas encore prise en charge)';
         else if (!lcCode.length && !row.num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
+      // Final Fantasy (v3.43) : jeu indiqué (« Final Fantasy TCG ») ou code imprimé avec la rareté (« 16-006C », « PR-112/16-067L »)
+      const ffTxt = `${get(r, 'number')} ${rawName}`, ff = App.games.get('finalfantasy');
+      const ffCode = ff && FF_CODE.test(ffTxt) ? ff.codesIn(ffTxt) : [];
+      if (/final ?fantasy|fftcg/.test(cat) || (ffCode.length && !/pok|one ?piece|riftbound|lorcana|yu ?-?gi/.test(cat))) {
+        row.game = 'finalfantasy';
+        row.fa = /full art/i.test(`${rawName} ${get(r, 'version')}`);
+        row.code = ffCode.length ? ffCode.sort((a, b) => b[1] - a[1])[0][0] : '';
+        row.name = rawName.replace(/\s*[([][^)\]]*[)\]]/g, '').replace(/\s*[-–]?\s*\b(\d{1,2}|PR|Re|B|C)-\d{3}[A-Z]?\b.*$/i, '').trim() || row.name;
+        if (/japan|japon/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise (pas encore prise en charge)';
+        else if (!ffCode.length && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
         else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
         out.push(row);
         return;
@@ -468,8 +484,28 @@ App.importer = (() => {
     return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'code de la carte non indiqué' : pref.length > 1 ? 'plusieurs raretés : choisis la tienne' : 'le nom ne correspond pas tout à fait au code' };
   }
 
+  /** Ligne Final Fantasy : par le code (« 16-006C »), sinon le nom (français ou anglais) et la série */
+  async function matchFF(row) {
+    const ff = App.games.get('finalfantasy');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'finalfantasy' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    let list = [];
+    if (row.code) { const [s, n] = row.code.split('|'); list = await ff.byCode(s, n); }
+    const byCode = list.length > 0;
+    if (!list.length && q.length >= 2) list = (await ff.search({ name: row.name })).filter((c) => nameScore(q, c.name, c.nameEn, c.baseName) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: row.code ? `code ${row.code.replace('|', '-')} inconnu` : 'carte introuvable' };
+    if (row.setName) { const inSet = new Set(await ff.setIdsByName(row.setName)); const f = list.filter((c) => inSet.has(c.setId)); if (f.length) list = [...f, ...list.filter((c) => !inSet.has(c.setId))]; }
+    // même code en version normale et Full Art : celle que la ligne indique
+    list = [...list.filter((c) => !!c.fullArt === !!row.fa), ...list.filter((c) => !!c.fullArt !== !!row.fa)];
+    const okName = !q || nameScore(q, list[0].name, list[0].nameEn, list[0].baseName) >= 0.6;
+    const same = list.filter((c) => !!c.fullArt === !!row.fa).length;
+    const status = byCode && same === 1 ? (okName ? 'ok' : 'verif') : list.length === 1 ? 'verif' : 'choix';
+    return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'code de la carte non indiqué' : 'le nom ne correspond pas tout à fait au code' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
+    if (row.game === 'finalfantasy') return matchFF(row);
     if (row.game === 'yugioh') return matchYG(row);
     if (row.game === 'onepiece') return matchOP(row);
     if (row.game === 'riftbound') return matchRB(row);

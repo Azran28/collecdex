@@ -43,6 +43,7 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('riftbound'), 'Riftbound');
   ok(App.games.get('lorcana'), 'Lorcana');
   ok(App.games.get('yugioh'), 'Yu-Gi-Oh!');
+  ok(App.games.get('finalfantasy'), 'Final Fantasy');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -128,6 +129,7 @@ test('combat : niveaux de l’ordinateur', (App) => {
   eq(App.battle.levels('riftbound').length, 5, 'niveaux Riftbound');
   eq(App.battle.levels('lorcana').length, 5, 'niveaux Lorcana');
   eq(App.battle.levels('yugioh').length, 5, 'niveaux Yu-Gi-Oh!');
+  eq(App.battle.levels('finalfantasy').length, 5, 'niveaux Final Fantasy');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -397,6 +399,70 @@ test('Import : lignes Yu-Gi-Oh! (Collectr, Cardmarket)', async (App) => {
   const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
   eq([m1.status, m1.card.id], ['ok', 'RGBT-007'], 'par le code');
   ok(m2.card && m2.card.passcode === 89631139, `par le nom anglais : ${m2.card && m2.card.name}`);
+});
+
+// ---------- Final Fantasy (v3.43) : cartes en français, codes imprimés, combattant, cartes de pioche, import ----------
+test('index Final Fantasy (data/ff-index) cohérent', async () => {
+  const m = await checkIndex('ff-index');
+  ok(m.ids.includes('16-006') && m.ids.includes('pr-112') && m.ids.includes('c-004'), 'Molosse écarlate (16-006), une promo (pr-112), un cristal (c-004)');
+});
+test('Final Fantasy : cartes en français (data/ff-cartes.json)', async (App) => {
+  const A = App.games.get('finalfantasy'), sets = await A.listSets();
+  ok(sets.length >= 30, `${sets.length} séries`);
+  const s = await A.getSet('16');
+  eq([s.name, s.cardCount.official], ['Emissaries of Light', 140]);
+  const fa = await A.getCard('16-001fa');
+  eq([fa.name, fa.localId, A.isOfficial(fa.localId), A.isOfficial('001')], ['Vaan (Full Art)', '001 FA', false, true], 'version Full Art : carte à part, en plus de la série');
+  const c = await A.getCard('16-006');
+  eq([c.name, c.nameEn, c.code, c.rarity, c.category, c.cost], ['Molosse écarlate', 'Crimson Hound', '16-006C', 'c', 'Monstre', 3]);
+  ok(/^https:\/\/images\.weserv\.nl\/\?url=https%3A%2F%2Ffftcg\.cdn\.sewest\.net%2Fimages%2Fcards%2Ffull%2F16-006C_fr\.jpg/.test(A.img.card(c)), 'visuel français relayé');
+  const pr = await A.getCard('pr-112');
+  eq([pr.name, pr.code, pr.rarity, pr.setId], ['Aerith', 'PR-112/16-067L', 'pr', 'PR'], 'promo « PR-112/16-067L » (nom français de la carte d’origine)');
+  ok(/^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+_400w\.jpg$/.test(A.img.card(pr)), 'visuel de la promo (TCGplayer)');
+  eq((await A.getCard('re-006')).base, '16-003C', 'Legacy Collection : réimpression de 16-003C');
+});
+test('Final Fantasy : code imprimé lu même mal reconnu', async (App) => {
+  const A = App.games.get('finalfantasy'); await A.listSets();
+  const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  eq(c('DIRGE OF CERBERUS 16-006C')[0], '16|006', '« 16-006C »');
+  eq(c('l6-OO6C')[0], '16|006', 'lettres lues à la place des chiffres');
+  eq(c('FINAL FANTASY VII REMAKE PR-112/16-067L')[0], 'PR|112', 'promo « PR-112/16-067L » (la promo, pas la carte d’origine)');
+  eq(c('Re-006C/16-003C')[0], 'Re|006', 'Legacy Collection « Re-006C/16-003C »');
+  eq(c('Chocobo’s Crystal Hunt C-004')[0], 'C|004', 'cristal « C-004 »');
+  eq(c('© 2015-2021 KOEI TECMO GAMES. Infligez-lui 8000 points de dégâts.'), [], 'pas de code dans un copyright ni un texte de carte');
+  eq(c('Pikachu 025/165'), [], 'numéro Pokémon');
+  eq(c('OP09-004 ST10-001'), [], 'code One Piece');
+});
+test('Final Fantasy : Avant → combattant, cartes de pioche', async (App) => {
+  await App.need('match');
+  const f = App.battle.fighterFF({ id: 'x', name: 'Cloud', kind: 'av', category: 'Avant', power: 8000, cost: 4, elements: ['fe'], text: 'Brave\nLorsque Cloud attaque…' });
+  eq([f.hp, f.type, f.attacks.length, f.attacks[1].base], [160, 'fire', 2, 80]);
+  ok(App.battle.canFight({ kind: 'av', category: 'Avant', power: 5000 }, 'finalfantasy') && !App.battle.canFight({ kind: 'in', category: 'Invocation' }, 'finalfantasy'), 'les Avants combattent, pas les Invocations');
+  const fx = (category, text) => App.battleCards.effectOf({ id: 'y', name: 'z', category, text, elements: ['fe'] }).key;
+  eq([fx('Invocation', 'EX BURST Choisissez 1 Avant. Infligez-lui 4000 points de dégâts.'), fx('Invocation', 'Choisissez 1 Avant. Détruisez-le.'), fx('Invocation', 'Choisissez 1 Avant que vous contrôlez. Il ne peut pas être détruit ce tour.'),
+    fx('Invocation', 'Choisissez 1 Avant. Renvoyez-le dans la main de son propriétaire.'), fx('Soutien', 'Rien de connu.'), fx('Invocation', 'Piochez 2 cartes.')],
+  ['power', 'power', 'shield', 'gust', 'toolHp', 'charge']);
+  eq(App.battleCards.crystalCard().fx.key, 'energy', 'cristal = énergie');
+  const A = App.games.get('finalfantasy');
+  eq(App.battle.levels('finalfantasy').length, 5, 'niveaux Final Fantasy');
+  for (const lv of App.battle.levels('finalfantasy')) for (const id of lv.pool) ok(await A.getCard(id).then((c) => App.battle.canFight(c, 'finalfantasy'), () => false), `adversaire ${id}`);
+});
+test('Capturer « Toutes » : une carte Final Fantasy reconnue sur son texte', async (App) => {
+  await App.need('reco', 'scan'); await App.games.get('finalfantasy').listSets();
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('Molosse écarlate Monstre Chien Lorsque Molosse écarlate entre sur le terrain, choisissez 1 Avant. Infligez-lui 8000 points de dégâts. mettez Molosse écarlate dans la Break Zone © 2006 SQUARE ENIX CO., LTD. CHARACTER DESIGN: TETSUYA NOMURA 16-006C'), 'finalfantasy');
+  eq(S.otherGames('16-006C', 'pokemon')[0], 'finalfantasy', 'Final Fantasy essayé d’abord quand son code se lit');
+});
+test('Import : lignes Final Fantasy (Collectr, Cardmarket)', async (App) => {
+  await App.need('import');
+  const I = App.importer;
+  const rows = [['Product Name', 'Category', 'Set', 'Card Number', 'Quantity'], ['Crimson Hound', 'Final Fantasy TCG', 'Emissaries of Light', '16-006C', '1'], ['Aerith (Buy A Box Promo)', 'Final Fantasy', 'FF: Promo Cards', 'PR-112/16-067L', '1'], ['Pikachu', 'Pokemon', 'Base Set', '58/102', '1']];
+  const det = I.detect(rows), list = I.rowsOf ? I.rowsOf(rows, det) : null;
+  ok(list && list.length === 3 && list[0].game === 'finalfantasy' && list[1].game === 'finalfantasy' && list[2].game !== 'finalfantasy', 'lignes reconnues comme Final Fantasy');
+  const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
+  eq([m1.status, m1.card.id], ['ok', '16-006'], 'par le code');
+  eq(m2.card && m2.card.id, 'pr-112', 'promo par son code');
 });
 
 // ---------- Riftbound : code imprimé lu sur la photo, combattant ----------

@@ -179,7 +179,7 @@ App.scanMemo = (() => {
       // v3.40 : lecteur des codes et numéros (PaddleOCR, js/ocr-worker.js)
       { id: 'codes', name: 'Lecteur des numéros de carte', urls: ['js/ocr-worker.js?v=' + encodeURIComponent(window.APP_VERSION || '1'), ...['ort.wasm.min.js', 'ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'].map((f) => 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/' + f), 'data/ocr/ppocr5-en-rec.onnx?v=1', 'data/ocr/ppocr5-en-dict.txt?v=1', 'data/ocr/ppocr4-det.onnx?v=1'] },
       { id: 'image', name: 'Reconnaissance par l’image', model: true, urls: ['js/visual-worker.js?v=' + encodeURIComponent(window.APP_VERSION || '1'), 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js', 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js', MODEL + 'model.json'] },
-      ...games.map((g) => ({ id: g.id, name: `Base d’images ${g.name}`, urls: [...idx(indexOf(g.id)), ...({ lorcana: ['data/lc-cartes.json'], yugioh: ['data/yg-cartes.json'] }[g.id] || [])] })).filter((g) => g.urls.length),
+      ...games.map((g) => ({ id: g.id, name: `Base d’images ${g.name}`, urls: [...idx(indexOf(g.id)), ...({ lorcana: ['data/lc-cartes.json'], yugioh: ['data/yg-cartes.json'], finalfantasy: ['data/ff-cartes.json'] }[g.id] || [])] })).filter((g) => g.urls.length),
     ];
   }
   const sig = () => groups().map((g) => g.urls.join(',')).join('|');

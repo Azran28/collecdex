@@ -43,7 +43,7 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 | Magic: The Gathering | Wizards of the Coast | ★★★★★ | **A** | Scryfall (api.scryfall.com) : complet, images HD, prix €/$, français | n° de collection + code de série | ~100 000 cartes : charger par série |
 | Star Wars: Unlimited ✅ peu | Fantasy Flight Games | ★★★☆☆ | **A** | swu-db.com (API) | « 001/252 » | Prix moins bien couverts |
 | Flesh and Blood | Legend Story Studios | ★★★☆☆ | **B** | Base GitHub « the-fab-cube/flesh-and-blood-cards » (JSON complet) | `WTR001` | Pas de prix |
-| Final Fantasy TCG ✅ | Square Enix | ★★☆☆☆ | **B** | Recherche du site officiel (fftcg.square-enix-games.com) | `1-001H` | Pas de prix |
+| Final Fantasy TCG ✅ | Square Enix | ★★☆☆☆ | **B** | Recherche du site officiel (fftcg.square-enix-games.com) | `1-001H` | Prix TCGplayer (catégorie 24) par le robot — fait en v3.43 |
 | Grand Archive | Weebs of the Shore | ★★☆☆☆ | **A** | API officielle (index.gatcg.com / api.gatcg.com) | code de série | Petite communauté |
 | Sorcery: Contested Realm | Erik's Curiosa | ★★☆☆☆ | **B** | curiosa.io, API officielle (à vérifier) | — | Très belles illustrations |
 | Altered | Equinox (France) | ★★☆☆☆ | **B** | api.altered.gg (officielle, en français) | — | Éditeur en difficulté : avenir à vérifier ; cartes uniques numérotées |

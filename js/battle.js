@@ -125,10 +125,28 @@ App.battle = (() => {
       type: YG_ATTR[card.attribute] || 'colorless', weak: [], res: [], attacks, energy: extraDeck ? 1 : 0, ko: false, ...extra,
     };
   }
-  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh!) */
-  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
+  /**
+   * Combattant Final Fantasy (v3.43, même moteur, adapté légèrement) : les Avants combattent (et les Monstres qui ont une force).
+   * PV = 30 + force ÷ 60 ; type = élément (Feu → Feu, Glace → Métal…) ; attaque = force ÷ 100, coût selon le coût en CP (1 à 3) ;
+   * Initiative = +10 dégâts ; Brave = « Contre-attaque » (1 énergie) ; Célérité = commence avec 1 énergie.
+   */
+  const FF_ELEM = { fe: 'fire', gl: 'metal', ve: 'grass', te: 'fighting', fo: 'lightning', ea: 'water', lu: 'psychic', tn: 'darkness' };
+  const isFfFighter = (card) => (card.kind === 'av' || card.kind === 'mo' || /^(Avant|Monstre)$/i.test(card.category || '')) && +card.power > 0;
+  function fighterFF(card, extra = {}) {
+    const pw = Math.max(1000, +card.power || 0), cost = +card.cost || 0, text = String(card.text || '');
+    const first = /\b(Initiative|First Strike)\b/i.test(text), brave = /\bBrave\b/.test(text), haste = /\b(C[ée]l[ée]rit[ée]|Haste)\b/i.test(text);
+    const hp = Math.min(260, Math.max(40, r10(30 + pw / 60)));
+    const attacks = [{ name: 'Attaque', cost: Math.min(3, 1 + Math.floor(cost / 3)), base: Math.max(10, r10(pw / 100 + (first ? 10 : 0))), mode: '', noDamage: false, text: first ? 'Initiative : +10 dégâts' : '' }];
+    if (brave) attacks.unshift({ name: 'Contre-attaque', cost: 1, base: Math.max(10, r10(pw / 200)), mode: '', noDamage: false, text: 'Brave' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'finalfantasy',
+      type: FF_ELEM[(card.elements || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: haste ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy) */
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -247,11 +265,20 @@ App.battle = (() => {
     { n: 4, name: 'Roi des Duellistes', desc: 'Les monstres légendaires · une énergie d’avance', pool: ['LOB-E001', 'LOB-E003', 'LOB-E056', 'PSV-E050', 'SYE-024', 'MRD-E018', 'MFC-105', 'FMR-001'], bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Pharaon', desc: 'Les dieux égyptiens et les dragons ultimes · sors tes meilleures cartes', pool: ['JMP-005_scr', 'JUMP-037', 'SD09-SS1', 'MRD-E000', 'LOB-E001', 'LOB-E003', 'MRD-E018', 'SYE-024'], bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Final Fantasy (v3.43 ; Avants d'Opus I, data/ff-cartes.json)
+  const o1 = (...n) => n.map((x) => `1-${String(x).padStart(3, '0')}`);
+  const LEVELS_FF = [
+    { n: 1, name: 'Recrue', desc: 'Petits Avants d’Opus I · il joue un peu au hasard', pool: o1(9, 16, 25, 29, 35, 69, 73, 76, 86, 96, 113, 132, 166, 173), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Soldat', desc: 'Avants aguerris · il attaque toujours au plus fort', pool: o1(14, 50, 55, 78, 99, 119, 129, 145, 147, 168, 12, 20, 42), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'SOLDAT 1ʳᵉ classe', desc: 'Héros des Opus · il connaît tes points faibles', pool: o1(2, 22, 44, 47, 67, 72, 81, 94, 112, 155, 162, 164), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Guerrier de la lumière', desc: 'Les cartes Héros · une énergie d’avance', pool: o1(1, 6, 37, 60, 80, 97, 102, 122, 127, 185), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Légende', desc: 'Les Légendes de Final Fantasy · sors tes meilleures cartes', pool: o1(186, 182, 141, 135, 152, 58, 15, 116), bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, LEVELS_RB, LEVELS_LC, LEVELS_YG, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

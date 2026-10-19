@@ -310,7 +310,56 @@
     }
     return best;
   }
+  // Dos Final Fantasy (v3.43) : carte noire mate, logo argenté « FINAL FANTASY » (lettres grises, carte blanche penchée derrière,
+  // bandeau « TRADING CARD GAME ») au milieu, rien d'autre. Sous une pochette brillante le noir devient gris (reflets) : la
+  // couleur sombre ne suffit pas (des faces sont aussi sombres et peu colorées). Mesure dédiée sur 48 × 66 : presque rien de
+  // coloré (« sat ») et le détail (contraste d'un pixel à l'autre) concentré dans la bande du logo (0,38…0,62) : « ratio » =
+  // détail de la bande ÷ détail du haut et du bas. Photos d'Arnaud (_tests-scanner/finalfantasy/3, 4, 9, 10 : en main, en
+  // pochette, page de classeur aux reflets gris) : sat ≤ 0,001, ratio 3,0–17 ; 891 visuels officiels : ratio ≤ 2,9, et ≤ 1,9
+  // pour les faces peu colorées (sat ≤ 0,06).
+  let ffCanvas = null;
+  function ffFeatures(src, SW, SH, sc, dx = 0, dy = 0) {
+    const W = 48, H = 66, L = new Float32Array(W * H);
+    const c = ffCanvas || (ffCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.clearRect(0, 0, W, H); g.drawImage(src, SW * (0.5 + dx) - SW * sc / 2, SH * (0.5 + dy) - SH * sc / 2, SW * sc, SH * sc, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data;
+    let n = 0, sat = 0;
+    for (let i = 0; i < W * H; i++) {
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), s = mx ? (mx - mn) / mx : 0;
+      L[i] = 0.3 * r + 0.59 * gg + 0.11 * b;
+      const fx = (i % W + 0.5) / W, fy = (((i / W) | 0) + 0.5) / H;
+      if (fx < 0.06 || fx > 0.94 || fy < 0.05 || fy > 0.95) continue; // (bord : pochette, doigts)
+      n++; if (s > 0.35 && mx > 80) sat++;
+    }
+    let gb = 0, nb = 0, go = 0, no = 0;
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const fx = (x + 0.5) / W, fy = (y + 0.5) / H;
+      if (fx < 0.08 || fx > 0.92 || fy < 0.06 || fy > 0.94) continue;
+      const i = y * W + x, gr = Math.abs(L[i + 1] - L[i - 1]) + Math.abs(L[i + W] - L[i - W]);
+      if (fy >= 0.38 && fy <= 0.62 && fx > 0.12 && fx < 0.88) { gb += gr; nb++; } else if (fy < 0.32 || fy > 0.68) { go += gr; no++; }
+    }
+    return { sat: sat / n, band: gb / nb, ratio: (gb / nb) / Math.max(2, go / no) };
+  }
+  let ffSrc = null;
+  function ffBackScore(src, SW, SH, fast) {
+    if (!(src instanceof HTMLCanvasElement)) {
+      const k = Math.min(1, 900 / Math.max(SW, SH)), c = ffSrc || (ffSrc = document.createElement('canvas'));
+      c.width = Math.max(1, Math.round(SW * k)); c.height = Math.max(1, Math.round(SH * k)); c.getContext('2d').drawImage(src, 0, 0, SW, SH, 0, 0, c.width, c.height);
+      src = c; SW = c.width; SH = c.height;
+    }
+    let best = -1;
+    const offs = fast ? [[0, 0]] : [[0, 0], [-0.04, 0], [0.04, 0], [0, -0.04], [0, 0.04]];
+    for (const sc of fast ? [1, 0.88] : [1, 0.92, 0.84]) for (const [dx, dy] of offs) {
+      const x = ffFeatures(src, SW, SH, sc, dx, dy), ok = [x.sat <= 0.03, x.band >= 35, x.ratio >= 2.4];
+      // tout bon : 0,62 à 0,87 selon le rapport ; sinon au plus 0,2 (seuil du dos : 0,55 en direct, 0,6 en classeur)
+      const v = ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (x.ratio - 2.4) / 3) : 0.07 * ok.filter(Boolean).length;
+      if (v > best) { best = v; ffBackScore.last = { sc, dx, dy, sat: +x.sat.toFixed(3), band: +x.band.toFixed(1), ratio: +x.ratio.toFixed(2) }; }
+    }
+    return best;
+  }
   function backScoreOf(src, SW, SH, fast = false, game = 'pokemon') {
+    if (game === 'finalfantasy') return ffBackScore(src, SW, SH, fast);
     if (game === 'yugioh') return ygBackScore(src, SW, SH, fast);
     if (game === 'riftbound') return rbBackScore(src, SW, SH);
     if (game === 'lorcana') return lcBackScore(src, SW, SH, fast);
@@ -377,5 +426,5 @@
     return out;
   }
 
-  Object.assign(App.recognizerParts, { thumb, corr, corr1, looksEmpty, ART, AW, AH, artVec, artVariants, artMatch, trimBackground, vis01, officialThumbs, officialThumb, BACK, normRGB, backScore, backRefs, refsOf, backScoreOf, lcBackScore, ygBackScore, looksLikeBack, wholeRefs, wholeCardScores });
+  Object.assign(App.recognizerParts, { thumb, corr, corr1, looksEmpty, ART, AW, AH, artVec, artVariants, artMatch, trimBackground, vis01, officialThumbs, officialThumb, BACK, normRGB, backScore, backRefs, refsOf, backScoreOf, lcBackScore, ygBackScore, ffBackScore, looksLikeBack, wholeRefs, wholeCardScores });
 })();

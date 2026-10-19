@@ -18,6 +18,7 @@ App.games = (() => {
     { id: 'riftbound', name: 'Riftbound', icon: 'rune', status: 'actif', desc: 'Le jeu de cartes League of Legends : toutes les extensions.' },
     { id: 'lorcana', name: 'Disney Lorcana', icon: 'ink', status: 'actif', desc: 'Tous les chapitres, quêtes et promos, en français.' },
     { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: 'pyramid', status: 'actif', desc: 'Toutes les séries TCG, noms en français.' },
+    { id: 'finalfantasy', name: 'Final Fantasy', icon: 'crystal', status: 'actif', desc: 'Toutes les séries Opus, promos et cristaux, en français.' },
     { id: 'magic', name: 'Magic: The Gathering', icon: 'sparkles', status: 'bientôt', desc: 'Toutes les extensions, prix inclus.' },
     { id: 'autres', name: 'Et au-delà…', icon: 'box', status: 'plus tard', desc: 'Figurines, Funko Pop, pièces, jeux vidéo…' },
   ];

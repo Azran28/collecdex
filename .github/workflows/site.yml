@@ -1,7 +1,7 @@
 # Tests automatiques, puis mise en ligne seulement s'ils sont tous réussis.
 # (GitHub › Settings › Pages › Source doit être « GitHub Actions ».)
 # Chaque matin, le site est aussi remis en ligne tel quel (sans refaire les tests : le code n'a pas changé)
-# pour rafraîchir les prix Riftbound, Lorcana et Yu-Gi-Oh! (data/rb-prix.json, data/lc-prix.json, data/yg-prix.json, préparés par outils/ci/prix-*.mjs).
+# pour rafraîchir les prix Riftbound, Lorcana, Yu-Gi-Oh! et Final Fantasy (data/rb-prix.json, data/lc-prix.json, data/yg-prix.json, data/ff-prix.json, préparés par outils/ci/prix-*.mjs).
 name: Tests et mise en ligne
 
 on:
@@ -64,6 +64,8 @@ jobs:
         run: node outils/ci/prix-lorcana.mjs _site/data/lc-prix.json
       - name: Prix Yu-Gi-Oh! du jour (YGOPRODeck)
         run: node outils/ci/prix-yugioh.mjs _site/data/yg-prix.json
+      - name: Prix Final Fantasy du jour (TCGplayer)
+        run: node outils/ci/prix-finalfantasy.mjs _site/data/ff-prix.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

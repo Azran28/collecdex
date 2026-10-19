@@ -45,4 +45,5 @@
   test('combat complet contre l’ordinateur (Riftbound, avancé avec grimoire)', (App, W) => play(App, W, { game: 'riftbound', adv: true }), { net: true });
   test('combat complet contre l’ordinateur (Lorcana, avancé avec grimoire)', (App, W) => play(App, W, { game: 'lorcana', adv: true }), { net: true });
   test('combat complet contre l’ordinateur (Yu-Gi-Oh!, avancé avec deck)', (App, W) => play(App, W, { game: 'yugioh', adv: true }), { net: true });
+  test('combat complet contre l’ordinateur (Final Fantasy, avancé avec deck)', (App, W) => play(App, W, { game: 'finalfantasy', adv: true }), { net: true });
 })();

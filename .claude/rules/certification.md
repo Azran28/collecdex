@@ -16,6 +16,7 @@ paths:
 - Yu-Gi-Oh! (v3.26) : `ygBackScore` (bordure cuivrée fine, pas de couleurs froides ni de zone de texte claire ; voir `yugioh.md`), dans `backOf`.
 - Lorcana (v3.22, assoupli v3.24) : `lcBackScore` (modèle `App.lorcanaBacks` tiré des photos d'Arnaud + rond doré, bas sombre, symétrie) : dos 0,75–0,87, faces ≤ 0,35, voir `lorcana.md`.
 - Riftbound (v3.10) : `rbBackScore` (mesure dédiée or + fond + symétrie, voir `riftbound.md`), comptée dans `backOf` sans décalage.
+- Final Fantasy (v3.43) : `ffBackScore` (carte noire, peu de couleur, détail concentré dans la bande du logo ; voir `finalfantasy.md`) : dos 0,71–0,87, 4 455 visuels ≤ 0,14 ; dans `backOf`, dos sûr en classeur.
 - One Piece : `App.onePieceBacks` (dos bleu + rouge) → `backScoreOf(…, game)` / `looksLikeBack(blob, game)`, `tracker(…, { game })` (+0,1 = seuil 0,45), `identity(blob, c, game)` = code lu. Suivi : tous les dos connus (Pokémon, One Piece + 0,05).
 
 ## Geste « dos d'abord » (v2.17)
