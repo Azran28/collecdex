@@ -353,7 +353,7 @@ Object.assign(App.views.scan, {
             <img src="${esc(ad.img.card(c, 'low'))}" alt="" data-alt="${esc(c.name)}">
             <div><b>${esc(c.name)}</b> ${ad.rarity.symbol(c.rarity, 12)}<br>
               <span class="muted small">${esc(App.views.scan.setLabel(c))} · n° ${esc(c.localId)}${c.set && c.set.cardCount && !ad.numLabel ? '/' + c.set.cardCount.official : ''}</span>
-              ${!isPk() && c.variants ? `<br><span class="small muted">${c.variants.holo && c.variants.normal ? 'Normale (existe aussi en brillante)' : c.variants.holo ? '✨ Holo' : 'Non holo'}</span>` : ''}
+              ${!isPk() && c.variants ? `<br><span class="small muted">${c.variants.holo && c.variants.normal ? (c.foil ? (c.foil.holo ? `✨ Brillante (paillettes vues sur ta photo${c.foil.sure ? '' : ', à vérifier'})` : `Normale (pas de paillettes vues${c.foil.sure ? '' : ', à vérifier'} ; existe aussi en brillante)`) : 'Normale (existe aussi en brillante)') : c.variants.holo ? '✨ Holo' : 'Non holo'}</span>` : ''}
               ${!isPk() && /_p\d+$/.test(c.id) ? '<br><span class="small muted">Version parallèle (autre illustration) : compare avec ta carte</span>' : ''}
               ${!isPk() && /_r\d+$/.test(c.id) ? '<br><span class="small muted">Réimpression au même dessin, dans une autre série : vérifie la série</span>' : ''}
               ${i === 0 && c.twin ? '<br><span class="pill small" style="background:#7a4a00">Existe aussi dans une autre série : vérifie la série</span>' : ''}

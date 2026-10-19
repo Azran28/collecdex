@@ -32,6 +32,38 @@ App.scanBatchParts.realign = (X, { alive, dims, esc, setStatus, urls }) => {
   /** Coins de la carte n° i dans le classeur (unité = une pochette) */
   const slot = (i, cols) => { const c = i % cols, r = Math.floor(i / cols); return IN.map(([u, v]) => [c + u, r + v]); };
 
+  /**
+   * v3.44 (Final Fantasy, traits jaunes d'Arnaud sur sa page 1, `_tests-scanner/finalfantasy/12.webp`) : les coins trouvés par
+   * l'illustration sont parfois de travers (Valseur 2 : carte rétrécie, 8 % de la diagonale ; Ace : 5,5 %) alors que les autres
+   * cartes de la page sont justes (≤ 2,2 %) → une carte sûre dont les coins s'écartent de ≥ 6 % de la place que lui donne la page
+   * (grille calculée sur les cartes sûres) est recadrée sur cette place. Mesuré : Valseur 2 8 → 2,2 %, Ace 5,5 → 3,1 % ; les 7 autres
+   * (écart ≤ 4,2 %) gardent leurs propres coins (1,1–2,2 %). Seulement Final Fantasy pour l'instant (pas mesuré ailleurs).
+   */
+  async function refitSure(H, cols) {
+    const img = S.photo && S.photo.img; if (!img) return;
+    const NW = img.naturalWidth, NH = img.naturalHeight;
+    for (const c of S.cells) {
+      if (c.state !== 'sure' || !c.info || !c.info.ctxQuad || !c.ctxRect || !alive()) continue;
+      const r = c.ctxRect, own = c.info.ctxQuad.map(([x, y]) => [(r.x + x * r.w) * NW, (r.y + y * r.h) * NH]);
+      const pq = slot(c.i, cols).map(([x, y]) => H(x, y)).map(([x, y]) => [x * NW, y * NH]);
+      if (pq.some(([x, y]) => x < -0.02 * NW || y < -0.02 * NH || x > 1.02 * NW || y > 1.02 * NH)) continue;
+      const dg = Math.hypot(own[2][0] - own[0][0], own[2][1] - own[0][1]) || 1;
+      if (Math.max(...pq.map((p, j) => Math.hypot(p[0] - own[j][0], p[1] - own[j][1]))) / dg < 0.06) continue;
+      try {
+        const qw = (Math.hypot(pq[1][0] - pq[0][0], pq[1][1] - pq[0][1]) + Math.hypot(pq[2][0] - pq[3][0], pq[2][1] - pq[3][1])) / 2;
+        const cv = App.recognizer.warpQuad(img, pq, Math.min(900, Math.round(qw)));
+        const b = await new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.9));
+        if (!b) continue;
+        c.blob = b; c.url = URL.createObjectURL(b); urls.push(c.url); c.refit = true;
+        c.info.ctxQuad = pq.map(([x, y]) => [(x / NW - r.x) / r.w, (y / NH - r.y) / r.h]);
+        // (brillant remesuré sur la carte entière : la découpe d'avant en coupait une partie)
+        const top = c.cands.find((x) => x.id === c.choice), ad = App.games.get(S.game);
+        if (top && top.foil && ad && ad.foil) { top.foil = await ad.foil(b, top) || top.foil; if (c.det && !c.det.user) c.det = null; }
+      } catch (e) { console.warn('recadrage par la page', e); }
+    }
+    X.drawResults();
+  }
+
   async function realign(hint, { cellBlob, ctxBlob, ctxRect, gridQuadOf, drawGrid }) {
     if (S.autoRot || S.fmt === 'double' || !S.photo) return; // (classeur ouvert : deux pages, pas une seule grille régulière)
     const [cols] = dims();
@@ -59,6 +91,7 @@ App.scanBatchParts.realign = (X, { alive, dims, esc, setStatus, urls }) => {
     // (mesuré sur les photos d'Arnaud : 0,016–0,036 par carte, sans carte aberrante → seuil 0,04)
     if (!F || F.mean > 0.04) return;
     const H = F.h;
+    if (S.game === 'finalfantasy') await refitSure(H, cols);
     // écart entre la nouvelle grille et l'ancienne (en hauteur de case) : rien à faire si elle était déjà bonne
     const quads = S.cells.map((c) => slot(c.i, cols).map(([x, y]) => H(x, y)));
     const dev = S.cells.map((c) => {

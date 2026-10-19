@@ -278,14 +278,28 @@
     if (!quad || quad.some(([x, y]) => x < -0.06 || x > 1.06 || y < -0.06 || y > 1.06)) return null;
     return App.visual.quadCrop(blob, quad.map(([x, y]) => [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))]));
   }
+  /**
+   * v3.44 (Arnaud : Chocobo brillant coupé à gauche et en bas ; page 1 : Valseur 2 rétrécie) : sur une carte brillante ou sombre, les
+   * coins trouvés par l'illustration déraillent parfois (proportions vraies 1,58 au lieu de 1,40). Coins dont la forme, perspective
+   * retirée (`trueRatio`), n'est pas celle d'une carte (88/63 ± 0,1 ; cartes justes : 1,35–1,47) → refusés : la photo garde son
+   * détourage (carte seule) ou la place donnée par la page (classeur, `scan-batch-realign › refitSure`).
+   */
+  const sizeOf = async (im) => { try { const b = await createImageBitmap(im); return [b.width, b.height]; } catch (e) { return null; } };
+  async function cardShaped(quad, im) {
+    const R = App.recognizer, wh = quad && R.trueRatio ? await sizeOf(im) : null;
+    if (!wh) return !!quad;
+    const r = R.trueRatio(quad.map(([x, y]) => [x * wh[0], y * wh[1]]), wh[0], wh[1]);
+    return !(r > 0) || Math.abs(r - 88 / 63) <= 0.1;
+  }
   async function visualPass(blob, cands, codes, context = null, setId = '') {
     const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
-    const grow = async (r, im) => { if (r && r.quad) r.crop = await cropQuad(im, r.quad).catch(() => null) || r.crop; return r; };
+    const grow = async (r, im) => { if (r && r.quad) { if (!(await cardShaped(r.quad, im))) { r.quad = null; r.crop = null; return r; } r.crop = await cropQuad(im, r.quad).catch(() => null) || r.crop; } return r; };
     await grow(o, blob);
     const top = o && o.cands[0];
     if (!context || !o) return o;
     if (top && top.orb >= V.SURE) {
-      const cq = o.url ? await V.quadOn(context, top, o.url).catch(() => null) : null;
+      let cq = o.url ? await V.quadOn(context, top, o.url).catch(() => null) : null;
+      if (cq && !(await cardShaped(cq, context))) cq = null;
       if (cq) o.ctxQuad = cq;
       const crop = cq ? await cropQuad(context, cq).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
@@ -293,6 +307,46 @@
     const w = await grow(await V.check(context, cands, visualOpts(codes, setId)).catch(() => null), context);
     if (w && w.quad) w.ctxQuad = w.quad;
     return w && w.cands[0] && w.cands[0].confident ? w : o;
+  }
+
+  /**
+   * Brillant (foil) vu sur la photo (v3.44, Arnaud : « tu ne reconnais pas les effets de brillance ») : le brillant Final Fantasy
+   * = des paillettes de couleur sur l'illustration et les bandes unies (copyright, force). Mesuré contre le visuel officiel (non
+   * brillant) mis à la même taille, zones illustration (0,1…0,55) et bande du bas (0,9…0,98) : « chroma » = écart de couleur d'un
+   * pixel à ses voisins (5 × 5), « lap » = petits points clairs (laplacien) ; note = max(chroma) + lap de l'illustration.
+   * Photos d'Arnaud : carte seule (≥ 600 px) normales 2,0–2,3, brillantes 3,3–6,5 (Poussin chocobo, Chocobo, cristal) ;
+   * classeur (~400 px, moins net) : « lap » ≥ 0,44 (normales ≤ 0,41 : Cloud ; brillantes Lightning 0,76, Tidus 0,67, Chocobo 0,49,
+   * Lulu 0,45 ; Hyoh 0,39 pas vue) ou note ≥ 1,5, jamais « sûr ». Renvoie { holo, sure, score, chroma, lap, w } ou null.
+   */
+  const FOIL_Z = [[0.08, 0.92, 0.1, 0.55], [0.05, 0.95, 0.9, 0.98]];
+  function foilFeat(src, W, H) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data, N = W * H, c0 = new Float32Array(N), c1 = new Float32Array(N), L = new Float32Array(N);
+    for (let i = 0; i < N; i++) { const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2]; c0[i] = r - gg; c1[i] = (r + gg) / 2 - b; L[i] = (r + gg + b) / 3; }
+    return FOIL_Z.map(([x0, x1, y0, y1]) => {
+      let n = 0, ch = 0, lp = 0;
+      for (let y = Math.round(y0 * H) + 2; y < y1 * H - 2; y++) for (let x = Math.round(x0 * W) + 2; x < x1 * W - 2; x++) {
+        const i = y * W + x;
+        lp += Math.abs(4 * L[i] - L[i - 1] - L[i + 1] - L[i - W] - L[i + W]); n++;
+        if (L[i] < 40) continue;
+        let m0 = 0, m1 = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = i + dy * W + dx; m0 += c0[j]; m1 += c1[j]; }
+        ch += Math.hypot(c0[i] - m0 / 25, c1[i] - m1 / 25);
+      }
+      return n ? [ch / n, lp / n] : [0, 0];
+    });
+  }
+  async function foil(blob, card) {
+    if (!blob || !card || !card.variants || !card.variants.holo || !card.variants.normal) return null;
+    try {
+      const p = await createImageBitmap(blob), W = Math.min(900, p.width), H = Math.round(W * 88 / 63);
+      const r = await fetch(img.card(card, 'high')); if (!r.ok) return null;
+      const o = await createImageBitmap(await r.blob());
+      const P = foilFeat(p, W, H), O = foilFeat(o, W, H);
+      const chroma = Math.max(...P.map((z, k) => z[0] / Math.max(0.3, O[k][0]))), lap = P[0][1] / Math.max(1, O[0][1]);
+      const score = Math.round((chroma + lap) * 100) / 100, big = W >= 600;
+      return { holo: big ? score >= 3 : lap >= 0.44 || score >= 1.5, sure: big && (score >= 4 || score <= 2.4), score, chroma: Math.round(chroma * 100) / 100, lap: Math.round(lap * 100) / 100, w: W };
+    } catch (e) { return null; }
   }
 
   /**
@@ -311,7 +365,7 @@
     if (early && !anyCode()) {
       statusFn('Vérification par l’image…');
       const e = await early;
-      if (e && e.cands[0] && e.cands[0].confident && (e.cands[0].orb || 0) >= IMG_SURE) return { info: { code: e.cands[0].id, name: '', votes: {}, crop: e.crop, ctxQuad: e.ctxQuad, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
+      if (e && e.cands[0] && e.cands[0].confident && (e.cands[0].orb || 0) >= IMG_SURE) { e.cands[0].foil = await foil(e.crop || blob, e.cands[0]); return { info: { code: e.cands[0].id, name: '', votes: {}, crop: e.crop, ctxQuad: e.ctxQuad, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) }; }
       const crop = e && e.crop;
       statusFn(crop ? 'Lecture du code (carte recadrée)…' : 'Lecture du code…');
       let t = crop ? await ocrTexts(crop) : [];
@@ -383,6 +437,7 @@
     const codeTxt = (c) => { const [s, n] = c.split('|'); return `code ${s}-${n}`; };
     const byImg = codes.length && top && !codeIds.has(top.id) && top.orb >= 25;
     const readTxt = codes.length ? `${byImg ? codeTxt(`${top.setId}|${top.localId}`) : codeTxt(codes[0])}${byImg ? ' (corrigé grâce à l’illustration)' : ''}` : '';
+    if (top) top.foil = await foil(betterCrop || blob, top); // (brillant vu sur la photo, v3.44)
     return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
@@ -405,7 +460,7 @@
   App.games.register('finalfantasy', {
     id: 'finalfantasy',
     name: 'Final Fantasy',
-    listSets, getSet, getCard, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize, manual, codesIn, names,
+    listSets, getSet, getCard, search, versions, byCode, setIdsByName, price, tpMarket, img, recognize, manual, codesIn, names, foil,
     visualIndex: { index: 'data/ff-index', v: FF_INDEX_V },
     visualCheck: (blob) => (useVisual() ? visualPass(blob, [], []) : Promise.resolve(null)),
     langFor: () => 'fr',

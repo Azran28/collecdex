@@ -279,8 +279,9 @@ App.recognizer = (() => {
     // (déjà mesurées et vérifiées dans la liste du classeur : c.pickedVariants)
     try {
       // autre licence (One Piece, Riftbound) : la version vient de la carte elle-même (holo selon la rareté), rien à mesurer ;
+      // (Final Fantasy, v3.44 : brillant mesuré sur la photo par l'adaptateur, c.foil)
       // carte qui existe en normal et en brillant (communes Riftbound) : normale (brillante à cocher sur sa fiche)
-      const det = c.pickedVariants ? { list: c.pickedVariants } : game !== 'pokemon' ? (c.variants ? { list: c.variants.normal ? ['normal'] : Object.keys(c.variants).filter((k) => c.variants[k]) } : null)
+      const det = c.pickedVariants ? { list: c.pickedVariants } : game !== 'pokemon' ? (c.variants ? { list: c.foil && c.variants.holo && c.variants.normal ? [c.foil.holo ? 'holo' : 'normal'] : c.variants.normal ? ['normal'] : Object.keys(c.variants).filter((k) => c.variants[k]) } : null)
         : c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
       if (det && det.list.length) {
         const it = App.col.byKey(key);
