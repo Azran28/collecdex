@@ -112,7 +112,10 @@ export function build(cards, tcg) {
     out.push(k);
   }
   // séries : numéros (« 16 » = Emissaries of Light), Legacy Collection (Re), promos, cristaux, Boss Decks
-  const date = (name) => { const g = groups.find((x) => x.name === name || String(x.name).startsWith(name + ':') || String(x.name).replace(/^Boss Deck: /, 'Boss Deck ') === name); return g ? String(g.publishedOn || '').slice(0, 10) : ''; };
+  const groupOf = (name) => groups.find((x) => x.name === name || String(x.name).startsWith(name + ':') || String(x.name).replace(/^Boss Deck: /, 'Boss Deck ') === name);
+  const date = (name) => { const g = groupOf(name); return g ? String(g.publishedOn || '').slice(0, 10) : ''; };
+  // visuel de la série : son sachet de booster chez TCGplayer (« Opus I Booster Pack »), n° de produit « pk »
+  const packOf = (name) => { const g = groupOf(name); const p = g && (tcg.products[g.groupId] || []).find((x) => /booster pack$/i.test(String(x.name).replace(/ - /, ' ')) && !/box|case/i.test(x.name)); return p ? p.productId : 0; };
   const sets = [];
   for (const s of [...new Set(out.map((k) => k.s))]) {
     const names = setNames.get(s), en = names ? [...names.entries()].sort((a, b) => b[1] - a[1])[0][0] : '';
@@ -124,7 +127,8 @@ export function build(cards, tcg) {
     const list = out.filter((k) => k.s === s);
     let d = s === 'B' ? date('Boss Deck: Chaos') : s === 'C' ? date('Crystal Dominion') : s === 'PR' ? '2016-10-28' : date(en);
     if (!d && /^\d+$/.test(s)) d = '';
-    sets.push({ id: s, name, en, type, date: d, n: list.length });
+    const pk = s === 'Re' ? packOf('Legacy Collection') : /^\d+$/.test(s) ? packOf(en) : 0;
+    sets.push({ id: s, name, en, type, date: d, n: list.length, ...(pk ? { pk } : {}) });
   }
   // séries sans date chez TCGplayer : entre ses voisines (ordre des numéros)
   const nums = sets.filter((s) => /^\d+$/.test(s.id)).sort((a, b) => a.id - b.id);

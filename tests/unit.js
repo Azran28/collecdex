@@ -447,6 +447,23 @@ test('Final Fantasy : Avant → combattant, cartes de pioche', async (App) => {
   eq(App.battle.levels('finalfantasy').length, 5, 'niveaux Final Fantasy');
   for (const lv of App.battle.levels('finalfantasy')) for (const id of lv.pool) ok(await A.getCard(id).then((c) => App.battle.canFight(c, 'finalfantasy'), () => false), `adversaire ${id}`);
 });
+test('Final Fantasy : dos de carte reconnu (photo d’Arnaud réduite), pas une face', async (App) => {
+  await App.need('reco');
+  const back = await createImageBitmap(await (await fetch('tests/dos-finalfantasy.jpg')).blob());
+  const f = document.createElement('canvas'); f.width = 126; f.height = 176; const g = f.getContext('2d');
+  g.fillStyle = '#111'; g.fillRect(0, 0, 126, 176);
+  for (let i = 0; i < 40; i++) { g.fillStyle = `hsl(${i * 37 % 360} 70% 50%)`; g.fillRect(6 + (i % 6) * 19, 6 + Math.floor(i / 6) * 12, 19, 12); }
+  const s = (c, w, h) => App.recognizer.backScoreOf(c, w, h, false, 'finalfantasy');
+  ok(s(back, 126, 176) >= 0.7, `dos : ${s(back, 126, 176).toFixed(2)}`);
+  ok(s(f, 126, 176) < 0.4, `face : ${s(f, 126, 176).toFixed(2)}`);
+});
+test('Final Fantasy : visuel de chaque série (sachet de booster)', async (App) => {
+  const A = App.games.get('finalfantasy'), sets = await A.listSets();
+  const s16 = sets.find((s) => s.id === '16'), re = sets.find((s) => s.id === 'Re');
+  ok(/^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/257582_400w\.jpg$/.test(A.img.logo(s16)) && A.img.logoCrop(s16), 'Emissaries of Light : sachet recadré');
+  eq(A.img.logo(re), '', 'Legacy Collection : pas d’image chez TCGplayer (son nom)');
+  ok(sets.filter((s) => /^\d+$/.test(s.id)).every((s) => A.img.logo(s)), 'toutes les séries numérotées ont un visuel');
+});
 test('Capturer « Toutes » : une carte Final Fantasy reconnue sur son texte', async (App) => {
   await App.need('reco', 'scan'); await App.games.get('finalfantasy').listSets();
   const S = App.views.scan, R = App.recognizer, keep = R.readZones;

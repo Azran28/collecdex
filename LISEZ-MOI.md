@@ -148,7 +148,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Nouvelles séries** : la liste des cartes se met à jour toute seule chaque lundi (robot de GitHub).
 
 ## Final Fantasy (v3.43)
-- **Explorer** : choisis **Final Fantasy** en haut. **5 050 cartes**, **en français** (noms, jobs, textes : la base officielle de Square Enix) : les 29 séries (Opus I à XIV, puis Crystal Dominion, Emissaries of Light… jusqu'à Blissful Eternity ; noms des séries en anglais, comme sur les boîtes), la **Legacy Collection** (« Re-006C/16-003C »), les **promos** (« PR-112/16-067L », 200), les **cristaux** (« C-004 ») et les **Boss Decks**. Les versions **Full Art** (texte posé sur l'illustration) sont des cartes à part, notées « (Full Art) ».
+- **Explorer** : choisis **Final Fantasy** en haut. **5 050 cartes**, **en français** (noms, jobs, textes : la base officielle de Square Enix) : les 29 séries (Opus I à XIV, puis Crystal Dominion, Emissaries of Light… jusqu'à Blissful Eternity ; noms des séries en anglais, comme sur les boîtes), la **Legacy Collection** (« Re-006C/16-003C »), les **promos** (« PR-112/16-067L », 200), les **cristaux** (« C-004 ») et les **Boss Decks**. Les versions **Full Art** (texte posé sur l'illustration) sont des cartes à part, notées « (Full Art) ». Chaque série montre son **sachet de booster** (la boîte pour Opus XI et Crystal Dominion ; la Legacy Collection garde son nom, TCGplayer n'a pas d'image).
 - **Une carte = son code imprimé** en bas au milieu, ex. **16-006C** (série 16, carte 006, rareté Commune). Raretés : Commune, Rare, Héros, Légende, Starter, Boss, Promo.
 - **Images** : les visuels officiels **français** de Square Enix. Les promos ont la photo de TCGplayer (en anglais), mais leur nom et leur texte sont en français.
 - **Capturer** : choisis **Final Fantasy** (ou « Toutes les licences », ou même le mode Pokémon : l'appli bascule toute seule). Le code est lu, puis l'image est comparée aux 5 050 cartes. **Sur tes photos du 19 oct.** : 5 cartes seules sur 5, toutes sûres en 1 à 10 s (Molosse écarlate, Serah, Poussin chocobo brillant, Aerith promo PR-112, cristal C-004) ; ta page d'Emissaries of Light : **9 cartes sur 9**, toutes sûres ; ta page avec 5 dos : **les 4 cartes sûres et les 5 dos ignorés**, 22 s.
@@ -333,7 +333,7 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 
 - `index.html` : la page
 - `css/` : l'apparence, en 10 fichiers numérotés (`01-base.css` … `10-capturer.css`) chargés dans l'ordre
-- `js/games/` : un fichier par jeu (Pokémon, One Piece, Riftbound, Lorcana, Yu-Gi-Oh! ; Magic… ensuite)
+- `js/games/` : un fichier par jeu (Pokémon, One Piece, Riftbound, Lorcana, Yu-Gi-Oh!, Final Fantasy ; Magic… ensuite)
 - `js/games/pokemon-pullrates.js` : les taux de drop et leurs sources
 - `js/views/` : une page du site par fichier
 

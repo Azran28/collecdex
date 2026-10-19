@@ -204,6 +204,21 @@
     return m;
   }
 
+  // sachet de booster de chaque série (produit TCGplayer) : [produit, largeur, hauteur de l'image _400w, zone du sachet x0, y0, x1, y1],
+  // mesurée sur l'image (pixels pas blancs) ; Opus XI et Crystal Dominion : la boîte (sachet sans image / image provisoire chez TCGplayer) ;
+  // Legacy Collection : aucune image (403) → son nom. À compléter à chaque nouvelle série (sinon : image entière, `pk` du robot).
+  const PACKS_CROP = {
+    1: [133424, 400, 696, 23, 26, 385, 680], 2: [133425, 345, 667, 2, 16, 345, 665], 3: [133562, 331, 616, 19, 0, 320, 616], 4: [133563, 400, 450, 94, 3, 308, 440],
+    5: [157796, 400, 450, 94, 70, 313, 440], 6: [166602, 400, 450, 94, 6, 306, 443], 7: [176959, 400, 746, 0, 0, 400, 746], 8: [184328, 359, 671, 20, 18, 335, 647],
+    9: [191347, 400, 400, 109, 16, 299, 386], 10: [198836, 400, 778, 4, 0, 305, 762], 11: [206226, 400, 360, 26, 37, 334, 333], 12: [220441, 400, 400, 110, 22, 291, 377],
+    13: [229217, 400, 399, 104, 9, 296, 385], 14: [233984, 400, 769, 11, 12, 385, 756], 15: [250486, 400, 448, 8, 44, 393, 416], 16: [257582, 321, 626, 4, 2, 316, 616],
+    17: [275214, 400, 790, 2, 4, 399, 768], 18: [287168, 400, 400, 110, 9, 294, 383], 19: [477188, 400, 400, 105, 27, 287, 389], 20: [503032, 400, 782, 5, 0, 391, 768],
+    21: [509412, 400, 400, 103, 6, 297, 388], 22: [532147, 400, 400, 103, 6, 297, 388], 23: [560111, 400, 763, 13, 8, 387, 750], 24: [588204, 400, 783, 0, 1, 394, 775],
+    25: [619248, 306, 555, 14, 3, 294, 550], 26: [629824, 320, 555, 20, 6, 292, 544], 27: [656959, 400, 400, 105, 15, 294, 379], 28: [671545, 400, 693, 50, 12, 380, 672],
+    29: [678102, 400, 792, 3, 2, 395, 773],
+  };
+  const NO_PACK = new Set(['Re']); // (pas d'image chez TCGplayer)
+
   // ---------- Images ----------
   // visuels officiels français (JPEG 429 × 600, carte entière, coins arrondis) → relais images.weserv.nl (CORS, webp) ;
   // promos : photo TCGplayer (CORS accordé), 400 px ou 1000 px
@@ -214,7 +229,10 @@
       if (!/^https:\/\/fftcg\.cdn\.sewest\.net\//.test(u)) return u;
       return `https://images.weserv.nl/?url=${encodeURIComponent(u)}${q === 'high' ? '' : '&w=360'}&output=webp`;
     },
-    logo: () => '',
+    // visuel de la série (v3.45) : son sachet de booster chez TCGplayer (affiché directement : le relais refuse TCGplayer),
+    // recadré sur le sachet (le reste de l'image est blanc) ; série sans mesure (nouvelle) : l'image entière (`pk` du robot)
+    logo: (s) => { const p = s && PACKS_CROP[s.id], pk = p ? p[0] : s && !NO_PACK.has(s.id) && memo && (memo.idx.sets.find((x) => x.id === s.id) || {}).pk; return pk ? `https://tcgplayer-cdn.tcgplayer.com/product/${pk}_400w.jpg` : ''; },
+    logoCrop: (s) => { const p = s && PACKS_CROP[s.id]; return p ? { W: p[1], H: p[2], x0: p[3], y0: p[4], x1: p[5], y1: p[6] } : null; },
     symbol: () => '',
   };
   const cm = (q) => `https://www.cardmarket.com/fr/FinalFantasy/Products/Search?searchString=${encodeURIComponent(q)}`;
