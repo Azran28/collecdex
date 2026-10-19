@@ -1,0 +1,163 @@
+/* ===== v3.11–v3.12 : Capturer — choix de la licence d'abord : grille compacte (d'autres licences arriveront) ===== */
+.lic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-width: 900px; }
+.lic-tile { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border-radius: 16px; text-decoration: none; color: var(--text);
+  background: var(--surface); border: 1px solid var(--line); transition: transform .12s, border-color .12s; }
+.lic-tile:active { transform: scale(.98); }
+@media (hover: hover) and (pointer: fine) { a.lic-tile:hover { border-color: rgba(255,255,255,.3); transform: translateY(-2px); } }
+.lic-ic { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: var(--g, #2a2f52); box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+.lic-ic .ic { display: block; }
+.lic-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.lic-t b { font-family: var(--display); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lic-t small { font-size: .76rem; color: var(--muted); }
+.lic-tile.last { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+.lic-last { position: absolute; top: -7px; right: 10px; font-style: normal; font-size: .66rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: #fff; }
+/* « Toutes les licences » : bandeau sur toute la largeur, couleurs de toutes les licences */
+.lic-tile.lic-auto { grid-column: 1 / -1; padding: 12px 14px; border-color: rgba(124,92,255,.55);
+  background: radial-gradient(ellipse at 90% 0%, rgba(52,213,255,.25), transparent 60%), radial-gradient(ellipse at 60% 120%, rgba(255,79,163,.22), transparent 60%), linear-gradient(120deg, #1d1a3a, #241d4d 60%, #12304f); }
+.lic-auto .lic-ic { width: 44px; height: 44px; background: linear-gradient(135deg, #ffd23f, #ff4fa3 40%, #7c5cff 70%, #34d5ff); }
+.lic-auto .lic-t b { font-size: 1.08rem; }
+.lic-tile.soon { opacity: .45; filter: grayscale(.6); }
+.sc-autogame { margin: -6px 0 12px; }
+.sc-autogame .ic { vertical-align: -2px; }
+@media (max-width: 760px) { .lic-grid { grid-template-columns: 1fr 1fr; gap: 8px; } .lic-tile { padding: 9px 10px; gap: 8px; } .lic-ic { width: 36px; height: 36px; } }
+.scan-empty .se-lic { font-style: normal; font-size: .78rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: rgba(255,255,255,.1); color: var(--muted); }
+.lic-n { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.lic-n .ic { flex: none; opacity: .8; }
+
+/* ===== v3.13 : Capturer — choix du mode et de la certification plus clairs ===== */
+.mode-card .mc-short { display: none; }
+.mode-hint { margin: -2px 2px 12px; font-size: .8rem; line-height: 1.35; color: var(--muted); }
+.mode-hint b { color: var(--text); }
+@media (max-width: 760px) {
+  /* onglet = icône + nom, puis une précision (« 1 carte », « 1 page », « À la suite ») */
+  .mode-card { flex-wrap: wrap; row-gap: 0; padding: 7px 4px 6px; }
+  .mode-card .mc-txt { align-items: center; }
+  .mode-card .mc-short { display: block; font-size: .66rem; line-height: 1.1; opacity: .75; }
+  .mode-card .mc-ico { align-self: flex-start; margin-top: 1px; }
+}
+/* visuel de série recadré (sachet Riftbound) : même place qu'un visuel de produit One Piece */
+.logo-pack { display: block; height: 98px; max-width: 100%; border-radius: 6px; background: #12162a no-repeat; box-shadow: 0 4px 10px rgba(0,0,0,.45); }
+.set-card .logo-wrap:has(.logo-pack) { height: 104px; }
+.logo-pack.big { height: 200px; margin: 0 auto; }
+.gc-logo .logo-pack { height: 60px; }
+@media (max-width: 760px) { .set-card .logo-wrap:has(.logo-pack) { height: 96px; } .set-card .logo-pack { height: 88px; } .logo-pack.big { height: 160px; } }
+
+/* ===== v3.15 : format du classeur en tuiles dessinées ; Capturer sans défilement avant la photo ===== */
+html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: none; }
+.fmt-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; max-width: 520px; }
+.fmt-pick.off { opacity: .5; pointer-events: none; }
+.fp-opt { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.fp-opt:hover { border-color: rgba(124,92,255,.6); }
+.fp-opt.on { border-color: transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--holo) border-box; color: var(--text); box-shadow: 0 6px 18px rgba(124,92,255,.22); }
+.fp-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.fp-t b { font-family: var(--display); font-weight: 600; font-size: .9rem; white-space: nowrap; }
+.fp-t small { font-size: .7rem; opacity: .75; }
+/* dessin du format : une page = des pochettes au format carte (63 × 88) */
+.fp-ico { display: flex; gap: 2px; flex: none; }
+.fp-page { display: grid; grid-template-columns: repeat(3, 6px); grid-auto-rows: 8px; gap: 1.5px; padding: 2px; border: 1px solid currentColor; border-radius: 3px; }
+.fp-2x2 .fp-page { grid-template-columns: repeat(2, 9.5px); grid-auto-rows: 13px; }
+.fp-double .fp-page { grid-template-columns: repeat(3, 4px); grid-auto-rows: 5.5px; gap: 1px; }
+.fp-page i { border-radius: 1.5px; background: currentColor; opacity: .45; }
+.fp-opt.on .fp-page { border-color: #ffd23f; }
+.fp-opt.on .fp-page i { background: var(--holo); opacity: 1; }
+@media (max-width: 760px) {
+  .sc-opts .fmt-pick { grid-column: 1 / -1; max-width: none; }
+  .fp-opt { flex-direction: column; justify-content: center; gap: 4px; padding: 7px 4px 6px; text-align: center; }
+  .fp-ico { height: 34px; align-items: center; }
+  .fp-t small { display: none; }
+  .fp-t b { font-size: .84rem; }
+}
+
+/* ===== v3.16 : certification en tuiles (même place et même forme que le format du classeur, couleurs de la certification) ===== */
+.cert-pick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cp-ic { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface2); color: #c8ccea; }
+.cp-ic .ic { display: block; }
+.cp-opt.on { background: rgba(255,255,255,.07); border-color: #95a1bd; box-shadow: none; }
+.cp-opt.on .cp-ic { background: #c8ccea; color: #0c0e19; }
+.cp-opt.cp-yes.on { background: rgba(61,220,151,.14); border-color: #3ddc97; box-shadow: 0 6px 18px rgba(61,220,151,.18); }
+.cp-opt.cp-yes.on .cp-ic { background: #3ddc97; }
+/* les 3 gestes de la certification, dans le cadre vide */
+.se-steps { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; font-size: .8rem; color: var(--muted); }
+.se-steps li { display: flex; align-items: center; gap: 8px; }
+.se-steps i { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: .72rem; background: #3ddc97; color: #0c0e19; }
+.se-steps b { color: var(--text); }
+@media (max-width: 760px) {
+  .cp-opt { flex-direction: row; gap: 8px; padding: 8px 10px; }
+  .cp-opt .fp-t { text-align: left; }
+  .cp-opt .fp-t small { display: block; font-size: .66rem; }
+}
+/* petit écran : le cadre vide rétrécit (fitScreen) → le dessin rapetisse, puis disparaît, pour que le texte reste entier */
+.scan-view:has(> .scan-empty) { container-type: size; }
+@container (max-height: 360px) {
+  .scan-empty { gap: 6px; padding: 12px; }
+  .se-frame:not(.grid) { width: 60px; height: 84px; margin-bottom: 0; }
+  .se-frame:not(.grid) .ic { width: 28px; height: 28px; }
+  .se-frame.grid { transform: scale(.75); margin: -20px 0 -22px; }
+}
+@container (max-height: 270px) { .se-frame { display: none !important; } }
+
+/* ===== v3.30 : beaucoup de licences → tout visible d'un coup d'œil sur téléphone (plus de défilement de côté) ===== */
+@media (max-width: 760px) {
+  /* Accueil : grille compacte, 2 par ligne (icône, nom, nombre de cartes) */
+  .licences { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+  .licences .game-tile, .licences .game-tile:not(.soon), .licences .game-tile.soon { grid-column: auto; flex-direction: row; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 16px; min-width: 0; }
+  .licences .game-tile .gicon, .licences .game-tile.soon .gicon { width: 38px; height: 38px; border-radius: 11px; }
+  .licences .game-tile .gicon svg { width: 21px; height: 21px; }
+  .licences .game-tile h3, .licences .game-tile.soon h3 { font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .licences .game-tile .gtxt { flex: 1; }
+  .licences .game-tile .gtxt .small, .licences .game-tile.soon .gtxt .small { font-size: .74rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* séries qui défilent de côté : place pour l'étiquette « Complétée » qui dépasse en haut */
+  .grid-auto.hscroll { padding-top: 11px; }
+  .grid-auto.hscroll .set-card .badge-complete { right: 6px; }
+
+  /* Explorer, Objectifs : la licence choisie, qui déplie toutes les licences */
+  .game-sw { margin: 0 0 12px; }
+  .game-sw > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 16px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--line); -webkit-tap-highlight-color: transparent; }
+  .game-sw > summary::-webkit-details-marker { display: none; }
+  .game-sw > summary .lic-ic { width: 32px; height: 32px; border-radius: 10px; }
+  .game-sw > summary b { font-family: var(--display); font-size: 1rem; }
+  .game-sw .gs-ch { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: rgba(124,92,255,.22); color: var(--text); }
+  .game-sw[open] > summary { border-color: rgba(124,92,255,.6); }
+  .game-sw[open] .gs-ch { background: var(--accent); color: #fff; }
+  .game-sw .lic-grid { margin-top: 8px; }
+  .game-sw .lic-tile.last { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+
+  /* Combat : bandeaux plus bas (même décor), toutes les licences tiennent sur l'écran */
+  .bt-lics { gap: 8px; }
+  .bt-lic-tile { grid-template-columns: auto 1fr auto auto; grid-template-rows: auto; min-height: 0; gap: 10px; padding: 10px 12px; border-radius: 18px; }
+  .bt-lic-ic { width: 42px; height: 42px; border-radius: 13px; align-self: center; }
+  .bt-lic-ic svg { width: 20px; height: 20px; }
+  .bt-lic-t { align-self: center; gap: 1px; }
+  .bt-lic-t b { font-size: 1.12rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bt-lic-t span { font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bt-lic-t small { font-size: .68rem; }
+  .bt-lic-cards { grid-row: 1; grid-column: 3; gap: 0; }
+  .bt-lic-cards img, .bt-lic-cards i { width: 26px; border-radius: 3px; }
+  .bt-lic-cards > * + * { margin-left: -9px; }
+  .bt-lic-go { grid-column: 4; font-size: 1.5rem; }
+}
+
+/* ===== Paramètres › Scanner (v3.36) : préparation, carnet des scans ratés ===== */
+.prep-list { display: grid; gap: 4px; }
+.prep-row { display: flex; gap: 6px; align-items: baseline; }
+.prep-row > span:first-child { width: 1.1em; text-align: center; color: var(--muted); }
+.prep-row.ok > span:first-child { color: var(--ok); font-weight: 700; }
+.log-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; margin: 6px 0; }
+.log-it { margin: 0; min-width: 0; }
+.log-it img { width: 100%; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 6px; background: rgba(255,255,255,.06); display: block; }
+.log-it figcaption { font-size: .7rem; line-height: 1.2; color: var(--muted); margin-top: 3px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sc-scanlbl.sc-confirm { top: auto; bottom: 14px; }
+
+/* ===== v3.33 : appli toujours en hauteur — téléphone tenu en largeur → « Tourne ton téléphone » (le manifeste verrouille l'appli installée) ===== */
+.rotate-msg { display: none; }
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .rotate-msg { display: flex; position: fixed; inset: 0; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; text-align: center;
+    background: radial-gradient(ellipse at 50% 30%, #241d4d, #0c0e19 70%); color: var(--text); }
+  .rotate-msg b { font-family: var(--display); font-size: 1.3rem; }
+  .rotate-msg span:last-child { color: var(--muted); font-size: .9rem; }
+  .rot-phone { width: 34px; height: 58px; margin-bottom: 10px; border-radius: 8px; border: 3px solid #fff; box-shadow: 0 0 0 3px rgba(124,92,255,.5); animation: rotPhone 2.4s ease-in-out infinite; }
+  @keyframes rotPhone { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
+  html, body { overflow: hidden; }
+}

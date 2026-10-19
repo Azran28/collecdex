@@ -1,0 +1,230 @@
+/* =====================================================================
+   CARTES VIVANTES : inclinaison, reflets selon la rareté, halos, apparitions
+   ===================================================================== */
+.ctile.owned .cimg::before { display: none !important; } /* ancien reflet remplacé */
+.ctile .cimg {
+  --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%;
+  transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .25s;
+  /* petit reflet « chargement » tant que l'image n'est pas là */
+  background: linear-gradient(110deg, var(--bg2) 30%, #1f2540 45%, var(--bg2) 60%) 0 0 / 250% 100%;
+  animation: skel 1.4s linear infinite;
+}
+.ctile .cimg.ld, .ctile .cimg:has(.numonly), .ctile .cimg:has(.noimg) { animation: none; background: var(--bg2); }
+@keyframes skel { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.ctile .cimg.tilting { transition: transform .06s linear, box-shadow .25s; }
+.ctile:hover .cimg { transform: perspective(700px) translateY(-4px) rotateX(var(--rx)) rotateY(var(--ry)); box-shadow: 0 14px 28px rgba(0,0,0,.5); }
+.ctile:hover .cimg img { transform: none; }
+/* halo à la couleur de la rareté pour les cartes possédées */
+.ctile.owned:not(.rt-0):hover .cimg { box-shadow: 0 14px 28px rgba(0,0,0,.5), 0 0 0 1.5px var(--rc), 0 0 22px -4px var(--rc); }
+.ctile.owned.rt-5 .cimg { box-shadow: 0 0 0 1px rgba(255,210,63,.35), 0 0 14px -6px #ffd23f; }
+/* cartes manquantes : un peu de couleur au survol — à la souris seulement
+   (sur téléphone, un appui prolongé « survole » la carte et la dévoilait) */
+@media (hover: hover) and (pointer: fine) {
+  .ctile.missing:hover .cimg img { filter: grayscale(.35) brightness(.85); opacity: .85; }
+  .ctile.missing:hover .cimg::after { opacity: 0; }
+}
+.ctile.missing .cimg::after { transition: opacity .2s; }
+/* appui long sur téléphone : pas d'aperçu de l'image (il montrait la carte manquante en couleurs) */
+.ctile.missing .cimg img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
+
+/* reflets (au survol sur ordinateur) */
+.t-shine { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .25s; border-radius: inherit; }
+.ctile:hover .t-shine { opacity: 1; }
+.rt-1 .t-shine { background: radial-gradient(farthest-corner circle at var(--mx) var(--my), rgba(255,255,255,.5), transparent 45%); mix-blend-mode: overlay; }
+.rt-2 .t-shine, .rt-3 .t-shine, .rt-4 .t-shine, .rt-5 .t-shine {
+  background:
+    radial-gradient(farthest-corner circle at var(--mx) var(--my), rgba(255,255,255,.55), transparent 42%),
+    repeating-linear-gradient(115deg, #ff5f6d 0%, #ffc371 8%, #47ff9a 16%, #3fd5ff 24%, #a66bff 32%, #ff5f6d 40%);
+  background-size: 100% 100%, 260% 260%; background-position: 0 0, var(--mx) var(--my);
+  mix-blend-mode: color-dodge; }
+.rt-2 .t-shine { filter: opacity(.35); }
+.rt-3 .t-shine { filter: opacity(.5); }
+.rt-4 .t-shine, .rt-5 .t-shine { filter: opacity(.6); }
+.rt-4 .t-shine::after, .rt-5 .t-shine::after { content: ""; position: absolute; inset: 0; mix-blend-mode: screen;
+  background-image: radial-gradient(circle, #fff 0 1px, transparent 1.5px), radial-gradient(circle, #fff3c4 0 1px, transparent 1.6px);
+  background-size: 19px 23px, 31px 27px; background-position: calc(var(--mx) * .3) calc(var(--my) * .4), calc(100% - var(--mx) * .4) var(--my); }
+/* sur téléphone (pas de survol) : un léger reflet permanent qui bouge doucement sur les plus rares */
+@media (hover: none) {
+  .ctile.owned.rt-3 .t-shine, .ctile.owned.rt-4 .t-shine, .ctile.owned.rt-5 .t-shine { opacity: .5; animation: holoShift 7s ease-in-out infinite; }
+}
+
+/* vitrine : cartes qui flottent doucement, reflet au survol */
+.v-featured .vcard > div { position: relative; transition: transform .35s cubic-bezier(.2,.8,.2,1); transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+.v-featured .vcard > div.tilting { transition: transform .06s linear; }
+.v-featured:not(.layout-eventail):not(.layout-classeur) .vcard { animation: vfloat 6s ease-in-out infinite; }
+.v-featured:not(.layout-eventail):not(.layout-classeur) .vcard:nth-child(2n) { animation-delay: -2s; }
+.v-featured:not(.layout-eventail):not(.layout-classeur) .vcard:nth-child(3n) { animation-delay: -4s; }
+@keyframes vfloat { 50% { transform: translateY(-6px); } }
+.v-featured .vcard > div::after { content: ""; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; opacity: 0; transition: opacity .25s;
+  background: radial-gradient(farthest-corner circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.45), transparent 45%); mix-blend-mode: overlay; }
+.v-featured .vcard:hover > div::after { opacity: 1; }
+
+/* fiche carte : la carte arrive en se retournant */
+.modal .holo-card { animation: cardIn .6s cubic-bezier(.2,.9,.25,1.1) both; }
+@keyframes cardIn { from { opacity: 0; transform: perspective(900px) rotateY(-35deg) scale(.85) translateY(10px); } }
+
+/* capture réussie : la carte apparaît avec un éclat */
+.capture-done { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.capture-done > .row { flex-basis: 100%; }
+.reveal { position: relative; width: 110px; flex-shrink: 0; animation: revealIn .7s cubic-bezier(.2,.9,.25,1.2) both; }
+.reveal img { width: 100%; aspect-ratio: 63/88; object-fit: cover; border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.55), 0 0 0 2px rgba(255,255,255,.12); position: relative; z-index: 1; }
+.reveal .burst { position: absolute; inset: -30%; z-index: 0; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 8%, rgba(255,210,63,.55) 9% 11%, transparent 12% 20%, rgba(255,79,163,.5) 21% 23%, transparent 24% 33%, rgba(52,213,255,.5) 34% 36%, transparent 37% 45%, rgba(124,92,255,.55) 46% 48%, transparent 49% 58%, rgba(255,210,63,.5) 59% 61%, transparent 62% 70%, rgba(61,220,151,.5) 71% 73%, transparent 74% 83%, rgba(255,79,163,.5) 84% 86%, transparent 87%);
+  -webkit-mask: radial-gradient(circle, #000 20%, transparent 70%); mask: radial-gradient(circle, #000 20%, transparent 70%);
+  animation: burst 1.6s ease-out both; }
+.reveal.rt-4 .burst, .reveal.rt-5 .burst { animation-duration: 2.4s; inset: -45%; }
+@keyframes revealIn { from { opacity: 0; transform: perspective(700px) rotateY(90deg) scale(.7); } 60% { transform: perspective(700px) rotateY(-8deg) scale(1.05); } }
+@keyframes burst { from { opacity: 0; transform: scale(.3) rotate(0deg); } 25% { opacity: 1; } to { opacity: 0; transform: scale(1.3) rotate(60deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ctile .cimg, .v-featured .vcard, .modal .holo-card, .reveal, .reveal .burst { animation: none !important; }
+}
+
+/* accueil : liens discrets */
+.slim-link { display: inline-flex; align-items: center; gap: 5px; font-size: .82rem; color: var(--muted); text-decoration: none; margin-right: 12px; }
+.slim-link svg { color: #ff4fa3; }
+.slim-link:hover { color: var(--text); }
+.home-slim { display: flex; flex-wrap: wrap; gap: 6px 4px; margin: 20px 0 0; padding: 10px 14px; border-radius: 12px; border: 1px dashed var(--line); }
+.home-slim .slim-link:first-child svg { color: #a78bfa; }
+
+/* Réglages d'Arnaud : aucune carte ne bouge toute seule, pas de soulèvement au survol, rotation plus marquée */
+.ctile:hover .cimg { transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry)); }
+.ctile .cimg { transform: perspective(600px) rotateX(var(--rx)) rotateY(var(--ry)); }
+.v-featured .vcard, .v-featured:not(.layout-eventail):not(.layout-classeur) .vcard { animation: none !important; }
+.v-featured .vcard > div { transform: perspective(650px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+.v-featured.layout-eventail .vcard:hover { transform: rotate(var(--rot, 0deg)) translateY(var(--dy, 0px)) !important; z-index: 20 !important; }
+.holo-card.idle, .holo-card.idle .holo-shine { animation: none !important; }
+.holo-card { transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+@media (hover: none) {
+  .ctile.owned.rt-3 .t-shine, .ctile.owned.rt-4 .t-shine, .ctile.owned.rt-5 .t-shine { opacity: 0; animation: none; }
+}
+
+/* ===== État de la carte ===== */
+.cond-box { margin: 4px 0 14px; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.cond-scale { display: flex; flex-wrap: wrap; gap: 6px; }
+.cond-btn { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 58px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); cursor: pointer; font: inherit; }
+.cond-btn b { font-size: .9rem; display: flex; align-items: center; min-height: 18px; }
+.cond-btn span { font-size: .62rem; color: var(--muted); white-space: nowrap; }
+.cond-btn:hover { border-color: rgba(124,92,255,.6); }
+.cond-btn.on { background: var(--holo); color: #16172a; border-color: transparent; }
+.cond-btn.on span { color: #16172a; }
+.cond-value { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: flex-end; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.cond-value > div { display: flex; flex-direction: column; }
+.cond-value b { font-family: var(--display); font-size: 1.35rem; color: var(--accent2); }
+.condchip { position: absolute; bottom: 8px; right: 8px; z-index: 2; font-size: .64rem; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: linear-gradient(135deg, #e9edf5, #9aa3b5); color: #16172a; box-shadow: 0 2px 6px rgba(0,0,0,.4); letter-spacing: .02em; }
+.condchip.inline { position: static; display: inline-block; vertical-align: 1px; }
+@media (max-width: 760px) { .cond-btn { min-width: 0; flex: 1 1 calc(25% - 6px); padding: 5px 4px; } }
+.set-cost { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-top: 10px; font-size: .85rem; }
+.set-cost > span { display: inline-flex; align-items: center; gap: 5px; }
+.set-cost b { color: var(--accent2); }
+.set-cost a { color: var(--muted); }
+
+/* Bouton « capturer » sur les cartes manquantes : discret mais assez gros pour le doigt */
+.cap-btn { position: absolute; right: 7px; bottom: 7px; z-index: 3; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: rgba(124,92,255,.55); color: #fff; border: 1.5px solid rgba(255,255,255,.35); box-shadow: 0 4px 12px rgba(0,0,0,.35); opacity: .55; transition: opacity .15s, transform .15s, background .15s; text-decoration: none; }
+.ctile:hover .cap-btn { opacity: .9; }
+.cap-btn:hover, .cap-btn:focus-visible { opacity: 1; background: linear-gradient(135deg, #7c5cff, #ff4fa3); transform: scale(1.08); }
+@media (max-width: 760px) { .cap-btn { width: 40px; height: 40px; right: 5px; bottom: 5px; } }
+.condchip { display: inline-flex; align-items: center; gap: 3px; }
+/* Séries favorites */
+.favset { position: absolute; top: 8px; left: 8px; z-index: 2; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: rgba(12,14,25,.6); color: #8a92a8; cursor: pointer; transition: color .15s, transform .15s, background .15s; }
+.favset:hover { color: #ffd23f; transform: scale(1.1); }
+.favset.on { color: #ffd23f; background: rgba(255,210,63,.14); border-color: rgba(255,210,63,.5); }
+.favset.on svg { fill: #ffd23f; }
+.favset.inline { position: static; width: 30px; height: 30px; margin-left: 4px; }
+.set-card { position: relative; }
+.fav-block .serie-head .favdot { color: #ffd23f; display: flex; }
+.fav-block .serie-head .favdot svg { fill: #ffd23f; }
+.favset:not(.on):not(.inline) { opacity: .6; }
+.favset:not(.on):not(.inline):hover { opacity: 1; }
+@media (max-width: 760px) { .favset:not(.inline) { width: 24px; height: 24px; top: 4px; left: 4px; } .favset:not(.inline) svg { width: 13px; height: 13px; } }
+
+/* Champ nombre sans petites flèches */
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Bouton « capturer » : sombre et discret */
+.cap-btn { background: rgba(14,16,28,.62); border-color: rgba(255,255,255,.28); opacity: .7; }
+.ctile:hover .cap-btn { opacity: .95; }
+.cap-btn:hover, .cap-btn:focus-visible { background: rgba(10,12,22,.9); border-color: rgba(255,255,255,.6); opacity: 1; }
+
+/* ===== Fiche carte épurée ===== */
+.cd-img { position: relative; }
+.cd-fav-wrap { position: absolute; top: 10px; right: 10px; z-index: 6; }
+.cd-favstar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: rgba(12,14,25,.65); border: 1px solid rgba(255,255,255,.25); color: #cfd4e6; box-shadow: 0 4px 12px rgba(0,0,0,.4); transition: transform .15s, color .15s; }
+.cd-favstar:hover { transform: scale(1.1); color: #ffd23f; }
+.cd-favstar.on { color: #ffd23f; border-color: rgba(255,210,63,.6); }
+.cd-favstar.on svg { fill: #ffd23f; }
+.cd-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+.cd-facts span { font-size: .78rem; padding: 3px 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: #c9cde0; }
+.cd-price { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 16px; }
+.cd-price-main { display: flex; align-items: baseline; gap: 8px; }
+.cd-price-main b { font-family: var(--display); font-size: 1.6rem; color: var(--accent2); }
+.cd-price-main span { font-size: .8rem; color: var(--muted); }
+.cd-price-more { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: .78rem; color: var(--muted); }
+.cd-price-more b { color: var(--text); font-weight: 600; }
+.cd-price-foot { margin-top: 8px; }
+.cd-price-foot a { color: var(--muted); }
+.cd-mine-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.cert-no { display: inline-flex; align-items: center; gap: 4px; font-size: .75rem; color: var(--muted); text-decoration: none; padding: 3px 9px; border-radius: 999px; border: 1px dashed var(--line); }
+.cert-no:hover { color: var(--text); border-color: rgba(61,220,151,.5); }
+.qty-ctl { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.qty-ctl button, .qty-ctl a { width: 34px; height: 32px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--text); font-size: 1.1rem; cursor: pointer; text-decoration: none; }
+.qty-ctl button:hover, .qty-ctl a:hover { background: var(--surface2); }
+.qty-ctl b { min-width: 26px; text-align: center; font-size: .95rem; }
+.cd-vars-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.cd-photos-head { margin: 4px 0 6px; }
+.cd-photos-head span { opacity: .8; }
+.photos .ph-add { display: flex; align-items: center; justify-content: center; border: 2px dashed var(--line); border-radius: 8px; cursor: pointer; color: var(--muted); min-height: 84px; }
+.photos .ph-add:hover { color: var(--text); border-color: rgba(124,92,255,.6); }
+.cd-note { margin: 12px 0 6px; }
+.cd-note summary { cursor: pointer; color: var(--muted); }
+.cd-note textarea { margin-top: 6px; min-height: 60px; }
+.cd-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.linkbtn { background: none; border: 0; padding: 4px 0; cursor: pointer; font: inherit; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+.linkbtn.danger:hover { color: #ff8a8a; }
+.cond-box { padding: 10px 12px; }
+@media (max-width: 760px) {
+  .cd-img { max-width: 210px !important; }
+  .cd h1 { font-size: 1.3rem; }
+  .cd-facts { margin: 8px 0 10px; gap: 5px; }
+  .cd-facts span { font-size: .72rem; padding: 2px 8px; }
+  .cd-price { padding: 10px 12px; }
+  .cd-price-main b { font-size: 1.35rem; }
+  .cd-favstar { width: 36px; height: 36px; }
+  .photos .ph-add { min-height: 70px; }
+}
+
+/* Mon Dex : boutons du haut sur une seule ligne en téléphone */
+@media (max-width: 760px) { .m-hide { display: none; } }
+
+/* Langue des cartes d'une série (en haut à droite du bloc) */
+.set-hero { position: relative; }
+.set-lang { position: absolute; top: 14px; right: 14px; display: flex; padding: 3px; gap: 2px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid var(--line, rgba(255,255,255,.1)); }
+.set-lang button { border: 0; background: transparent; color: var(--muted, #9aa3b8); font: inherit; font-size: .78rem; font-weight: 800; letter-spacing: .04em; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.set-lang button:hover { color: var(--text, #fff); }
+.set-lang button.on { background: var(--text); color: var(--bg); }
+@media (max-width: 760px) {
+  .set-lang { position: static; order: -1; justify-self: end; margin-bottom: -6px; }
+  .set-lang button { padding: 5px 10px; }
+}
+
+/* Langue de la carte possédée, quand elle diffère de la langue affichée */
+.ctile .langchip { position: absolute; left: 36px; bottom: 10px; z-index: 3; font-size: .62rem; font-weight: 800; letter-spacing: .05em; padding: 2px 6px; border-radius: 6px; background: rgba(10,12,24,.82); color: #fff; border: 1px solid rgba(255,255,255,.25); pointer-events: none; }
+
+/* Appli installable */
+.install-banner { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: -8px 0 20px; border-radius: 16px; border: 1px solid var(--line); background: linear-gradient(135deg, rgba(124,92,255,.16), rgba(52,213,255,.08)); }
+.install-banner img { border-radius: 10px; flex: none; }
+.install-banner div { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.install-banner div b { font-size: .92rem; }
+.install-banner div span { font-size: .78rem; color: var(--muted); }
+.install-banner .btn { flex: none; }
+.install-x { flex: none; width: 30px; height: 30px; border: 0; background: none; color: var(--muted); font-size: 1.3rem; cursor: pointer; border-radius: 50%; }
+.install-help h2 { display: flex; align-items: center; gap: 8px; margin-top: 0; }
+.install-help ol { padding-left: 20px; line-height: 1.7; }
+.install-help .ios-share { display: inline-flex; vertical-align: -3px; color: #34a0ff; }
+/* hors ligne : les boutons qui ont besoin du réseau sont atténués */
+.offline #c-prices { opacity: .45; pointer-events: none; }
+

@@ -1,0 +1,447 @@
+/* ===== Combat : accueil en 3 choix, puis deck → difficulté (v2.75) ===== */
+.bt-hub { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 18px; }
+.bt-choice { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 14px; border-radius: 18px; text-decoration: none; color: inherit;
+  border: 1px solid color-mix(in srgb, var(--cc) 40%, transparent); background: radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--cc) 18%, transparent), transparent 65%), rgba(255,255,255,.03); }
+a.bt-choice:active { transform: scale(.985); }
+.bt-choice-ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #fff; background: color-mix(in srgb, var(--cc) 55%, #1a1d33); box-shadow: 0 6px 18px color-mix(in srgb, var(--cc) 30%, transparent); }
+.bt-choice-ic .ic { display: block; }
+.bt-choice-t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bt-choice-t b { font-family: var(--display, inherit); font-size: 1.08rem; }
+.bt-choice-go { font-size: 1.6rem; color: var(--muted); }
+.bt-choice-b { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bt-choice-b .btn { justify-content: center; display: inline-flex; align-items: center; gap: 6px; }
+.bt-choice-online { grid-template-columns: auto 1fr; }
+.bt-deck-mini { display: flex; gap: 3px; }
+.bt-deck-mini img, .bt-deck-mini i { width: 22px; aspect-ratio: 63/88; border-radius: 3px; object-fit: cover; background: rgba(255,255,255,.08); display: block; }
+.bt-choice .bt-deck-mini { grid-column: 2; grid-row: 2; }
+.bt-step { display: flex; align-items: center; gap: 10px; margin: 20px 0 10px; font-size: 1.1rem; }
+.bt-step span { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: .85rem; background: linear-gradient(120deg, #7c5cff, #ff4fa3); color: #fff; }
+.bt-decks { display: flex; flex-direction: column; gap: 8px; }
+.bt-deck { display: grid; grid-template-columns: 26px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.03); cursor: pointer; }
+.bt-deck.on { border-color: rgba(124,92,255,.7); background: rgba(124,92,255,.14); }
+.bt-deck-ok { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; }
+.bt-deck.on .bt-deck-ok { background: #7c5cff; border-color: #7c5cff; color: #fff; }
+.bt-deck-ok .ic { display: block; }
+.bt-deck-t { display: flex; flex-direction: column; min-width: 0; }
+.bt-deck-t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-deck-cards { display: flex; gap: 4px; }
+.bt-deck-cards img, .bt-deck-cards i { width: 30px; aspect-ratio: 63/88; border-radius: 4px; object-fit: cover; background: rgba(255,255,255,.08); display: block; }
+.bt-deck-ed { padding: 6px 8px; }
+.bt-deck-ed .ic { display: block; }
+@media (min-width: 761px) { .bt-hub { max-width: 760px; } .bt-decks { max-width: 760px; } }
+
+/* ===== Signaler / bloquer un dresseur (v2.77) ===== */
+.fr-card-links { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.fr-more { font-size: 1.15rem; line-height: 1; padding-left: 10px; padding-right: 10px; letter-spacing: 1px; }
+.v-mod { white-space: nowrap; }
+.rp-reasons { display: grid; gap: 8px; margin: 12px 0 14px; }
+.rp-reasons .check { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.rp-reasons .check:has(input:checked) { border-color: var(--accent2); }
+#rp-details { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; resize: vertical; }
+
+/* ===== v2.80 : pioche de 10 cartes (mode Avancé) ===== */
+.bt-sel.bag { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.bt-sel.bag .bt-sel-s { position: relative; flex-direction: column; justify-content: center; gap: 2px; padding: 4px; text-align: center; }
+.bt-sel.bag .bt-sel-s img { width: 34px; }
+.bt-sel.bag .bt-sel-s span { width: 100%; font-size: .62rem; }
+.bt-sel.bag .bt-sel-s b { position: absolute; top: 2px; right: 4px; }
+.bt-sel.bag .bt-sel-s.empty { min-height: 66px; }
+@media (max-width: 760px) {
+  .bt-sel.bag { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .bt-sel.bag .bt-sel-s span { display: none; }
+  .bt-sel.bag .bt-sel-s.empty { min-height: 52px; }
+}
+.bt-rematch-msg { min-height: 1.3em; margin: 0 0 8px; }
+/* v2.80 : 5 formats d'import → onglets qui passent à la ligne sur téléphone */
+.imp-src { flex-wrap: wrap; }
+.imp-src button { flex: 1 1 auto; }
+@media (max-width: 760px) { .imp-src button { flex: 1 1 30%; padding: 9px 4px; } }
+/* v2.85 : One Piece — choix de la licence (Explorer, Capturer), texte de la carte dans la fiche */
+.game-pick, .sc-game { margin: 0 0 12px; }
+.game-pick .chip, .sc-game .chip { text-decoration: none; color: inherit; padding: 7px 14px; font-size: .88rem; }
+.game-pick .chip.on, .sc-game .chip.on { color: #16172a; }
+.cd-text { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); line-height: 1.45; }
+@media (max-width: 760px) {
+  .game-pick, .sc-game { flex-wrap: nowrap; }
+  .game-pick .chip, .sc-game .chip { flex: 1 1 0; justify-content: center; }
+  /* v3.21 : 4 licences ne tiennent plus sur la largeur → rangée qui défile de côté (jusqu'au bord de l'écran) */
+  .game-pick { overflow-x: auto; scrollbar-width: none; margin-right: -12px; padding-right: 12px; }
+  .game-pick::-webkit-scrollbar { display: none; }
+  .game-pick .chip { flex: 0 0 auto; white-space: nowrap; }
+}
+.logo-gen.logo-code { font-size: 1.35rem; letter-spacing: .02em; padding: 9px 16px; }
+.set-hero .logo-gen.logo-code { font-size: 2rem; padding: 14px 24px; }
+/* v2.86 : retours d'Arnaud sur One Piece */
+/* visuels officiels des produits One Piece (pochette, boîte de deck) : plus hauts qu'un logo */
+.set-card .logo-wrap:has(img[data-prod]) { height: 104px; }
+.set-card .logo-wrap img[data-prod] { max-height: 98px; }
+.set-hero img[data-prod] { max-height: 220px; }
+/* progression par rareté repliable : en-tête cliquable avec les pastilles en résumé */
+.rp-box > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rp-box > summary::-webkit-details-marker { display: none; }
+.rp-box > summary h3 { margin: 0; }
+.rp-box > summary::after { content: '▾'; margin-left: auto; color: var(--muted); transition: transform .2s; }
+.rp-box[open] > summary::after { transform: rotate(180deg); }
+.rp-box[open] > summary .rp-mini { display: none; }
+.rp-box[open] > summary { margin-bottom: 12px; }
+.rp-mini { flex-basis: 100%; order: 2; }
+.rp-box > summary::after { order: 1; }
+.rp-mini .rarity-list { margin: 0; }
+/* fiche d'une carte : place réservée et chargement visible pendant que l'image arrive */
+#cd-holo.cd-loading { aspect-ratio: 63 / 88; background: var(--bg2); }
+#cd-holo.cd-loading::before { content: ''; position: absolute; top: 50%; left: 50%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid rgba(255,255,255,.15); border-top-color: var(--accent2); animation: spin .8s linear infinite; z-index: 1; }
+#cd-holo.cd-loading img { opacity: 0; }
+.cd-nav { flex-wrap: nowrap; gap: 8px; }
+@media (max-width: 760px) {
+  .bgtasks { left: 50%; right: auto; transform: translateX(-50%); min-width: 0; width: max-content; max-width: calc(100vw - 32px); }
+  .set-hero > .favset.inline, .set-hero .favset.inline { position: absolute; top: 14px; left: 14px; margin: 0; z-index: 2; }
+  .rp-box .rarity-progress { grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+  .rp-box .rp-name { font-size: .8rem; gap: 5px; }
+  .rp-box .rp-row .progress { height: 5px; }
+  .cd-nav .lbl { display: none; }
+  .cd-nav .btn { min-width: 44px; justify-content: center; }
+}
+
+/* ===== Combat par licence (v2.99) : choix de la licence, décor et habillage propres à chaque licence ===== */
+/* choix de la licence */
+.bt-lead { margin: 4px 0 14px; color: var(--muted); }
+.bt-lics { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.bt-lic-tile { position: relative; display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: 1fr auto; align-items: center; gap: 10px 14px; min-height: 170px; padding: 16px; border-radius: 22px; overflow: hidden; text-decoration: none; color: #fff;
+  border: 1px solid rgba(255,255,255,.14); box-shadow: 0 10px 30px rgba(0,0,0,.35); background: #10142a center / cover no-repeat; transition: transform .15s, box-shadow .15s; }
+.bt-lic-tile.g-pokemon { background-image: linear-gradient(100deg, rgba(10,14,40,.92) 15%, rgba(10,14,40,.45) 60%, rgba(10,14,40,.2)), url(../img/combat/terrain-pokemon.svg); }
+.bt-lic-tile.g-onepiece { background-image: linear-gradient(100deg, rgba(14,10,24,.92) 15%, rgba(14,10,24,.45) 60%, rgba(14,10,24,.2)), url(../img/combat/mer-onepiece.svg); }
+.bt-lic-tile:active { transform: scale(.985); }
+@media (hover: hover) and (pointer: fine) { .bt-lic-tile:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,.45); } }
+.bt-lic-ic { grid-row: 1; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; align-self: start; }
+.g-pokemon .bt-lic-ic, .bt-hero.g-pokemon .bt-hero-ic { background: linear-gradient(180deg, #ff4a2b 0 50%, #fff 50%); color: #1a1a2e; box-shadow: 0 0 0 3px #1a1a2e inset, 0 6px 18px rgba(227,53,13,.45); }
+.g-onepiece .bt-lic-ic, .bt-hero.g-onepiece .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #ffe7a0, #e8b04a 55%, #9a5c12); color: #3b230f; box-shadow: 0 6px 18px rgba(232,176,74,.45); }
+.bt-lic-ic .ic { display: block; }
+.bt-lic-t { grid-row: 1; display: flex; flex-direction: column; gap: 3px; align-self: start; min-width: 0; }
+.bt-lic-t b { font-family: var(--display); font-size: 1.6rem; line-height: 1.1; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+.g-onepiece .bt-lic-t b { color: #ffd479; font-family: Georgia, "Times New Roman", serif; }
+.g-pokemon .bt-lic-t b { color: #ffcb05; text-shadow: 0 2px 0 #2a5cb8, 0 2px 12px rgba(0,0,0,.5); }
+.bt-lic-t span { font-size: .9rem; color: rgba(255,255,255,.9); }
+.bt-lic-t small { font-size: .76rem; color: rgba(255,255,255,.72); }
+.bt-lic-go { grid-row: 1; font-size: 2rem; color: rgba(255,255,255,.75); align-self: center; }
+.bt-lic-cards { grid-row: 2; grid-column: 1 / -1; display: flex; gap: 6px; }
+.bt-lic-cards img, .bt-lic-cards i { width: 46px; aspect-ratio: 63/88; border-radius: 5px; object-fit: cover; display: block; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.bt-lic-cards i { border: 1px dashed rgba(255,255,255,.35); background: rgba(0,0,0,.25); }
+.bt-soon { margin-top: 14px; }
+
+/* accueil d'une licence : bandeau et couleurs */
+.bt-page.g-pokemon { --acc: #e3350d; --acc2: #ffcb05; }
+.bt-page.g-onepiece { --acc: #c0392b; --acc2: #e8b04a; }
+.bt-hero { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 16px; margin: 4px 0 6px; border-radius: 20px; overflow: hidden; color: #fff;
+  border: 1px solid rgba(255,255,255,.12); background: #10142a center 62% / cover no-repeat; }
+.bt-hero.g-pokemon { background-image: linear-gradient(100deg, rgba(10,14,40,.9) 25%, rgba(10,14,40,.35)), url(../img/combat/terrain-pokemon.svg); }
+.bt-hero.g-onepiece { background-image: linear-gradient(100deg, rgba(14,10,24,.9) 25%, rgba(14,10,24,.35)), url(../img/combat/mer-onepiece.svg); background-position: center 40%; }
+.bt-hero-ic { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; }
+.bt-hero-ic .ic { display: block; }
+.bt-hero-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bt-hero-t h1 { margin: 0; font-size: 1.6rem; line-height: 1.15; text-shadow: 0 2px 10px rgba(0,0,0,.45); }
+.bt-hero-t .small { color: rgba(255,255,255,.82); }
+.bt-hero-sw { align-self: start; display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px; font-size: .78rem; font-weight: 700; color: #fff; text-decoration: none; background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.25); white-space: nowrap; }
+.bt-hero-sw .ic { display: block; }
+.bt-sub { margin: 2px 0 0; }
+.bt-page .bt-modes button.on { background: linear-gradient(135deg, var(--acc), color-mix(in srgb, var(--acc2) 70%, var(--acc))); color: #fff; }
+.bt-page .bt-step span { background: linear-gradient(120deg, var(--acc), var(--acc2)); }
+.bt-page .bt-deck.on { border-color: color-mix(in srgb, var(--acc2) 75%, transparent); background: color-mix(in srgb, var(--acc2) 12%, transparent); }
+.bt-page .bt-deck.on .bt-deck-ok { background: var(--acc); border-color: var(--acc); }
+.bt-page .bt-tm.on { border-color: var(--acc2); box-shadow: 0 0 0 1px var(--acc2), 0 8px 26px color-mix(in srgb, var(--acc2) 22%, transparent); }
+.bt-page .bt-tm-on { background: var(--acc); }
+.bt-page.g-onepiece .bt-hero-t h1, .bt-page.g-onepiece .bt-step { font-family: Georgia, "Times New Roman", serif; letter-spacing: .3px; }
+.bt-page.g-onepiece .bt-hero-t h1 { color: #ffd479; }
+@media (max-width: 760px) {
+  .bt-lics { grid-template-columns: 1fr; gap: 12px; }
+  .bt-lic-tile { min-height: 150px; padding: 14px; border-radius: 20px; }
+  .bt-lic-t b { font-size: 1.4rem; }
+  .bt-hero { padding: 12px; gap: 10px; border-radius: 18px; }
+  .bt-hero-t h1 { font-size: 1.3rem; }
+  .bt-hero-ic { width: 40px; height: 40px; border-radius: 12px; }
+}
+
+/* écran de combat : décor de la licence */
+.bt-ov > .bt-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: #0b0d1c center / cover no-repeat; }
+.bt-ov.g-pokemon::before, .bt-ov.g-pokemon::after, .bt-ov.g-onepiece::before, .bt-ov.g-onepiece::after { display: none; }
+.bt-ov.g-pokemon > .bt-bg { background-image: linear-gradient(180deg, rgba(6,10,30,.62), rgba(6,10,30,.12) 22%, rgba(6,10,30,.06) 55%, rgba(6,10,30,.72) 92%), url(../img/combat/terrain-pokemon.svg); }
+.bt-ov.g-onepiece > .bt-bg { background-image: linear-gradient(180deg, rgba(10,8,24,.6), rgba(10,8,24,.1) 22%, rgba(10,8,24,.08) 55%, rgba(10,8,24,.7) 92%), url(../img/combat/mer-onepiece.svg); }
+/* dernier niveau : ciel d'orage */
+.bt-ov.g-pokemon.boss > .bt-bg { filter: brightness(.62) saturate(.8) hue-rotate(200deg); }
+.bt-ov.g-onepiece.boss > .bt-bg { filter: brightness(.6) saturate(.7) hue-rotate(-25deg); }
+/* mouvement léger : nuages (Pokémon), reflets sur la mer (One Piece) */
+.bt-ov > .bt-bg::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+.bt-ov.g-pokemon > .bt-bg::after { background: radial-gradient(ellipse 120px 22px at 20% 9%, rgba(255,255,255,.16), transparent 70%), radial-gradient(ellipse 160px 26px at 70% 14%, rgba(255,255,255,.13), transparent 70%); animation: btClouds 40s linear infinite alternate; }
+.bt-ov.g-onepiece > .bt-bg::after { background: repeating-linear-gradient(176deg, transparent 0 22px, rgba(191,230,255,.08) 22px 24px); top: 36%; bottom: 10%; animation: btSea 7s ease-in-out infinite alternate; }
+@keyframes btClouds { to { transform: translateX(14vw); } }
+@keyframes btSea { to { transform: translate(-30px, 6px); } }
+@media (prefers-reduced-motion: reduce) { .bt-ov > .bt-bg::after { animation: none !important; } }
+.bt-ov.g-pokemon .bt-top, .bt-ov.g-onepiece .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-lic { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; flex: none; }
+.bt-lic .ic { display: block; }
+.bt-ov.g-pokemon .bt-lic { background: linear-gradient(180deg, #ff4a2b 0 50%, #fff 50%); color: #1a1a2e; box-shadow: 0 0 0 2px #1a1a2e inset; }
+.bt-ov.g-onepiece .bt-lic { background: radial-gradient(circle at 35% 30%, #ffe7a0, #e8b04a 55%, #9a5c12); color: #3b230f; }
+.bt-ov.g-pokemon .bt-lvl, .bt-ov.g-onepiece .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(8,10,24,.6); }
+
+/* Pokémon : boîtes claires façon jeu vidéo (nom, PV) et boîte de dialogue */
+.bt-ov.g-pokemon .bt-info { background: linear-gradient(180deg, #fbfbf4, #ecebdc); color: #1b1d2a; border: 2px solid #2b2f45; box-shadow: 0 4px 0 #2b2f45, 0 10px 24px rgba(0,0,0,.35); }
+.bt-ov.g-pokemon .bt-side.me .bt-info { border-radius: 14px 14px 4px 14px; }
+.bt-ov.g-pokemon .bt-side.foe .bt-info { border-radius: 14px 14px 14px 4px; }
+.bt-ov.g-pokemon .bt-stats { color: #4b5068; }
+.bt-ov.g-pokemon .bt-stats b { color: #1b1d2a; }
+.bt-ov.g-pokemon .bt-hp { background: #3b3f55; border: 2px solid #2b2f45; }
+.bt-ov.g-pokemon .bt-loan { background: #dcdccb; color: #4b5068; }
+.bt-ov.g-pokemon .bt-tag { background: #e2e1d0; color: #1b1d2a; }
+.bt-ov.g-pokemon .bt-tag.sh { background: #cfe4ff; color: #123d7a; }
+.bt-ov.g-pokemon .bt-tag.pw { background: #ffd3d6; color: #8a1020; }
+.bt-ov.g-pokemon .bt-tag.st { background: #ffeab0; color: #6a4800; }
+.bt-ov.g-pokemon .bt-log { background: #fbfbf4; color: #1b1d2a; border: 3px solid #2b2f45; border-radius: 10px; box-shadow: inset 0 0 0 3px #7fb3e8, 0 6px 18px rgba(0,0,0,.35); text-align: left; font-weight: 500; }
+.bt-ov.g-pokemon .bt-log .bt-eff { color: #c2410c; }
+.bt-ov.g-pokemon .bt-log .muted, .bt-ov.g-pokemon .bt-log .bt-coins { color: #5b6074; }
+.bt-ov.g-pokemon .bt-banner.me { background: linear-gradient(180deg, #ff4a2b 0 50%, #f2f2f2 50%); color: #1a1a2e; border: 3px solid #1a1a2e; box-shadow: 0 10px 30px rgba(227,53,13,.45); text-shadow: 0 1px 0 #fff; }
+.bt-ov.g-pokemon .bt-end.win .bt-end-box { border-color: #ffcb05; box-shadow: 0 0 40px rgba(255,203,5,.35); }
+
+/* One Piece : avis de recherche (papier jauni), DON!! dorés, journal de bord */
+.bt-ov.g-onepiece .bt-info { background: linear-gradient(180deg, #f4e6c4, #e3cc98); color: #3b230f; border: 2px solid #6b4423; box-shadow: 0 0 0 3px rgba(107,68,35,.25) inset, 0 10px 24px rgba(0,0,0,.4); border-radius: 6px; }
+.bt-ov.g-onepiece .bt-name b { font-family: Georgia, "Times New Roman", serif; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+.bt-ov.g-onepiece .bt-stats { color: #6b4a2a; }
+.bt-ov.g-onepiece .bt-stats b { color: #3b230f; }
+.bt-ov.g-onepiece .bt-hp { background: #5b3a1e; border: 1px solid #3b230f; }
+.bt-ov.g-onepiece .bt-loan { background: #d8bf86; color: #5b3a1e; }
+.bt-ov.g-onepiece .bt-tag { background: #dcc490; color: #3b230f; }
+.bt-ov.g-onepiece .bt-tag.sh { background: #c9dcef; color: #123d7a; }
+.bt-ov.g-onepiece .bt-tag.pw { background: #f2c4b8; color: #7a1a10; }
+.bt-ov.g-onepiece .bt-pips i { border-radius: 3px; background: linear-gradient(135deg, #fff1b8, #f2b33d 55%, #a8600e); box-shadow: 0 0 0 1px #5a2a00, 0 0 6px rgba(242,179,61,.6); }
+.bt-ov.g-onepiece .bt-pips b { color: #8a4b0c; }
+.bt-ov.g-onepiece .bt-cost i { border-radius: 2px; background: #f2b33d; }
+.bt-ov.g-onepiece .bt-log { background: linear-gradient(180deg, rgba(58,34,16,.94), rgba(40,22,10,.94)); color: #fbe9c4; border: 2px solid #c48a52; border-radius: 10px; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-onepiece .bt-log .bt-eff { color: #ffd479; }
+.bt-ov.g-onepiece .bt-banner.me { background: linear-gradient(135deg, #ffe7a0, #e8b04a 55%, #b5701c); color: #3b1d05; border: 3px solid #5a2a00; font-family: Georgia, "Times New Roman", serif; font-weight: 800; box-shadow: 0 10px 30px rgba(232,176,74,.5); }
+.bt-ov.g-onepiece .bt-banner.foe { background: #2a1a0e; border-color: #c48a52; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-onepiece .bt-end-t { font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-onepiece .bt-end.win .bt-end-box { border-color: #e8b04a; box-shadow: 0 0 40px rgba(232,176,74,.4); }
+.bt-ov.g-onepiece .bt-played div { border-color: rgba(232,176,74,.6); }
+.bt-ov.g-onepiece .bt-played small { color: #ffe7a0; }
+
+.bt-lic-tile.g-onepiece { background-position: center 30%; }
+@media (min-width: 761px) { .bt-hero { max-width: 760px; } }
+
+/* mode Avancé : cartes encore cachées sur le banc adverse */
+.bt-mini.hid b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 1.1rem; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); pointer-events: none; }
+
+/* ===== Combat v3.00 : vrais dégâts sur les attaques, sac (Pokémon) / coffre (One Piece) ===== */
+.bt-atk b { display: flex; flex-direction: column; gap: 1px; }
+.bt-dtag { font-size: .66rem; font-weight: 800; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-dtag.up { color: #ffe27a; }
+.bt-dtag.down { color: #9fb4d8; }
+.bt-dmg s { font-size: .72rem; font-weight: 600; opacity: .55; margin-right: 2px; }
+.bt-dmg.up { color: #ffe27a; text-shadow: 0 0 10px rgba(255,200,61,.55); }
+.bt-dmg.down { color: #b8c6e0; }
+
+/* bouton du sac / coffre (à la place de la rangée qui défilait) */
+.bt-bagbtn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 14px; font: inherit; color: var(--text); text-align: left; cursor: pointer; transition: transform .15s;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(12,14,30,.72); }
+.bt-bagbtn:active { transform: scale(.98); }
+.bt-bagbtn:disabled { opacity: .5; cursor: default; }
+.bt-bagbtn.idle { opacity: .8; }
+.bt-bagbtn.has { box-shadow: 0 0 0 2px rgba(255,203,5,.55), 0 0 18px rgba(255,203,5,.25); }
+.bt-bagic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,.1); }
+.bt-bagic svg { display: block; }
+.bt-bagtx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bt-bagtx b { font-size: .95rem; }
+.bt-bagtx small { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-bagfan { flex: none; display: flex; padding-right: 6px; }
+.bt-bagfan img { width: 26px; aspect-ratio: 63/88; object-fit: cover; border-radius: 3px; box-shadow: 0 2px 6px rgba(0,0,0,.5); margin-right: -10px; border: 1px solid rgba(255,255,255,.4); }
+.bt-bagfan img:nth-child(odd) { transform: rotate(-6deg); } .bt-bagfan img:nth-child(even) { transform: rotate(5deg) translateY(-2px); }
+.bt-ov.g-pokemon .bt-bagbtn { background: linear-gradient(180deg, #d9442f, #a8291a); border: 2px solid #1a1a2e; color: #fff; }
+.bt-ov.g-pokemon .bt-bagbtn .bt-bagic { background: #fbfbf4; }
+.bt-ov.g-pokemon .bt-bagbtn small { color: #ffe0d8; }
+.bt-ov.g-onepiece .bt-bagbtn { background: linear-gradient(180deg, #7a4a22, #4e2c12); border: 2px solid #e8b04a; color: #fbe9c4; }
+.bt-ov.g-onepiece .bt-bagbtn .bt-bagic { background: #2a1a0e; }
+.bt-ov.g-onepiece .bt-bagbtn small { color: #e8cf9a; }
+
+/* le sac ouvert : toutes les cartes en main d'un coup */
+.bt-ov > .bt-sheet { position: absolute; inset: 0; z-index: 22; display: flex; align-items: flex-end; justify-content: center; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); background: rgba(6,8,18,.6); }
+.bt-sheet-box { width: 100%; max-width: 620px; max-height: 82%; overflow: auto; border-radius: 22px; padding: 12px 12px 14px; background: #161a33; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+.bt-sheet-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bt-sheet-h > div { flex: 1; display: flex; flex-direction: column; }
+.bt-sheet-h b { font-family: var(--display); font-size: 1.2rem; }
+.bt-sheet-h small { font-size: .76rem; opacity: .8; }
+.bt-sheet-x { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; font-size: 1.5rem; line-height: 1; cursor: pointer; background: rgba(0,0,0,.25); color: inherit; }
+.bt-sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+.bt-sc { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 8px 10px; border-radius: 14px; font: inherit; color: inherit; text-align: center; cursor: pointer; transition: transform .15s;
+  border: 2px solid transparent; background: rgba(255,255,255,.06); }
+.bt-sc img { width: 78%; aspect-ratio: 63/88; object-fit: cover; border-radius: 7px; box-shadow: 0 6px 14px rgba(0,0,0,.45); margin-bottom: 4px; }
+.bt-sc b { font-size: .8rem; line-height: 1.15; }
+.bt-sc em { font-style: normal; font-weight: 800; font-size: .78rem; color: #ffcb05; }
+.bt-sc small { font-size: .68rem; line-height: 1.25; opacity: .8; }
+.bt-sc.ok { border-color: #3ddc97; box-shadow: 0 0 16px rgba(61,220,151,.3); }
+.bt-sc.ok:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .bt-sc.ok:hover { transform: translateY(-3px); } }
+.bt-sc.off { opacity: .5; filter: grayscale(.5); cursor: help; }
+.bt-sheet-f { margin: 10px 2px 0; font-size: .76rem; opacity: .85; text-align: center; }
+/* Pokémon : un sac en toile rouge, poche claire à l'intérieur */
+.bt-ov.g-pokemon .bt-sheet-box { background: linear-gradient(180deg, #d9442f, #a8291a); border: 3px solid #1a1a2e; color: #fff; outline: 2px dashed rgba(255,255,255,.35); outline-offset: -9px; }
+.bt-ov.g-pokemon .bt-sheet-h .bt-bagic { background: #fbfbf4; }
+.bt-ov.g-pokemon .bt-sheet-grid { padding: 10px; border-radius: 14px; background: #fbfbf4; color: #1b1d2a; }
+.bt-ov.g-pokemon .bt-sc { background: #ecebdc; }
+.bt-ov.g-pokemon .bt-sc em { color: #c2410c; }
+.bt-ov.g-pokemon .bt-sc.ok { border-color: #1f9e5a; }
+/* One Piece : un coffre au trésor en bois cerclé d'or, velours rouge à l'intérieur */
+.bt-ov.g-onepiece .bt-sheet-box { background: linear-gradient(180deg, #7a4a22, #4e2c12); border: 3px solid #e8b04a; color: #fbe9c4; box-shadow: inset 0 0 0 4px #3b230f, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-onepiece .bt-sheet-h b { font-family: Georgia, "Times New Roman", serif; color: #ffd479; }
+.bt-ov.g-onepiece .bt-sheet-h .bt-bagic { background: #2a1a0e; }
+.bt-ov.g-onepiece .bt-sheet-grid { padding: 10px; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, #8a1c1c, #4a0d10); border: 2px solid #c48a52; }
+.bt-ov.g-onepiece .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-onepiece .bt-sc em { color: #ffd479; }
+.bt-ov.g-onepiece .bt-sc.ok { border-color: #ffd479; box-shadow: 0 0 16px rgba(255,212,121,.35); }
+@media (min-width: 761px) { .bt-ov > .bt-sheet { align-items: center; } .bt-sheet-box { max-width: 760px; padding: 16px; } .bt-sheet-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+@media (max-width: 760px) { .bt-sheet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ===== v3.10 : Riftbound — même combat, habillage hextech (bleu nuit, rune cyan, filets dorés), décor : la Faille de l'invocateur ===== */
+.bt-lic-tile.g-riftbound { background-image: linear-gradient(100deg, rgba(8,12,32,.92) 15%, rgba(8,12,32,.45) 60%, rgba(8,12,32,.2)), url(../img/combat/faille-riftbound.svg); background-position: center 60%; }
+.g-riftbound .bt-lic-ic, .bt-hero.g-riftbound .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #c9fbff, #3fd4e0 50%, #14527e); color: #07162e; box-shadow: 0 0 0 2px #c8a24a inset, 0 6px 18px rgba(63,212,224,.45); }
+.g-riftbound .bt-lic-t b { color: #9ff6ff; letter-spacing: .5px; text-transform: uppercase; text-shadow: 0 0 12px rgba(95,227,239,.55), 0 2px 10px rgba(0,0,0,.5); }
+.bt-page.g-riftbound { --acc: #1f7fb8; --acc2: #c8a24a; }
+.bt-hero.g-riftbound { background-image: linear-gradient(100deg, rgba(8,12,32,.9) 25%, rgba(8,12,32,.35)), url(../img/combat/faille-riftbound.svg); background-position: center 55%; }
+.bt-page.g-riftbound .bt-hero-t h1 { color: #9ff6ff; text-transform: uppercase; letter-spacing: .6px; }
+.bt-ov.g-riftbound::before, .bt-ov.g-riftbound::after { display: none; }
+.bt-ov.g-riftbound > .bt-bg { background-image: linear-gradient(180deg, rgba(6,10,30,.6), rgba(6,10,30,.1) 22%, rgba(6,10,30,.08) 55%, rgba(6,10,30,.72) 92%), url(../img/combat/faille-riftbound.svg); }
+.bt-ov.g-riftbound.boss > .bt-bg { filter: brightness(.6) saturate(.8) hue-rotate(140deg); }
+/* mouvement léger : la rivière de la Faille scintille */
+.bt-ov.g-riftbound > .bt-bg::after { background: radial-gradient(ellipse 180px 60px at 50% 70%, rgba(159,246,255,.22), transparent 70%); animation: btRift 5s ease-in-out infinite alternate; }
+@keyframes btRift { to { opacity: .35; transform: scale(1.08); } }
+.bt-ov.g-riftbound .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-ov.g-riftbound .bt-lic { background: radial-gradient(circle at 35% 30%, #c9fbff, #3fd4e0 50%, #14527e); color: #07162e; box-shadow: 0 0 0 2px #c8a24a inset; }
+.bt-ov.g-riftbound .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(8,10,24,.6); }
+/* panneaux hextech : bleu nuit, filet doré, angles coupés */
+.bt-ov.g-riftbound .bt-info { background: linear-gradient(180deg, rgba(16,34,70,.96), rgba(9,19,44,.96)); color: #e6f6ff; border: 2px solid #c8a24a; border-radius: 4px; box-shadow: 0 0 0 1px rgba(95,227,239,.35) inset, 0 10px 24px rgba(0,0,0,.45);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px); }
+.bt-ov.g-riftbound .bt-name b { text-transform: uppercase; letter-spacing: .4px; }
+.bt-ov.g-riftbound .bt-stats { color: #9fc3dc; }
+.bt-ov.g-riftbound .bt-stats b { color: #fff; }
+.bt-ov.g-riftbound .bt-hp { background: #07162e; border: 1px solid #c8a24a; }
+.bt-ov.g-riftbound .bt-loan { background: #1d3f7a; color: #bfe9ff; }
+.bt-ov.g-riftbound .bt-tag { background: #1d3f7a; color: #dff6ff; }
+.bt-ov.g-riftbound .bt-tag.sh { background: #135a6e; color: #c9fbff; }
+.bt-ov.g-riftbound .bt-tag.pw { background: #6e2340; color: #ffd6e3; }
+.bt-ov.g-riftbound .bt-pips i { transform: rotate(45deg) scale(.82); border-radius: 2px; background: linear-gradient(135deg, #e9fdff, #5fe3ef 55%, #1a7aa0); box-shadow: 0 0 0 1px #07162e, 0 0 6px rgba(95,227,239,.7); }
+.bt-ov.g-riftbound .bt-pips b { color: #9ff6ff; }
+.bt-ov.g-riftbound .bt-cost i { transform: rotate(45deg) scale(.8); border-radius: 1px; background: #5fe3ef; }
+.bt-ov.g-riftbound .bt-log { background: linear-gradient(180deg, rgba(12,26,58,.95), rgba(7,16,38,.95)); color: #e6f6ff; border: 2px solid #c8a24a; border-radius: 6px; }
+.bt-ov.g-riftbound .bt-log .bt-eff { color: #9ff6ff; }
+.bt-ov.g-riftbound .bt-banner.me { background: linear-gradient(135deg, #c9fbff, #3fd4e0 50%, #1a7aa0); color: #04122a; border: 3px solid #c8a24a; text-transform: uppercase; letter-spacing: .6px; box-shadow: 0 10px 30px rgba(63,212,224,.45); }
+.bt-ov.g-riftbound .bt-banner.foe { background: #0b1530; border-color: #c8a24a; }
+.bt-ov.g-riftbound .bt-end.win .bt-end-box { border-color: #5fe3ef; box-shadow: 0 0 40px rgba(95,227,239,.4); }
+.bt-ov.g-riftbound .bt-played div { border-color: rgba(95,227,239,.6); }
+.bt-ov.g-riftbound .bt-played small { color: #c9fbff; }
+/* grimoire (pioche du mode Avancé) */
+.bt-ov.g-riftbound .bt-bagbtn { background: linear-gradient(180deg, #1d3f7a, #0b1d40); border: 2px solid #c8a24a; color: #e6f6ff; }
+.bt-ov.g-riftbound .bt-bagbtn .bt-bagic { background: #07162e; }
+.bt-ov.g-riftbound .bt-bagbtn small { color: #9fc3dc; }
+.bt-ov.g-riftbound .bt-sheet-box { background: linear-gradient(180deg, #16305e, #0a1836); border: 3px solid #c8a24a; color: #e6f6ff; box-shadow: inset 0 0 0 4px #07162e, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-riftbound .bt-sheet-h b { color: #9ff6ff; text-transform: uppercase; letter-spacing: .5px; }
+.bt-ov.g-riftbound .bt-sheet-h .bt-bagic { background: #07162e; }
+.bt-ov.g-riftbound .bt-sheet-grid { padding: 10px; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, #14527e, #07162e); border: 2px solid rgba(95,227,239,.45); }
+.bt-ov.g-riftbound .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-riftbound .bt-sc em { color: #9ff6ff; }
+.bt-ov.g-riftbound .bt-sc.ok { border-color: #5fe3ef; box-shadow: 0 0 16px rgba(95,227,239,.35); }
+
+/* ===== v3.21 : Lorcana — même combat, habillage livre de contes (nuit violette, encre magique, dorures), décor : le Grand Illuminarium ===== */
+.bt-lic-tile.g-lorcana { background-image: linear-gradient(100deg, rgba(16,11,40,.92) 15%, rgba(16,11,40,.45) 60%, rgba(16,11,40,.2)), url(../img/combat/illuminarium-lorcana.svg); background-position: center 45%; }
+.g-lorcana .bt-lic-ic, .bt-hero.g-lorcana .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #efe7ff, #8f6bff 50%, #2a1f5c); color: #fff6dc; box-shadow: 0 0 0 2px #e7c36a inset, 0 6px 18px rgba(143,107,255,.45); }
+.g-lorcana .bt-lic-t b { color: #f1dc9c; font-family: Georgia, "Times New Roman", serif; letter-spacing: .3px; text-shadow: 0 0 12px rgba(183,156,255,.5), 0 2px 10px rgba(0,0,0,.5); }
+.bt-page.g-lorcana { --acc: #6a3fb5; --acc2: #e7c36a; }
+.bt-hero.g-lorcana { background-image: linear-gradient(100deg, rgba(16,11,40,.9) 25%, rgba(16,11,40,.35)), url(../img/combat/illuminarium-lorcana.svg); background-position: center 40%; }
+.bt-page.g-lorcana .bt-hero-t h1, .bt-page.g-lorcana .bt-step { font-family: Georgia, "Times New Roman", serif; letter-spacing: .3px; }
+.bt-page.g-lorcana .bt-hero-t h1 { color: #f1dc9c; }
+.bt-ov.g-lorcana::before, .bt-ov.g-lorcana::after { display: none; }
+.bt-ov.g-lorcana > .bt-bg { background-image: linear-gradient(180deg, rgba(12,8,32,.6), rgba(12,8,32,.1) 22%, rgba(12,8,32,.08) 55%, rgba(12,8,32,.72) 92%), url(../img/combat/illuminarium-lorcana.svg); }
+.bt-ov.g-lorcana.boss > .bt-bg { filter: brightness(.6) saturate(.8) hue-rotate(-40deg); }
+/* mouvement léger : l'encre magique ondule */
+.bt-ov.g-lorcana > .bt-bg::after { background: radial-gradient(ellipse 220px 50px at 50% 62%, rgba(183,156,255,.25), transparent 70%); animation: btInk 6s ease-in-out infinite alternate; }
+@keyframes btInk { to { opacity: .35; transform: translateX(4%) scale(1.1); } }
+.bt-ov.g-lorcana .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-ov.g-lorcana .bt-lic { background: radial-gradient(circle at 35% 30%, #efe7ff, #8f6bff 50%, #2a1f5c); color: #fff6dc; box-shadow: 0 0 0 2px #e7c36a inset; }
+.bt-ov.g-lorcana .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(12,8,32,.6); }
+/* panneaux façon page de livre de contes : parchemin, filet doré */
+.bt-ov.g-lorcana .bt-info { background: linear-gradient(180deg, #f6ecd2, #e8d6aa); color: #2a1f5c; border: 2px solid #b58a2e; border-radius: 12px; box-shadow: 0 0 0 3px rgba(106,63,181,.25) inset, 0 10px 24px rgba(0,0,0,.4); }
+.bt-ov.g-lorcana .bt-name b { font-family: Georgia, "Times New Roman", serif; font-weight: 800; letter-spacing: .2px; }
+.bt-ov.g-lorcana .bt-stats { color: #5b4a7a; }
+.bt-ov.g-lorcana .bt-stats b { color: #2a1f5c; }
+.bt-ov.g-lorcana .bt-hp { background: #2a1f5c; border: 1px solid #b58a2e; }
+.bt-ov.g-lorcana .bt-loan { background: #d9c8ff; color: #2a1f5c; }
+.bt-ov.g-lorcana .bt-tag { background: #e3d3a6; color: #2a1f5c; }
+.bt-ov.g-lorcana .bt-tag.sh { background: #cfe0f2; color: #1d3f7a; }
+.bt-ov.g-lorcana .bt-tag.pw { background: #f2c4cf; color: #7a1a33; }
+/* encre = petits hexagones violets */
+.bt-ov.g-lorcana .bt-pips i { border-radius: 0; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: linear-gradient(135deg, #efe7ff, #8f6bff 55%, #4b2c9e); }
+.bt-ov.g-lorcana .bt-pips b { color: #6a3fb5; }
+.bt-ov.g-lorcana .bt-cost i { border-radius: 0; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: #8f6bff; }
+.bt-ov.g-lorcana .bt-log { background: linear-gradient(180deg, rgba(36,26,80,.95), rgba(22,15,54,.95)); color: #f6ecd2; border: 2px solid #e7c36a; border-radius: 10px; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-lorcana .bt-log .bt-eff { color: #f1dc9c; }
+.bt-ov.g-lorcana .bt-banner.me { background: linear-gradient(135deg, #efe7ff, #8f6bff 50%, #4b2c9e); color: #fff6dc; border: 3px solid #e7c36a; font-family: Georgia, "Times New Roman", serif; font-weight: 800; box-shadow: 0 10px 30px rgba(143,107,255,.45); }
+.bt-ov.g-lorcana .bt-banner.foe { background: #1a1440; border-color: #e7c36a; font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-lorcana .bt-end-t { font-family: Georgia, "Times New Roman", serif; }
+.bt-ov.g-lorcana .bt-end.win .bt-end-box { border-color: #e7c36a; box-shadow: 0 0 40px rgba(231,195,106,.4); }
+.bt-ov.g-lorcana .bt-played div { border-color: rgba(183,156,255,.6); }
+.bt-ov.g-lorcana .bt-played small { color: #efe7ff; }
+/* grimoire (pioche du mode Avancé) */
+.bt-ov.g-lorcana .bt-bagbtn { background: linear-gradient(180deg, #3a2a7a, #1a1440); border: 2px solid #e7c36a; color: #f6ecd2; }
+.bt-ov.g-lorcana .bt-bagbtn .bt-bagic { background: #120d2e; }
+.bt-ov.g-lorcana .bt-bagbtn small { color: #d9c8ff; }
+.bt-ov.g-lorcana .bt-sheet-box { background: linear-gradient(180deg, #2f2366, #160f36); border: 3px solid #e7c36a; color: #f6ecd2; box-shadow: inset 0 0 0 4px #120d2e, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-lorcana .bt-sheet-h b { font-family: Georgia, "Times New Roman", serif; color: #f1dc9c; }
+.bt-ov.g-lorcana .bt-sheet-h .bt-bagic { background: #120d2e; }
+.bt-ov.g-lorcana .bt-sheet-grid { padding: 10px; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, #4b3a96, #160f36); border: 2px solid rgba(231,195,106,.45); }
+.bt-ov.g-lorcana .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-lorcana .bt-sc em { color: #f1dc9c; }
+.bt-ov.g-lorcana .bt-sc.ok { border-color: #e7c36a; box-shadow: 0 0 16px rgba(231,195,106,.35); }
+
+/* ===== v3.26 : Yu-Gi-Oh! — même combat, habillage Égypte ancienne (or, cuivre, nuit pourpre), décor : arène de duel dans le désert ===== */
+.bt-lic-tile.g-yugioh { background-image: linear-gradient(100deg, rgba(28,12,8,.92) 15%, rgba(28,12,8,.45) 60%, rgba(28,12,8,.2)), url(../img/combat/arene-yugioh.svg); background-position: center 55%; }
+.g-yugioh .bt-lic-ic, .bt-hero.g-yugioh .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #fff1c2, #e2b54a 50%, #7a3b1d); color: #2a1206; box-shadow: 0 0 0 2px #5a2a12 inset, 0 6px 18px rgba(226,181,74,.45); }
+.g-yugioh .bt-lic-t b { color: #ffd36b; letter-spacing: .6px; text-transform: uppercase; text-shadow: 0 0 12px rgba(255,154,60,.5), 0 2px 10px rgba(0,0,0,.5); }
+.bt-page.g-yugioh { --acc: #a0612f; --acc2: #e2b54a; }
+.bt-hero.g-yugioh { background-image: linear-gradient(100deg, rgba(28,12,8,.9) 25%, rgba(28,12,8,.35)), url(../img/combat/arene-yugioh.svg); background-position: center 60%; }
+.bt-page.g-yugioh .bt-hero-t h1 { color: #ffd36b; text-transform: uppercase; letter-spacing: .6px; }
+.bt-ov.g-yugioh::before, .bt-ov.g-yugioh::after { display: none; }
+.bt-ov.g-yugioh > .bt-bg { background-image: linear-gradient(180deg, rgba(20,8,24,.55), rgba(20,8,24,.08) 22%, rgba(20,8,24,.05) 55%, rgba(28,12,8,.7) 92%), url(../img/combat/arene-yugioh.svg); }
+.bt-ov.g-yugioh.boss > .bt-bg { filter: brightness(.55) saturate(1.2) hue-rotate(-20deg); }
+/* mouvement léger : le terrain de duel s'illumine */
+.bt-ov.g-yugioh > .bt-bg::after { background: radial-gradient(ellipse 260px 50px at 50% 80%, rgba(95,240,255,.22), transparent 70%); animation: btDuel 4s ease-in-out infinite alternate; }
+@keyframes btDuel { to { opacity: .4; transform: scale(1.08); } }
+.bt-ov.g-yugioh .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.bt-ov.g-yugioh .bt-lic { background: radial-gradient(circle at 35% 30%, #fff1c2, #e2b54a 50%, #7a3b1d); color: #2a1206; box-shadow: 0 0 0 2px #5a2a12 inset; }
+.bt-ov.g-yugioh .bt-lvl { padding: 3px 10px; border-radius: 999px; background: rgba(28,12,8,.6); }
+/* panneaux façon carte de monstre : cadre cuivré, nom en relief */
+.bt-ov.g-yugioh .bt-info { background: linear-gradient(180deg, #e9c48f, #c98a52); color: #2a1206; border: 3px solid #5a2e12; border-radius: 4px; box-shadow: 0 0 0 2px #e2b54a inset, 0 10px 24px rgba(0,0,0,.45); }
+.bt-ov.g-yugioh .bt-name b { font-family: Georgia, "Times New Roman", serif; font-variant: small-caps; font-weight: 800; letter-spacing: .3px; }
+.bt-ov.g-yugioh .bt-stats { color: #5a2e12; }
+.bt-ov.g-yugioh .bt-stats b { color: #2a1206; }
+.bt-ov.g-yugioh .bt-hp { background: #2a1206; border: 1px solid #e2b54a; }
+.bt-ov.g-yugioh .bt-loan { background: #f4e2a8; color: #5a2e12; }
+.bt-ov.g-yugioh .bt-tag { background: #f4e2a8; color: #5a2e12; }
+.bt-ov.g-yugioh .bt-tag.sh { background: #c9e6ef; color: #133a4a; }
+.bt-ov.g-yugioh .bt-tag.pw { background: #f2c4b0; color: #6e1d0b; }
+/* énergie = étoiles de niveau (ronds dorés) */
+.bt-ov.g-yugioh .bt-pips i { background: radial-gradient(circle at 35% 30%, #fff1c2, #ff9a3c 55%, #b5451a); box-shadow: 0 0 0 1px #5a2e12; }
+.bt-ov.g-yugioh .bt-pips b { color: #ffd36b; }
+.bt-ov.g-yugioh .bt-cost i { background: #ff9a3c; }
+.bt-ov.g-yugioh .bt-log { background: linear-gradient(180deg, rgba(42,18,6,.95), rgba(24,10,4,.95)); color: #f8e6c2; border: 2px solid #e2b54a; border-radius: 4px; }
+.bt-ov.g-yugioh .bt-log .bt-eff { color: #ffd36b; }
+.bt-ov.g-yugioh .bt-banner.me { background: linear-gradient(135deg, #fff1c2, #e2b54a 50%, #a0612f); color: #2a1206; border: 3px solid #5a2e12; text-transform: uppercase; letter-spacing: .6px; box-shadow: 0 10px 30px rgba(226,181,74,.45); }
+.bt-ov.g-yugioh .bt-banner.foe { background: #2a1206; border-color: #e2b54a; }
+.bt-ov.g-yugioh .bt-end.win .bt-end-box { border-color: #e2b54a; box-shadow: 0 0 40px rgba(226,181,74,.4); }
+.bt-ov.g-yugioh .bt-played div { border-color: rgba(255,154,60,.6); }
+.bt-ov.g-yugioh .bt-played small { color: #fff1c2; }
+/* deck (pioche du mode Avancé) */
+.bt-ov.g-yugioh .bt-bagbtn { background: linear-gradient(180deg, #7a3b1d, #3a1a0c); border: 2px solid #e2b54a; color: #f8e6c2; }
+.bt-ov.g-yugioh .bt-bagbtn .bt-bagic { background: #1c0c06; }
+.bt-ov.g-yugioh .bt-bagbtn small { color: #f4e2a8; }
+.bt-ov.g-yugioh .bt-sheet-box { background: linear-gradient(180deg, #5a2a12, #24100a); border: 3px solid #e2b54a; color: #f8e6c2; box-shadow: inset 0 0 0 4px #1c0c06, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-yugioh .bt-sheet-h b { color: #ffd36b; text-transform: uppercase; letter-spacing: .5px; }
+.bt-ov.g-yugioh .bt-sheet-h .bt-bagic { background: #1c0c06; }
+.bt-ov.g-yugioh .bt-sc { background: rgba(0,0,0,.22); }
+.bt-ov.g-yugioh .bt-sc em { color: #ffd36b; }
+.bt-ov.g-yugioh .bt-sc.ok { border-color: #e2b54a; box-shadow: 0 0 16px rgba(226,181,74,.35); }
+

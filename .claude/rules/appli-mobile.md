@@ -1,6 +1,6 @@
 ---
 paths:
-  - "css/style.css"
+  - "css/*.css"
   - "index.html"
   - "js/app.js"
   - "js/onboarding.js"
@@ -14,7 +14,8 @@ paths:
 # Appli mobile, lancement, Play Store, service worker
 
 ## CSS téléphone
-- Bloc « APPLI MOBILE » à la fin de `style.css` (tout sous `max-width: 760px`, le PC ne change pas). `.m-hide` / `.d-hide`, `.hscroll` (rangée qui défile jusqu'au bord, accueil : `.cards`, `.grid-auto`, `.licences`). `body[data-view]` = vue en cours. Accueil : `.home-flow` réordonné par `order`. `.app` garde `calc(72px + env(safe-area-inset-bottom))` en bas (barre du bas ≈ 63 px).
+- Bloc « APPLI MOBILE » dans `css/07-appli-mobile.css` (tout sous `max-width: 760px`, le PC ne change pas). `.m-hide` / `.d-hide`, `.hscroll` (rangée qui défile jusqu'au bord, accueil : `.cards`, `.grid-auto`, `.licences`). `body[data-view]` = vue en cours. Accueil : `.home-flow` réordonné par `order`. `.app` garde `calc(72px + env(safe-area-inset-bottom))` en bas (barre du bas ≈ 63 px).
+- **Styles découpés (v3.42)** : l’ancien `style.css` (3 169 lignes) = 10 fichiers `css/01-base.css` … `css/10-capturer.css`, chargés dans cet ordre par `index.html` (et `labo.html`). **L’ordre compte** (une règle plus bas l’emporte à égalité) : on n’a rien déplacé, les morceaux bout à bout redonnent l’ancien fichier. Nouveau bloc → à la fin du fichier de son sujet s’il doit gagner sur ce qui précède, sinon dans `10-capturer.css` (le dernier) ; nouveau gros sujet → nouveau fichier `11-….css` ajouté après les autres dans `index.html` (avec `?v=`, le service worker le garde tout seul). Garder chaque fichier sous ~500 lignes.
 - Flèche retour `#nav-back` montrée hors des onglets `TABS` de `app.js` ; `history.state.d` = profondeur → `history.back()` si > 0, sinon dernier lien de `.breadcrumb` (caché sur téléphone mais gardé dans chaque page).
 - **Pas de `backdrop-filter` sur un parent de la barre du bas** (ça la fait remonter en haut).
 - `:hover` reste collé après un appui : pas de couleur qui rend un texte illisible ; effets qui dévoilent quelque chose sous `@media (hover: hover) and (pointer: fine)` ; images des cartes manquantes : `-webkit-touch-callout: none` + `contextmenu` bloqué.

@@ -39,7 +39,7 @@ App.games.register('<id>', { id, name, listSets, getSet, getCard, search, versio
 - `registry.js` : passer la ligne en `status: 'actif'`, icône dédiée (nouvelle icône SVG dans `js/icons.js`, trait simple comme les autres), courte description.
 - `index.html` : `<script src="js/games/<id>.js?v=…" defer></script>` à côté des autres adaptateurs ; **CSP** : ajouter tout nouveau domaine dans `connect-src` / `img-src` (sinon bloqué en silence).
 - `sw.js` : si les visuels passent par un nouveau domaine, l'ajouter là où sont mis en cache ceux de One Piece / Riftbound.
-- `css/style.css` : `.g-<id> { --g: linear-gradient(…) }` (couleur de la licence) ; Explorer / Objectifs : la rangée `.game-pick` défile déjà sur téléphone (`sets.showPick`).
+- `css/02-theme.css` : `.g-<id> { --g: linear-gradient(…) }` (couleur de la licence) ; habillage du combat : `css/09-combat-licences.css` ; Explorer / Objectifs : la rangée `.game-pick` défile déjà sur téléphone (`sets.showPick`).
 
 ## Étape 3 — Scanner (Capturer), voir `.claude/rules/scanner-ecran.md` et `reconnaissance.md`
 - `js/views/scan-single.js` : `HINTS.<id>` (exemples de nom et de code) et le message « le code … doit être lisible ».

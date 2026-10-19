@@ -316,7 +316,7 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 ## Organisation des fichiers (pour plus tard)
 
 - `index.html` : la page
-- `css/style.css` : l'apparence
+- `css/` : l'apparence, en 10 fichiers numérotés (`01-base.css` … `10-capturer.css`) chargés dans l'ordre
 - `js/games/` : un fichier par jeu (Pokémon, One Piece, Riftbound, Lorcana, Yu-Gi-Oh! ; Magic… ensuite)
 - `js/games/pokemon-pullrates.js` : les taux de drop et leurs sources
 - `js/views/` : une page du site par fichier
