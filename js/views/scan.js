@@ -377,11 +377,14 @@ App.views.scan = {
        * v3.30 : réglages de netteté. Mise au point continue, centrée sur le cadre jaune ; avec le cadre (une carte),
        * zoom ×2 quand le téléphone le permet : on tient la carte 2× plus loin, à une distance où l'objectif sait faire
        * le point (de près, la plupart des téléphones n'y arrivent pas : c'est ce que font Google Lens et l'appareil photo)
+       * v3.46 (Arnaud : « en carte seule il faut s’éloigner très loin de la carte ») : ×1,4 au lieu de ×2 (carte tenue ~30 % plus près ;
+       * la mise au point des téléphones se fait encore à cette distance)
        */
       sharpen() {
+        const ZOOM = 1.4;
         const c = caps(), set = {};
         if ((c.focusMode || []).includes('continuous')) set.focusMode = 'continuous';
-        if (guide && c.zoom && c.zoom.max >= 1.5) set.zoom = Math.max(c.zoom.min || 1, Math.min(2, c.zoom.max));
+        if (guide && c.zoom && c.zoom.max >= 1.5) set.zoom = Math.max(c.zoom.min || 1, Math.min(ZOOM, c.zoom.max));
         const g = guide && view.querySelector('.scan-guide');
         if (g && poiOk() && set.focusMode) {
           const r = g.getBoundingClientRect(), p = cam.toVideo(r.left + r.width / 2, r.top + r.height / 2);

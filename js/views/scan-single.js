@@ -462,7 +462,14 @@ Object.assign(App.views.scan, {
       if (cardURL) URL.revokeObjectURL(cardURL);
       cardURL = URL.createObjectURL(blob);
       // photo de la carte remplacée par un meilleur cadrage (seulement si ce scan est toujours le scan en cours)
-      const setCard = (b) => { if (!b || !on()) return; tooClose = false; cardBlob = b; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(b); };
+      // (v3.46, Arnaud : « pourquoi tu n'utilises pas le recadrage de fin ? on pense que ça ne va pas marcher ») : la photo à l'écran
+      // est remplacée tout de suite par ce meilleur cadrage (avant : seulement la photo gardée, l'écran montrait encore l'ancienne)
+      const setCard = (b) => { if (!b || !on()) return; tooClose = false; cardBlob = b; if (cardURL) URL.revokeObjectURL(cardURL); cardURL = URL.createObjectURL(b);
+        const ph = view.querySelector('.bphoto'); if (!ph) return;
+        let im = ph.querySelector('img');
+        if (!im) { im = document.createElement('img'); im.alt = 'Ta carte'; const cv = ph.querySelector('canvas'); if (cv) cv.replaceWith(im); else ph.prepend(im); }
+        im.src = cardURL;
+      };
       showScan(cardURL, 'Lecture de la carte…');
       results.innerHTML = ''; setStatus(poorHtml(poor)); // (photo ratée : dit tout de suite, sans attendre l'échec de la lecture)
       const vr = view.getBoundingClientRect(); // toute la carte visible pendant la recherche

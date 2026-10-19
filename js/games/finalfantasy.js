@@ -270,10 +270,30 @@
   const CODE_ZONES = [[0.935, 0.985, 6, 'sharp', 0.3, 0.7], [0.935, 0.985, 6, 'invert', 0.3, 0.7], [0.925, 0.99, 5, 'otsu', 0.25, 0.75], [0.92, 0.995, 4, 'sharp', 0.2, 0.8]];
   const NAME_ZONES = [[0.025, 0.085, 2.5, 'sharp', 0.2, 0.85], [0.025, 0.085, 2.5, 'invert', 0.2, 0.85]];
   const OCR_BANDS = [0.925, 0.935, 0.945, 0.955].map((y) => [y, y + 0.04, 0.28, 0.72]);
+  // v3.46 : le nom en haut aussi (police étroite, souvent sur une illustration sombre : Tesseract n'y lit rien, PaddleOCR « Vayne »)
+  const NAME_BANDS = [[0.02, 0.1, 0.15, 0.75]];
   async function ocrTexts(b) {
     const O = App.recognizerParts && App.recognizerParts.codeOcr;
-    const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.91, 1, 0.2, 0.8]] }).catch(() => null) : null;
+    const rd = O ? await O.read(b, [...OCR_BANDS, ...NAME_BANDS], { zones: [[0.91, 1, 0.2, 0.8], [0, 0.12, 0.1, 0.9]] }).catch(() => null) : null;
     return rd ? rd.texts : [];
+  }
+  /**
+   * v3.46 (Vayne d'Arnaud, carte sombre tenue en main, plusieurs essais « pas reconnue ») : le détourage n'a pas trouvé la carte
+   * (bords peu contrastés : note 7 pour un seuil de 10–15) → lecture faite sur toute la photo, où le bas n'est pas le bas de la carte.
+   * Ici : meilleur cadre en forme de carte dans la photo (`findCard`, perspective retirée 88/63 ± 0,1, ≥ 12 % de la photo), remis à plat.
+   */
+  async function findCrop(src) {
+    try {
+      const R = App.recognizer, bmp = await createImageBitmap(src), k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const r = R.findCard(c, {}); if (!r || !r.quad) return null;
+      const px = r.quad.map(([x, y]) => [x * c.width, y * c.height]);
+      const area = Math.abs(px.reduce((s, p, i) => { const q = px[(i + 1) % 4]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2 / (c.width * c.height);
+      if (area < 0.12 || area > 0.97 || Math.abs(R.trueRatio(px, c.width, c.height) - 88 / 63) > 0.1) return null;
+      const w = Math.min(1000, Math.round(Math.hypot(px[1][0] - px[0][0], px[1][1] - px[0][1])));
+      return await new Promise((res) => R.warpQuad(c, px, w).toBlob(res, 'image/jpeg', 0.92));
+    } catch (e) { return null; }
   }
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/ff-index ----------
@@ -391,6 +411,16 @@
       texts.push(...t); read.push(...t.map(codesIn));
       if (anyCode() && crop) betterCrop = crop;
     }
+    // ni code ni nom lus : la carte cherchée dans la photo elle-même (détourage raté), puis relue — elle sert ensuite à la comparaison
+    const nameIn = async (ts) => { const nm = await names(); return ts.some((t) => String(t || '').split('\n').some((l) => nm.has(norm(l)))); };
+    if (!anyCode() && !(await nameIn(texts))) {
+      for (const src of [...new Set([blob, original, context].filter(Boolean))]) {
+        statusFn('Recherche de la carte dans la photo…');
+        const fc = await findCrop(src); if (!fc) continue;
+        const t = await ocrTexts(fc); texts.push(...t); read.push(...t.map(codesIn));
+        if (anyCode() || await nameIn(t)) { betterCrop = fc; blob = fc; break; }
+      }
+    }
     if (original && !context && !anyCode()) {
       statusFn('Lecture du code (autre cadrage)…');
       const t = await R.readZones(original, ['full']).catch(() => []);
@@ -422,9 +452,17 @@
     for (const c of codes.slice(0, 3)) { const [s, n] = c.split('|'); cands.push(...(await byCode(s, n))); }
     const codeIds = new Set(codes.map(idOf).filter(Boolean));
     if (nameOk && cands.length) { const ok = cands.filter((c) => nameIds.includes(c.id)); if (ok.length) agreed = true; }
+    // code et nom en désaccord (« 8-022 » lu, nom « Vayne » : le 9 pris pour un 8) : la carte de ce nom au même numéro passe devant
+    // (v3.46, Vayne 9-022L d'Arnaud)
+    if (nameOk && cands.length && !agreed) {
+      const nums = new Set(codes.map((c) => c.split('|')[1]));
+      const fix = (await fromIds(nameIds)).filter((c) => nums.has(String(c.localId).slice(0, 3)));
+      if (fix.length) { for (const c of fix) c.codeFix = true; cands = [...fix, ...cands]; agreed = true; }
+    }
     if (!cands.length && nameOk) cands = (await fromIds(nameIds)).sort((a, b) => ((b.setId === setId) - (a.setId === setId)) || String(b.set.sortKey).localeCompare(String(a.set.sortKey)));
     const seen = new Set(); cands = cands.filter((x) => !seen.has(x.id) && seen.add(x.id));
-    cands.sort((a, b) => (codeIds.has(b.id) - codeIds.has(a.id)) || ((nameIds.includes(b.id)) - (nameIds.includes(a.id))));
+    const rk = (c) => (c.codeFix ? 3 : 0) + (codeIds.has(c.id) ? 2 : 0) + (nameIds.includes(c.id) ? 1 : 0);
+    cands.sort((a, b) => rk(b) - rk(a));
     for (const c of cands) { c.numOk = codeIds.has(c.id); c.ofOk = c.numOk; }
     if (cands.length > 1) {
       statusFn('Comparaison des illustrations…');
@@ -432,6 +470,7 @@
       const pool = cands.slice(0, 24), vis = await R.resemblanceMany(blob, pool, thumb).catch(() => new Map());
       for (const c of cands) c.visual = vis.has(c.id) ? vis.get(c.id) : null;
       cands.sort((a, b) => (Math.round(((b.visual ?? -1) - (a.visual ?? -1)) * 16)) || (codeIds.has(b.id) - codeIds.has(a.id)) || (a.alt - b.alt));
+      if (cands.some((c) => c.codeFix)) cands.sort((a, b) => (rk(b) - rk(a)) || ((b.visual ?? -1) - (a.visual ?? -1))); // (nom + numéro lus : devant une illustration à peine plus proche)
     }
     if (nameOk) for (const x of cands) x.nameScore = nameIds.includes(x.id) ? 1 : 0;
     let top = cands[0];
