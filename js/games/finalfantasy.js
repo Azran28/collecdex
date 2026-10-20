@@ -277,24 +277,8 @@
     const rd = O ? await O.read(b, [...OCR_BANDS, ...NAME_BANDS], { zones: [[0.91, 1, 0.2, 0.8], [0, 0.12, 0.1, 0.9]] }).catch(() => null) : null;
     return rd ? rd.texts : [];
   }
-  /**
-   * v3.46 (Vayne d'Arnaud, carte sombre tenue en main, plusieurs essais « pas reconnue ») : le détourage n'a pas trouvé la carte
-   * (bords peu contrastés : note 7 pour un seuil de 10–15) → lecture faite sur toute la photo, où le bas n'est pas le bas de la carte.
-   * Ici : meilleur cadre en forme de carte dans la photo (`findCard`, perspective retirée 88/63 ± 0,1, ≥ 12 % de la photo), remis à plat.
-   */
-  async function findCrop(src) {
-    try {
-      const R = App.recognizer, bmp = await createImageBitmap(src), k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
-      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-      const r = R.findCard(c, {}); if (!r || !r.quad) return null;
-      const px = r.quad.map(([x, y]) => [x * c.width, y * c.height]);
-      const area = Math.abs(px.reduce((s, p, i) => { const q = px[(i + 1) % 4]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2 / (c.width * c.height);
-      if (area < 0.12 || area > 0.97 || Math.abs(R.trueRatio(px, c.width, c.height) - 88 / 63) > 0.1) return null;
-      const w = Math.min(1000, Math.round(Math.hypot(px[1][0] - px[0][0], px[1][1] - px[0][1])));
-      return await new Promise((res) => R.warpQuad(c, px, w).toBlob(res, 'image/jpeg', 0.92));
-    } catch (e) { return null; }
-  }
+  // meilleur cadre en forme de carte dans la photo (détourage raté), remis à plat — v3.46, commun : js/games/card-tools.js
+  const findCrop = (src) => App.cardTools.findCrop(src);
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/ff-index ----------
   const FF_INDEX_V = 2;
@@ -312,23 +296,14 @@
     const D = await data(), code = String(c.code || '').split('/')[0];
     return fromIds((D.bySet.get('Re') || []).filter((k) => k.b && k.b.toUpperCase() === code.toUpperCase()).map((k) => k.id));
   }
-  async function cropQuad(blob, quad) {
-    if (!quad || quad.some(([x, y]) => x < -0.06 || x > 1.06 || y < -0.06 || y > 1.06)) return null;
-    return App.visual.quadCrop(blob, quad.map(([x, y]) => [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))]));
-  }
+  const cropQuad = (blob, quad) => App.cardTools.cropQuad(blob, quad);
   /**
    * v3.44 (Arnaud : Chocobo brillant coupé à gauche et en bas ; page 1 : Valseur 2 rétrécie) : sur une carte brillante ou sombre, les
    * coins trouvés par l'illustration déraillent parfois (proportions vraies 1,58 au lieu de 1,40). Coins dont la forme, perspective
    * retirée (`trueRatio`), n'est pas celle d'une carte (88/63 ± 0,1 ; cartes justes : 1,35–1,47) → refusés : la photo garde son
    * détourage (carte seule) ou la place donnée par la page (classeur, `scan-batch-realign › refitSure`).
    */
-  const sizeOf = async (im) => { try { const b = await createImageBitmap(im); return [b.width, b.height]; } catch (e) { return null; } };
-  async function cardShaped(quad, im) {
-    const R = App.recognizer, wh = quad && R.trueRatio ? await sizeOf(im) : null;
-    if (!wh) return !!quad;
-    const r = R.trueRatio(quad.map(([x, y]) => [x * wh[0], y * wh[1]]), wh[0], wh[1]);
-    return !(r > 0) || Math.abs(r - 88 / 63) <= 0.1;
-  }
+  const cardShaped = (quad, im) => App.cardTools.cardShaped(quad, im); // (commun : js/games/card-tools.js)
   async function visualPass(blob, cands, codes, context = null, setId = '') {
     const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
     const grow = async (r, im) => { if (r && r.quad) { if (!(await cardShaped(r.quad, im))) { r.quad = null; r.crop = null; return r; } r.crop = await cropQuad(im, r.quad).catch(() => null) || r.crop; } return r; };
@@ -357,33 +332,12 @@
    * Lulu 0,45 ; Hyoh 0,39 pas vue) ou note ≥ 1,5, jamais « sûr ». Renvoie { holo, sure, score, chroma, lap, w } ou null.
    */
   const FOIL_Z = [[0.08, 0.92, 0.1, 0.55], [0.05, 0.95, 0.9, 0.98]];
-  function foilFeat(src, W, H) {
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(src, 0, 0, W, H);
-    const d = g.getImageData(0, 0, W, H).data, N = W * H, c0 = new Float32Array(N), c1 = new Float32Array(N), L = new Float32Array(N);
-    for (let i = 0; i < N; i++) { const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2]; c0[i] = r - gg; c1[i] = (r + gg) / 2 - b; L[i] = (r + gg + b) / 3; }
-    return FOIL_Z.map(([x0, x1, y0, y1]) => {
-      let n = 0, ch = 0, lp = 0;
-      for (let y = Math.round(y0 * H) + 2; y < y1 * H - 2; y++) for (let x = Math.round(x0 * W) + 2; x < x1 * W - 2; x++) {
-        const i = y * W + x;
-        lp += Math.abs(4 * L[i] - L[i - 1] - L[i + 1] - L[i - W] - L[i + W]); n++;
-        if (L[i] < 40) continue;
-        let m0 = 0, m1 = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const j = i + dy * W + dx; m0 += c0[j]; m1 += c1[j]; }
-        ch += Math.hypot(c0[i] - m0 / 25, c1[i] - m1 / 25);
-      }
-      return n ? [ch / n, lp / n] : [0, 0];
-    });
-  }
   async function foil(blob, card) {
     if (!blob || !card || !card.variants || !card.variants.holo || !card.variants.normal) return null;
     try {
-      const p = await createImageBitmap(blob), W = Math.min(900, p.width), H = Math.round(W * 88 / 63);
-      const r = await fetch(img.card(card, 'high')); if (!r.ok) return null;
-      const o = await createImageBitmap(await r.blob());
-      const P = foilFeat(p, W, H), O = foilFeat(o, W, H);
-      const chroma = Math.max(...P.map((z, k) => z[0] / Math.max(0.3, O[k][0]))), lap = P[0][1] / Math.max(1, O[0][1]);
-      const score = Math.round((chroma + lap) * 100) / 100, big = W >= 600;
-      return { holo: big ? score >= 3 : lap >= 0.44 || score >= 1.5, sure: big && (score >= 4 || score <= 2.4), score, chroma: Math.round(chroma * 100) / 100, lap: Math.round(lap * 100) / 100, w: W };
+      const m = await App.cardTools.foilMeasure(blob, img.card(card, 'high'), FOIL_Z); if (!m) return null; // (mesure commune : js/games/card-tools.js)
+      const { score, chroma, lap, w: W } = m, big = W >= 600;
+      return { holo: big ? score >= 3 : lap >= 0.44 || score >= 1.5, sure: big && (score >= 4 || score <= 2.4), score, chroma, lap, w: W };
     } catch (e) { return null; }
   }
 

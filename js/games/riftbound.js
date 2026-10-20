@@ -371,7 +371,9 @@
       // passait pour le bord → carte zoomée, coupée : Fizz et Poro d'Arnaud) ; c'est la photo d'origine (context) qui servira
       if (E.some(([x, y]) => x < 0.03 || x > 0.97 || y < 0.03 || y > 0.97)) return null;
       // détecteur de bords appris au labo (recognizer-edges.js), guidé par les coins trouvés par l'image
-      const sq = App.recognizer.snapQuad ? App.recognizer.snapQuad(c, E) : null;
+      let sq = App.recognizer.snapQuad ? App.recognizer.snapQuad(c, E) : null;
+      // (v3.49, comme Final Fantasy : des bords qui n'ont pas la forme d'une carte, perspective retirée, sont refusés)
+      if (sq && !(await App.cardTools.cardShaped(sq, c))) sq = null;
       if (sq) {
         const q = sq.map(([x, y]) => [x * c.width, y * c.height]), qw = (Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) + Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1])) / 2;
         const out = App.recognizer.warpQuad(c, q, Math.min(900, Math.max(240, Math.round(qw))));
@@ -381,11 +383,13 @@
       const r = App.recognizer.cutCard(c, { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }, { expect: E });
       if (!r || !r.canvas || r.fit < 0.45 || !r.quad) return null;
       if (r.quad.some((p, i) => Math.hypot(p[0] - E[i][0], p[1] - E[i][1]) > 0.12)) return null;
+      if (!(await App.cardTools.cardShaped(r.quad, c))) return null;
       return await new Promise((res) => r.canvas.toBlob(res, 'image/jpeg', 0.92));
     } catch (e) { return null; }
   }
   async function visualPass(blob, cands, codes, context = null, setId = '') {
     const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
+    if (o && o.quad && !(await App.cardTools.cardShaped(o.quad, blob))) { o.quad = null; o.crop = null; } // (v3.49)
     const top = o && o.cands[0];
     // carte reconnue : vrais bords cherchés autour des coins trouvés par l'image (d'abord sur la photo elle-même)
     const edge = top && top.orb >= V.SURE ? await edgeCrop(blob, o.quad) : null;
@@ -449,6 +453,16 @@
       for (const alt of await otherCrops(original)) {
         const t = await R.readZones(alt.blob, alt.zones); texts.push(...t); read.push(...t.map(codesIn));
         if (anyCode()) { betterCrop = alt.asPhoto ? alt.blob : null; break; }
+      }
+    }
+    // v3.49 (comme Final Fantasy v3.46) : aucun code lu → la carte cherchée dans la photo elle-même (détourage raté), puis relue
+    // (pas le nom : Riot ne publie que les noms anglais)
+    if (!anyCode()) {
+      for (const src of [...new Set([blob, context ? null : original].filter(Boolean))]) { // (classeur : la case seule, pas ses voisines)
+        statusFn('Recherche de la carte dans la photo…');
+        const fc = await App.cardTools.findCrop(src); if (!fc) continue;
+        const t = await ocrTexts(fc); texts.push(...t); read.push(...t.map(codesIn));
+        if (anyCode()) { betterCrop = fc; blob = fc; break; }
       }
     }
     if (!anyCode() && !(context && early)) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }

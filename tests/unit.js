@@ -484,6 +484,20 @@ test('Import : lignes Final Fantasy (Collectr, Cardmarket)', async (App) => {
   eq(m2.card && m2.card.id, 'pr-112', 'promo par son code');
 });
 
+// ---------- Outils de lecture communs aux licences (v3.49, js/games/card-tools.js) ----------
+test('lecture : outils communs (forme de carte, nom lu, code corrigé par le nom)', async (App) => {
+  await App.need('reco');
+  const T = App.cardTools, c = document.createElement('canvas'); c.width = 630; c.height = 880;
+  ok(await T.cardShaped([[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]], c), 'carte vue de face : forme de carte');
+  ok(!(await T.cardShaped([[0.1, 0.1], [0.9, 0.1], [0.9, 0.5], [0.1, 0.5]], c)), 'cadre deux fois trop court : refusé');
+  eq(await T.cropQuad(c, [[-0.2, 0], [1, 0], [1, 1], [0, 1]]), null, 'coins loin hors de l’image : pas de découpe');
+  const nm = new Map([['ariel', new Set(['1-1'])], ['tadashi hamada', new Set(['6-155'])]]);
+  eq(T.bestName(['TADASHl HAMADA', '6-155'], nm).k, 'tadashi hamada', 'nom mal lu retrouvé');
+  const fx = await T.codeFix(['6-155'], new Set(['155']), async (ids) => ids.map((id) => ({ id, localId: '155' })), (x) => x.localId);
+  ok(fx && fx[0].id === '6-155' && fx[0].codeFix, 'carte de ce nom au même numéro');
+  for (const g of ['onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul']) ok(typeof App.games.get(g).recognize === 'function', `lecture ${g}`);
+});
+
 // ---------- Wankul (v3.48) : cartes en français, visuels du site, codes imprimés, dos, combattant, cartes de pioche, import ----------
 test('index Wankul (data/wk-index) cohérent', async () => {
   const m = await checkIndex('wk-index');

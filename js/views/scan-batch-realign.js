@@ -37,7 +37,7 @@ App.scanBatchParts.realign = (X, { alive, dims, esc, setStatus, urls }) => {
    * l'illustration sont parfois de travers (Valseur 2 : carte rétrécie, 8 % de la diagonale ; Ace : 5,5 %) alors que les autres
    * cartes de la page sont justes (≤ 2,2 %) → une carte sûre dont les coins s'écartent de ≥ 6 % de la place que lui donne la page
    * (grille calculée sur les cartes sûres) est recadrée sur cette place. Mesuré : Valseur 2 8 → 2,2 %, Ace 5,5 → 3,1 % ; les 7 autres
-   * (écart ≤ 4,2 %) gardent leurs propres coins (1,1–2,2 %). Seulement Final Fantasy pour l'instant (pas mesuré ailleurs).
+   * (écart ≤ 4,2 %) gardent leurs propres coins (1,1–2,2 %). v3.49 : toutes les licences (mesuré sur les pages de chacune).
    */
   async function refitSure(H, cols) {
     const img = S.photo && S.photo.img; if (!img) return;
@@ -91,7 +91,7 @@ App.scanBatchParts.realign = (X, { alive, dims, esc, setStatus, urls }) => {
     // (mesuré sur les photos d'Arnaud : 0,016–0,036 par carte, sans carte aberrante → seuil 0,04)
     if (!F || F.mean > 0.04) return;
     const H = F.h;
-    if (S.game === 'finalfantasy') await refitSure(H, cols);
+    if (S.game !== 'pokemon') await refitSure(H, cols); // (v3.49 : toutes les licences qui donnent les coins de leurs cartes)
     // écart entre la nouvelle grille et l'ancienne (en hauteur de case) : rien à faire si elle était déjà bonne
     const quads = S.cells.map((c) => slot(c.i, cols).map(([x, y]) => H(x, y)));
     const dev = S.cells.map((c) => {

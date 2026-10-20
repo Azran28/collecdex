@@ -443,12 +443,14 @@
       return r;
     };
     const o = await V.check(blob, cands, visualOpts(codes, setId));
-    if (o && o.quad) { o.quad = fullQuad(o.quad); o.crop = await cropQuad(blob, o.quad).catch(() => null) || o.crop; }
+    const shaped = (q, im) => App.cardTools.cardShaped(q, im); // (v3.49, comme Final Fantasy : coins en forme de carte seulement)
+    if (o && o.quad) { o.quad = fullQuad(o.quad); if (await shaped(o.quad, blob)) o.crop = await cropQuad(blob, o.quad).catch(() => null) || o.crop; else { o.quad = null; o.crop = null; } }
     await expand(o);
     const top = o && o.cands[0];
     if (!context) return o;
     if (top && top.orb >= V.SURE) {
-      const cq = o.url ? fullQuad(await V.quadOn(context, top, o.url).catch(() => null)) : null;
+      let cq = o.url ? fullQuad(await V.quadOn(context, top, o.url).catch(() => null)) : null;
+      if (cq && !(await shaped(cq, context))) cq = null;
       if (cq) o.ctxQuad = cq;
       const crop = cq ? await cropQuad(context, cq).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
@@ -457,7 +459,7 @@
     // alentours ; v3.28 : gardés dès que l'image y est nette (avant : seulement « sûre », jamais le cas d'une carte réimprimée
     // au même dessin → « Je n'ai pas reconnu la carte »)
     const w = await V.check(context, cands, visualOpts(codes, setId)).catch(() => null);
-    if (w && w.quad) { w.quad = fullQuad(w.quad); w.crop = await cropQuad(context, w.quad).catch(() => null) || w.crop; w.ctxQuad = w.quad; }
+    if (w && w.quad) { w.quad = fullQuad(w.quad); if (await shaped(w.quad, context)) { w.crop = await cropQuad(context, w.quad).catch(() => null) || w.crop; w.ctxQuad = w.quad; } else { w.quad = null; w.crop = null; } }
     await expand(w);
     const wt = w && w.cands[0];
     return wt && (wt.confident || (wt.orb || 0) >= Math.max(V.SURE, (top && top.orb) || 0)) ? w : o;
@@ -617,6 +619,7 @@
   const rarTxt = (c) => (c && c.rarLook ? `nom ${c.rarLook === 'gold' ? 'doré' : c.rarLook === 'silver' ? 'argenté' : 'sans dorure'}` : '');
 
   // v3.40 — bandes du code (sous l'illustration à droite, la carte n'est pas toujours recadrée au pixel près) et du passcode
+  const NAME_BANDS = [[0.025, 0.125, 0.04, 0.82]];
   const OCR_BANDS = [...Array.from({ length: 11 }, (_, i) => 0.68 + i * 0.01).map((y) => [y, y + 0.035, 0.45, 0.99]), [0.93, 0.975, 0, 0.42], [0.95, 0.995, 0, 0.42]];
   let lexMemo = null;
   /**
@@ -646,6 +649,10 @@
       const d = O.decide(await O.snap(rd, await lexicon()), { min: -6 });
       if (d && d.sure) out.snapped = [d.key, 1.2];
     }
+    // (v3.49, comme Final Fantasy v3.46 : le nom aussi, en haut, lu à part — pas mêlé à la lecture rapprochée des codes ;
+    //  Tesseract le lit mal sur les cartes sombres ou brillantes)
+    const rn = await O.read(blob, NAME_BANDS, { zones: [[0.01, 0.14, 0, 0.86]] }).catch(() => null);
+    if (rn) out.push(...rn.texts);
     return out;
   }
 
@@ -696,6 +703,16 @@
       for (const alt of await otherCrops(original)) {
         const t = await R.readZones(alt.blob, alt.zones); texts.push(...t); read.push(...t.map(codesIn));
         if (anyKey()) { betterCrop = alt.asPhoto ? alt.blob : null; break; }
+      }
+    }
+    // v3.49 (comme Final Fantasy v3.46) : ni code ni nom lus → la carte cherchée dans la photo elle-même (détourage raté), puis relue
+    const T = App.cardTools, nm0 = await names();
+    if (!anyKey() && T.bestName(texts, nm0, { contains: 8 }).s < 0.8) {
+      for (const src of [...new Set([blob, context ? null : original].filter(Boolean))]) { // (classeur : la case seule, pas ses voisines)
+        statusFn('Recherche de la carte dans la photo…');
+        const fc = await T.findCrop(src); if (!fc) continue;
+        const t = await ocrCodes(fc); texts.push(...t); read.push(...t.map(codesIn)); if (t.snapped) read.push([t.snapped]);
+        if (anyKey() || T.bestName(t, nm0, { contains: 8 }).s >= 0.8) { betterCrop = fc; blob = fc; break; }
       }
     }
     // votes : code (« RGBT-007 ») ou passcode (« #41160533 ») → poids

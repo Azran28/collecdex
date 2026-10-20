@@ -388,23 +388,31 @@
   // voisines gênent le réseau de neurones) ; ses vrais bords sont pris dans les alentours, où elle est entière même si la grille l'a
   // coupée ; et si la case ne donne rien de sûr, on cherche dans les alentours (grille très décalée)
   async function visualPass(blob, cands, codes, context = null) {
-    const V = App.visual, o = await V.check(blob, cands, visualOpts(codes));
+    const V = App.visual, T = App.cardTools, o = await V.check(blob, cands, visualOpts(codes));
+    // (v3.49, comme Final Fantasy : coins par l'image gardés seulement s'ils ont la forme d'une carte — cartes sombres, brillantes)
+    if (o && o.quad && !(await T.cardShaped(o.quad, blob))) { o.quad = null; o.crop = null; }
     if (!context || !o) return o;
     const top = o.cands[0];
     if (top && top.orb >= V.SURE) {
-      const crop = o.url ? await V.cropOn(context, top, o.url).catch(() => null) : null;
+      // v3.49 : coins de la carte dans les alentours de la case (ctxQuad, comme les autres licences) → recalage de la grille du
+      // classeur (scan-batch-realign.js) ; la carte y est entière même quand la case l'a coupée : c'est elle qui donne la photo
+      let cq = o.url ? await V.quadOn(context, top, o.url).catch(() => null) : null;
+      if (cq && !(await T.cardShaped(cq, context))) cq = null;
+      if (cq) o.ctxQuad = cq;
+      // (photo : recadrage en 2 passes de cropOn, au plus près de la carte, comme avant)
+      const crop = cq && o.url ? await V.cropOn(context, top, o.url).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
     }
     const w = await V.check(context, cands, visualOpts(codes)).catch(() => null);
+    if (w && w.quad && !(await T.cardShaped(w.quad, context))) { w.quad = null; w.crop = null; }
+    if (w && w.quad) w.ctxQuad = w.quad;
     return w && w.cands[0] && w.cands[0].confident ? w : o;
   }
   // v3.40 : bandes fines du code (en bas à droite) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
   const OCR_BANDS = [0.925, 0.935, 0.945, 0.955].map((y) => [y, y + 0.04, 0.55, 0.98]);
-  async function ocrTexts(b) {
-    const O = App.recognizerParts && App.recognizerParts.codeOcr;
-    const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.93, 0.99, 0.55, 1]] }).catch(() => null) : null;
-    return rd ? rd.texts : [];
-  }
+  // v3.49 (comme Final Fantasy v3.46) : le nom aussi (en gros au-dessus des types : Tesseract le lit mal sur les cartes sombres)
+  const NAME_BANDS = [[0.8, 0.88, 0.1, 0.9]];
+  const ocrTexts = (b) => App.cardTools.readBands(b, [...OCR_BANDS, ...NAME_BANDS], [[0.93, 0.99, 0.55, 1], [0.76, 0.92, 0.05, 0.95]]);
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null, onCrop = null } = {}) {
     const R = App.recognizer;
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte (v2.94) : si elle est sûre et que
@@ -414,8 +422,10 @@
     statusFn('Lecture du code de la carte…');
     // v3.40 : code lu par PaddleOCR d'abord (labo : 10 codes sur 12 contre 7 pour Tesseract) ; Tesseract lit toujours le nom,
     // et le code seulement si PaddleOCR ne l'a pas trouvé
-    const pt = await ocrTexts(blob);
-    const texts = [...pt, ...(await R.readZones(blob, pt.some((t) => codesIn(t).codes.length) ? NAME_ZONES : [...CODE_ZONES, ...NAME_ZONES]))];
+    const pt = await ocrTexts(blob), T = App.cardTools, nm0 = await names();
+    // (v3.49 : code et nom déjà lus par PaddleOCR → Tesseract n'est plus nécessaire)
+    const ptCode = pt.some((t) => codesIn(t).codes.length), ptName = T.bestName(pt, nm0, { contains: 4 }).s >= 0.9;
+    const texts = [...pt, ...(ptCode && ptName ? [] : await R.readZones(blob, ptCode ? NAME_ZONES : [...CODE_ZONES, ...NAME_ZONES]))];
     let read = texts.map(codesIn), betterCrop = null;
     const DON_RE = /CARTE\s*D[O0]N\s*!|votre\s+tour\s*\+\s*1\s*[0O]\s*[0O]\s*[0O]/i;
     // (« 1 carte DON!! redressée… » est écrit sur beaucoup d'Événements : God Thread et Little Black Bears d'Arnaud passaient pour des DON!!
@@ -426,7 +436,7 @@
     if (early && !read.some((r) => r.codes.length) && !donOnly()) {
       statusFn('Vérification par l’image…');
       const e = await early; // (toutes les versions du même code y sont comparées avant « sûre » : twinsOf)
-      if (e && e.cands[0] && e.cands[0].confident) return { info: { code: baseOf(e.cands[0].id), name: '', votes: {}, crop: e.crop, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
+      if (e && e.cands[0] && e.cands[0].confident) return { info: { code: baseOf(e.cands[0].id), name: '', votes: {}, crop: e.crop, ctxQuad: e.ctxQuad, orb: e.best, read: 'reconnue à l’image ✓' }, cands: e.cands.slice(0, 40) };
       // pas sûre (jumelle au même dessin…) mais l'image a trouvé les vrais bords : le code est relu sur la carte pile sur ses bords
       // (v3.02 : bien plus sûr et plus rapide que les autres cadrages, ~7 s par carte gagnées en classeur)
       if (e && e.crop) {
@@ -443,6 +453,15 @@
       for (const alt of await otherCrops(original)) {
         const t = await R.readZones(alt.blob, alt.zones); texts.push(...t); read.push(...t.map(codesIn));
         if (read.some((r) => r.codes.length)) { betterCrop = alt.asPhoto ? alt.blob : null; break; } // carte détourée sûrement : elle servira de photo
+      }
+    }
+    // v3.49 (comme Final Fantasy v3.46) : ni code ni nom lus → la carte cherchée dans la photo elle-même (détourage raté), puis relue
+    if (!read.some((r) => r.codes.length) && !donOnly() && T.bestName(texts, nm0, { contains: 4 }).s < 0.75) {
+      for (const src of [...new Set([blob, context ? null : original].filter(Boolean))]) { // (classeur : la case seule, pas ses voisines)
+        statusFn('Recherche de la carte dans la photo…');
+        const fc = await T.findCrop(src); if (!fc) continue;
+        const t = await ocrTexts(fc); texts.push(...t); read.push(...t.map(codesIn));
+        if (read.some((r) => r.codes.length) || T.bestName(t, nm0, { contains: 4 }).s >= 0.75) { betterCrop = fc; blob = fc; break; }
       }
     }
     if (!read.some((r) => r.codes.length) && !donOnly()) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }
@@ -543,7 +562,7 @@
     // code mal lu mais retrouvé par l'image (« OP05-004 » lu, c'est OP09-004) : on le dit
     const byImg = codes.length && code && !codes.includes(code) && (top.visual >= 0.6 || top.orb >= 25);
     const readTxt = codes.length ? `code ${byImg ? code : codes[0]}${fixed ? ' (corrigé grâce au nom)' : byImg ? ' (corrigé grâce à l’illustration)' : ''}` : numsRead.size ? `numéro ${[...numsRead][0]}` : '';
-    return { info: { code, name: nameOk, votes, crop: betterCrop, cropLater, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
+    return { info: { code, name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
 
   // ---------- Images ----------

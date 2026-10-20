@@ -346,15 +346,17 @@
     } catch (e) { return o; } finally { App.visual.forget(qid); }
   }
   async function visualPass(blob, cands, codes, context = null, setId = '') {
-    const V = App.visual, o = await netRescue(blob, await V.check(blob, cands, visualOpts(codes, setId)));
-    const grow = async (r, img) => { if (r && r.quad) { r.quad = outerQuad(r.quad); r.crop = await cropQuad(img, r.quad).catch(() => null) || r.crop; } return r; };
+    const V = App.visual, T = App.cardTools, o = await netRescue(blob, await V.check(blob, cands, visualOpts(codes, setId)));
+    // (v3.49, comme Final Fantasy : coins par l'image gardés seulement s'ils ont la forme d'une carte — cartes sombres, brillantes)
+    const grow = async (r, img) => { if (r && r.quad) { r.quad = outerQuad(r.quad); if (!(await T.cardShaped(r.quad, img))) { r.quad = null; r.crop = null; return r; } r.crop = await cropQuad(img, r.quad).catch(() => null) || r.crop; } return r; };
     await grow(o, blob);
     const top = o && o.cands[0];
     if (!context || !o) return o;
     if (top && top.orb >= V.SURE) {
       // coins de la carte dans les alentours de la case (ctxQuad) → recalage de la grille du classeur (scan-batch-realign.js) ;
       // la carte y est entière même quand la case l'a coupée : c'est elle qui donne la photo
-      const cq = o.url ? outerQuad(await V.quadOn(context, top, o.url).catch(() => null)) : null;
+      let cq = o.url ? outerQuad(await V.quadOn(context, top, o.url).catch(() => null)) : null;
+      if (cq && !(await T.cardShaped(cq, context))) cq = null;
       if (cq) o.ctxQuad = cq;
       const crop = cq ? await cropQuad(context, cq).catch(() => null) : null;
       return crop ? { ...o, crop } : o;
@@ -370,11 +372,9 @@
    */
   // v3.40 : bandes fines du code (en bas à gauche, texte blanc sur noir) lues par PaddleOCR (recognizer-ocr.js) ; [] si le lecteur n'est pas là
   const OCR_BANDS = [0.93, 0.938, 0.946, 0.955].map((y) => [y, y + 0.04, 0.01, 0.45]);
-  async function ocrTexts(b) {
-    const O = App.recognizerParts && App.recognizerParts.codeOcr;
-    const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.92, 1, 0, 0.5]] }).catch(() => null) : null;
-    return rd ? rd.texts : [];
-  }
+  // v3.49 (comme Final Fantasy v3.46) : le nom aussi, dans le bandeau du milieu (nom + version, texte blanc sur la couleur de l'encre)
+  const NAME_BANDS = [[0.52, 0.645, 0.03, 0.75]];
+  const ocrTexts = (b) => App.cardTools.readBands(b, [...OCR_BANDS, ...NAME_BANDS], [[0.92, 1, 0, 0.5], [0.5, 0.67, 0, 0.8]]);
   async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null, onCrop = null } = {}) {
     const R = App.recognizer, D = await data();
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
@@ -404,6 +404,17 @@
         if (anyCode()) { betterCrop = alt.asPhoto ? alt.blob : null; break; }
       }
     }
+    // v3.49 (comme Final Fantasy v3.46) : ni code ni nom lus → la carte cherchée dans la photo elle-même (détourage raté), puis relue ;
+    // elle sert ensuite à la comparaison
+    const T = App.cardTools, nm0 = await names();
+    if (!anyCode() && T.bestName(texts, nm0, { contains: 8, pairs: true }).s < 0.8) {
+      for (const src of [...new Set([blob, context ? null : original].filter(Boolean))]) { // (classeur : la case seule, pas ses voisines)
+        statusFn('Recherche de la carte dans la photo…');
+        const fc = await T.findCrop(src); if (!fc) continue;
+        const t = await ocrTexts(fc); texts.push(...t); read.push(...t.map(codesIn));
+        if (anyCode() || T.bestName(t, nm0, { contains: 8, pairs: true }).s >= 0.8) { betterCrop = fc; blob = fc; break; }
+      }
+    }
     if (!anyCode() && !(context && early)) { statusFn('Lecture de toute la carte…'); const [full] = await R.readZones(blob, ['full']); texts.push(full); read.push(codesIn(full)); }
     // votes : « série|numéro » → poids ; seuls les codes qui existent comptent
     const votes = {};
@@ -430,9 +441,14 @@
     for (const c of codes.slice(0, 3)) { const [s, n] = c.split('|'); cands.push(...(await byCode(s, n))); }
     const codeIds = new Set(codes.map(idOf).filter(Boolean));
     if (nameOk && cands.length) { const ok = cands.filter((c) => nameIds.includes(c.id)); if (ok.length) agreed = true; }
+    // v3.49 (comme Final Fantasy v3.46) : code et nom en désaccord (chapitre mal lu) → la carte de ce nom au même numéro devant
+    if (nameOk && cands.length && !agreed) {
+      const fx = await App.cardTools.codeFix(nameIds, new Set(codes.map((c) => c.split('|')[1])), fromIds, (c) => String(c.localId));
+      if (fx) { cands = [...fx, ...cands]; agreed = true; }
+    }
     if (!cands.length && nameOk) cands = (await fromIds(nameIds)).sort((a, b) => ((b.setId === setId) - (a.setId === setId)) || String(b.set.sortKey).localeCompare(String(a.set.sortKey)));
     const seen = new Set(); cands = cands.filter((x) => !seen.has(x.id) && seen.add(x.id));
-    cands.sort((a, b) => (codeIds.has(b.id) - codeIds.has(a.id)) || ((nameIds.includes(b.id)) - (nameIds.includes(a.id))));
+    cands.sort((a, b) => ((b.codeFix ? 1 : 0) - (a.codeFix ? 1 : 0)) || (codeIds.has(b.id) - codeIds.has(a.id)) || ((nameIds.includes(b.id)) - (nameIds.includes(a.id))));
     for (const c of cands) { c.numOk = codeIds.has(c.id); c.ofOk = c.numOk; }
     // illustration comparée à la photo (chiots 4a…4e, réimpressions d'un même nom)
     if (cands.length > 1) {
@@ -441,6 +457,7 @@
       const pool = cands.slice(0, 24), vis = await R.resemblanceMany(blob, pool, thumb).catch(() => new Map());
       for (const c of cands) c.visual = vis.has(c.id) ? vis.get(c.id) : null;
       cands.sort((a, b) => (Math.round(((b.visual ?? -1) - (a.visual ?? -1)) * 16)) || (codeIds.has(b.id) - codeIds.has(a.id)) || (a.alt - b.alt));
+      if (cands.some((c) => c.codeFix)) cands.sort((a, b) => ((b.codeFix ? 1 : 0) - (a.codeFix ? 1 : 0)) || ((b.visual ?? -1) - (a.visual ?? -1))); // (nom + numéro lus)
     }
     if (nameOk) for (const x of cands) x.nameScore = nameIds.includes(x.id) ? 1 : 0;
     let top = cands[0];

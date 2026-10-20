@@ -281,20 +281,8 @@
     }
     return out;
   }
-  /** Meilleur cadre en forme de carte dans la photo (détourage raté), remis à plat — comme Final Fantasy (v3.46) */
-  async function findCrop(src) {
-    try {
-      const R = App.recognizer, bmp = await createImageBitmap(src), k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
-      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-      const r = R.findCard(c, {}); if (!r || !r.quad) return null;
-      const px = r.quad.map(([x, y]) => [x * c.width, y * c.height]);
-      const area = Math.abs(px.reduce((s, p, i) => { const q = px[(i + 1) % 4]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2 / (c.width * c.height);
-      if (area < 0.12 || area > 0.97 || Math.abs(R.trueRatio(px, c.width, c.height) - 88 / 63) > 0.1) return null;
-      const w = Math.min(1000, Math.round(Math.hypot(px[1][0] - px[0][0], px[1][1] - px[0][1])));
-      return await new Promise((res) => R.warpQuad(c, px, w).toBlob(res, 'image/jpeg', 0.92));
-    } catch (e) { return null; }
-  }
+  // meilleur cadre en forme de carte dans la photo (détourage raté), remis à plat — v3.46, commun : js/games/card-tools.js
+  const findCrop = (src) => App.cardTools.findCrop(src);
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/wk-index ----------
   const WK_INDEX_V = 1;
@@ -306,18 +294,9 @@
     twinsOf: async () => [], twinKey: (c) => c.id,
     tie: (a, b) => (codes.includes(b.id) - codes.includes(a.id)) || ((b.setId === setId) - (a.setId === setId)) || (a.alt - b.alt),
   });
-  async function cropQuad(blob, quad) {
-    if (!quad || quad.some(([x, y]) => x < -0.06 || x > 1.06 || y < -0.06 || y > 1.06)) return null;
-    return App.visual.quadCrop(blob, quad.map(([x, y]) => [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))]));
-  }
+  const cropQuad = (blob, quad) => App.cardTools.cropQuad(blob, quad);
   // coins par l'image gardés seulement s'ils ont la forme d'une carte, perspective retirée (88/63 ± 0,1) — comme Final Fantasy (v3.44)
-  const sizeOf = async (im) => { try { const b = await createImageBitmap(im); return [b.width, b.height]; } catch (e) { return null; } };
-  async function cardShaped(quad, im) {
-    const R = App.recognizer, wh = quad && R.trueRatio ? await sizeOf(im) : null;
-    if (!wh) return !!quad;
-    const r = R.trueRatio(quad.map(([x, y]) => [x * wh[0], y * wh[1]]), wh[0], wh[1]);
-    return !(r > 0) || Math.abs(r - 88 / 63) <= 0.1;
-  }
+  const cardShaped = (quad, im) => App.cardTools.cardShaped(quad, im); // (commun : js/games/card-tools.js)
   async function visualPass(blob, cands, codes, context = null, setId = '') {
     const V = App.visual, o = await V.check(blob, cands, visualOpts(codes, setId));
     const grow = async (r, im) => { if (r && r.quad) { if (!(await cardShaped(r.quad, im))) { r.quad = null; r.crop = null; return r; } r.crop = await cropQuad(im, r.quad).catch(() => null) || r.crop; } return r; };

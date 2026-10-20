@@ -32,3 +32,4 @@ Même logique que Final Fantasy (voir `finalfantasy.md`) ; ici seulement ce qui 
 ## Mesures (photos d'Arnaud du 20 oct., banc `_tests-scanner/wk-bench.js` : `__wkOne('3')`, `__wkPage('5')`, `__autoOne('wankul/7.webp')`)
 - Cartes seules 3, 4, 7 : **3/3 justes et sûres**, 0,8–1,5 s (code + nom lus). « Toutes » : licence reconnue (1,5–6 s) ; mode Pokémon : bascule sur Wankul (5–6 s).
 - Classeur : page 5 **6/6 terrains sûrs + 3 dos ignorés** (20 s) ; page 6 **8/8 sûres + 1 dos** (18 s) ; photo 8 (gros plan) en « 4 cases » **4/4 sûres** (11 s) — en 3 × 3 elle donne des cases à cheval (normal : ce n'est pas une page).
+- **v3.49** : `findCrop`, `cardShaped`, `cropQuad` dans `js/games/card-tools.js` (communs aux licences).

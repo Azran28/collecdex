@@ -36,7 +36,9 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       const back = await R.looksLikeBack(cell.blob, S.game).catch(() => false);
       // (Final Fantasy, v3.43 : dos sûr aussi — photos d'Arnaud : dos 0,71–0,87, faces ≤ 0,14, 4 455 visuels officiels ≤ 0,2)
       // (Wankul, v3.48 : dos sûr aussi — photos d'Arnaud : dos 0,62–0,87, 958 visuels officiels ≤ 0,24)
-      if (back && (isPk() || S.game === 'finalfantasy' || S.game === 'wankul')) { cell.state = 'dos'; return; } // (Lorcana, v3.24 : comme One Piece — une face très sombre à lune dorée, « Fauchage », ressemble au dos : lue quand même)
+      // (Lorcana, v3.49 : dos sûr aussi — mesuré sur 5 pages d'Arnaud dans Capturer : dos 0,65, 45 faces ≤ 0,28 ; 731 visuels ≤ 0,35.
+      //  One Piece et Yu-Gi-Oh! : lus quand même — faces One Piece jusqu'à 0,54, et 3 faces Yu-Gi-Oh! à 0,87 en classeur)
+      if (back && (isPk() || ['finalfantasy', 'wankul', 'lorcana'].includes(S.game))) { cell.state = 'dos'; return; }
       const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx, viewOf(cell));
       cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
       const cands = await learnt(cell, read);
