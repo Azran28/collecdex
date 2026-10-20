@@ -5,7 +5,7 @@ description: Ajouter une nouvelle licence (un nouvel « univers » de cartes à 
 
 # Ajouter une nouvelle licence à CollecDex
 
-Modèle à suivre : **Lorcana** (`js/games/lorcana.js`, note `.claude/rules/lorcana.md`, commit `59054eb` « v3.21 : 4e licence ») et **Riftbound** (`js/games/riftbound.js`, `.claude/rules/riftbound.md`, commit `087d692`). En cas de doute sur un détail, **relire le diff de ces commits** (`git show 59054eb -- <fichier>`) : chaque branchement s'y voit en quelques lignes.
+Modèle à suivre : **Final Fantasy** (le plus récent et le plus complet : `js/games/finalfantasy.js`, note `.claude/rules/finalfantasy.md`, commits `f0558b7` « v3.43 : 6e licence », puis `ad6fb0e` cadrage + brillant, `6744699` visuels des séries, `b5daaf2` nom lu + carte retrouvée dans la photo, `930363b` cadrage montré pendant l'analyse), **Lorcana** (`lorcana.js`, `lorcana.md`, commit `59054eb`) et **Riftbound** (`riftbound.js`, `riftbound.md`, commit `087d692`). En cas de doute sur un détail, **relire le diff de ces commits** (`git show f0558b7 -- <fichier>`) : chaque branchement s'y voit en quelques lignes. **Lire aussi la section « Acquis des licences précédentes »** plus bas : ce sont les améliorations faites après coup sur une licence, à reprendre d'office pour la suivante.
 
 Règle d'or (CLAUDE.md) : **même logique et même DA que Pokémon** pour chaque licence. On n'adapte que ce qui ne peut pas être reproduit à l'identique, et légèrement. Tout est pensé **téléphone d'abord**.
 
@@ -78,9 +78,26 @@ Ordinateur **et** téléphone (375 × 812) : Explorer (rangée des licences), s�
 
 ## Étape 9 — Noter et mettre en ligne
 - **Nouvelle règle** `.claude/rules/<id>.md` (modèle `lorcana.md` : `paths:` = adaptateur, `registry.js`, outils `ci` ; sections Données / Reconnaissance / Ailleurs ; « Même logique que … ; ici seulement ce qui diffère ») + **une ligne dans le tableau de `CLAUDE.md`** ; ajouter le nom de la licence dans les règles touchées (`combat.md`, `import.md`, `visuel.md`, `certification.md`, `tests.md`, `scanner-ecran.md`).
-- `CLAUDE.md` › Architecture : ajouter l'adaptateur à la liste des `js/games/`.
+- `CLAUDE.md` › Architecture : ajouter l'adaptateur à la liste des `js/games/` (et le fichier `data/XX-cartes.json`, les outils `ci/`, le nombre de badges) ; `docs/LICENCES.md` : passer la licence en « faite ».
 - `LISEZ-MOI.md` (mode d'emploi, simple) et `docs/FEUILLE-DE-ROUTE.md` (version, ce qui manque encore).
 - Version : `sh outils/stamp.sh` ; commit « vX.YY : Ne licence, <Nom> » (auteur `Azran28`) avec, comme `59054eb`, la liste de ce qui a été fait ; `git push origin main` seulement avec l'accord d'Arnaud ; vérifier `version.json` en ligne après ~3 min.
+
+## Acquis des licences précédentes (à reprendre d'office, sans attendre qu'Arnaud le redemande)
+Chaque point a d'abord manqué sur une licence et a été corrigé après une remarque d'Arnaud. Le modèle est dans `finalfantasy.js` (sauf mention contraire).
+- **Lecture du code par PaddleOCR** (v3.40, `reconnaissance.md`) : `ocrTexts(blob)` = `App.recognizerParts.codeOcr.read(…)` sur des bandes serrées autour du code (`OCR_BANDS`) **avant** Tesseract (gardé en secours seulement). Le **nom** est lu aussi par PaddleOCR (`NAME_BANDS`, v3.46) : Tesseract n'y lisait rien sur les cartes sombres.
+- **Le nom corrige le code** (`codeFix`, v3.46) : si le code lu et le nom lu ne désignent pas la même carte (« 8-022 » + « Vayne »), la carte de ce nom au même numéro passe devant.
+- **Carte retrouvée dans la photo** (`findCrop`, v3.46) : quand le détourage échoue et que rien n'est lu, chercher le meilleur cadre en forme de carte (`R.findCard`, perspective retirée par `R.trueRatio`), relire dessus, et garder cette découpe.
+- **Coins par l'image vérifiés** (`cardShaped`, v3.44) : un recadrage tiré de la vérification par l'image n'est gardé que si sa forme, perspective retirée, fait 88/63 ± 0,1. Sinon la photo garde son détourage (cartes sombres ou brillantes : coins trouvés de travers).
+- **Classeur** : `recognize(…, { context })` = la case et ses alentours (carte entière même si la case la coupe) ; résultat de `early` réutilisé (pas une 2ᵉ vérification par l'image) ; `info.ctxQuad` renvoyé → la page est recalée sur les cartes sûres (`scan-batch-realign.js`). Cartes sombres mal recadrées : `refitSure` (pour l'instant `S.game === 'finalfantasy'` : ajouter la licence si ses cartes sont sombres, en le mesurant).
+- **Cadrage montré tout de suite** (`onCrop`, v3.47) : `recognize(blob, st, { …, onCrop })` appelle `onCrop(e.crop)` dès que `early` donne la carte recadrée → la photo à l'écran pendant l'analyse est celle du Dex. Une ligne juste après `const early = …` (copier celle de `finalfantasy.js`). La photo affichée doit toujours être celle qui sera gardée : la remplacer dès qu'un meilleur cadrage est trouvé (`info.crop`, `cropLater`, `setCard`).
+- **Brillant mesuré sur la photo** (v3.44) : si la licence a des cartes en normal et en brillant, exporter `foil(blob, card)` (paillettes comparées au visuel officiel non brillant) et poser `top.foil` à la lecture ; `measureVers` (classeur) et `addScanned` s'en servent seuls (`ad.foil`, `c.foil`). Seuils à mesurer sur ses photos, en carte seule (≥ 600 px) **et** en classeur (~400 px) : ils diffèrent.
+- **Dos** : dire en classeur « dos sûr » (`scan-batch-list › recogOne`, comme Pokémon et Final Fantasy) seulement si les scores séparent nettement dos et faces (vérifier sur tous les visuels officiels) ; sinon lire la carte quand même (One Piece, Lorcana). Dos sous pochette brillante : le noir devient gris, mesurer avec la photo en pochette.
+- **Versions à part** : Full Art, alternatives, promos = cartes distinctes (id `16-001fa`, `localId` « 001 FA »), dans l'index d'images et dans `twinsOf` (sinon jamais trouvées). Promos absentes de la base officielle : les prendre chez TCGplayer (`img: 'tcg:<produit>'`, `tcgplayer-cdn` a le CORS `*`), avec le nom français de la carte d'origine.
+- **Visuel des séries** dès la 1ʳᵉ version (Arnaud l'a réclamé pour Final Fantasy) : le robot pose le n° du sachet (`pk`), l'adaptateur recadre (`PACKS_CROP`, zone mesurée dans le navigateur) ; image refusée (403) → `NO_PACK` = nom de la série.
+- **Zoom de la caméra** (carte seule) : ×1,4 (`scan.js › sharpen`). Ne pas le remonter : à ×2 il fallait s'éloigner beaucoup.
+- **Carnet des scans ratés et corrections retenues** (`scan-memo.js`, v3.36) : marchent seuls pour toute licence, à tester. Le carnet reste sur le téléphone : il n'arrive à Claude que par « Envoyer le carnet à Claude » (Paramètres › Scanner). Le rappeler à Arnaud quand il signale une carte jamais trouvée.
+- **Mesurer le cadrage, pas seulement la reconnaissance** : Arnaud dessine les vrais bords en traits jaunes sur ses photos → `__ffTruthBoxes` (traits cherchés depuis l'intérieur de chaque case, sinon on prend ceux de la voisine) et `__ffPage1Err` (pire coin en % de la diagonale) dans `_tests-scanner/ff-bench.js`. Copier ce banc pour la licence (`__XXOne`, `__XXPage`) ; pour lire l'état du classeur, envelopper `App.scanBatchParts.realign` (il reçoit `X`, donc `X.S.cells`).
+- **Toute la licence vérifiée avant de dire « fini »** (Arnaud, v3.45 : « check bien que tu as tout fait ») : reprendre chaque étape de ce skill et la liste `grep -rn -i "lorcana"` une par une, et le dire dans le message de fin.
 
 ## Pièges déjà rencontrés
 - Un code d'une autre licence lu comme le sien (« 25/165 » Pokémon, « 4/102 » à l'import) → exiger le code **complet** (langue, série) ou un total connu.
@@ -93,3 +110,8 @@ Ordinateur **et** téléphone (375 × 812) : Explorer (rangée des licences), s�
 - Une même illustration pour plusieurs impressions (Yu-Gi-Oh! : réimpressions, raretés) : index **par illustration**, l'image donne la carte et le code lu choisit l'impression (`yugioh.md › choosePrint`) ; penser aux **autres illustrations** d'une même carte (sinon la carte n'est jamais trouvée).
 - Tesseract lit mal les très grandes lettres : agrandissement des zones **d'après la taille de la photo** (lettres ~40 px), bandes fines qui glissent.
 - `stamp.sh` fait recharger les pages ouvertes (le site compare sa version) : pas de `stamp` pendant un long calcul dans le navigateur.
+- Le Bash du PC mange les antislashs (`\d`, `\s`) dans les `sed` : modifier les expressions régulières avec Edit.
+- Après un changement des données, vider le cache `XX1:index` (IndexedDB) ; le service worker peut garder l'ancienne version : le désinscrire et vider les caches avant de tester.
+- Code collé au mot d'avant par la lecture (« REMAKEPR-112 ») : l'expression du code ne doit pas exiger un séparateur devant les préfixes (`PR-`, `Re-`).
+- Bonnes réponses tirées d'une photo annotée : les vérifier à l'œil (les premières mesures Final Fantasy prenaient les traits des cartes voisines).
+- Une carte sombre ou brillante : coins par l'illustration de travers (proportions vraies 1,58 au lieu de 1,40) → `cardShaped`.
