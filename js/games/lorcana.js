@@ -301,7 +301,7 @@
   }
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/lc-index ----------
-  const LC_INDEX_V = 2;
+  const LC_INDEX_V = 3;
   // seuil « sûre » par l'image seule, comme Riftbound (visuels officiels FRANÇAIS ici : même carte, mêmes textes)
   const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
