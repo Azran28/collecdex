@@ -33,3 +33,4 @@ Défi serveur unique `retourne`. `tracker(video, regionFn, {auto})` suit le cadr
 
 ## Labo (`labo-certif.html` + `js/labo-certif.js`, outil de test)
 Fausses vidéos 360×480 (cartes de `_tests-scanner`, dos = photo 04), vrais gestes + tricheries, algorithmes A…H, V/W (= code du site, lampe en essai / bloquante). Banc du 30 sept. soir : **W 91,5 % de vrais gestes certifiés / 84,3 % de triches refusées** (écran sans moiré 98 %) ; A 80,2/59,9 ; E 85,5/72,9. Restent : papiers imprimés 0 % (« lampe+A » les accepte), autre carte 49 %, carte petite 19 %. Page de classeur : plein jour 17 % seulement (lampe invisible). Dans le navigateur caché, `setTimeout` est freiné : le labo rend la main par `MessageChannel`.
+- **Wankul (v3.48)** : dos bleu au logo blanc, mesure dédiée `recognizer-image › wkBackScore` (voir `wankul.md`), ajoutée à `certify.js › backOf`.

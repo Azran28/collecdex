@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Carte « Gemme » (dessinée pour les combats Wankul de CollecDex : ce jeu n'a pas de carte d'énergie ; ses gemmes sont imprimées sur les cartes) -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".42" r=".8"><stop offset="0" stop-color="#4f78e0"/><stop offset=".6" stop-color="#2a49b8"/><stop offset="1" stop-color="#16287a"/></radialGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9a6"/><stop offset=".45" stop-color="#f5b82e"/><stop offset="1" stop-color="#b8700c"/></linearGradient>
+  </defs>
+  <rect width="630" height="880" rx="30" fill="#0d1a52"/>
+  <rect x="18" y="18" width="594" height="844" rx="20" fill="url(#f)" stroke="#f4efe6" stroke-width="6"/>
+  <g transform="translate(315 400)">
+    <path d="M0 -190 150 -60 0 200 -150 -60z" fill="url(#g)" stroke="#7a4a08" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M-150 -60H150M0 -190-55 -60 0 200 55 -60z" fill="none" stroke="#fff3c4" stroke-width="6" stroke-linejoin="round" opacity=".8"/>
+  </g>
+  <rect x="150" y="680" width="330" height="90" rx="16" fill="#f4efe6"/>
+  <text x="315" y="742" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="58" fill="#16287a">GEMME</text>
+</svg>

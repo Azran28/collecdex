@@ -18,6 +18,8 @@ App.badges = (() => {
   const ygNames = (ctx) => ctx.items.filter((i) => i.game === 'yugioh').map((i) => N(i.snap.name));
   // Final Fantasy : noms des cartes possédées (normalisés, « Poussin chocobo (VII) » → « poussin chocobo vii »)
   const ffNames = (ctx) => ctx.items.filter((i) => i.game === 'finalfantasy').map((i) => N(String(i.snap.name).replace(/\s*\(Full Art\)$/, '')));
+  // Wankul : cartes possédées
+  const wkItems = (ctx) => ctx.items.filter((i) => i.game === 'wankul');
   const L = [
     // Taille de la collection
     ['c1', 'Premier pas', 'Ta première carte dans ton Dex', 'sparkles', 1, (x) => x.n >= 1],
@@ -86,6 +88,11 @@ App.badges = (() => {
     ['ff-invoc', 'Invocateur', 'Ifrit, Shiva, Ramuh et Bahamut', 'crystal', 2, (x) => ['ifrit', 'shiva', 'ramuh', 'bahamut'].every((n) => ffNames(x).includes(n))],
     ['ff-mechants', 'Ennemis jurés', 'Séphiroth, Kefka, Kuja et Exdeath', 'crown', 3, (x) => ['sephiroth', 'kefka', 'kuja', 'exdeath'].every((n) => ffNames(x).includes(n))],
     ['ff-legende', 'Légende du Cristal', '3 cartes Légende', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'finalfantasy' && i.snap.rarity === 'l').length >= 3],
+    // Wankul (v3.48 : mêmes idées — les deux héros, une famille, une carte rare à trouver, une rareté haute)
+    ['wk-duo', 'Le duo', 'Une carte Laink et une carte Terracid', 'wankil', 1, (x) => ['laink', 'terracid'].every((n) => wkItems(x).some((i) => N(i.snap.name) === n))],
+    ['wk-terrains', 'Agent immobilier', '20 Terrains Wankul différents', 'wankil', 2, (x) => wkItems(x).filter((i) => i.snap.rarity === 't').length >= 20],
+    ['wk-ticket', 'Ticket d’or', 'Une carte de Gagnant du Ticket d’or', 'star', 3, (x) => wkItems(x).some((i) => i.snap.rarity === 'tor')],
+    ['wk-legende', 'Légende du Wankul', '3 cartes Légendaires (Bronze, Argent ou Or)', 'sparkles', 3, (x) => wkItems(x).filter((i) => ['lb', 'la', 'lo'].includes(i.snap.rarity)).length >= 3],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   const setsCache = {}; // séries de chaque licence

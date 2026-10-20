@@ -21,7 +21,7 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 2. **Star Wars: Unlimited** ✅ peu — A, « 001/252 ».
 3. **Dragon Ball Super Fusion World** ✅ peu — C, s'inspirer de l'adaptateur One Piece.
 4. **Cartes de supermarché** (Dreamworks Carrefour ✅ complète) — D, petites collections en « X/Y », à construire à partir des photos d'Arnaud. Il faudra un outil pour « créer une collection nous-mêmes », qui servira ensuite à toutes les licences D.
-5. **Wankul** ✅ — C/D, très populaire en France.
+5. **Wankul** ✅ — fait en v3.48 (le Wankuldex officiel de wankul.fr a toute la base : en fait **B**).
 6. **Digimon** (✅ ? à retrouver) — B.
 7. **Magic** — A, la plus facile techniquement, mais Arnaud n'a pas de cartes pour tester.
 8. Ensuite : le reste par popularité, en commençant par les A et les B.
@@ -36,6 +36,8 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 | Riftbound ✅ | Riot / UVS Games | Galerie Riot + robot pour les prix | Noms anglais |
 | Disney Lorcana ✅ | Ravensburger | Lorcast / LorcanaJSON | En français (v3.21) |
 | Yu-Gi-Oh! ✅ | Konami | YGOPRODeck | Noms en français (v3.26) |
+| Final Fantasy TCG ✅ | Square Enix | Base officielle + TCGplayer | En français (v3.43) |
+| Wankul ✅ | Wankil Studio | Wankuldex officiel (wankul.fr) | En français, visuels copiés dans le site, pas de prix (v3.48) |
 
 ## 2. Grands TCG actuels (occident)
 | Licence | Éditeur | Popularité | Facilité | Source de données | Numéro | Note |
@@ -55,7 +57,7 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 | Force of Will | Force of Will Co. | ★★☆☆☆ | C | sites de fans (FoW TCG DB) | code de série | |
 | KeyForge | Ghost Galaxy | ★★☆☆☆ | B | Archon Arcana, Decks of KeyForge | — | Cas spécial : chaque deck est unique, on collectionne des decks |
 | Vampire: The Eternal Struggle | Black Chantry | ★☆☆☆☆ | B | KRCG / VEKN (fans, complet) | — | Réimprimé depuis 2018 |
-| Wankul ✅ | Wankil Studio | ★★★☆☆ (France) | C/D | site officiel ou sites de fans (à vérifier) | numérotées par collection | Très populaire chez les jeunes en France |
+| Wankul ✅ | Wankil Studio | ★★★☆☆ (France) | **B** | Wankuldex officiel (wankul.fr › apps/wankul/api/wankuldex, sans CORS, images refusées hors du site) | « STELLAR · LAINK · C#55 » | **Fait en v3.48** ; pas de prix (ni Cardmarket ni TCGplayer) |
 | Panzer Perfume Phantasm ✅ peu | (à vérifier) | ★☆☆☆☆ | D | rien de connu | ? | À regarder avec les cartes d'Arnaud |
 
 ## 3. TCG japonais / anime

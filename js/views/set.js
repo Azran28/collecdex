@@ -10,6 +10,7 @@ App.views.set = {
     let pricesDone = false;
     /** Coût estimé (prix du marché) : pour finir la série, et pour la série complète */
     const costBlock = () => {
+      if (ad.noPrices) return '';
       const official = (c) => { if (ad.isOfficial) return ad.isOfficial(c.localId, set); const n = parseInt(c.localId, 10); return !isNaN(n) && String(n) === String(c.localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
       const counted = App.settings.completion === 'official' ? set.cards.filter(official) : set.cards;
       const pv = (c) => (prices[c.id] && App.util.toEur(prices[c.id].value, prices[c.id].unit)) || 0;
@@ -201,7 +202,7 @@ App.views.set = {
     // Prix de toutes les cartes de la série (en arrière-plan, gardés 24 h en cache)
     let stopped = false;
     const task = App.bg.start(`Prix · ${set.name}`, set.cards.length);
-    App.util.pool(set.cards, 4, async (c) => {
+    App.util.pool(ad.noPrices ? [] : set.cards, 4, async (c) => {
       if (stopped) return;
       const full = await ad.getCard(c.id);
       const p = ad.price(full);

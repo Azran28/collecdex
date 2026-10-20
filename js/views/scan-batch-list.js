@@ -35,7 +35,8 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       // (Événement en pochette : 0,61, vrais dos 0,53–0,58) → la carte est quand même lue, « dos » seulement si rien n’est reconnu
       const back = await R.looksLikeBack(cell.blob, S.game).catch(() => false);
       // (Final Fantasy, v3.43 : dos sûr aussi — photos d'Arnaud : dos 0,71–0,87, faces ≤ 0,14, 4 455 visuels officiels ≤ 0,2)
-      if (back && (isPk() || S.game === 'finalfantasy')) { cell.state = 'dos'; return; } // (Lorcana, v3.24 : comme One Piece — une face très sombre à lune dorée, « Fauchage », ressemble au dos : lue quand même)
+      // (Wankul, v3.48 : dos sûr aussi — photos d'Arnaud : dos 0,62–0,87, 958 visuels officiels ≤ 0,24)
+      if (back && (isPk() || S.game === 'finalfantasy' || S.game === 'wankul')) { cell.state = 'dos'; return; } // (Lorcana, v3.24 : comme One Piece — une face très sombre à lune dorée, « Fauchage », ressemble au dos : lue quand même)
       const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx, viewOf(cell));
       cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
       const cands = await learnt(cell, read);

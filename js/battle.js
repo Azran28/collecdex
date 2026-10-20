@@ -143,10 +143,27 @@ App.battle = (() => {
       type: FF_ELEM[(card.elements || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: haste ? 1 : 0, ko: false, ...extra,
     };
   }
+  /**
+   * Combattant Wankul (v3.48, même moteur, adapté légèrement) : les Personnages combattent (pas les Terrains).
+   * PV = 40 + force × 15 ; type = effigie (Laink → Feu, Terracid → Eau, Invité → Psy, Random → Incolore, Ticket d'or → Électrik) ;
+   * attaque = 10 + force × 8, coût = coût de la carte (1 à 3) ; COMBO = 2ᵉ attaque « Combo » (+20 dégâts, 1 énergie de plus).
+   */
+  const WK_EFF = { l: 'fire', tc: 'water', g: 'psychic', ra: 'colorless', to: 'lightning' };
+  const isWkFighter = (card) => card.kind === 'p' && /^Personnage$/i.test(card.category || '') && card.power != null;
+  function fighterWK(card, extra = {}) {
+    const f = Math.max(1, Math.min(12, +card.power || 1)), cost = Math.min(3, Math.max(1, +card.cost || 1)), combo = /\bCOMBO\b/.test(String(card.text || ''));
+    const hp = Math.min(220, Math.max(40, r10(40 + f * 15)));
+    const attacks = [{ name: 'Attaque', cost, base: Math.max(10, r10(10 + f * 8)), mode: '', noDamage: false, text: '' }];
+    if (combo) attacks.push({ name: 'Combo', cost: Math.min(3, cost + 1), base: Math.max(20, r10(30 + f * 8)), mode: '', noDamage: false, text: 'COMBO : +20 dégâts' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'wankul',
+      type: WK_EFF[card.effigy] || 'colorless', weak: [], res: [], attacks, energy: 0, ko: false, ...extra,
+    };
+  }
   /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy) */
-  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : game === 'wankul' ? isWkFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : game === 'wankul' ? fighterWK(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -274,11 +291,20 @@ App.battle = (() => {
     { n: 4, name: 'Guerrier de la lumière', desc: 'Les cartes Héros · une énergie d’avance', pool: o1(1, 6, 37, 60, 80, 97, 102, 122, 127, 185), bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Légende', desc: 'Les Légendes de Final Fantasy · sors tes meilleures cartes', pool: o1(186, 182, 141, 135, 152, 58, 15, 116), bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Wankul (v3.48 ; Personnages d'Origins, data/wk-cartes.json)
+  const or = (...n) => n.map((x) => `or-${x}`);
+  const LEVELS_WK = [
+    { n: 1, name: 'Viewer', desc: 'Petits personnages d’Origins · il joue un peu au hasard', pool: or(31, 32, 33, 34, 37, 38, 42, 44, 48, 50, 52, 53), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Abonné', desc: 'Personnages aguerris · il attaque toujours au plus fort', pool: or(35, 36, 39, 40, 41, 43, 47, 49, 60, 61, 74, 75, 77, 78), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Modo', desc: 'Peu communes et rares · il connaît tes points faibles', pool: or(83, 84, 87, 89, 92, 93, 94, 100, 118, 121, 135, 136), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Streamer', desc: 'Ultra rares et légendaires · une énergie d’avance', pool: or(161, 162, 165, 166, 168, 170, 173, 174, 145), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Wankil', desc: 'Laink et Terracid en personne · sors tes meilleures cartes', pool: or(149, 150, 179, 180, 135, 136, 161, 165), bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : game === 'wankul' ? LEVELS_WK : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterWK, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, isWkFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, WK_EFF, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, LEVELS_WK, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

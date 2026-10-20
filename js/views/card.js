@@ -84,9 +84,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
           ${priceRows.length ? `<div class="cd-price-main"><b>${euro(priceRows[0][1])}</b><span>${esc(priceRows[0][0].toLowerCase())} Cardmarket</span></div>
             <div class="cd-price-more">${priceRows.slice(1).map(([l, v]) => `<span>${esc(l)} <b>${euro(v)}</b></span>`).join('')}</div>`
             : price ? `<div class="cd-price-main"><b>${price.unit === 'USD' ? '≈ ' : ''}${euro(price.value, price.unit)}</b><span>prix marché ${esc(price.source)}${price.unit === 'USD' ? ` (${App.util.usd(price.value)}, converti en euros)` : ''}</span></div>`
-            : '<div class="muted small">Pas de prix disponible pour cette carte.</div>'}
+            : `<div class="muted small">${esc(ad.noPrices ? ad.priceNote : 'Pas de prix disponible pour cette carte.')}</div>`}
           ${priceRows.length && tpVal ? `<div class="cd-price-more"><span title="Prix marché TCGplayer : cartes anglaises vendues aux États-Unis">Marché US (cartes anglaises) <b>≈ ${euro(tpVal, 'USD')}</b> <span class="muted">(${App.util.usd(tpVal)})</span></span></div>` : ''}
-          <div class="cd-price-foot small muted">${cm ? 'Prix Cardmarket toutes langues confondues · ' : ''}${cm && cm.updated ? `mis à jour le ${dateFr(cm.updated)} · ` : ''}<a target="_blank" rel="noopener" href="${esc(ad.cardmarketUrl(card, setInfo.name))}">Voir sur Cardmarket ↗</a></div>
+          <div class="cd-price-foot small muted">${cm ? 'Prix Cardmarket toutes langues confondues · ' : ''}${cm && cm.updated ? `mis à jour le ${dateFr(cm.updated)} · ` : ''}<a target="_blank" rel="noopener" href="${esc(ad.refLink ? ad.refLink.url(card) : ad.cardmarketUrl(card, setInfo.name))}">${esc(ad.refLink ? ad.refLink.label : 'Voir sur Cardmarket')} ↗</a></div>
         </div>
 
         <div class="section" id="cd-mine"></div>

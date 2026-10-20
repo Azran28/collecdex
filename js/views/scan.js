@@ -206,8 +206,10 @@ App.views.scan = {
   },
   /** Points de chaque licence d'après un texte lu sur une carte (codes imprimés ×2, mots typiques) */
   textScores(T) {
-    const rb = App.games.get('riftbound'), lc = App.games.get('lorcana'), yg = App.games.get('yugioh'), ff = App.games.get('finalfantasy');
+    const rb = App.games.get('riftbound'), lc = App.games.get('lorcana'), yg = App.games.get('yugioh'), ff = App.games.get('finalfantasy'), wk = App.games.get('wankul');
     return {
+      // Wankul (v3.48) : code « STELLAR · LAINK · C#55 » en bas à droite, « Art : … » en bas à gauche, Laink / Terracid, COMBO, terrains « Le gagnant… / Le perdant… »
+      wankul: (wk && wk.codesIn && wk.codesIn(T).some(([, w]) => w >= 0.9) ? 2 : 0) + [/wankul|wankil/i, /\blaink\b/i, /\bterracid\b/i, /\b(origins|campus|battle|stellar|legacy)\b[^#\n]{0,30}#/i, /\bcombo\b/i, /\ble\s+(gagnant|perdant)\b/i, /\bscore[zr]?\b|\bmeule\b/i, /\bart\s*:/i].filter((r) => r.test(T)).length,
       // Final Fantasy (v3.43) : code « 16-006C » en bas au milieu, « © SQUARE ENIX » et « CHARACTER DESIGN » en bas, Avant / Soutien, Break Zone, EX BURST
       finalfantasy: (ff && ff.codesIn && ff.codesIn(T).some(([, w]) => w >= 0.9) ? 2 : 0) + [/square\s*enix/i, /character\s+design|tetsuya|nomura/i, /break\s*zone/i, /ex\s*burst/i, /\b1\s+avant\b|\bavants?\s+(que|contr[ôo]l)|\bsoutien\b|\bforward\b|\bbackup\b/i, /\bdull/i, /final\s*fantasy/i, /infligez|choisissez\s+1\s+avant/i].filter((r) => r.test(T)).length,
       // Yu-Gi-Oh! (v3.26) : code « RGBT-FR007 » sous l'illustration, passcode et « ©1996 KAZUKI TAKAHASHI » en bas, ATK/DEF, [TYPE/EFFET]

@@ -44,6 +44,7 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('lorcana'), 'Lorcana');
   ok(App.games.get('yugioh'), 'Yu-Gi-Oh!');
   ok(App.games.get('finalfantasy'), 'Final Fantasy');
+  ok(App.games.get('wankul'), 'Wankul');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -130,6 +131,7 @@ test('combat : niveaux de l’ordinateur', (App) => {
   eq(App.battle.levels('lorcana').length, 5, 'niveaux Lorcana');
   eq(App.battle.levels('yugioh').length, 5, 'niveaux Yu-Gi-Oh!');
   eq(App.battle.levels('finalfantasy').length, 5, 'niveaux Final Fantasy');
+  eq(App.battle.levels('wankul').length, 5, 'niveaux Wankul');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -193,7 +195,7 @@ test('badges : liste et collection vide', (App) => {
 const checkIndex = async (name) => {
   const meta = await (await fetch(`data/${name}.json`, { cache: 'no-store' })).json();
   const bin = await (await fetch(`data/${name}.bin`, { cache: 'no-store' })).arrayBuffer();
-  ok(meta.n > 1000 && meta.d > 0, 'en-tête');
+  ok(meta.n > (name === 'wk-index' ? 900 : 1000) && meta.d > 0, 'en-tête'); // (Wankul : 958 cartes)
   eq(meta.ids.length, meta.n, 'nombre d’identifiants');
   eq(new Set(meta.ids).size, meta.n, 'identifiants en double');
   // Pf, Pa (1280 × d float32) + échelles (n × 2 float32) + empreintes (n × 2d int8)
@@ -480,6 +482,78 @@ test('Import : lignes Final Fantasy (Collectr, Cardmarket)', async (App) => {
   const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
   eq([m1.status, m1.card.id], ['ok', '16-006'], 'par le code');
   eq(m2.card && m2.card.id, 'pr-112', 'promo par son code');
+});
+
+// ---------- Wankul (v3.48) : cartes en français, visuels du site, codes imprimés, dos, combattant, cartes de pioche, import ----------
+test('index Wankul (data/wk-index) cohérent', async () => {
+  const m = await checkIndex('wk-index');
+  ok(m.ids.includes('st-55') && m.ids.includes('to-4f') && m.ids.includes('st-20'), 'Chef kebab (st-55), Tanguy (to-4f), un terrain (st-20)');
+});
+test('Wankul : cartes en français (data/wk-cartes.json) et visuels rangés dans le site', async (App) => {
+  const A = App.games.get('wankul'), sets = await A.listSets();
+  ok(sets.length >= 10, `${sets.length} séries`);
+  const s = await A.getSet('st');
+  eq([s.name, s.cardCount.official], ['Stellar', 180]);
+  const c = await A.getCard('st-55');
+  eq([c.name, c.localId, c.rarity, c.category, c.power, c.effigy, c.code], ['Chef kebab', '55', 'c', 'Personnage', 2, 'l', 'STELLAR · LAINK · C#55']);
+  eq(c.image, 'data/wk-img/st-55.webp', 'visuel : copie rangée dans le site');
+  const r = await fetch(A.img.card(c)); ok(r.ok && /webp/.test(r.headers.get('content-type') || ''), 'le visuel se lit');
+  const t = await A.getCard('st-20');
+  eq([t.name, t.category, t.kind], ['Chateau des cannibales', 'Terrain', 't']);
+  ok(/Le perdant… meule 3 cartes/.test(t.text), 'texte du terrain');
+  eq([(await A.getCard('to-4f')).name, (await A.getCard('st-178')).variants], ['Tanguy', { holo: true }], 'Ticket d’or ; légendaire brillante');
+  eq(A.price(c), null, 'pas de prix');
+  ok(sets.filter((x) => ['or', 'ca', 'ba', 'st', 'le'].includes(x.id)).every((x) => /^https:\/\/cdn\.shopify\.com\//.test(A.img.logo(x)) && A.img.logoCrop(x)), 'booster de chaque saison');
+});
+test('Wankul : code imprimé lu même mal reconnu', async (App) => {
+  const A = App.games.get('wankul'); await A.listSets();
+  const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  eq(c('Art: Léonard Lam STELLAR · LAINK · C#55')[0], 'st|55', '« STELLAR · LAINK · C#55 »');
+  eq(c('STELIAR - TERRACID - L-ARGENT #l78')[0], 'st|178', 'lettres lues à la place des chiffres, saison mal lue');
+  eq(c('STELLAR T#20')[0], 'st|20', 'terrain « STELLAR T#20 »');
+  eq(c("STELLAR - GAGNANT TICKET D'OR #F")[0], 'to|4F', 'Gagnant du Ticket d’or');
+  ok(c('LAINK UC#109').includes('st|109'), 'sans la saison : toutes les saisons, essayées par l’image');
+  eq(c('Scorez un terrain. Piochez 1 carte.'), [], 'pas de code dans un texte de carte');
+  eq(c('Pikachu 025/165'), [], 'numéro Pokémon');
+  eq(c('OP09-004 16-006C'), [], 'code d’une autre licence');
+});
+test('Wankul : dos de carte reconnu (photo d’Arnaud réduite), pas une face', async (App) => {
+  await App.need('reco');
+  const back = await createImageBitmap(await (await fetch('tests/dos-wankul.jpg')).blob());
+  const face = await createImageBitmap(await (await fetch('data/wk-img/st-178.webp')).blob());
+  const s = (c) => App.recognizer.backScoreOf(c, c.width, c.height, false, 'wankul');
+  ok(s(back) >= 0.7, `dos : ${s(back).toFixed(2)}`);
+  ok(s(face) < 0.4, `face bleue (Dénué d’éclat) : ${s(face).toFixed(2)}`);
+});
+test('Wankul : Personnage → combattant, Terrains = cartes de pioche', async (App) => {
+  await App.need('match');
+  const A = App.games.get('wankul');
+  const f = App.battle.fighterWK(await A.getCard('or-179'));
+  eq([f.hp, f.type, f.attacks.map((a) => a.name)], [190, 'fire', ['Attaque', 'Combo']], 'Laink légendaire : Feu, attaque Combo');
+  ok(App.battle.canFight(await A.getCard('st-55'), 'wankul') && !App.battle.canFight(await A.getCard('st-20'), 'wankul'), 'les Personnages combattent, pas les Terrains');
+  const fx = async (id) => App.battleCards.effectOf(await A.getCard(id)).key;
+  eq([await fx('or-17'), await fx('or-13'), await fx('or-26'), await fx('or-18'), await fx('or-12'), await fx('or-19'), await fx('or-20')], ['stadium', 'energy', 'gust', 'revive', 'shield', 'power', 'strip']);
+  eq(App.battleCards.gemCard().fx.key, 'energy', 'gemme = énergie');
+  for (const lv of App.battle.levels('wankul')) for (const id of lv.pool) ok(await A.getCard(id).then((c) => App.battle.canFight(c, 'wankul'), () => false), `adversaire ${id}`);
+});
+test('Capturer « Toutes » : une carte Wankul reconnue sur son texte', async (App) => {
+  await App.need('reco', 'scan'); await App.games.get('wankul').listSets();
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('CHEF KEBAB Scorez un terrain. « Moi, je nettoie la broche tous les trois mois » Art: Léonard Lam STELLAR · LAINK · C#55'), 'wankul');
+  eq(S.otherGames('STELLAR · LAINK · C#55', 'pokemon')[0], 'wankul', 'Wankul essayé d’abord quand son code se lit');
+  const txt = "D'accord, il a toujours pas réussi à le trouver STELLAR - GAGNANT TICKET D'OR #F";
+  eq(App.recognizerParts.parse({ top: '', bottom: txt, full: txt }).otherGame, true, 'mode Pokémon : « pas une carte Pokémon » (Tanguy, Ticket d’or)');
+});
+test('Import : lignes Wankul', async (App) => {
+  await App.need('import');
+  const I = App.importer;
+  const rows = [['Product Name', 'Category', 'Set', 'Card Number', 'Quantity'], ['Chef Kebab', 'Wankul', 'Stellar', 'C#55', '1'], ['Laink', 'Wankul', 'Origins', '179', '1'], ['Pikachu', 'Pokemon', 'Base Set', '58/102', '1']];
+  const det = I.detect(rows), list = I.rowsOf ? I.rowsOf(rows, det) : null;
+  ok(list && list.length === 3 && list[0].game === 'wankul' && list[1].game === 'wankul' && list[2].game !== 'wankul', 'lignes reconnues comme Wankul (« Origins » n’est pas Riftbound ici)');
+  const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
+  eq([m1.status, m1.card.id], ['ok', 'st-55'], 'par la saison et le numéro');
+  eq([m2.status, m2.card.id], ['ok', 'or-179'], 'Laink légendaire Or');
 });
 
 // ---------- Riftbound : code imprimé lu sur la photo, combattant ----------

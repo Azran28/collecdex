@@ -23,7 +23,8 @@ App.friends = (() => {
     || /^https:\/\/cmsassets\.rgpub\.io\/sanity\/images\/[a-z0-9]+\/game_data_live\/[a-f0-9]+-\d{3,4}x\d{3,4}\.png(\?accountingTag=RB)?$/.test(v)
     || /^https:\/\/api\.lorcana\.ravensburger\.com\/images\/(fr|en)\/[a-z0-9]+\/[A-Za-z0-9]+_[a-f0-9]{40}\.jpg$/.test(v)
     || /^https:\/\/images\.ygoprodeck\.com\/images\/cards\/\d{3,10}\.jpg$/.test(v) // (Yu-Gi-Oh! : visuels de YGOPRODeck)
-    || /^https:\/\/fftcg\.cdn\.sewest\.net\/images\/cards\/full\/[A-Za-z0-9]{1,3}-\d{3}[A-Z]{0,2}(_[A-Za-z]{2,7}){1,3}\.jpg$/.test(v) || /^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d{4,9}_in_1000x1000\.jpg$/.test(v)) ? v : ''); // (Final Fantasy : visuels de Square Enix, promos TCGplayer)
+    || /^https:\/\/fftcg\.cdn\.sewest\.net\/images\/cards\/full\/[A-Za-z0-9]{1,3}-\d{3}[A-Z]{0,2}(_[A-Za-z]{2,7}){1,3}\.jpg$/.test(v) || /^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d{4,9}_in_1000x1000\.jpg$/.test(v)
+    || /^data\/wk-img\/[a-z0-9-]{3,24}\.webp$/.test(v)) ? v : ''); // (Final Fantasy : visuels de Square Enix, promos TCGplayer ; Wankul : copie du visuel rangée dans le site)
   const game = (v) => (typeof v === 'string' && App.games.get(v) ? v : null);
   const oneOf = (v, list, def) => (list.some(([k]) => k === v) ? v : def);
   const avatarPoke = (a) => { a = obj(a); const id = parseInt(a.id, 10); return id >= 1 && id <= App.pokedex.TOTAL ? { id, shiny: !!a.shiny } : null; };

@@ -286,7 +286,7 @@ App.importer = (() => {
       // Riftbound (v3.10) : jeu indiqué (« Riftbound », « League of Legends »), code imprimé (« OGN-013 », « SFD R01 ») ou série Riftbound
       const rbCode = `${get(r, 'number')} ${rawName}`.toUpperCase().match(/\b(OGN|OGS|SFD|UNL|VEN|RAD)\s?[-·•]?\s?(\d{3}[A*]?|R\d{2}A?|T\d{2})\b/);
       const rbSet = /^(origins|origins\s*:?\s*proving grounds|proving grounds|spiritforged|armes spirituelles|unleashed|d[ée]cha[iî]nement|vendetta|radiance)$/i.test(String(get(r, 'set') || '').trim());
-      if (/riftbound|league of legends/.test(cat) || (rbCode && !/pok/.test(cat)) || (rbSet && !/pok|one ?piece/.test(cat))) {
+      if (/riftbound|league of legends/.test(cat) || (rbCode && !/pok/.test(cat)) || (rbSet && !/pok|one ?piece|wankul|wankil/.test(cat))) {
         row.game = 'riftbound';
         row.code = rbCode ? `${rbCode[1]}|${rbCode[2]}` : '';
         // version : signature (« (Signature) », numéro « 304* »), illustration alternative (« Alternate Art », « Showcase »)
@@ -311,6 +311,20 @@ App.importer = (() => {
         row.name = rawName.replace(/\s*[([]\s*(enchanted|enchant[ée]e|foil|cold foil|promo)\s*[)\]]/gi, '').replace(/\s*[-–]?\s*\d{1,3}\s*\/\s*\d{3}.*$/, '').trim() || row.name;
         if (/japan|japon|chin/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise ou chinoise (pas encore prise en charge)';
         else if (!lcCode.length && !row.num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
+      // Wankul (v3.48) : jeu indiqué (« Wankul ») ou série « Wankul Stellar » ; numéro « C#55 », « #55 » ou « 55 » ; saison dans la série
+      // (« Origins » seul ne suffit pas : c'est aussi une série Riftbound)
+      const wkSet = String(get(r, 'set') || '').trim();
+      if (/wankul|wankil/.test(cat) || /^wankul\b/i.test(wkSet)) {
+        row.game = 'wankul';
+        row.setName = wkSet.replace(/^wankul\s*[-:–]?\s*/i, '');
+        const num = String(get(r, 'number') || '').match(/#\s*([0-9]{1,3}[AB]?|[A-F])\b|^\s*(?:[A-Z-]{1,8}\s*)?([0-9]{1,3}[AB]?)\s*$/i);
+        row.wkNum = num ? String(num[1] || num[2]).toUpperCase() : '';
+        row.name = rawName.replace(/\s*[([][^)\]]*[)\]]/g, '').replace(/\s*[-–]?\s*[A-Z-]{0,8}\s*#\s*\w+$/i, '').trim() || row.name;
+        if (!row.wkNum && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
         else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
         out.push(row);
         return;
@@ -484,6 +498,24 @@ App.importer = (() => {
     return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'code de la carte non indiqué' : pref.length > 1 ? 'plusieurs raretés : choisis la tienne' : 'le nom ne correspond pas tout à fait au code' };
   }
 
+  /** Ligne Wankul : série (« Stellar ») + numéro (« C#55 »), sinon le nom (et la série) */
+  async function matchWK(row) {
+    const wk = App.games.get('wankul');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'wankul' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    const sets = row.setName ? await wk.setIdsByName(row.setName) : [];
+    let list = [];
+    if (row.wkNum) for (const s of sets) list.push(...(await wk.byCode(s, row.wkNum)));
+    const byCode = list.length > 0;
+    if (!list.length && q.length >= 2) list = (await wk.search({ name: row.name })).filter((c) => nameScore(q, c.name, '', c.baseName) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: 'carte introuvable' };
+    if (sets.length) { const inSet = new Set(sets); list = [...list.filter((c) => inSet.has(c.setId)), ...list.filter((c) => !inSet.has(c.setId))]; }
+    if (!byCode && row.wkNum) { const f = list.filter((c) => String(c.localId).toUpperCase() === row.wkNum); if (f.length) list = [...f, ...list.filter((c) => !f.includes(c))]; }
+    const okName = !q || nameScore(q, list[0].name, '', list[0].baseName) >= 0.6;
+    const status = byCode && list.filter((c) => sets.includes(c.setId) && String(c.localId).toUpperCase() === row.wkNum).length === 1 ? (okName ? 'ok' : 'verif') : list.length === 1 ? 'verif' : 'choix';
+    return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'série ou numéro de la carte non indiqué' : 'le nom ne correspond pas tout à fait au numéro' };
+  }
+
   /** Ligne Final Fantasy : par le code (« 16-006C »), sinon le nom (français ou anglais) et la série */
   async function matchFF(row) {
     const ff = App.games.get('finalfantasy');
@@ -505,6 +537,7 @@ App.importer = (() => {
 
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
+    if (row.game === 'wankul') return matchWK(row);
     if (row.game === 'finalfantasy') return matchFF(row);
     if (row.game === 'yugioh') return matchYG(row);
     if (row.game === 'onepiece') return matchOP(row);

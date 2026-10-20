@@ -257,6 +257,8 @@
     // carte d'un autre jeu (Dragon Ball, Star Wars, One Piece, Wankul…) : mots typiques, et aucun mot typique d'une carte Pokémon
     const T = `${top}\n${bottom}\n${full}\n${atk}`;
     const OTHER = [/bandai/i, /\bBT\d{1,2}\s*[-‐–]\s*\d{2,3}/i, /dragon\s*ball/i, /\bLFL\b/, /\bFFG\b/, /\bSOR\s*[•·.*]?\s*(FR|EN)\b/i, /star\s*wars/i, /unlimited/i, /wankul/i, /konami/i, /yu-?gi-?oh/i, /lorcana/i, /disney/i, /one\s*piece/i, /\bOP\d{2}\s*-\s*\d{3}/i, /\bRGI\b/, /\b(OGN|OGS|SFD|UNL|VEN|RAD)\s*[•·.\-]\s*([0-9OIl]{3}|R\d\d|T\d\d)/, /champ\s+de\s+bataille|battlefield/i, /\briftbound\b/i, /\bUNIT[ÉE](?![A-Za-zÀ-ÿ])/, /comp[ée]tence|canalis|\brunes?\b|l[ée]gende(?![a-z])/i, /\bmagic\b/i, /wizards\s+of\s+the\s+coast/i, /digimon/i, /\bsaiyan/i,
+      // Wankul (v3.48) : « STELLAR · LAINK · C#55 », Laink / Terracid, terrains « Le gagnant… / Le perdant… », « Scorez », « meule »
+      /\blaink\b/i, /\bterracid\b/i, /\ble\s+(gagnant|perdant)\b/i, /\bscorez\b|\bmeulez?\b/i, /\b(origins|campus|stellar|legacy)\b[^#\n]{0,40}[#*£]/i, /tic[kh]et\s*d\W?\s*or/i,
       // Final Fantasy (v3.43) : « © SQUARE ENIX », « Break Zone », « EX BURST », code « 16-006C »
       /square\s*enix/i, /break\s*zone/i, /ex\s*burst/i, /final\s*fantasy/i, /(?<![A-Z0-9])\d{1,2}-\d{3}[CRHLS](?![0-9])/,
       // Yu-Gi-Oh! (v3.26) : mots imprimés sur les faces (« KONAMI » n'est que sur le dos)

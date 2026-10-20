@@ -11,7 +11,7 @@
   const gameOf = (it) => (it && it.game) || 'pokemon';
   const adOf = (it) => ad(gameOf(it)) || ad();
   // v2.99 : chaque licence a ses combats (decks, adversaires, salons en ligne) ; on choisit d'abord la licence
-  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy'];
+  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul'];
   const TEAMS = 3, BAG_MAX = App.battleCards.DECK_MAX; // pioche du mode Avancé : 10 cartes (v2.80)
   const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -47,6 +47,11 @@
       bagKinds: 'Invocation / Soutien / Cristal', bagName: 'Deck', bagTitle: 'Ton deck', search: 'Rechercher un Avant…', place: 'Au sanctuaire du Cristal',
       tag: 'Combats au sanctuaire du Cristal', foeTag: 'Des recrues aux Légendes',
     },
+    wankul: {
+      name: 'Wankul', icon: 'wankil', myTurn: 'À toi de jouer !', champion: 'Tu es une Légende du Wankul !', back: 'img/combat/dos-wankul.svg',
+      bagKinds: 'Terrain / Gemme', bagName: 'Deck', bagTitle: 'Ton deck', search: 'Rechercher un personnage…', place: 'Sur le plateau du Wankil Studio',
+      tag: 'Combats sur le plateau du Wankil Studio', foeTag: 'Des viewers aux Wankil',
+    },
   };
   const lic = (game) => LIC[game] || LIC.pokemon;
   // icônes du sac (Pokémon : sac à dos) et du coffre (One Piece : coffre au trésor)
@@ -60,12 +65,18 @@
     yugioh: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2" fill="#5a2a12" stroke="#2a1206" stroke-width="1.8"/><rect x="9.5" y="6.5" width="13" height="19" rx="1" fill="none" stroke="#e2b54a" stroke-width="1.4"/><path d="M10.5 16c2.8-3.2 8.2-3.2 11 0-2.8 3.2-8.2 3.2-11 0z" fill="#f4e2a8" stroke="#2a1206" stroke-width="1.1"/><circle cx="16" cy="16" r="1.8" fill="#2a1206"/><path d="M16 19.2v3.3M13.2 18.6l-1 2.6" stroke="#e2b54a" stroke-width="1.2" stroke-linecap="round"/></svg>',
     // Final Fantasy : cristal bleu à facettes
     finalfantasy: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M16 2.5 23.5 11 16 29.5 8.5 11z" fill="#3a8fd8" stroke="#0d2147" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.5 11h15M16 2.5v27M16 2.5 12 11l4 18.5 4-18.5z" fill="none" stroke="#bfe8ff" stroke-width="1.1" stroke-linejoin="round"/></svg>',
+    // Wankul : boîte de deck bleue, gemme dorée (comme celles imprimées sur les cartes)
+    wankul: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="3" fill="#2a49b8" stroke="#0d1a52" stroke-width="1.8"/><path d="M16 9.5 21.5 14 16 23 10.5 14z" fill="#f5b82e" stroke="#7a4a08" stroke-width="1.3" stroke-linejoin="round"/><path d="M10.5 14h11M16 9.5 14 14l2 9 2-9z" fill="none" stroke="#ffe39a" stroke-width=".9"/></svg>',
     riftbound: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M7 5h17a2 2 0 0 1 2 2v20H9a2 2 0 0 1-2-2z" fill="#1d3f7a" stroke="#0b1530" stroke-width="1.8"/><path d="M7 25a2 2 0 0 1 2-2h17" fill="none" stroke="#c8a24a" stroke-width="1.8"/><path d="M16.5 8.5 21 14l-4.5 5.5L12 14z" fill="#5fe3ef" stroke="#0b1530" stroke-width="1.3"/><path d="M16.5 11v6" stroke="#0b1530" stroke-width="1.2"/></svg>',
   };
   /** Vocabulaire de la licence : en One Piece, on parle de personnages et de DON!! (pas de Pokémon ni d'énergie) ;
    *  en Riftbound, d'unités (l'énergie existe aussi dans ce jeu, elle garde son nom ; « de son type » = de son domaine) ;
    *  en Lorcana, de personnages et d'encre (« de son type » = de son encre) */
-  const say = (game, s) => (game === 'finalfantasy' ? String(s)
+  const say = (game, s) => (game === 'wankul' ? String(s)
+    .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'la gemme').replace(/d’énergie/g, 'de gemme')
+    .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 personnages').replace(/Pokémon/g, 'personnage')
+    .replace(/(\d+) [ÉéE]nergies\b/g, '$1 gemmes').replace(/[ÉéE]nergies?/g, 'gemme')
+    : game === 'finalfantasy' ? String(s)
     .replace(/ \(\+1 si l’énergie est de son type\)/g, '')
     .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 Avants').replace(/Pokémon/g, 'Avant')
     : game === 'yugioh' ? String(s)
@@ -142,7 +153,7 @@
     const out = [];
     const ok = game === 'onepiece' ? (c) => /^(Événement|Lieu|Event|Stage)$/i.test(c)
       : game === 'riftbound' ? (c) => /^(Sort|Équipement|Rune|Champ de bataille)$/i.test(c)
-        : game === 'lorcana' ? (c) => /^(Action|Objet|Lieu)$/i.test(c) : game === 'yugioh' ? (c) => /^Carte (Magie|Piège)$/i.test(c) : game === 'finalfantasy' ? (c) => /^(Invocation|Soutien|Cristal|Monstre)$/i.test(c) : (c) => !/pok/i.test(c);
+        : game === 'lorcana' ? (c) => /^(Action|Objet|Lieu)$/i.test(c) : game === 'yugioh' ? (c) => /^Carte (Magie|Piège)$/i.test(c) : game === 'finalfantasy' ? (c) => /^(Invocation|Soutien|Cristal|Monstre)$/i.test(c) : game === 'wankul' ? (c) => /^Terrain$/i.test(c) : (c) => !/pok/i.test(c);
     await App.util.pool(Object.keys(bySet), 4, async (sid) => {
       const set = await ad(game).getSet(sid).catch(() => null);
       const cat = new Map((set ? set.cards : []).map((c) => [c.id, c.category]));
@@ -164,7 +175,7 @@
       for (const it of bySet[k]) {
         const c = cat.get(it.id);
         if (op) { // (liste One Piece / Riftbound : catégorie seulement ; PV et type viennent de la fiche, en arrière-plan)
-          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : game === 'lorcana' ? /^Personnage$/i : game === 'yugioh' ? /^Monstre/i : game === 'finalfantasy' ? /^(Avant|Monstre)$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
+          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : game === 'lorcana' ? /^Personnage$/i : game === 'yugioh' ? /^Monstre/i : game === 'finalfantasy' ? /^(Avant|Monstre)$/i : game === 'wankul' ? /^Personnage$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
           out.push(Object.assign(Object.create(it), { _hp: null, _type: null }));
           continue;
         }
@@ -188,9 +199,9 @@
     return B().fighterOf(card, game, { img: off, imgOff: off, ...extra });
   }
   /** One Piece : les cartes DON!! ne se capturent pas → 3 DON!! s'ajoutent à ma pioche (dans la limite de 10 cartes) ;
-   *  Lorcana : pas de carte d'énergie → 3 encres, de la même façon ; Final Fantasy : 3 Cristaux */
-  const withDon = (bag, game) => (!['onepiece', 'lorcana', 'finalfantasy'].includes(game) || !bag.length ? bag
-    : [...bag, ...Array.from({ length: Math.max(0, Math.min(3, BAG_MAX - bag.length)) }, () => (game === 'lorcana' ? App.battleCards.inkCard() : game === 'finalfantasy' ? App.battleCards.crystalCard() : App.battleCards.donCard()))]);
+   *  Lorcana : pas de carte d'énergie → 3 encres, de la même façon ; Final Fantasy : 3 Cristaux ; Wankul : 3 Gemmes */
+  const withDon = (bag, game) => (!['onepiece', 'lorcana', 'finalfantasy', 'wankul'].includes(game) || !bag.length ? bag
+    : [...bag, ...Array.from({ length: Math.max(0, Math.min(3, BAG_MAX - bag.length)) }, () => (game === 'lorcana' ? App.battleCards.inkCard() : game === 'finalfantasy' ? App.battleCards.crystalCard() : game === 'wankul' ? App.battleCards.gemCard() : App.battleCards.donCard()))]);
   /** Mes combattants (complétés par des cartes de prêt de la licence) */
   async function myFighters(items, game) {
     const fs = (await Promise.all(items.map((it) => fromItem(it).catch(() => null)))).filter(Boolean);
@@ -212,12 +223,14 @@
   const YG_NAMES = { fire: 'Feu', water: 'Eau', grass: 'Vent', fighting: 'Terre', lightning: 'Lumière', darkness: 'Ténèbres', psychic: 'Divin', colorless: 'Sans attribut' };
   // Final Fantasy : l'élément de la carte tient lieu de type
   const FF_NAMES = { fire: 'Feu', metal: 'Glace', grass: 'Vent', fighting: 'Terre', lightning: 'Foudre', water: 'Eau', psychic: 'Lumière', darkness: 'Ténèbres', colorless: 'Sans élément' };
-  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : game === 'lorcana' ? Object.values(B().LC_INK) : game === 'yugioh' ? Object.values(B().YG_ATTR) : game === 'finalfantasy' ? Object.values(B().FF_ELEM) : Object.keys(B().TYPE_INFO));
-  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : game === 'lorcana' ? LC_NAMES[t] || '?' : game === 'yugioh' ? YG_NAMES[t] || '?' : game === 'finalfantasy' ? FF_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
+  // Wankul : l'effigie de la carte tient lieu de type
+  const WK_NAMES = { fire: 'Laink', water: 'Terracid', psychic: 'Invité', colorless: 'Random', lightning: 'Ticket d’or' };
+  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : game === 'lorcana' ? Object.values(B().LC_INK) : game === 'yugioh' ? Object.values(B().YG_ATTR) : game === 'finalfantasy' ? Object.values(B().FF_ELEM) : game === 'wankul' ? Object.values(B().WK_EFF) : Object.keys(B().TYPE_INFO));
+  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : game === 'lorcana' ? LC_NAMES[t] || '?' : game === 'yugioh' ? YG_NAMES[t] || '?' : game === 'finalfantasy' ? FF_NAMES[t] || '?' : game === 'wankul' ? WK_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
   const typeChip = (t, game) => `<span class="bt-type" style="--tc:${typeColor(t)}">${esc(typeName(t, game))}</span>`;
   const pips = (n) => `<span class="bt-pips" title="${n} énergie${n > 1 ? 's' : ''}">${Array.from({ length: Math.min(n, 8) }, () => '<i></i>').join('')}${n > 8 ? `<b>+${n - 8}</b>` : ''}</span>`;
   const costPips = (n) => (n ? Array.from({ length: n }, () => '<i></i>').join('') : '<small>0</small>');
   const hpCls = (r) => (r < 0.3 ? 'low' : r < 0.6 ? 'mid' : '');
 
-  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, RB_NAMES, LC_NAMES, YG_NAMES, FF_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
+  App.matchParts = { esc, B, isFast, setFast, sleep, ad, gameOf, adOf, FIGHT_GAMES, TEAMS, BAG_MAX, RM, LIC, lic, BAG_ICON, say, LAST, lastGame, normStats, normTeams, keyGame, normMatch, sideOf, getMatch, saveMatch, teamItems, bagItems, myTrainers, myPokemon, fromItem, fromId, withDon, myFighters, pick, typeColor, OP_NAMES, RB_NAMES, LC_NAMES, YG_NAMES, FF_NAMES, WK_NAMES, typesOf, typeName, typeChip, pips, costPips, hpCls };
 })();

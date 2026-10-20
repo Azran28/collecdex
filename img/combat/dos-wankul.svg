@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Dos de carte Wankul (carte cachée en combat Avancé), dessiné pour CollecDex : carte bleue tachetée, deux silhouettes et un bandeau blanc au milieu -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".42" r=".8"><stop offset="0" stop-color="#4f78e0"/><stop offset=".6" stop-color="#2a49b8"/><stop offset="1" stop-color="#16287a"/></radialGradient>
+    <pattern id="d" width="46" height="46" patternUnits="userSpaceOnUse"><circle cx="12" cy="14" r="7" fill="#fff" opacity=".05"/><circle cx="35" cy="34" r="9" fill="#000" opacity=".06"/></pattern>
+  </defs>
+  <rect width="630" height="880" rx="30" fill="#16287a"/>
+  <rect x="14" y="14" width="602" height="852" rx="22" fill="url(#f)"/>
+  <rect x="14" y="14" width="602" height="852" rx="22" fill="url(#d)"/>
+  <g transform="translate(315 440)">
+    <rect x="-230" y="-48" width="460" height="96" rx="18" fill="#f4efe6"/>
+    <circle cx="-34" cy="-62" r="34" fill="#2a49b8"/><path d="M-84 48c0-46 22-74 50-74s50 28 50 74z" fill="#2a49b8"/>
+    <circle cx="38" cy="-66" r="36" fill="#2a49b8"/><path d="M-10 48c0-50 22-80 48-80s50 30 50 80z" fill="#2a49b8"/>
+    <path d="M-200 -28h24l10 42 12-42h20l12 42 10-42h24l-24 70h-20l-12-40-12 40h-20z M150 -28h22v50h34v20h-56z" fill="#f4efe6"/>
+  </g>
+</svg>

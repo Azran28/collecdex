@@ -110,6 +110,18 @@ self.addEventListener('fetch', (e) => {
       })());
       return;
     }
+    // visuels Wankul rangés dans le site (data/wk-img/, v3.48) : comme les autres visuels de cartes (copie gardée d'abord, nombre limité)
+    if (/\/data\/wk-img\/[a-z0-9-]+\.webp$/.test(u.pathname)) {
+      e.respondWith((async () => {
+        const c = await caches.open(IMAGES);
+        const hit = await c.match(req.url);
+        if (hit) return hit;
+        const r = await fetch(req);
+        if (r.ok) { await c.put(req.url, r.clone()); trim(c, MAX_IMAGES); }
+        return r;
+      })());
+      return;
+    }
     // autres fichiers du site (icônes, manifeste…) : réseau, copie si hors ligne
     e.respondWith((async () => {
       const c = await caches.open(SHELL);
@@ -120,8 +132,9 @@ self.addEventListener('fetch', (e) => {
   }
 
   // Visuels officiels des cartes et des Pokémon (capsules) : copie gardée d'abord (ils ne changent pas)
-  // (+ visuels One Piece et Riftbound, relayés par images.weserv.nl : Bandai refuse d'être affiché ailleurs, Riot n'autorise pas la comparaison)
-  if (u.hostname === 'assets.tcgdex.net' || u.hostname === 'images.weserv.nl' || (u.hostname === 'raw.githubusercontent.com' && u.pathname.startsWith('/PokeAPI/sprites/'))) {
+  // (+ visuels One Piece et Riftbound, relayés par images.weserv.nl : Bandai refuse d'être affiché ailleurs, Riot n'autorise pas la comparaison ;
+  //  boosters Wankul de la boutique officielle, cdn.shopify.com)
+  if (u.hostname === 'assets.tcgdex.net' || u.hostname === 'images.weserv.nl' || u.hostname === 'cdn.shopify.com' || (u.hostname === 'raw.githubusercontent.com' && u.pathname.startsWith('/PokeAPI/sprites/'))) {
     e.respondWith((async () => {
       const c = await caches.open(IMAGES);
       const hit = await c.match(req.url);

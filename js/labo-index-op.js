@@ -44,7 +44,7 @@
   const quant = (y) => { let m = 0; for (const t of y) m = Math.max(m, Math.abs(t)); m = m || 1; return { q: Int8Array.from(y, (t) => Math.round((t / m) * 127)), s: m / 127 }; };
   const O = window.__op = { cards: [], vecs: new Map(), done: 0, fail: 0, state: 'prêt' };
   /** Empreintes du réseau (MobileNet, comme le scanner) de toutes les cartes de la licence, par paquets de 48 */
-  const FILE = { onepiece: 'op-index', riftbound: 'rb-index', lorcana: 'lc-index', yugioh: 'yg-index', finalfantasy: 'ff-index' };
+  const FILE = { onepiece: 'op-index', riftbound: 'rb-index', lorcana: 'lc-index', yugioh: 'yg-index', finalfantasy: 'ff-index', wankul: 'wk-index' };
   async function build(game = 'onepiece') {
     const ad = App.games.get(game), seen = new Set();
     O.cards = []; O.state = 'liste';

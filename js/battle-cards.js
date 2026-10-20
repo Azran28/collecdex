@@ -179,8 +179,32 @@ App.battleCards = (() => {
     return mk('heal', 30);
   }
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy */
+  /**
+   * Effet simplifié d'un Terrain Wankul (v3.48) d'après son texte (« Le gagnant… », « Le perdant… », « Spécial : … ») :
+   * Gemme → +1 énergie ; « +1 en Force » → Stade ; personnages moins chers / joués gratuitement → +1 énergie ; plus chers → énergie
+   * adverse en moins ; le gagnant pioche / cherche une carte → +1 énergie ; défausser un personnage en jeu → Rafale ; reprendre un
+   * personnage → Réanimation ; le perdant défausse toute sa main → protection ; sinon le perdant meule N cartes → N × 10 dégâts en plus.
+   */
+  const isWkCard = (card) => !!card && ((card.kind === 't' && 'effigy' in card) || card.kind === 'gem') && /^(terrain|gemme)$/.test(norm(card.category));
+  function effectOfWK(card) {
+    const text = norm(card.text || ''), cat = norm(card.category);
+    const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
+    let m;
+    if (cat === 'gemme') return mk('energy', 1);
+    if (/\+\s?1 en force|\+\s?(\d) en force/.test(text)) return mk('stadium', 10);
+    if (/coutent (?:1 de moins|-\s?1)|jouez? (?:un |une |\d )?\w* ?gratuitement|joue un personnage gratuitement|joue une de ses cartes gratuitement/.test(text)) return mk('energy', 1);
+    if (/coutent \+\s?\d/.test(text)) return mk('strip', 1);
+    if (/defausse\w* (?:un|1) (?:de ses |de vos )?(?:personnages?|persos?) en jeu|chaque joueur defausse un personnage/.test(text)) return mk('gust');
+    if (/reprend\w* en main (?:un|1) de ses personnages|personnages? de (?:sa|votre) defausse/.test(text)) return mk('revive');
+    if (/le gagnant\W*(?:pioche|cherche|reprend|prend)|chaque joueur pioche/.test(text)) return mk('charge');
+    if (/defausse (?:toutes les cartes de sa main|\d+ cartes de sa main)/.test(text)) return mk('shield', 30);
+    if ((m = text.match(/(?:defausse|meule)\w*\s+(?:les\s+)?(\d)\s+cartes? du dessus|meule\w*\s+(\d)\s+cartes?/))) return mk('power', Math.min(40, Math.max(20, +(m[1] || m[2]) * 10)));
+    return mk('stadium', 10);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy / Wankul */
   function effectOf(card) {
+    if (isWkCard(card)) return effectOfWK(card);
     if (isFfCard(card)) return effectOfFF(card); // (avant les autres : « Monstre » existe aussi chez Yu-Gi-Oh!, qui a un passcode)
     if (isYgCard(card)) return effectOfYG(card);
     if (isLcCard(card)) return effectOfLC(card); // (avant One Piece : « Lieu » existe dans les deux jeux)
@@ -229,6 +253,7 @@ App.battleCards = (() => {
     if (/^https:\/\/api\.lorcana\.ravensburger\.com\//.test(card.image || '')) return App.games.get('lorcana').img.card(card, 'high'); // Lorcana : visuel relayé (réduit)
     if (/^https:\/\/images\.ygoprodeck\.com\//.test(card.image || '')) return App.games.get('yugioh').img.card(card, 'high'); // Yu-Gi-Oh! : visuel relayé (réduit)
     if (/^https:\/\/fftcg\.cdn\.sewest\.net\//.test(card.image || '')) return App.games.get('finalfantasy').img.card(card, 'high'); // Final Fantasy : visuel relayé
+    if (/^data\/wk-img\/[a-z0-9-]+\.webp$/.test(card.image || '')) return card.image; // Wankul : petite copie du visuel, rangée dans le site
     if (/^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+_in_1000x1000\.jpg$/.test(card.image || '')) return card.image.replace('_in_1000x1000', '_400w'); // (promo Final Fantasy)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
@@ -236,7 +261,7 @@ App.battleCards = (() => {
   }
   /** Carte du sac prête pour le combat (img peut être ta photo ; imgOff = visuel officiel, envoyé à l'adversaire) */
   function bagCard(card, extra = {}) {
-    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$|^encre$|^cristal$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
+    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$|^encre$|^cristal$|^gemme$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
   }
   // carte DON!! One Piece : absente des listes de Bandai, on la dessine (img/combat/don.svg)
   const DON_IMG = 'img/combat/don.svg';
@@ -246,8 +271,11 @@ App.battleCards = (() => {
   const inkCard = (extra = {}) => bagCard({ id: 'INK', name: 'Encre', category: 'Encre', image: '' }, { img: INK_IMG, imgOff: INK_IMG, ...extra });
   // Cristal Final Fantasy (v3.43) : la vraie carte « C-001 » (visuel officiel), ajoutée d'office à la pioche perso comme l'encre Lorcana
   const crystalCard = (extra = {}) => bagCard({ id: 'c-001', name: 'Cristal', category: 'Cristal', kind: 'cr', elements: [], image: 'https://fftcg.cdn.sewest.net/images/cards/full/C-001_fr.jpg' }, extra);
-  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana */
-  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra))
+  // Gemme Wankul (v3.48) : pas de carte d'énergie dans ce jeu (les gemmes sont imprimées sur les cartes) → on la dessine
+  const GEM_IMG = 'img/combat/gemme-wankul.svg';
+  const gemCard = (extra = {}) => bagCard({ id: 'GEM', name: 'Gemme', category: 'Gemme', kind: 'gem', image: '' }, { img: GEM_IMG, imgOff: GEM_IMG, ...extra });
+  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana, « GEM » = gemme Wankul */
+  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra)) : id === 'GEM' ? Promise.resolve(gemCard(extra))
     : App.games.get(game || 'pokemon').getCard(id).then((c) => bagCard(c, extra)).catch(() => null)))).then((l) => l.filter(Boolean));
 
   const B = () => App.battle;
@@ -368,8 +396,21 @@ App.battleCards = (() => {
     [[ff(23), 1], [ff(39), 1], [ff(106), 2], [ff(110), 1], [ff(178), 1], [ff(170), 1]],
     [[ff(23), 2], [ff(124), 1], [ff(18), 1], [ff(110), 1], [ff(178), 1], [ff(38), 1], [ff(172), 1]],
   ];
+  // Wankul (Terrains d'Origins) : Moria / Portal (+1 en Force : Stade), Village / La ferme (personnage gratuit : +1 énergie), Agrou
+  // (défausser un personnage : Rafale), Tchernobyl (reprendre un personnage : Réanimation), Golf / Barrage (piocher : +1 énergie),
+  // Fnaf (le perdant défausse sa main : protection), Navire pirate / Valheim (le perdant meule 5 : +40), Tranchées (+2 à poser : énergie
+  // adverse en moins), puis des Gemmes
+  const wk = (n) => `or-${n}`;
+  const AI_BAGS_WK = [
+    [[wk(19), 2]],
+    [[wk(19), 2], [wk(17), 1]],
+    [[wk(19), 2], [wk(17), 1], [wk(12), 1], [wk(26), 1]],
+    [[wk(13), 1], [wk(7), 1], [wk(19), 2], [wk(12), 1], [wk(18), 1], [wk(20), 1]],
+    [[wk(13), 2], [wk(1), 1], [wk(2), 1], [wk(12), 1], [wk(18), 1], [wk(26), 1], [wk(24), 1]],
+  ];
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
-  const aiBag = (level, type, game) => (game === 'finalfantasy' ? [...many(AI_BAGS_FF[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('c-001')]
+  const aiBag = (level, type, game) => (game === 'wankul' ? [...many(AI_BAGS_WK[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('GEM')]
+    : game === 'finalfantasy' ? [...many(AI_BAGS_FF[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('c-001')]
     : game === 'yugioh' ? [...many(AI_BAGS_YG[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('LOB-119')]
     : game === 'onepiece'
     ? [...many(AI_BAGS_OP[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('DON')]
@@ -381,8 +422,9 @@ App.battleCards = (() => {
   //  Riftbound : 2 Hextech Ray, Discipline, Rune Prison, Retreat, 3 runes ;
   //  Lorcana : 2 Lueur réparatrice, Il a un sabre !, Très mauvais caractère !, Emberlificotage, 3 encres)
   //  Yu-Gi-Oh! : 2 Médicament Rouge, Charge Intrépide, Épées de Révélation de la Lumière, Le Livre de la Lune, 3 Pot de Cupidité ;
-  //  Final Fantasy : 2 Ifrit, Golem, Titan, Léviathan, 3 Cristaux)
-  const loanBag = (type, game) => (game === 'finalfantasy' ? [...many([[ff(4), 2], [ff(106), 1], [ff(110), 1], [ff(178), 1]]), 'c-001', 'c-001', 'c-001']
+  //  Final Fantasy : 2 Ifrit, Golem, Titan, Léviathan, 3 Cristaux ; Wankul : 2 Valheim, Moria, Fnaf, Agrou, 3 Gemmes)
+  const loanBag = (type, game) => (game === 'wankul' ? [...many([[wk(19), 2], [wk(17), 1], [wk(12), 1], [wk(26), 1]]), 'GEM', 'GEM', 'GEM']
+    : game === 'finalfantasy' ? [...many([[ff(4), 2], [ff(106), 1], [ff(110), 1], [ff(178), 1]]), 'c-001', 'c-001', 'c-001']
     : game === 'yugioh' ? [...many([['LOB-E043', 2], ['MRL-E043', 1], ['LOB-E081', 1], ['PGD-035', 1]]), 'LOB-119', 'LOB-119', 'LOB-119']
     : game === 'onepiece'
     ? [...many([['ST01-014', 2], ['OP05-020', 1], ['OP01-055', 1], ['ST03-015', 1]]), 'DON', 'DON', 'DON']
@@ -399,5 +441,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, bagCard, donCard, inkCard, crystalCard, loadBag, DON_IMG, INK_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
+  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, isWkCard, bagCard, donCard, inkCard, crystalCard, gemCard, loadBag, DON_IMG, INK_IMG, GEM_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

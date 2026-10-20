@@ -358,7 +358,54 @@
     }
     return best;
   }
+  // Dos Wankul (v3.48) : carte bleue (fond tacheté), logo blanc « WANKUL » au milieu, rien d'autre. Mesure sur 48 × 66, comme
+  // Final Fantasy : presque rien de chaud (« warm » : rouge ou vert au-dessus du bleu), beaucoup de bleu, et le détail concentré
+  // dans la bande du logo (0,40…0,58) : « ratio » = détail de la bande ÷ détail du haut et du bas. Photos d'Arnaud
+  // (_tests-scanner/wankul/1 en main, 2 en pochette brillante, 5 et 6 pages de classeur) : warm ≤ 0,07, blue 0,46–0,93, ratio 4,0–9,4 ;
+  // 958 visuels officiels : ratio ≤ 2,8, et ≤ 1,4 pour les faces bleues peu chaudes (warm ≤ 0,12, blue ≥ 0,4 : 45 cartes).
+  let wkCanvas = null, wkSrc = null;
+  function wkFeatures(src, SW, SH, sc, dx = 0, dy = 0) {
+    const W = 48, H = 66, L = new Float32Array(W * H);
+    const c = wkCanvas || (wkCanvas = Object.assign(document.createElement('canvas'), { width: W, height: H }));
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.clearRect(0, 0, W, H); g.drawImage(src, SW * (0.5 + dx) - SW * sc / 2, SH * (0.5 + dy) - SH * sc / 2, SW * sc, SH * sc, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data;
+    let n = 0, warm = 0, blue = 0;
+    for (let i = 0; i < W * H; i++) {
+      const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2];
+      L[i] = 0.3 * r + 0.59 * gg + 0.11 * b;
+      const fx = (i % W + 0.5) / W, fy = (((i / W) | 0) + 0.5) / H;
+      if (fx < 0.08 || fx > 0.92 || fy < 0.06 || fy > 0.94) continue; // (bord : pochette, doigts)
+      n++; if (r > b + 12 || gg > b + 12) warm++; if (b > r + 25 && b >= gg) blue++;
+    }
+    let gb = 0, nb = 0, go = 0, no = 0;
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const fx = (x + 0.5) / W, fy = (y + 0.5) / H;
+      if (fx < 0.08 || fx > 0.92 || fy < 0.06 || fy > 0.94) continue;
+      const i = y * W + x, gr = Math.abs(L[i + 1] - L[i - 1]) + Math.abs(L[i + W] - L[i - W]);
+      if (fy >= 0.4 && fy <= 0.58 && fx > 0.15 && fx < 0.85) { gb += gr; nb++; } else if (fy < 0.3 || fy > 0.7) { go += gr; no++; }
+    }
+    return { warm: warm / n, blue: blue / n, band: gb / nb, ratio: (gb / nb) / Math.max(2, go / no) };
+  }
+  function wkBackScore(src, SW, SH, fast) {
+    if (!(src instanceof HTMLCanvasElement)) {
+      const k = Math.min(1, 900 / Math.max(SW, SH)), c = wkSrc || (wkSrc = document.createElement('canvas'));
+      c.width = Math.max(1, Math.round(SW * k)); c.height = Math.max(1, Math.round(SH * k)); c.getContext('2d').drawImage(src, 0, 0, SW, SH, 0, 0, c.width, c.height);
+      src = c; SW = c.width; SH = c.height;
+    }
+    let best = -1;
+    // (case de classeur décalée : le haut de la carte du dessus dedans, logo descendu à 0,7 — page 6 d'Arnaud)
+    const offs = fast ? [[0, 0]] : [[0, 0], [-0.04, 0], [0.04, 0], [0, -0.04], [0, 0.04], [0, -0.08], [0, 0.08], [0, -0.12], [0, 0.12]];
+    for (const sc of fast ? [1, 0.88] : [1, 0.92, 0.84, 0.76]) for (const [dx, dy] of offs) {
+      const x = wkFeatures(src, SW, SH, sc, dx, dy), ok = [x.warm <= 0.15, x.blue >= 0.35, x.band >= 35, x.ratio >= 3];
+      // tout bon : 0,62 à 0,87 selon le rapport ; sinon au plus 0,24 (seuil du dos : 0,55 en direct, 0,6 en classeur)
+      const v = ok.every(Boolean) ? 0.62 + 0.25 * Math.min(1, (x.ratio - 3) / 5) : 0.06 * ok.filter(Boolean).length;
+      if (v > best) { best = v; wkBackScore.last = { sc, dx, dy, warm: +x.warm.toFixed(3), blue: +x.blue.toFixed(2), band: +x.band.toFixed(1), ratio: +x.ratio.toFixed(2) }; }
+    }
+    return best;
+  }
   function backScoreOf(src, SW, SH, fast = false, game = 'pokemon') {
+    if (game === 'wankul') return wkBackScore(src, SW, SH, fast);
     if (game === 'finalfantasy') return ffBackScore(src, SW, SH, fast);
     if (game === 'yugioh') return ygBackScore(src, SW, SH, fast);
     if (game === 'riftbound') return rbBackScore(src, SW, SH);

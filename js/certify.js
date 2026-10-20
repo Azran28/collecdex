@@ -588,7 +588,7 @@ App.certify = (() => {
       // en mode Pokémon : « Dos pas reconnu ») — One Piece : dos mesurés 0,56 à 0,66 → seuil ramené à 0,50 (+0,05) ;
       // faces mesurées contre le modèle One Piece : One Piece ≤ 0,31, Pokémon ≤ 0,45 (d'où +0,05 et pas +0,1)
       // Riftbound (v3.10) : mesure dédiée (or + fond sombre + symétrie) : dos 0,62–0,87, faces ≤ 0,3
-      const backOf = (fast) => Math.max(App.recognizer.backScoreOf(cv, SW, SH, fast, 'pokemon'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'onepiece') + 0.05, App.recognizer.backScoreOf(cv, SW, SH, fast, 'lorcana') + LC_BACK, App.recognizer.backScoreOf(cv, SW, SH, fast, 'riftbound'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'yugioh'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'finalfantasy'));
+      const backOf = (fast) => Math.max(App.recognizer.backScoreOf(cv, SW, SH, fast, 'pokemon'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'onepiece') + 0.05, App.recognizer.backScoreOf(cv, SW, SH, fast, 'lorcana') + LC_BACK, App.recognizer.backScoreOf(cv, SW, SH, fast, 'riftbound'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'yugioh'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'finalfantasy'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'wankul'));
       let b = backOf(true);
       if (b >= 0.4 && b < BACK_T) b = Math.max(b, backOf(false));
       const g = grayOf(cv, 0, 0, SW, SH, GW, GH), d = grayOf(cv, 0, 0, SW, SH, DW, DH);

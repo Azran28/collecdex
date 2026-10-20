@@ -111,6 +111,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .g-yugioh { --g: linear-gradient(135deg, #ffb347, #b35c00); }
 .g-lorcana { --g: linear-gradient(135deg, #f0c25a, #6a3fb5); }
 .g-finalfantasy { --g: linear-gradient(135deg, #7fd3ff, #1f3f8f); }
+.g-wankul { --g: linear-gradient(135deg, #5b8cff, #1b2a8c); }
 .g-autres { --g: linear-gradient(135deg, #ff4fa3, #7c5cff); }
 
 /* Logos de séries (officiels ou générés) */
