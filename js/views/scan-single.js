@@ -490,9 +490,13 @@ Object.assign(App.views.scan, {
         // photo d'origine (cadre jaune + marge) : la carte y est entière même si le détourage l'a mal coupée (bord de la pochette,
         // ligne dans le dessin) → une fois la carte reconnue à l'image, ses vrais bords y sont repris (comme le classeur, v3.02)
         const ctx = pageBlob && pageBlob !== blob ? pageBlob : null;
-        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob, context: ctx }) /* photo d'origine : autre cadrage si besoin */); summary = info.read;
+        // (v3.47 : le cadrage sur les vrais bords est montré dès que l'image l'a trouvé, pendant la lecture du code)
+        let peek = '';
+        const onCrop = (b) => { const im = on() && view.querySelector('.bphoto img'); if (!im || cardBlob !== blob) return; if (peek) URL.revokeObjectURL(peek); im.src = peek = URL.createObjectURL(b); };
+        if (!isPk()) { ({ info, cands } = await ad.recognize(blob, st, { setId, original: pageBlob, context: ctx, onCrop }) /* photo d'origine : autre cadrage si besoin */); summary = info.read;
           // la carte n'a été lue que sur un autre cadrage : c'est lui qui montre vraiment la carte → il devient sa photo
           if (info.crop) setCard(info.crop);
+          else if (peek && !info.cropLater && on()) { const im = view.querySelector('.bphoto img'); if (im) im.src = cardURL; } // (cadrage d'une autre carte : écarté)
         }
         else {
           // vérification par l'image (comme One Piece et le classeur) — seulement si le texte n'est pas sûr (v2.96 : lancée en même

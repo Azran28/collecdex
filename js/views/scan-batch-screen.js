@@ -25,7 +25,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       const rows = Math.ceil(per / cols);
       const th = (c) => {
         const x = cardOf(c), st = c.saved ? 'saved' : c.state, done = ['sure', 'verifier'].includes(st) || c.saved;
-        const src = done && x ? visOf(x) : c.url, empty = ['vide', 'dos', 'autre', 'don'].includes(st);
+        const src = done && x ? visOf(x) : (c.state === 'lecture' && c.view) || c.url, empty = ['vide', 'dos', 'autre', 'don'].includes(st);
         const off = tap && !c.saved && (!c.choice || !c.checked) ? ' off' : '', btn = tap && !empty && !c.saved;
         const inner = `${empty ? '' : `<img src="${src}" alt="">`}${off ? '' : st === 'sure' || c.saved ? '<b>✓</b>' : st === 'verifier' ? '<b>?</b>' : ''}`;
         return btn ? `<button class="sv-th st-${st}${off}" data-sv="open" data-i="${c.i}" title="Carte ${c.i + 1}">${inner}</button>`
@@ -56,7 +56,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
         ${p ? `<div class="bprog-bar ${p.kind === 'img' ? 'img' : ''}"><i style="width:${Math.round((100 * p.done) / Math.max(1, p.total))}%"></i></div>` : ''}
         ${svCert()}
         <div class="sv-stage">
-          ${cur ? `<span class="sv-shot"><span class="bphoto sv-card ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
+          ${cur ? `<span class="sv-shot"><span class="bphoto sv-card ${cur.vscan ? 'scan-img' : 'scan-txt'}"><img src="${(cur.state === 'lecture' && cur.view) || cur.url}" alt="Ta carte ${cur.i + 1}"><i class="bscan"></i>${cur.vscan ? '<i class="bdot"></i>'.repeat(7) : ''}</span>
             ${off ? `<span class="sv-pip ${cur.state === 'sure' ? 'hit' : ''}"><img src="${visOf(off)}" alt="Carte envisagée">${cur.state === 'sure' ? '<b>✓</b>' : ''}</span>` : ''}</span>`
             : '<div class="spinner"></div>'}
         </div>

@@ -26,14 +26,17 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
     }
 
     /** Lecture d'une pochette : vide, dos, autre jeu, ou carte Pokémon (candidats) */
+    /** v3.47 : la carte recadrée sur ses vrais bords est montrée en grand dès que l’image l’a trouvée (avant : seulement après sa lecture) */
+    const viewOf = (cell) => (b) => { if (!alive() || cell.saved || cell.state !== 'lecture') return; cell.view = URL.createObjectURL(b); urls.push(cell.view); drawResults(); };
     async function recogOne(cell, hint, st) {
+      cell.view = null;
       if (await R.looksEmpty(cell.blob)) { cell.state = 'vide'; return; }
       // dos : sûr pour Pokémon (dos 0,71–0,80, faces ≤ 0,47) ; pour One Piece le dos uni bleu ressemble à des faces ternes
       // (Événement en pochette : 0,61, vrais dos 0,53–0,58) → la carte est quand même lue, « dos » seulement si rien n’est reconnu
       const back = await R.looksLikeBack(cell.blob, S.game).catch(() => false);
       // (Final Fantasy, v3.43 : dos sûr aussi — photos d'Arnaud : dos 0,71–0,87, faces ≤ 0,14, 4 455 visuels officiels ≤ 0,2)
       if (back && (isPk() || S.game === 'finalfantasy')) { cell.state = 'dos'; return; } // (Lorcana, v3.24 : comme One Piece — une face très sombre à lune dorée, « Fauchage », ressemble au dos : lue quand même)
-      const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
+      const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx, viewOf(cell));
       cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
       const cands = await learnt(cell, read);
       if (back && !(cands[0] && (cands[0].confident || cands[0].numOk || (cands[0].orb || 0) >= 25))) { cell.state = 'dos'; cell.cands = []; cell.choice = ''; cell.checked = false; return; }
@@ -52,12 +55,12 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
 
     /** (Re)lit une seule pochette, par ex. après un recadrage */
     async function recogCell(cell, hint, force = false) {
-      cell.state = 'lecture'; cell.cands = []; cell.choice = ''; cell.info = null; cell.mode = null; drawResults();
+      cell.state = 'lecture'; cell.cands = []; cell.choice = ''; cell.info = null; cell.mode = null; cell.view = null; drawResults();
       const st = (m) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">Carte ${cell.i + 1} — ${esc(m)}</div>`); };
       try {
         if (!force && await R.looksEmpty(cell.blob)) { cell.state = 'vide'; }
         else {
-          const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx);
+          const { info, cands: read } = await readCard(cell.blob, hint, st, cell.orig, cell.ctx, viewOf(cell));
           cell.game = S.game; // (licence de la lecture : « Toutes » peut en changer ensuite)
           const cands = await learnt(cell, read);
           cell.info = info; cell.cands = cands;

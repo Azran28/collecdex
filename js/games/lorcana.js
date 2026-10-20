@@ -375,9 +375,10 @@
     const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.92, 1, 0, 0.5]] }).catch(() => null) : null;
     return rd ? rd.texts : [];
   }
-  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
+  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null, onCrop = null } = {}) {
     const R = App.recognizer, D = await data();
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+    if (early && onCrop) early.then((e) => { if (e && e.crop) onCrop(e.crop); }, () => {}); // (cadrage sur les vrais bords montré dès qu'il est trouvé, v3.47)
     statusFn('Lecture du code de la carte…');
     // v3.40 : PaddleOCR d'abord (labo : 7 codes sur 7 contre 3 pour Tesseract), les 2 bandes Tesseract seulement s'il ne trouve rien
     const texts = await ocrTexts(blob);

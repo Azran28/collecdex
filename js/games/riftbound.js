@@ -416,10 +416,11 @@
     const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.935, 0.99, 0, 0.5]] }).catch(() => null) : null;
     return rd ? rd.texts : [];
   }
-  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
+  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null, onCrop = null } = {}) {
     const R = App.recognizer, D = await data();
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+    if (early && onCrop) early.then((e) => { if (e && e.crop) onCrop(e.crop); }, () => {}); // (cadrage sur les vrais bords montré dès qu'il est trouvé, v3.47)
     statusFn('Lecture du code de la carte…');
     // (2 bandes seulement au premier passage : 4 s → 2 s par carte ; le nom n'est lu qu'avec la carte entière, en dernier recours :
     //  les cartes françaises ne peuvent pas être reconnues par leur nom, Riot ne publiant que les noms anglais)

@@ -653,9 +653,10 @@
    * Lit une photo de carte (déjà recadrée) : code (« RGBT-FR007 ») et passcode, nom (français ou anglais), puis vérification
    * par l'image. Même déroulé que Lorcana. Renvoie { info: { code, name, read, crop… }, cands }.
    */
-  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
+  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null, onCrop = null } = {}) {
     const R = App.recognizer, D = await data();
     const early = useVisual() ? visualPass(blob, [], [], context, setId).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+    if (early && onCrop) early.then((e) => { if (e && e.crop) onCrop(e.crop); }, () => {}); // (cadrage sur les vrais bords montré dès qu'il est trouvé, v3.47)
     statusFn('Lecture du code de la carte…');
     const H = await sizeOf(blob);
     // v3.40 : PaddleOCR d'abord (labo : lecture brute 8/33 contre 0/33 pour Tesseract, avec la liste des codes 16/33), Tesseract en secours

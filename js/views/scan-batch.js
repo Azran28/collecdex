@@ -26,19 +26,19 @@ Object.assign(App.views.scan, {
       else S.reread = stale;
     }
     /** Lit une carte, en « Toutes » tant que la licence n'est pas connue : licence devinée sur le texte, sinon chaque licence essayée */
-    const readCard = async (blob, hint, st, orig = null, ctx = null) => {
-      if (!S.auto || S.gameSet) return readOne(blob, hint, st, orig, ctx);
+    const readCard = async (blob, hint, st, orig = null, ctx = null, onCrop = null) => {
+      if (!S.auto || S.gameSet) return readOne(blob, hint, st, orig, ctx, onCrop);
       // carte trouvée dans cette licence : sûre, code imprimé lu et existant, ou illustration nettement retrouvée
       const found = (r) => { const t = r && r.cands && r.cands[0]; return !!(t && (t.confident || t.numOk || (t.orb || 0) >= 25)); };
       const g = await App.views.scan.detectGame(blob, st);
-      if (g) { S.game = g; const r = await readOne(blob, '', st, orig, ctx); if (found(r)) setGame(g); return r; }
+      if (g) { S.game = g; const r = await readOne(blob, '', st, orig, ctx, onCrop); if (found(r)) setGame(g); return r; }
       // chaque licence essayée : une seule fois par page / rafale (ensuite, la licence en cours)
-      if (S.triedAll) return readOne(blob, '', st, orig, ctx);
+      if (S.triedAll) return readOne(blob, '', st, orig, ctx, onCrop);
       S.triedAll = true;
       let first = null;
       for (const x of [S.game, ...App.views.scan.games().map((y) => y.id).filter((y) => y !== S.game)]) {
         S.game = x;
-        const r = await readOne(blob, '', st, orig, ctx).catch(() => null);
+        const r = await readOne(blob, '', st, orig, ctx, onCrop).catch(() => null);
         if (found(r)) { setGame(x); return r; }
         if (!first && r) first = { x, r };
       }
@@ -46,10 +46,10 @@ Object.assign(App.views.scan, {
       return first ? first.r : { info: {}, cands: [] };
     };
     /** Lit une carte selon la licence : Pokémon (texte + série) ou One Piece / Riftbound (code imprimé + illustration) */
-    const readOne = async (blob, hint, st, orig = null, ctx = null) => {
+    const readOne = async (blob, hint, st, orig = null, ctx = null, onCrop = null) => {
       // (original : la case elle-même, relue au ras de ses bords et en bandes glissantes si le code n'est pas où on l'attend — marge de la pochette)
       // (ctx : la case et ses alentours, pour la vérification par l'image en classeur)
-      if (!isPk()) return ad.recognize(blob, st, { setId: hint, original: orig || blob, context: ctx });
+      if (!isPk()) return ad.recognize(blob, st, { setId: hint, original: orig || blob, context: ctx, onCrop });
       const r = hint ? await (async () => { const info = await R.read(blob, st, { atkBand: burst }); return { info, cands: await R.inSet(blob, info, hint, st) }; })()
         : await R.recognize(blob, st, { atkBand: burst });
       // rafale (cartes seules) : même vérification par l'image qu'en carte seule, seulement si le texte n'est pas sûr (v2.96)

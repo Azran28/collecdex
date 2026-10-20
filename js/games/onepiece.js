@@ -405,11 +405,12 @@
     const rd = O ? await O.read(b, OCR_BANDS, { zones: [[0.93, 0.99, 0.55, 1]] }).catch(() => null) : null;
     return rd ? rd.texts : [];
   }
-  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null } = {}) {
+  async function recognize(blob, statusFn = () => {}, { setId = '', original = null, context = null, onCrop = null } = {}) {
     const R = App.recognizer;
     // vérification par l'image lancée tout de suite, en même temps que la lecture du texte (v2.94) : si elle est sûre et que
     // le code n'est pas lisible, on ne relit pas d'autres cadrages (≈ 4 à 8 s gagnées)
     const early = useVisual() ? visualPass(blob, [], [], context).catch((e) => { console.warn('vérification par l’image', e); return null; }) : null;
+    if (early && onCrop) early.then((e) => { if (e && e.crop) onCrop(e.crop); }, () => {}); // (cadrage sur les vrais bords montré dès qu'il est trouvé, v3.47)
     statusFn('Lecture du code de la carte…');
     // v3.40 : code lu par PaddleOCR d'abord (labo : 10 codes sur 12 contre 7 pour Tesseract) ; Tesseract lit toujours le nom,
     // et le code seulement si PaddleOCR ne l'a pas trouvé
