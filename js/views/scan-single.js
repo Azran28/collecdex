@@ -347,12 +347,14 @@ Object.assign(App.views.scan, {
       results.innerHTML = `
         <h3>C’est laquelle ?</h3>
         ${info ? `<p class="small muted">Lu sur la carte : ${esc(info)}</p>` : ''}
+        ${isPk() ? '' : App.views.scan.codeZoomBox(game)}
         ${cands.map((c, i) => {
           const own = App.col.get(game, c.id);
           return `<div class="cand">
             <img src="${esc(ad.img.card(c, 'low'))}" alt="" data-alt="${esc(c.name)}">
             <div><b>${esc(c.name)}</b> ${ad.rarity.symbol(c.rarity, 12)}<br>
-              <span class="muted small">${esc(App.views.scan.setLabel(c))} · n° ${esc(c.localId)}${c.set && c.set.cardCount && !ad.numLabel ? '/' + c.set.cardCount.official : ''}</span>
+              ${isPk() ? '' : `<span class="sc-code" title="Code imprimé sur la carte">${esc(App.views.scan.codeOf(game, c))}</span>${ad.rarity.label ? ` <span class="small muted">${esc(ad.rarity.label(c.rarity))}</span>` : ''}<br>`}
+              <span class="muted small">${esc(App.views.scan.setLabel(c))}${isPk() ? ` · n° ${esc(c.localId)}${c.set && c.set.cardCount && !ad.numLabel ? '/' + c.set.cardCount.official : ''}` : ''}</span>
               ${!isPk() && c.variants ? `<br><span class="small muted">${c.variants.holo && c.variants.normal ? (c.foil ? (c.foil.holo ? `✨ Brillante (paillettes vues sur ta photo${c.foil.sure ? '' : ', à vérifier'})` : `Normale (pas de paillettes vues${c.foil.sure ? '' : ', à vérifier'} ; existe aussi en brillante)`) : 'Normale (existe aussi en brillante)') : c.variants.holo ? '✨ Holo' : 'Non holo'}</span>` : ''}
               ${!isPk() && /_p\d+$/.test(c.id) ? '<br><span class="small muted">Version parallèle (autre illustration) : compare avec ta carte</span>' : ''}
               ${!isPk() && /_r\d+$/.test(c.id) ? '<br><span class="small muted">Réimpression au même dessin, dans une autre série : vérifie la série</span>' : ''}
@@ -367,6 +369,7 @@ Object.assign(App.views.scan, {
         }).join('')}
         ${[...new Set(cands.slice(0, 3).map((c) => c.name))].slice(0, 2).map((n) => `<button class="btn sm" data-versions="${esc(n)}" style="margin:4px 6px 0 0">Toutes les versions de « ${esc(n)} »</button>`).join('')}
         <div class="sc-retry-box"><span class="small muted">Aucune ne correspond ?</span>${retry}</div>`;
+      if (!isPk()) App.views.scan.fillCodeZoom(results, game, cardBlob);
       results.onclick = async (e) => {
         if (!cardBlob) return;
         const vb = e.target.closest('[data-versions]');

@@ -109,6 +109,37 @@ App.views.scan = {
   /** « Set de Base (1999) » */
   setLabel(c) { return c.set ? `${c.set.name}${c.set.releaseDate ? ' (' + c.set.releaseDate.slice(0, 4) + ')' : ''}` : (c.setId || ''); },
 
+  /**
+   * v3.51 (Arnaud : « pour Yu-Gi-Oh! impossible de choisir la bonne parmi celles proposées, je ne connais pas assez ») :
+   * code complet de chaque carte proposée (« RGBT-FR007 ») et zoom sur le code imprimé de SA carte, pour comparer.
+   */
+  codeOf(game, c) { const ad = App.games.get(game); return (ad && ad.printedCode ? ad.printedCode(c) : '') || c.localId || ''; },
+  /** endroit du code imprimé sur la carte recadrée (x0, y0, x1, y1), un peu plus large que les bandes lues */
+  CODE_ZONE: { yugioh: [0.45, 0.66, 1, 0.85], onepiece: [0.55, 0.915, 0.99, 0.995], riftbound: [0, 0.915, 0.55, 1], lorcana: [0, 0.925, 0.5, 1], finalfantasy: [0.15, 0.905, 0.85, 1], wankul: [0.4, 0.91, 1, 1] },
+  /** zoom sur le code de ta carte → adresse d'image (data:), '' si la licence n'a pas de code à cet endroit */
+  async codeZoom(game, src) {
+    const z = this.CODE_ZONE[game];
+    if (!z || !src) return '';
+    try {
+      // adresse blob: de la photo → chargée comme image (la CSP n'autorise pas fetch sur blob:)
+      const bmp = await createImageBitmap(typeof src === 'string' ? await new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = src; }) : src);
+      const sx = z[0] * bmp.width, sy = z[1] * bmp.height, sw = (z[2] - z[0]) * bmp.width, sh = (z[3] - z[1]) * bmp.height;
+      const k = Math.min(3, 720 / sw), cv = document.createElement('canvas');
+      cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+      const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high';
+      g.drawImage(bmp, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+      bmp.close && bmp.close();
+      return cv.toDataURL('image/jpeg', 0.9);
+    } catch (e) { return ''; }
+  },
+  /** bloc « Le code sur ta carte » (rempli ensuite par fillCodeZoom) */
+  codeZoomBox: (game, url) => (App.views.scan.CODE_ZONE[game] ? `<div class="sc-mycode${url ? '' : ' hidden'}"><span class="small muted">Le code sur ta carte, à comparer avec celui des propositions${game === 'yugioh' ? ' (les lettres avant le tiret et le numéro ; FR ou EN, peu importe)' : ''} :</span><img alt="Code imprimé sur ta carte"${url ? ` src="${url}"` : ''}></div>` : ''),
+  async fillCodeZoom(root, game, src, ready) {
+    const box = root && root.querySelector('.sc-mycode'); if (!box) return;
+    const url = ready || await this.codeZoom(game, src);
+    if (url && box.isConnected) { box.querySelector('img').src = url; box.classList.remove('hidden'); }
+  },
+
   /** Licences proposées dans Capturer (actives et branchées) */
   games() { return App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id)); },
   /**
