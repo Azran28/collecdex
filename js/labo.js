@@ -8,6 +8,7 @@
  * (+ séries de réimpressions : Évolutions, Base Set 2) ; le scanner actuel cherche dans toute la base.
  */
 (() => {
+  if (/brillant/.test(location.search)) return; // (onglet « Brillance » : js/labo-holo.js)
   const { esc } = App.util;
   const R = App.recognizer;
   const ad = () => App.games.get('pokemon');
