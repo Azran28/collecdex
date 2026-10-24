@@ -753,14 +753,11 @@ Object.assign(App.views.scan, {
         App.util.toast(`${keys.length} carte${keys.length > 1 ? 's' : ''} enregistrée${keys.length > 1 ? 's' : ''} ✓`);
         // v3.41 (Arnaud) : validées depuis le récapitulatif → pas de retour au récap ni à la liste, on repart sur un nouveau scan
         // (la certification en arrière-plan continue : elle garde ses propres cartes)
-        if (S.newAfterSave) {
-          S.newAfterSave = false;
-          if (burst) X.resetBurst(); else el.querySelector('#b-reset').click();
-          window.scrollTo(0, 0);
-          return;
-        }
-        X.drawResults();
-        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // v3.57 : aussi depuis la liste détaillée (« pareil » : après la validation, le scan suivant)
+        S.newAfterSave = false;
+        if (burst) { X.resetBurst(); if (S.rUsedCam) el.querySelector('#r-start').click(); } // (rafale : la caméra repart si on s'en servait)
+        else el.querySelector('#b-reset').click();
+        window.scrollTo(0, 0);
       }
     });
 
@@ -768,6 +765,7 @@ Object.assign(App.views.scan, {
     Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, resultsEl, setStatus, sv, urls, view }));
     if (burst) {
       el.querySelector('#r-start').addEventListener('click', async () => {
+        S.rUsedCam = true;
         if (sv.open) X.svClose(); // on reprend la rafale : l'écran d'analyse se ferme
         try { await cam.start(); }
         catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra, ou utilise « Choisir des photos ».</span>`); return; }
@@ -784,6 +782,7 @@ Object.assign(App.views.scan, {
       el.querySelector('#r-pause').addEventListener('click', () => { X.rStop(); if (S.cells.length) X.burstReview(); }); // (v3.55 : l'écran d'analyse dès la 1re carte, plus de liste à chercher en bas)
       // photos de la galerie (plusieurs d'un coup) : ajoutées à la liste, sans certification
       el.querySelector('#r-files').addEventListener('change', async (e) => {
+        S.rUsedCam = false;
         const files = [...e.target.files]; e.target.value = '';
         let pages = 0;
         for (const f of files) {

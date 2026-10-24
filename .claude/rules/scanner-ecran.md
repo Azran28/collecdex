@@ -117,3 +117,6 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 
 ## v3.56 : carte sûre ajoutée toute seule, pas de plein écran pendant la lecture
 - `showScan` n'ouvre plus l'écran à part (`SS.scan` reste, inutilisé). `display` final : 1ʳᵉ proposition `confident` (et pas `a.from`, pas une autre que `target`, `App.settings.autoAddSure !== false`) → `autoPicked` puis `SS.yes()` (téléphone) ou clic sur `[data-pick]` ; carte possédée → écran `dup`. Bandeau : « Reconnue avec certitude », 3,5 s.
+
+## v3.57 : scan suivant dès la validation (classeur, rafale)
+- `svAction › next` : dernière carte de `review` (pas `sv.single`, pas de lecture en attente en rafale) → `saveAndNext()` (= « Enregistrer » du récapitulatif). `#b-add` repart toujours sur un nouveau scan (liste détaillée comprise) ; rafale : `#r-start` recliqué si `S.rUsedCam` (vrai au démarrage de la rafale, faux avec « Choisir des photos »). Récapitulatif seulement si aucune carte à vérifier.
