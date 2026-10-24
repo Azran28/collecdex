@@ -279,7 +279,8 @@ App.recognizer = (() => {
     return { list: c.variants.normal ? ['normal'] : Object.keys(c.variants).filter((k) => c.variants[k]), sure: base.length <= 1 };
   }
 
-  /** share = { mode: 'carte'|'classeur'|'rafale', doubt, user } : pour les scans envoyés au labo (comptes testeurs, js/scan-share.js) */
+  /** share = { mode: 'carte'|'classeur'|'rafale', doubt, user, cands, read, corrige } : pour les scans envoyés au labo (comptes testeurs,
+   *  js/scan-share.js) ; cands = propositions du scanner (1re d'abord), corrige = carte choisie à la main à la place de la 1re (v3.60) */
   async function addScanned(c, blob, mode = null, game = c.game || 'pokemon', share = {}) {
     const before = App.col.get(game, c.id);
     if (!mode) mode = before && before.qty > 0 ? 'photo' : 'nouvelle';
@@ -289,7 +290,7 @@ App.recognizer = (() => {
     if (mode === 'photo' && before) {
       await App.col.addPhoto(key, blob, { makeDisplay: true });
       // (même carte reprise en photo : c'est souvent un test ; envoyée au labo avec sa version, mesurée en arrière-plan)
-      if (App.scanShare && App.cloud && App.cloud.user) App.scanShare.isTester().then((ok) => ok && versionsOf(c, blob, game).catch(() => null).then((det) => App.scanShare.scan({ game, mode: share.mode, kind: 'photo', card: c, det, picked: c.pickedVariants, doubt: share.doubt, user: share.user }, blob))).catch(() => {});
+      if (App.scanShare && App.cloud && App.cloud.user) App.scanShare.isTester().then((ok) => ok && versionsOf(c, blob, game).catch(() => null).then((det) => App.scanShare.scan({ game, mode: share.mode, kind: 'photo', card: c, det, picked: c.pickedVariants, doubt: share.doubt, user: share.user, cands: share.cands, read: share.read, corrige: share.corrige }, blob))).catch(() => {});
       return key;
     }
     const set = c.set ? { id: c.set.id, name: c.set.name, symbol: c.set.symbol, logo: c.set.logo, official: c.set.cardCount && c.set.cardCount.official, group: c.set.serie || { id: c.serieId } } : null;
@@ -310,7 +311,7 @@ App.recognizer = (() => {
         lastVariants = det;
       } else lastVariants = null;
     } catch (e) { console.warn('versions', e); lastVariants = null; }
-    if (App.scanShare) lastShare = App.scanShare.scan({ game, mode: share.mode, kind: 'ajoutee', card: c, det: lastVariants, picked: c.pickedVariants, doubt: share.doubt, user: share.user }, blob);
+    if (App.scanShare) lastShare = App.scanShare.scan({ game, mode: share.mode, kind: 'ajoutee', card: c, det: lastVariants, picked: c.pickedVariants, doubt: share.doubt, user: share.user, cands: share.cands, read: share.read, corrige: share.corrige }, blob);
     return key;
   }
   let lastShare = null; // (id du dernier scan envoyé au labo : la réponse à « Ta carte brille ? » s'y ajoute)

@@ -727,9 +727,13 @@ Object.assign(App.views.scan, {
           const cand = c.cands.find((x) => x.id === c.choice);
           if (!cand) continue;
           const picked = c.det && c.det.id === cand.id ? X.versOf(c) : null; // version vue (et corrigée) dans la liste
-          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game, { mode: modeQ, doubt: !!(c.det && !c.det.user && !c.det.sure), user: !!(c.det && c.det.user) });
+          // (v3.60, labo : ce que le scanner avait proposé — la proposition d'origine si la case a été changée à la main)
+          const sys = c.sys || { choice: c.choice, cands: c.cands }, top = (sys.cands || []).find((x) => x.id === sys.choice);
+          const proposed = top ? [top, ...sys.cands.filter((x) => x !== top)] : (sys.cands || []);
+          let read = ''; try { read = c.info ? R.readSummary(c.info) : ''; } catch (err) { /* */ }
+          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game, { mode: modeQ, doubt: !!(c.det && !c.det.user && !c.det.sure), user: !!(c.det && c.det.user), cands: proposed, read, corrige: !top || top.id !== cand.id });
           // v3.36 : carte choisie à la main → correction retenue, scan raté gardé dans le carnet
-          if (c.sys) { let read = ''; try { read = c.info ? R.readSummary(c.info) : ''; } catch (err) { /* */ } App.scanMemo.batchPicked(S.game, burst ? 'rafale' : 'classeur', c, cand, read).catch(() => {}); }
+          if (c.sys) App.scanMemo.batchPicked(S.game, burst ? 'rafale' : 'classeur', c, cand, read).catch(() => {});
           c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
           keys.push(key);
           const it = App.col.byKey(key);

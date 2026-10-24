@@ -81,7 +81,7 @@ App.scanShare = (() => {
         auto: det ? det.list || [] : null, sure: !!(det && (det.sure === true || (det.sure && det.sure.base))),
         mesure: { holoRatio: info.holoRatio, reverseRatio: info.reverseRatio, foil: info.foil ? { score: info.foil.score, lap: info.foil.lap } : (rec.card && rec.card.foil ? { score: rec.card.foil.score, lap: rec.card.foil.lap } : undefined) },
         picked: rec.picked || null, doubt: !!rec.doubt, user: !!rec.user, // (user : version choisie à la main = bonne réponse)
-        read: String(rec.read || '').slice(0, 300),
+        read: String(rec.read || '').slice(0, 300), corrige: !!rec.corrige, // (v3.60 : propositions du scanner pour chaque carte ajoutée, pas seulement les ratées)
         cands: (rec.cands || []).slice(0, 5).map((c) => ({ ...cardRef(c), sure: !!c.confident })),
       };
       datas.set(id, { game: rec.game, data });
