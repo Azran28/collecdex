@@ -122,5 +122,18 @@
     } finally { App.certify.available = avail; App.settings.certCarte = was; }
   });
 
+  // v3.58 : rafale certifiée (paquet face cachée), mêmes tuiles qu'en carte seule, réglage à part
+  test('Capturer (rafale, téléphone) : tuiles de certification, gestes du paquet, page sans défilement', async (App, W) => {
+    const avail = App.certify.available, was = App.settings.certRafale;
+    App.certify.available = () => true; App.settings.certRafale = true;
+    try {
+      const app = await visit(W, '#/scan?mode=rafale&jeu=pokemon');
+      ok(app.querySelectorAll('.cert-pick .cp-opt').length === 2, 'les 2 tuiles « Certifier / Juste la photo » manquent');
+      ok(/face cachée/.test((app.querySelector('.scan-view .se-steps') || {}).textContent || ''), 'les gestes du paquet ne sont pas dans le cadre');
+      await until(() => W.document.documentElement.classList.contains('scan-still'), 3000, 'page bloquée avant la photo');
+      ok(W.document.documentElement.scrollHeight <= W.innerHeight + 1, 'la page dépasse de l’écran');
+    } finally { App.certify.available = avail; App.settings.certRafale = was; }
+  });
+
   test('retour en taille ordinateur', async () => { size(1200, 800); await sleep(200); });
 })();

@@ -766,3 +766,22 @@ test('scanner : photo floue, sombre, reflet', async (App) => {
   eq(S.problem(S.quality(blank)), '', 'pas de carte : pas de conseil');
   ok(S.TIPS.flou && S.TIPS.reflet && S.TIPS.sombre, 'phrases des conseils');
 });
+
+// v3.58 : rafale certifiée — un seul défi du serveur pour plusieurs cartes (supabase-v20.sql), une seule demande à la fois
+test('certification en rafale : un défi pour plusieurs cartes', async (App) => {
+  const real = App.cloud, calls = [];
+  App.cloud = new Proxy(real, { get(t, k) {
+    if (k === 'user') return { id: '00000000-0000-0000-0000-000000000001' }; if (k === 'enabled') return true;
+    if (k === 'rpc') return async (name, a) => { calls.push([name, a]); await sleep(30); return { id: 'defi-' + calls.length, challenge: 'retourne', uses: a.p_n }; };
+    const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } });
+  try {
+    const [a, b] = await Promise.all([App.certify.prepare('rafale'), App.certify.prepare('rafale')]);
+    eq(calls.length, 1, 'deux demandes en même temps = une seule au serveur');
+    eq(calls[0][1], { p_kind: 'rafale', p_n: 30 }, 'demande de la rafale');
+    ok(a && a === b && a.left === 30, 'défi partagé, 30 cartes');
+    eq((await App.certify.prepare('rafale')).id, a.id, 'le même défi tant qu’il reste des usages');
+    eq(calls.length, 1, 'pas de nouvelle demande');
+    const S = App.views.scan;
+    ok(S.certKey('rafale') === 'certRafale' && S.certKey() === 'certCarte', 'réglage propre à la rafale');
+  } finally { App.cloud = real; }
+});

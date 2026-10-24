@@ -2,6 +2,7 @@
 paths:
   - "js/certify.js"
   - "js/labo-certif.js"
+  - "js/labo-rafale.js"
   - "labo-certif.html"
   - "supabase/sql/supabase-certif.sql"
   - "supabase/sql/supabase-v7.sql"
@@ -11,7 +12,8 @@ paths:
 
 ## État actuel
 - **Carte seule** : certification **optionnelle** (`App.settings.certCarte`, interrupteur `#sc-certon`, encadré `.pc-off` si désactivée ; `certWanted` dans `shoot`) ; lampe toujours utilisée (`useLamp = true`, `tracker(…, { lamp, onLamp })`, grande consigne `.pc-big` pendant la phase `lampe`, `trk.lampStart` / `trk.LAMP_MS`). `LAMP_BLOCKS = true` (depuis v2.56).
-- **Rafale** : sans certification (`RAFALE_CERT = false`), sans lampe. **Page de classeur** : retirée (`PAGE_CERT = false` dans `batch`, le code reste ; `live(…, 'page')` refuse).
+- **Rafale (v3.58, « paquet face cachée »)** : `RAFALE_CERT = true`, sans lampe, tuiles `certPick('rafale')` (`App.settings.certRafale`, `certKey(mode)`, `certWanted(mode)`, `certSteps('rafale')`). Paquet tenu **sous** le cadre : carte montée dos visible, retournée, tenue immobile → `tracker(…, { auto: true, kind: 'rafale', only: S.auto ? null : S.game })` → `pret` = ≥ 3 images calmes sur ≥ 450 ms (une image à < 2 × le seuil ne remet pas à zéro) → `rCapture(F, true)` : `proof()` lancé AVANT `cam.shot`, `reset()` seulement après la preuve (elle relit `frames` après son `await`). Pas de « même carte » sur `pret` (doublons). Dos pas vu : prise normale, `live = { passed: false }` (« sans badge »). Défi partagé : `prepare('rafale')` → `cert_start('rafale', 30)` (`supabase-v20.sql`, réponse `uses`) ; `take(kind)` décrémente `left`, renouvelé après 5 min ; une seule demande à la fois (`pending`) ; sans v20 → 1 usage. `only` : seul le dos de la licence (faces Pokémon sombres à 0,66–0,87 en `ygBackScore`).
+- **Page de classeur** : retirée (`PAGE_CERT = false` dans `batch`, le code reste ; `live(…, 'page')` refuse).
 - Encadré commun `App.views.scan.certBlock(mode, extra)` (`.pc-block`, ids `sc-cert-help` / `b-cert-help` / `r-cert-help`) ; `certSwitch(id, on, label)` = interrupteur vert/rouge ; `.action-dock` vide caché.
 - Yu-Gi-Oh! (v3.26) : `ygBackScore` (bordure cuivrée fine, pas de couleurs froides ni de zone de texte claire ; voir `yugioh.md`), dans `backOf`.
 - Lorcana (v3.22, assoupli v3.24) : `lcBackScore` (modèle `App.lorcanaBacks` tiré des photos d'Arnaud + rond doré, bas sombre, symétrie) : dos 0,75–0,87, faces ≤ 0,35, voir `lorcana.md`.
@@ -33,4 +35,5 @@ Défi serveur unique `retourne`. `tracker(video, regionFn, {auto})` suit le cadr
 
 ## Labo (`labo-certif.html` + `js/labo-certif.js`, outil de test)
 Fausses vidéos 360×480 (cartes de `_tests-scanner`, dos = photo 04), vrais gestes + tricheries, algorithmes A…H, V/W (= code du site, lampe en essai / bloquante). Banc du 30 sept. soir : **W 91,5 % de vrais gestes certifiés / 84,3 % de triches refusées** (écran sans moiré 98 %) ; A 80,2/59,9 ; E 85,5/72,9. Restent : papiers imprimés 0 % (« lampe+A » les accepte), autre carte 49 %, carte petite 19 %. Page de classeur : plein jour 17 % seulement (lampe invisible). Dans le navigateur caché, `setTimeout` est freiné : le labo rend la main par `MessageChannel`.
+- **Banc « Rafale en paquet » (v3.58, `js/labo-rafale.js`, `window.__laboPile`)** : fausses vidéos de 5 cartes enchaînées (`pileScene` : paquet `below` sous le cadre ou dedans, `slide`, `facesOnly`, `twins`…), **vrai `certify.tracker`** sur le canevas (`vcan.videoWidth`, option `clock` = temps de la vidéo) + copie de `rTick` (à garder identique) ; preuve = `judgeE` + écran + figée. `o.trace` / `o.keep` pour déboguer. Mesures : sous le cadre 99,7 % prises, ~92 % certifiées, ~2,4 s/carte ; dans le cadre ~63 % ; faces sans dos 0 % ; « dos puis face glissée » 87 % (limite connue, la mesure « table des deux côtés » ne sépare pas : vrais 0,13–2,08, triche 0,47–3,39) ; pièce sombre 0 % prises (artefact : σ < 16, la vraie caméra s'expose). Labo lent : ~2 s par vidéo, panneau masqué = attendre par `MessageChannel`. Site : `_tests-scanner/rafalecert.js` (`__rafSetup`, `__rafRun(n)`, carte = 78 % de la largeur comme le cadre jaune, dessin par `setTimeout` : `requestAnimationFrame` presque arrêté panneau masqué).
 - **Wankul (v3.48)** : dos bleu au logo blanc, mesure dédiée `recognizer-image › wkBackScore` (voir `wankul.md`), ajoutée à `certify.js › backOf`.

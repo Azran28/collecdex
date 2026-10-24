@@ -444,23 +444,39 @@ App.certify = (() => {
   const median = (G) => { const s = Array.from(G).sort((a, b) => a - b); return s[s.length >> 1]; };
 
   // ---------- Liaison avec le serveur ----------
-  const challenges = {}; // par type de capture ('carte' | 'page') : { id, challenge, at }
+  const challenges = {}; // par type de capture ('carte' | 'rafale' | 'page') : { id, challenge, at, left }
+  const pending = {}; // demande au serveur en cours, par type (la rafale en redemande souvent)
   const certs = new Map(); // photoId → { key, at }
   const listeners = new Set();
   const emit = () => listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
 
   const available = () => !!(App.cloud.enabled && App.cloud.user);
 
-  async function prepare(kind = 'carte', n = 9) {
+  // rafale (v3.58) : un seul défi pour plusieurs cartes (supabase-v20.sql : « retourne » avec max_uses = p_n), sinon le
+  // serveur bloquait après 40 cartes en 10 min ; renouvelé après 5 min (cert_finish refuse un défi de plus de 15 min).
+  // Serveur sans v20 : sa réponse n'a pas « uses » → un défi par carte, comme avant.
+  const RAFALE_USES = 30;
+  async function prepare(kind = 'carte', n = kind === 'rafale' ? RAFALE_USES : 9) {
     if (!available()) return null;
     const c = challenges[kind];
     if (kind === 'carte' && c && Date.now() - c.at < 8 * 60 * 1000) return c;
-    try {
-      // page de classeur : un tirage neuf à chaque fois (le numéro dépend du nombre de cases)
-      const d = await App.cloud.rpc('cert_start', kind === 'page' ? { p_kind: 'page', p_n: n } : { p_kind: kind });
-      challenges[kind] = { id: d.id, challenge: d.challenge, at: Date.now() };
-    } catch (e) { console.warn('certification', e); challenges[kind] = null; }
-    return challenges[kind];
+    if (kind === 'rafale' && c && c.left > 0 && Date.now() - c.at < 5 * 60 * 1000) return c;
+    if (pending[kind]) return pending[kind];
+    return (pending[kind] = (async () => {
+      try {
+        // page de classeur : un tirage neuf à chaque fois (le numéro dépend du nombre de cases)
+        const d = await App.cloud.rpc('cert_start', kind === 'carte' ? { p_kind: kind } : { p_kind: kind, p_n: n });
+        challenges[kind] = { id: d.id, challenge: d.challenge, at: Date.now(), left: d.uses || 1 };
+      } catch (e) { console.warn('certification', e); challenges[kind] = null; }
+      finally { pending[kind] = null; }
+      return challenges[kind];
+    })());
+  }
+  /** Défi utilisé par une carte (consommé quand il n'a plus d'usage) */
+  function take(kind) {
+    const ch = challenges[kind]; if (!ch) return null;
+    if (!(--ch.left > 0)) challenges[kind] = null;
+    return ch;
   }
 
   /**
@@ -559,11 +575,11 @@ App.certify = (() => {
    * Au moment de la photo, proof() donne le résultat à envoyer au serveur.
    * regionFn() : zone du cadre dans la vidéo { sx, sy, sw, sh }.
    */
-  function tracker(video, regionFn, { auto = false, lamp: useLamp = false, onLamp = null, game = 'pokemon' } = {}) { // game : modèle de dos (One Piece, v2.88) // v2.57 : lampe seulement si demandée (carte seule, option)
+  function tracker(video, regionFn, { auto = false, lamp: useLamp = false, onLamp = null, game = 'pokemon', only = null, kind = 'carte', clock = Date.now } = {}) { // kind : défi 'carte' ou 'rafale' (v3.58) ; only : seul dos cherché ; clock : horloge (le labo rejoue des vidéos plus vite que le temps réel) // game : modèle de dos (One Piece, v2.88) // v2.57 : lampe seulement si demandée (carte seule, option)
     const GW = 24, GH = 33, SW = 72, SH = 100;
     const cv = Object.assign(document.createElement('canvas'), { width: SW, height: SH });
     const cg = cv.getContext('2d', { willReadFrequently: true });
-    let frames = [], phase = 'attente', lastBack = 0, stable = 0, prev = null, sinceBack = 99;
+    let frames = [], phase = 'attente', lastBack = 0, stable = 0, stillT = 0, prev = null, sinceBack = 99;
     // lampe : carte seule → le code est joué pendant qu'on montre le dos ; rafale → pendant que la face est tenue
     // immobile, juste avant la photo automatique. lamp : { state: 'idle' | 'play' | 'done', code }
     let torch, lamp = { state: 'idle', code: null };
@@ -588,13 +604,16 @@ App.certify = (() => {
       // en mode Pokémon : « Dos pas reconnu ») — One Piece : dos mesurés 0,56 à 0,66 → seuil ramené à 0,50 (+0,05) ;
       // faces mesurées contre le modèle One Piece : One Piece ≤ 0,31, Pokémon ≤ 0,45 (d'où +0,05 et pas +0,1)
       // Riftbound (v3.10) : mesure dédiée (or + fond sombre + symétrie) : dos 0,62–0,87, faces ≤ 0,3
-      const backOf = (fast) => Math.max(App.recognizer.backScoreOf(cv, SW, SH, fast, 'pokemon'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'onepiece') + 0.05, App.recognizer.backScoreOf(cv, SW, SH, fast, 'lorcana') + LC_BACK, App.recognizer.backScoreOf(cv, SW, SH, fast, 'riftbound'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'yugioh'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'finalfantasy'), App.recognizer.backScoreOf(cv, SW, SH, fast, 'wankul'));
+      // v3.58 : `only` = seulement le dos de cette licence (rafale d'une licence choisie : au labo, des faces Pokémon
+      // sombres passaient pour des dos Yu-Gi-Oh! — 0,66 à 0,87 — et la carte restait bloquée sur « retourne-la »)
+      const SHIFT = { onepiece: 0.05, lorcana: LC_BACK };
+      const backOf = (fast) => Math.max(...(only ? [only] : ['pokemon', 'onepiece', 'lorcana', 'riftbound', 'yugioh', 'finalfantasy', 'wankul']).map((g) => App.recognizer.backScoreOf(cv, SW, SH, fast, g) + (SHIFT[g] || 0)));
       let b = backOf(true);
       if (b >= 0.4 && b < BACK_T) b = Math.max(b, backOf(false));
       const g = grayOf(cv, 0, 0, SW, SH, GW, GH), d = grayOf(cv, 0, 0, SW, SH, DW, DH);
       sinceBack = b >= BACK_T ? 0 : sinceBack + 1;
       // petites images gardées seulement autour du dos (pour la bande-preuve) : c'est léger
-      const f = { t: Date.now(), b, g, d, v: median(d), img: sinceBack < 12 ? cg.getImageData(0, 0, SW, SH) : null };
+      const f = { t: clock(), b, g, d, v: median(d), img: sinceBack < 12 ? cg.getImageData(0, 0, SW, SH) : null };
       frames.push(f);
       if (frames.length > 200) frames.shift();
       return f;
@@ -620,15 +639,18 @@ App.certify = (() => {
         // rafale : la face est posée (assez de détails) et immobile un bon moment → (lampe) → photo
         if (lampBusy(now)) return 'lampe';
         if (lamp.state === 'done' || lamp.state === 'error') { phase = 'pret'; return phase; }
-        const still = sd >= 16 && diff < 4 + sd * 0.08;
-        stable = still ? stable + 1 : 0;
-        if (stable >= 6) { if (startLamp()) return 'lampe'; phase = 'pret'; }
+        // v3.58 : ~0,45 s de calme (et 3 images), plus « 6 images de suite » : à 5–7 images/s (téléphone d'Arnaud ~5,6),
+        // la main bouge un peu d'une image à l'autre et la carte n'était jamais prise (labo : 40 % de cartes oubliées) ;
+        // une image un peu bougée (moins de 2 × le seuil) ne remet pas le compte à zéro
+        const thr = 4 + sd * 0.08, still = sd >= 16 && diff < thr;
+        if (still) { if (!stable) stillT = now; stable++; } else if (!(sd >= 16 && diff < thr * 2)) stable = 0;
+        if (stable >= 3 && now - stillT >= 450) { if (startLamp()) return 'lampe'; phase = 'pret'; }
       }
       return phase;
     }
     /** Résultat, au moment de la photo (le défi du serveur est consommé) */
     async function proof() {
-      const ch = challenges.carte; challenges.carte = null; // usage unique
+      const ch = take(kind); // usage unique (rafale : plusieurs cartes par défi)
       if (!ch) return { passed: false, reasons: [available() ? 'serveur de certification injoignable' : 'connecte-toi pour certifier'] };
       if (ch.challenge !== 'retourne') return { passed: false, reasons: ['serveur de certification pas à jour (supabase-v7.sql)'] };
       grab(); // la dernière image = ce que montre la photo

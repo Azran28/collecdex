@@ -49,7 +49,7 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 - **v2.52** aperçu de la version sur le visuel officiel (TCGdex n'a qu'une image, donc simulé) : `vfxOf(c, cur)` → `.vfx.vfx-holo` / `.vfx-reverse` sur `.sv-offwrap` et `.sv-rc-open` ; `::after` dégradé arc-en-ciel en `color-dodge`, `clip-path` : holo = `inset(11% 9% 50% 9%)` (illustration), reverse = polygone `evenodd` (tout sauf l'illustration) ; phrase « Aperçu holo / reverse / Normale : rien ne brille (simulé…) » sous les puces de `svVersions`.
 
 ## Rafale (`#/scan?mode=rafale`, `batch(…, burst=true)`)
-- Les commandes du mode page y sont gardées cachées (code commun). Suivi 40×56 du cadre toutes les 150 ms ; carte présente si écart-type ≥ 16, immobile si écart < 4 + 0,08·σ pendant 4 images ; même carte que la précédente si `certify._test.motion` recale (rel < 0,62 et fit < 0,78 : même carte zoomée 0,32–0,52 / autre carte ≥ 0,74). Capture = `cam.capture()` + `cellCard`. File de lecture en arrière-plan (`recogOne`). « Choisir des photos » (plusieurs, `locateCard` sur la photo entière > 55 %, sans certification). Sans certification (`RAFALE_CERT = false`) ni lampe.
+- Les commandes du mode page y sont gardées cachées (code commun). Suivi 40×56 du cadre toutes les 150 ms ; carte présente si écart-type ≥ 16, immobile si écart < 4 + 0,08·σ pendant 4 images ; même carte que la précédente si `certify._test.motion` recale (rel < 0,62 et fit < 0,78 : même carte zoomée 0,32–0,52 / autre carte ≥ 0,74). Capture = `cam.capture()` + `cellCard`. File de lecture en arrière-plan (`recogOne`). « Choisir des photos » (plusieurs, `locateCard` sur la photo entière > 55 %, sans certification). Certification « paquet face cachée » depuis v3.58 (voir `certification.md`), sans lampe.
 - `#b-sv` aussi dans le gabarit rafale ; `burstReview()` (≥ 2 cartes) à la pause (`#r-pause`) et après « Choisir des photos » : `scan` si lectures en cours (`rPending` ; `prog.total` mis à jour à chaque carte ajoutée), puis `svAfterScan` à la fin de la file ; reprendre la rafale ferme l'écran ; étapes : seulement « Lecture ».
 - Testé avec une fausse caméra (vidéo `.y4m`, Chromium `--use-file-for-fake-video-capture`).
 
@@ -58,7 +58,7 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 
 ## v3.13 : choix plus clairs (Arnaud)
 - Onglets de mode : `.mc-short` (« 1 carte / 1 page / À la suite », téléphone seulement) + `.mode-hint` (phrase du mode choisi, `MODE_HINT` dans `render`, téléphone).
-- Certification (carte seule) : v3.16 → tuiles `certPick()` (`.cert-pick` / `.cp-opt[data-cert]`, vert = « Certifier », gris = « Juste la photo » → `App.settings.certCarte`) au-dessus du cadre, comme les formats du classeur ; gestes `certSteps()` (`.se-steps`) dans le cadre vide si `certWanted()` ; `guide()` ne renvoie plus rien. `certSwitch`/`certBlock` restent pour la rafale (désactivée).
+- Certification (carte seule) : v3.16 → tuiles `certPick()` (`.cert-pick` / `.cp-opt[data-cert]`, vert = « Certifier », gris = « Juste la photo » → `App.settings.certCarte`) au-dessus du cadre, comme les formats du classeur ; gestes `certSteps()` (`.se-steps`) dans le cadre vide si `certWanted()` ; `guide()` ne renvoie plus rien. `certSwitch`/`certBlock` restent (plus utilisés ; la rafale a ses tuiles `certPick('rafale')` depuis v3.58).
 - Page des licences : `.lic-n` = icône du Dex + « N dans ton Dex ».
 
 ## v3.15 : format en tuiles, pas de défilement avant la photo

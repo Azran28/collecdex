@@ -21,8 +21,8 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       try { const m = App.certify._test.motion(A, B, GW, GH); return m.rel < 0.62 && m.fit < 0.78; } catch (e) { return false; }
     }
     const rHint = (html, cls = '') => { const h = view.querySelector('.r-live'); if (h) { h.className = `r-live ${cls}`; h.innerHTML = html; } };
-    S.rTrk = null; // certification « dos d'abord » (si « Certifier chaque carte » est coché)
-    const wantCert = () => RAFALE_CERT && certOn && el.querySelector('#r-cert') && el.querySelector('#r-cert').checked;
+    S.rTrk = null; // certification « dos d'abord » (si « Certifier » est choisi)
+    const wantCert = () => RAFALE_CERT && certOn && App.views.scan.certWanted('rafale');
     function rTick() {
       if (S.rBusy || !cam.on) return;
       const F = rGrab(); if (!F) return;
@@ -30,16 +30,18 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       let sd = 0; for (const v of F) sd += (v - mean) ** 2; sd = Math.sqrt(sd / F.length);
       const diff = S.rPrev ? mad(F, S.rPrev) : 99; S.rPrev = F;
       if (wantCert()) {
-        // chaque carte : le dos, on la retourne, on la tient immobile → prise et certifiée toute seule
-        if (!S.rTrk) S.rTrk = App.certify.tracker(cam.video, () => cam.region(), { auto: true });
+        // v3.58 : paquet face cachée tenu SOUS le cadre — on monte la carte du dessus (dos vu), on la retourne, on la tient
+        // immobile → prise et certifiée toute seule (sans lampe), on la pose. Paquet dans le cadre : au labo, 63 % certifiées
+        // au lieu de 92 % (le dos du paquet, derrière, cache le geste). Le dos vu depuis la dernière photo prouve que c'est
+        // une nouvelle carte : pas de « même carte » ici (doublons dans le paquet). Banc : labo-certif.html › labo-rafale.js.
+        if (!S.rTrk) S.rTrk = App.certify.tracker(cam.video, () => cam.region(), { auto: true, kind: 'rafale', only: S.auto ? null : S.game }); // licence choisie : seulement son dos
         const ph = S.rTrk.step();
-        if (ph === 'pret') { if (S.rLast && sameCard(S.rLast, F)) { S.rTrk.reset(); rHint(`Carte ${S.cells.length} prise ✓ — passe à la suivante`, 'ok'); return; } rCapture(F, true); return; }
-        if (ph === 'lampe') { rHint('💡 Ne bouge pas : la lampe clignote…', 'go'); return; }
-        if (ph === 'dos') { rHint('Retourne-la !', 'go'); return; }
-        if (ph === 'retourne') { rHint('Tiens-la immobile…', 'go'); return; }
-        if (S.rLast && sd >= 16 && sameCard(S.rLast, F)) { rHint(`Carte ${S.cells.length} prise ✓ — montre le dos de la suivante`, 'ok'); return; }
-        rHint(sd < 16 ? 'Montre le <b>dos</b> d’une carte dans le cadre' : 'Montre d’abord le <b>dos</b>, puis retourne la carte');
-        return;
+        if (ph === 'pret') { S.rStable = 0; rCapture(F, true); return; }
+        if (ph === 'dos') { S.rStable = 0; rHint('<b>Retourne</b>-la !', 'go'); return; }
+        if (ph === 'retourne') { S.rStable = 0; rHint('Tiens-la immobile…', 'go'); return; }
+        // dos pas vu : une carte montrée face visible est prise quand même, sans badge (suite ci-dessous)
+        if (sd < 16) { S.rStable = 0; rHint(S.cells.length ? `Carte ${S.cells.length} ✓ — monte la suivante, <b>dos</b> visible` : 'Monte une carte dans le cadre, <b>dos</b> visible'); return; }
+        if (S.rLast && sameCard(S.rLast, F)) { S.rStable = 0; rHint(`Carte ${S.cells.length} prise ✓ — pose-la, puis la suivante (<b>dos</b> visible)`, 'ok'); return; }
       }
       // v3.38 : pièce vraiment trop sombre (1 s de suite) : dit à la place de « Présente une carte »
       S.rDark = mean < 40 ? (S.rDark || 0) + 1 : 0;
@@ -64,15 +66,17 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
         // v3.38 (point 4 de « Qualité photos ») : comme en carte seule, la vraie photo du capteur quand le téléphone la donne,
         // sinon l'image vidéo la plus nette des 0,4 s qui suivent ; la vraie photo n'est plus essayée si elle n'a pas marché
         // ou a pris plus de 2,5 s (la rafale doit rester rapide)
+        // v3.58 : la preuve est jugée à l'instant de la photo (comme en carte seule), avant d'attendre l'appareil photo
+        const proofP = flipped && S.rTrk ? S.rTrk.proof().catch((e) => { console.warn(e); return { passed: false, reasons: ['vérification impossible'] }; }) : null;
         const t0 = Date.now(), b = await cam.shot(0.15, { useStill: !S.rNoStill });
         if (!S.rNoStill && (cam.lastSource !== 'photo' || Date.now() - t0 > 2500)) S.rNoStill = true;
-        if (!b) return;
         let live = null;
-        if (flipped && S.rTrk) {
-          try { live = await S.rTrk.proof(); } catch (e) { console.warn(e); live = { passed: false, reasons: ['vérification impossible'] }; }
-          S.rTrk.reset();
-          App.certify.prepare(); // défi de la carte suivante, préparé d'avance
-        }
+        if (proofP) {
+          live = await proofP;
+          S.rTrk.reset(); // (seulement après la preuve : elle relit les images du geste)
+          App.certify.prepare('rafale'); // défi de la carte suivante (le même tant qu'il lui reste des usages)
+        } else if (wantCert()) live = { passed: false, reasons: ['carte montrée sans retourner le dos d’abord'] };
+        if (!b) return;
         S.rLast = F;
         const img = await createImageBitmap(b);
         // v2.92 : photo = cadre jaune + 15 % de marge ; recadrée au ras de la carte seulement si ses bords sont sûrs, sinon
@@ -82,7 +86,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
         const cut = sure(R.cutCard(img, zone)) || sure(R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 }));
         const blob = cut ? await new Promise((res) => cut.canvas.toBlob(res, 'image/jpeg', 0.9)) : b;
         addBurstCell(blob, !!cut, live);
-        if (flipped) rHint(live && live.passed ? `${App.icons.icon('shield', 13)} Carte ${S.cells.length} vérifiée — suivante !` : `Carte ${S.cells.length} prise (non certifiable) — suivante !`, live && live.passed ? 'ok' : '');
+        if (live) rHint(live && live.passed ? `${App.icons.icon('shield', 13)} Carte ${S.cells.length} vérifiée — suivante !` : `Carte ${S.cells.length} prise sans badge (${flipped ? 'retournement pas reconnu' : 'dos pas vu'}) — suivante !`, live && live.passed ? 'ok' : '');
       } catch (e) { console.warn(e); }
       finally { S.rPrev = null; S.rBusy = false; }
     }
@@ -117,5 +121,5 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       resultsEl.innerHTML = App.views.scan.guide('rafale'); setStatus('');
     }
 
-  return { addBurstCell, rStop, rTick, resetBurst };
+  return { addBurstCell, rStop, rTick, resetBurst, wantCert };
 };

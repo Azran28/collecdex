@@ -85,7 +85,9 @@ Object.assign(App.views.scan, {
     // v2.57 : certification d'une page retirée pour le moment (la lampe ne marchait pas assez bien sur la page — Arnaud) ;
     // le code reste (livePage), il suffit de repasser PAGE_CERT à vrai
     const PAGE_CERT = false;
-    const RAFALE_CERT = false; // v2.58 : certification en rafale retirée pour le moment aussi (demande d'Arnaud)
+    // v3.58 (Arnaud) : rafale certifiée de nouveau, sans lampe : paquet face cachée, chaque carte retournée devant la
+    // caméra (le dos du paquet, puis la face) ; choix « Certifier / Juste la photo » comme en carte seule (certRafale)
+    const RAFALE_CERT = true;
     const setBox = (title) => `<div class="set-first" hidden>
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
             <select id="b-set"><option value="">Série : je ne sais pas</option></select>
@@ -113,7 +115,7 @@ Object.assign(App.views.scan, {
             <div class="row action-dock"><button class="btn primary hidden" id="b-go">▶ Lancer la reconnaissance</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
           </div>`;
     el.innerHTML = burst ? `
-      ${gamePick}<div class="batch-wrap">
+      ${gamePick}${RAFALE_CERT ? App.views.scan.certPick('rafale') : ''}<div class="batch-wrap">
         <div>
           ${setBox('Série des cartes')}
           <div class="scan-view" id="b-view">${App.views.scan.empty('rafale')}</div>
@@ -123,7 +125,6 @@ Object.assign(App.views.scan, {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn && RAFALE_CERT ? App.views.scan.certBlock('rafale', App.views.scan.certSwitch('r-cert', true, `${App.icons.icon('shield', 16)} Certification`)) : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
@@ -772,8 +773,8 @@ Object.assign(App.views.scan, {
         try { await cam.start(); }
         catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra, ou utilise « Choisir des photos ».</span>`); return; }
         App.sfx.unlock();
-        view.insertAdjacentHTML('beforeend', '<div class="r-live">Présente une carte dans le cadre</div>');
-        if (certOn && RAFALE_CERT) App.certify.prepare();
+        view.insertAdjacentHTML('beforeend', `<div class="r-live">${X.wantCert() ? 'Monte une carte dans le cadre, <b>dos</b> visible' : 'Présente une carte dans le cadre'}</div>`);
+        if (X.wantCert()) App.certify.prepare('rafale');
         S.rPrev = null; S.rStable = 0;
         S.rTrk = null;
         S.rTimer = setInterval(X.rTick, 100);
@@ -782,6 +783,15 @@ Object.assign(App.views.scan, {
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
       });
       el.querySelector('#r-pause').addEventListener('click', () => { X.rStop(); if (S.cells.length) X.burstReview(); }); // (v3.55 : l'écran d'analyse dès la 1re carte, plus de liste à chercher en bas)
+      // tuiles « Certifier / Juste la photo » (v3.58, comme en carte seule ; retenu dans les réglages) — aussi pendant la rafale
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('.cp-opt'); if (!b) return;
+        App.settings.certRafale = b.dataset.cert === '1'; App.col.saveSettings().catch(() => {});
+        el.querySelectorAll('.cp-opt').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+        if (view.querySelector('.scan-empty')) view.innerHTML = App.views.scan.empty('rafale');
+        if (X.wantCert()) App.certify.prepare('rafale');
+        S.rTrk = null; S.rStable = 0;
+      });
       // photos de la galerie (plusieurs d'un coup) : ajoutées à la liste, sans certification
       el.querySelector('#r-files').addEventListener('change', async (e) => {
         const files = [...e.target.files]; e.target.value = '';
