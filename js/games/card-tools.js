@@ -42,10 +42,16 @@ App.cardTools = (() => {
       const R = App.recognizer, bmp = await createImageBitmap(src), k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
       c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-      const r = R.findCard(c, {}); if (!r || !r.quad) return null;
-      const px = r.quad.map(([x, y]) => [x * c.width, y * c.height]);
-      const area = Math.abs(px.reduce((s, p, i) => { const q = px[(i + 1) % 4]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2 / (c.width * c.height);
-      if (area < 0.12 || area > 0.97 || Math.abs(R.trueRatio(px, c.width, c.height) - RATIO) > 0.1) return null;
+      // v3.50 (Vayne tenue en main) : 1ᵉʳ cadre = un morceau de l'illustration (11 % de la photo), la carte entière 2ᵉ → le 1ᵉʳ des 8 meilleurs qui convient
+      const r = R.findCard(c, { top: 8 }); if (!r || !r.quad) return null;
+      const ok = (quad) => {
+        const px = quad.map(([x, y]) => [x * c.width, y * c.height]);
+        const area = Math.abs(px.reduce((s, p, i) => { const q = px[(i + 1) % 4]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2 / (c.width * c.height);
+        return area >= 0.12 && area <= 0.97 && Math.abs(R.trueRatio(px, c.width, c.height) - RATIO) <= 0.1 ? px : null;
+      };
+      let px = null;
+      for (const q of [r.quad, ...(r.cands || []).map((x) => x.quad || x)]) if (q && (px = ok(q))) break;
+      if (!px) return null;
       const w = Math.min(1000, Math.round(Math.hypot(px[1][0] - px[0][0], px[1][1] - px[0][1])));
       return await new Promise((res) => R.warpQuad(c, px, w).toBlob(res, 'image/jpeg', 0.92));
     } catch (e) { return null; }

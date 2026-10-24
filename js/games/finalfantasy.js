@@ -270,12 +270,22 @@
   const CODE_ZONES = [[0.935, 0.985, 6, 'sharp', 0.3, 0.7], [0.935, 0.985, 6, 'invert', 0.3, 0.7], [0.925, 0.99, 5, 'otsu', 0.25, 0.75], [0.92, 0.995, 4, 'sharp', 0.2, 0.8]];
   const NAME_ZONES = [[0.025, 0.085, 2.5, 'sharp', 0.2, 0.85], [0.025, 0.085, 2.5, 'invert', 0.2, 0.85]];
   const OCR_BANDS = [0.925, 0.935, 0.945, 0.955].map((y) => [y, y + 0.04, 0.28, 0.72]);
-  // v3.46 : le nom en haut aussi (police étroite, souvent sur une illustration sombre : Tesseract n'y lit rien, PaddleOCR « Vayne »)
-  const NAME_BANDS = [[0.02, 0.1, 0.15, 0.75]];
+  // v3.46 : le nom en haut aussi (police étroite, souvent sur une illustration sombre : Tesseract n'y lit rien, PaddleOCR « Vayne ») ;
+  // v3.50 : jusqu'à 0,16 (version Full Art sans bandeau, nom plus bas, et bord de pochette gardé par le recadrage)
+  const NAME_BANDS = [[0.02, 0.16, 0.15, 0.75]];
   async function ocrTexts(b) {
     const O = App.recognizerParts && App.recognizerParts.codeOcr;
-    const rd = O ? await O.read(b, [...OCR_BANDS, ...NAME_BANDS], { zones: [[0.91, 1, 0.2, 0.8], [0, 0.12, 0.1, 0.9]] }).catch(() => null) : null;
+    const rd = O ? await O.read(b, [...OCR_BANDS, ...NAME_BANDS], { zones: [[0.91, 1, 0.2, 0.8], [0, 0.17, 0.1, 0.9]] }).catch(() => null) : null;
     return rd ? rd.texts : [];
+  }
+  /** Numéros à 3 chiffres lus sans série valable (« 0.022 », « 00227 » pour 9-022L : le 9 pris pour un 0) — ne servent qu'avec le nom lu */
+  function looseNums(texts) {
+    const out = new Set();
+    for (const t of texts) for (const run of String(t || '').toUpperCase().match(/[0-9ODQIL|.:\-]{3,}/g) || []) {
+      const d = fix(run); if (d.length < 3 || d.length > 5 || (run.match(/[0-9]/g) || []).length < 3) continue; // (pas « 2015-2021 », ni « || » lu « 11 »)
+      for (let i = 0; i + 3 <= d.length; i++) out.add(d.slice(i, i + 3));
+    }
+    return out;
   }
   // meilleur cadre en forme de carte dans la photo (détourage raté), remis à plat — v3.46, commun : js/games/card-tools.js
   const findCrop = (src) => App.cardTools.findCrop(src);
@@ -366,9 +376,10 @@
       texts.push(...t); read.push(...t.map(codesIn));
       if (anyCode() && crop) betterCrop = crop;
     }
-    // ni code ni nom lus : la carte cherchée dans la photo elle-même (détourage raté), puis relue — elle sert ensuite à la comparaison
+    // code pas lu : la carte cherchée dans la photo elle-même (détourage raté), puis relue — elle sert ensuite à la comparaison
     const nameIn = async (ts) => { const nm = await names(); return ts.some((t) => String(t || '').split('\n').some((l) => nm.has(norm(l)))); };
-    if (!anyCode() && !(await nameIn(texts))) {
+    // (v3.50 : aussi quand seul le nom est lu — le bas de la photo n'est alors souvent pas celui de la carte, le code reste à lire)
+    if (!anyCode()) {
       for (const src of [...new Set([blob, original, context].filter(Boolean))]) {
         statusFn('Recherche de la carte dans la photo…');
         const fc = await findCrop(src); if (!fc) continue;
@@ -414,7 +425,15 @@
       const fix = (await fromIds(nameIds)).filter((c) => nums.has(String(c.localId).slice(0, 3)));
       if (fix.length) { for (const c of fix) c.codeFix = true; cands = [...fix, ...cands]; agreed = true; }
     }
-    if (!cands.length && nameOk) cands = (await fromIds(nameIds)).sort((a, b) => ((b.setId === setId) - (a.setId === setId)) || String(b.set.sortKey).localeCompare(String(a.set.sortKey)));
+    // nom lu, code illisible mais numéro reconnaissable (« 0.022 », v3.50 : Vayne Full Art 9-022L d'Arnaud) : les cartes de ce nom à ce numéro devant
+    let numSure = '';
+    if (!cands.length && nameOk) {
+      cands = (await fromIds(nameIds)).sort((a, b) => ((b.setId === setId) - (a.setId === setId)) || String(b.set.sortKey).localeCompare(String(a.set.sortKey)));
+      const nums = looseNums(texts), fixed = cands.filter((c) => nums.has(String(c.localId).slice(0, 3)));
+      for (const c of fixed) c.codeFix = true;
+      const keys = new Set(fixed.map((c) => `${c.setId}|${String(c.localId).slice(0, 3)}`));
+      if (keys.size === 1) numSure = [...keys][0]; // (une seule carte de ce nom à ce numéro, ou elle et sa version Full Art)
+    }
     const seen = new Set(); cands = cands.filter((x) => !seen.has(x.id) && seen.add(x.id));
     const rk = (c) => (c.codeFix ? 3 : 0) + (codeIds.has(c.id) ? 2 : 0) + (nameIds.includes(c.id) ? 1 : 0);
     cands.sort((a, b) => rk(b) - rk(a));
@@ -430,7 +449,7 @@
     if (nameOk) for (const x of cands) x.nameScore = nameIds.includes(x.id) ? 1 : 0;
     let top = cands[0];
     const second = cands[1];
-    const codeSure = codes.length > 0 && codeIds.has(top && top.id) && (agreed || votes[codes[0]] >= 2);
+    const codeSure = (codes.length > 0 && codeIds.has(top && top.id) && (agreed || votes[codes[0]] >= 2)) || !!(numSure && top && top.codeFix);
     const visSure = top && (!second || (top.visual != null && top.visual >= 0.55 && top.visual - (second.visual ?? 0) >= 0.1));
     if (top && codeSure && visSure) top.confident = true;
     let orb = null;
@@ -439,7 +458,12 @@
       const e = early && !cands.length ? await early : null;
       if (e) orb = e;
       else orb = await visualPass(blob, cands, [...codeIds], context, setId).catch((err) => { console.warn('vérification par l’image', err); return null; });
-      if (orb) { cands = orb.cands; top = cands[0]; }
+      if (orb) {
+        cands = orb.cands;
+        // image pas sûre et pas du nom lu (Vayne Full Art, absente de l'index : Nyx devant, v3.50) : les cartes du nom lu d'abord
+        if (nameOk && cands[0] && !cands[0].confident && !nameIds.includes(cands[0].id)) cands = [...cands.filter((c) => nameIds.includes(c.id)), ...cands.filter((c) => !nameIds.includes(c.id))];
+        top = cands[0];
+      }
       if (top && top.confident && !codeIds.has(top.id) && (top.orb || 0) < IMG_SURE) delete top.confident;
       // même dessin ailleurs (Legacy Collection) : le code lu sur la carte, confirmé par l'image, tranche
       if (top && !top.confident && codeIds.has(top.id) && (top.orb || 0) >= App.visual.SURE) top.confident = true;
@@ -448,7 +472,7 @@
     const cropLater = !orb && early && top ? early.then((e) => (e && e.crop && e.cands[0] && e.cands[0].id === top.id ? e.crop : null), () => null) : null;
     const codeTxt = (c) => { const [s, n] = c.split('|'); return `code ${s}-${n}`; };
     const byImg = codes.length && top && !codeIds.has(top.id) && top.orb >= 25;
-    const readTxt = codes.length ? `${byImg ? codeTxt(`${top.setId}|${top.localId}`) : codeTxt(codes[0])}${byImg ? ' (corrigé grâce à l’illustration)' : ''}` : '';
+    const readTxt = codes.length ? `${byImg ? codeTxt(`${top.setId}|${top.localId}`) : codeTxt(codes[0])}${byImg ? ' (corrigé grâce à l’illustration)' : ''}` : numSure ? `${codeTxt(numSure)} (série mal lue)` : '';
     if (top) top.foil = await foil(betterCrop || blob, top); // (brillant vu sur la photo, v3.44)
     return { info: { code: top ? top.id : '', name: nameOk, votes, crop: betterCrop, cropLater, ctxQuad: orb && top && orb.cands[0] === top ? orb.ctxQuad : null, orb: orb ? orb.best : null, read: [readTxt, nameOk ? `nom « ${nameOk} »` : '', top && top.orb >= 25 ? 'reconnue à l’image ✓' : ''].filter(Boolean).join(', ') }, cands: cands.slice(0, 40) };
   }
