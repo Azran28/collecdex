@@ -803,6 +803,8 @@
     extraLabel: 'autres raretés',
     priceNote: 'Prix : celui de l’impression (TCGplayer, cartes anglaises, converti en euros), sinon le prix Cardmarket de la carte ; mise à jour quotidienne.',
     rarity,
+    // code imprimé sans la langue (« RGBT-007 » pour RGBT-FR007 / RGBT-EN007, « SDK-032 » pour SDK-F032 / SDK-E032) : affiché dans les propositions du scanner
+    printedCode: (c) => (c && c.code ? baseKey(c.code).replace(/-[A-Z](\d{3})$/, '-$1') : ''),
     pullRates: () => null,
     source: { name: 'YGOPRODeck', url: 'https://ygoprodeck.com/' },
     parts: { baseKey, FRAME, ATTR, RACE, data, visualPass, choosePrint, pickPrint, nameLook, nameClass, byRarity, printScores, readScores, printedForms, CODE_BAND, CROP_ZONES, fullQuad, cropQuad, codesIn, lexicon, ocrCodes, OCR_BANDS },

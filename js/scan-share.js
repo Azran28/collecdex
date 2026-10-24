@@ -1,5 +1,5 @@
 /*
- * Scans de test envoyés tout seuls au labo de Claude (v3.51, demande d'Arnaud : « que tu reçoives mes photos automatiquement »).
+ * Scans de test envoyés tout seuls au labo de Claude (v3.52, demande d'Arnaud : « que tu reçoives mes photos automatiquement »).
  * Seulement pour les comptes « testeurs » (table labo_testers de supabase-v19.sql, remplie à la main dans Supabase) :
  * pour tous les autres, rien ne part. Chaque scan = la photo de la carte (WebP 800 px) + ce que le scanner a décidé
  * (carte, version, mesure, sûre ou non) + ce que le dresseur a répondu ou corrigé. Le labo (labo.html?brillant, « Mes scans »)

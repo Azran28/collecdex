@@ -388,7 +388,7 @@ App.cloud = (() => {
   }
 
   /**
-   * Scans de test envoyés au labo de Claude (v3.51, supabase-v19.sql) : seulement pour les comptes testeurs
+   * Scans de test envoyés au labo de Claude (v3.52, supabase-v19.sql) : seulement pour les comptes testeurs
    * (table labo_testers, remplie à la main dans Supabase). Photo dans le stockage privé « labo/<compte>/<id>.webp »,
    * le reste (carte, version décidée, réponse) dans la table labo_scans. Voir js/scan-share.js.
    */

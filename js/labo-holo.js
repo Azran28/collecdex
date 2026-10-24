@@ -271,7 +271,7 @@
     finally { S.running = false; render(); }
   }
 
-  // ---------- Scans du téléphone (v3.51, js/scan-share.js : envoyés tout seuls par les comptes testeurs) ----------
+  // ---------- Scans du téléphone (v3.52, js/scan-share.js : envoyés tout seuls par les comptes testeurs) ----------
   /** Bonne réponse d'un scan : la réponse à « Ta carte brille ? », ou la version choisie à la main dans le classeur */
   function scanLabel(d) {
     const base = (list) => (list || []).find((v) => ['normal', 'holo', 'reverse'].includes(v));

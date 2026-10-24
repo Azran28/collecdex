@@ -113,7 +113,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       try {
         // (Final Fantasy, v3.44 : paillettes mesurées par l'adaptateur, ad.foil ; déjà faite pendant la lecture → réutilisée)
         const fo = !isPk() && ad.foil ? (cur.foil || await ad.foil(c.blob, cur)) : null;
-        // (autres licences, v3.51 : rien à mesurer → « Normale » à vérifier, seulement pour une carte qui existe aussi en brillante)
+        // (autres licences, v3.52 : rien à mesurer → « Normale » à vérifier, seulement pour une carte qui existe aussi en brillante)
         const d = !isPk() && ad.foil ? { list: fo ? [fo.holo ? 'holo' : 'normal'] : ['normal'], sure: { base: !!(fo && fo.sure) }, info: { foil: fo } }
           : !isPk() ? { list: cur.variants.normal ? ['normal'] : baseOpts(cur), sure: { base: baseOpts(cur).length <= 1 }, info: {} }
           : await R.detectVariants(c.blob, cur.variants, ad.img.card(cur, 'high'));
@@ -238,7 +238,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       // brillance des cartes reconnues (ou changées) : mesurée en arrière-plan, affichée dès qu'elle est prête
       for (const c of S.cells) {
         if (c.saved || !c.choice || c.state === 'lecture' || (c.det && c.det.id === c.choice)) continue;
-        // (versions holo / reverse : Pokémon ; brillant mesuré : Final Fantasy ; autres licences : seulement une carte à 2 versions, v3.51)
+        // (versions holo / reverse : Pokémon ; brillant mesuré : Final Fantasy ; autres licences : seulement une carte à 2 versions, v3.52)
         if (!isPk() && !ad.foil && baseOpts(c.cands.find((x) => x.id === c.choice)).length <= 1) continue;
         measureVers(c).then(() => { if (alive()) setTimeout(drawResults, 0); }); // (setTimeout : la page garde la main entre deux mesures)
       }

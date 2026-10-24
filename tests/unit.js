@@ -305,6 +305,11 @@ test('Yu-Gi-Oh! : cartes et séries (data/yg-cartes.json)', async (App) => {
   const ra = (await A.byKey('RA04-087')).map((x) => x.rarity);
   ok(ra.length >= 5 && ra[0] === 'sr', `autres raretés du même code : ${ra.join(', ')}`);
   ok(A.isOfficial('007') && !A.isOfficial('087 ScR'), 'autres raretés en plus');
+  // v3.51 : code montré dans les propositions du scanner (sans la langue : RGBT-FR007 et RGBT-EN007 = RGBT-007)
+  await App.need('scan');
+  eq(App.views.scan.codeOf('yugioh', c), 'RGBT-007', 'code affiché');
+  eq(A.printedCode({ code: 'LOB-E001' }), 'LOB-001', 'ancienne carte européenne (LOB-F001 / LOB-E001)');
+  eq(App.views.scan.codeOf('onepiece', { localId: 'OP09-004' }), 'OP09-004', 'autres licences : leur numéro');
 });
 test('Yu-Gi-Oh! : code imprimé lu même mal reconnu', async (App) => {
   const A = App.games.get('yugioh'); await A.listSets();
@@ -678,7 +683,7 @@ test('classeur ouvert, 2 pages cherchées une par une', async (App) => {
   ok(Math.max(...errs) < 4, `pire carte à ${Math.max(...errs).toFixed(1)} %`);
 });
 
-// v3.51 : scans de test envoyés au labo de Claude — jamais sans compte testeur, sans photo, ni depuis les tests (site dans un cadre)
+// v3.52 : scans de test envoyés au labo de Claude — jamais sans compte testeur, sans photo, ni depuis les tests (site dans un cadre)
 test('labo : scans envoyés seulement par un compte testeur', async (App) => {
   const S = App.scanShare, L = App.cloud.labo, keep = { ...L };
   let puts = 0;

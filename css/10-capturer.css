@@ -162,7 +162,15 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
   html, body { overflow: hidden; }
 }
 
-/* v3.51 : « Ta carte brille ? » après l'ajout d'une carte qui existe en plusieurs versions, quand la photo ne permet pas d'être sûr */
+/* v3.52 : « Ta carte brille ? » après l'ajout d'une carte qui existe en plusieurs versions, quand la photo ne permet pas d'être sûr */
 .sc-vask { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 196, 0, .45); background: rgba(255, 196, 0, .08); display: grid; gap: 8px; }
 .sc-vask .chips { gap: 8px; }
 .sc-vask .chip { padding: 8px 14px; font-size: .9rem; }
+/* ===== v3.51 : codes à comparer (Arnaud : « impossible de choisir la bonne parmi celles proposées ») ===== */
+.sc-code { display: inline-block; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-weight: 700; font-size: .92rem; letter-spacing: .04em; padding: 1px 7px; border-radius: 6px;
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); color: var(--text); }
+.sv-alt .sc-code { font-size: .78rem; padding: 0 5px; }
+.sc-mycode { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; padding: 10px; border-radius: 14px; background: var(--surface); border: 1px solid rgba(124,92,255,.5); }
+.sc-mycode img { display: block; width: 100%; max-width: 520px; border-radius: 8px; background: #000; }
+.sv .sc-mycode { margin: 8px 0; padding: 8px; }
+.sv .sc-mycode img { max-height: 90px; object-fit: contain; }

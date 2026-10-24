@@ -74,17 +74,19 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       const sureN = S.cells.filter((x) => !x.saved && x.state === 'sure').length;
       const others = c.cands.filter((x) => x !== cur).slice(0, 4);
       const twin = cur && others.find((x) => App.util.norm(x.name) === App.util.norm(cur.name));
+      const g = c.game || S.game, code = (x) => esc(App.views.scan.codeOf(g, x)); // (v3.51 : code complet, ex. « RGBT-FR007 »)
       const why = !cur ? 'Carte pas reconnue avec certitude : choisis parmi les propositions, ou cherche-la.'
-        : twin ? `Même dessin que ${esc(App.views.scan.setLabel(twin))} · ${esc(twin.localId)} : laquelle est-ce ?`
+        : twin ? `Même dessin que ${esc(App.views.scan.setLabel(twin))} · ${code(twin)} : laquelle est-ce ?`
         : 'Pas tout à fait sûr : c’est bien elle ?';
       return `${svTop(sv.single ? `Carte ${c.i + 1}` : `${sureN ? `${sureN} reconnue${sureN > 1 ? 's' : ''} · ` : ''}<span class="warn">${sv.list.length} à vérifier</span>`, sv.single ? '' : `${sv.idx + 1} / ${sv.list.length}`)}
         <div class="sv-pair"><span class="bphoto"><img src="${c.url}" alt="Ta carte ${c.i + 1}"></span>
           ${cur ? `<span class="sv-offwrap vfx vfx-${vfxOf(c, cur)}"><img class="sv-off" src="${visOf(cur)}" alt="Visuel officiel"></span>` : '<span class="sv-off sv-wait"><b>?</b></span>'}</div>
-        <div class="sv-name">${cur ? `${esc(cur.name)} <span class="muted">· ${esc(App.views.scan.setLabel(cur))} · ${esc(cur.localId)}</span>` : 'Carte non reconnue'}</div>
+        <div class="sv-name">${cur ? `${esc(cur.name)} <span class="muted">· ${esc(App.views.scan.setLabel(cur))} · ${isPk() ? esc(cur.localId) : `<span class="sc-code">${code(cur)}</span>`}</span>` : 'Carte non reconnue'}</div>
         <div class="sv-why">${why}</div>
+        ${isPk() ? '' : App.views.scan.codeZoomBox(g, c.zoom && c.zoom.blob === c.blob && c.zoom.url)}
         ${svVersions(c, cur)}
         ${others.length ? `<div class="sv-alts"><span class="small muted">${cur ? 'Ou bien l’une de celles-ci :' : 'Propositions :'}</span>
-          <div>${others.map((x) => `<button class="sv-alt" data-sv="pick" data-id="${esc(x.id)}"><img src="${visOf(x)}" alt=""><span><b>${esc(x.name)}</b></span><span class="muted">${esc(x.localId)} · ${esc((x.set && x.set.name) || '')}</span></button>`).join('')}</div></div>` : ''}
+          <div>${others.map((x) => `<button class="sv-alt" data-sv="pick" data-id="${esc(x.id)}"><img src="${visOf(x)}" alt=""><span><b>${esc(x.name)}</b></span><span class="muted">${isPk() ? esc(x.localId) : `<span class="sc-code">${code(x)}</span>`} · ${esc((x.set && x.set.name) || '')}</span></button>`).join('')}</div></div>` : ''}
         <div class="sv-acts">
           ${cur ? `<button class="btn primary" data-sv="yes">✓ C’est elle</button>` : ''}
           <button class="btn" data-sv="search">🔎 Chercher</button>
@@ -184,6 +186,9 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       if (!sv.open) { box.innerHTML = ''; return; }
       const ph = sv.mode !== 'scan' ? 'done' : S.cells.some((c) => c.vscan) ? 'img' : 'txt'; // couleurs de l'étape
       box.innerHTML = `<div class="sv-in sv-m-${sv.mode} ph-${ph}">${sv.mode === 'scan' ? svScan() : sv.mode === 'review' ? svReview() : svRecap()}</div>`;
+      // zoom sur le code de la carte à vérifier (calculé une fois par photo de la case)
+      const rc = sv.mode === 'review' && !isPk() && S.cells[sv.list[sv.idx]];
+      if (rc && rc.blob && !(rc.zoom && rc.zoom.blob === rc.blob)) { const b = rc.blob; App.views.scan.codeZoom(rc.game || S.game, b).then((url) => { rc.zoom = { blob: b, url }; if (url && sv.open && sv.mode === 'review' && S.cells[sv.list[sv.idx]] === rc) App.views.scan.fillCodeZoom(box, rc.game || S.game, null, url); }); }
     }
     /** Fin de l'analyse : cartes à vérifier d'abord, sinon directement le récapitulatif */
     function svAfterScan() {
