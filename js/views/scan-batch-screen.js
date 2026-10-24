@@ -205,6 +205,9 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     function svAction(b) {
       const a = b.dataset.sv, c = sv.mode === 'review' ? S.cells[sv.list[sv.idx]] : null;
       const next = () => {
+        // v3.57 (Arnaud : « quand je valide sur le classeur, renvoie sur le prochain scan ») : dernière carte à vérifier
+        // validée → les cartes sont enregistrées et on repart sur un nouveau scan (plus de passage par le récapitulatif)
+        if (!sv.single && sv.idx >= sv.list.length - 1 && !(burst && S.rPending > 0)) return saveAndNext();
         if (sv.single || sv.idx >= sv.list.length - 1) Object.assign(sv, { mode: 'recap', single: false }); else sv.idx++;
         X.drawResults(); drawSV();
         const box = svBox(); if (box) box.scrollTop = 0;
@@ -244,7 +247,16 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
         X.drawResults(); return drawSV();
       }
       // v3.41 (Arnaud) : cartes validées depuis le récapitulatif → retour direct à un nouveau scan (voir #b-add, scan-batch.js)
-      if (a === 'save') { svClose(); const add = resultsEl.querySelector('#b-add'); if (add) { S.newAfterSave = true; add.click(); } }
+      if (a === 'save') saveAndNext();
+    }
+    /** Enregistrer les cartes retenues puis repartir sur un nouveau scan (v3.41 récapitulatif, v3.57 aussi après la vérification) */
+    function saveAndNext() {
+      svClose();
+      const add = resultsEl.querySelector('#b-add');
+      if (add && S.cells.some((c) => X.modeOf(c) !== 'rien')) { S.newAfterSave = true; add.click(); return; }
+      // rien à enregistrer : directement le scan suivant
+      if (burst) X.resetBurst(); else el.querySelector('#b-reset').click();
+      window.scrollTo(0, 0);
     }
 
   return { burstReview, drawSV, lockScroll, svAction, svAfterScan, svBox, svClose, svOpen, toCheck };

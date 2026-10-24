@@ -106,6 +106,14 @@ App.views.scan.singleScreen = (el, { gameOf, adOf, isPk, results, status, view }
     show();
   }
 
+  /** « C'est elle » sur la carte affichée (aussi appelé tout seul quand la carte est sûre, v3.56) */
+  function yes() {
+    const c = list[idx]; if (!c) return;
+    const p = results.querySelector(`[data-pick="${CSS.escape(c.id)}"]`); if (!p) return close();
+    p.click();
+    const dm = results.querySelector('[data-dupmode]');
+    if (dm) dup(c); else close(); // (carte ajoutée : la page repart à zéro, voir scan-single.js)
+  }
   box.addEventListener('click', (e) => {
     if (e.target.closest('[data-retry]')) { close(); return; } // (géré par la page : nouvelle photo / recadrage)
     if (e.target.closest('#sc-recrop')) { e.stopPropagation(); close(); const r = status.querySelector('#sc-recrop'); if (r) r.click(); return; }
@@ -120,13 +128,7 @@ App.views.scan.singleScreen = (el, { gameOf, adOf, isPk, results, status, view }
       return;
     }
     if (a === 'versions') { const v = results.querySelector(`[data-versions="${CSS.escape(b.dataset.name)}"]`); if (v) { b.disabled = true; b.textContent = 'Chargement…'; v.click(); } return; }
-    if (a === 'yes' && c) {
-      const p = results.querySelector(`[data-pick="${CSS.escape(c.id)}"]`); if (!p) return close();
-      p.click();
-      const dm = results.querySelector('[data-dupmode]');
-      if (dm) dup(c); else close(); // (carte ajoutée : la page repart à zéro, voir scan-single.js)
-      return;
-    }
+    if (a === 'yes' && c) return yes();
     if (a === 'dupmode') {
       const d = results.querySelector(`[data-dupmode="${b.dataset.v}"]`); if (!d) return close();
       if (b.dataset.v === 'annuler') { d.click(); return; } // (la liste revient : pick() la redessine)
@@ -144,5 +146,5 @@ App.views.scan.singleScreen = (el, { gameOf, adOf, isPk, results, status, view }
   });
   mv.observe(view, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['src'] });
 
-  return { scan, msg, setPhoto, pick, close, get open() { return open; }, stop: () => { mo.disconnect(); mv.disconnect(); close(); } };
+  return { scan, msg, setPhoto, pick, yes, close, get open() { return open; }, stop: () => { mo.disconnect(); mv.disconnect(); close(); } };
 };

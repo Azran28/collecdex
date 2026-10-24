@@ -340,6 +340,7 @@ Object.assign(App.views.scan, {
     });
 
     function showCandidates(cands, info) {
+      autoPicked = false; // (remis par display si la carte sûre est ajoutée toute seule)
       if (target) {
         const i = cands.findIndex((c) => c.id === target.id);
         if (i >= 0) { const [t] = cands.splice(i, 1); t.isTarget = true; cands.unshift(t); }
@@ -438,12 +439,12 @@ Object.assign(App.views.scan, {
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
           : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (tu as choisi « Juste la photo »). Choisis « Certifier » au-dessus de la photo pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
-        const wasTarget = !!target;
-        const doneHtml = `<div class="sc-done">${mode === 'rien' || !cardURL ? '' : `<img src="${cardURL}" alt="">`}<div class="sc-done-t">${what} <a class="small" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a>${verLine}${certLine}</div></div>`;
+        const wasTarget = !!target, sureAdd = autoPicked; autoPicked = false;
+        const doneHtml = `<div class="sc-done">${mode === 'rien' || !cardURL ? '' : `<img src="${cardURL}" alt="">`}<div class="sc-done-t">${what}${sureAdd ? ' <span class="small muted">Reconnue avec certitude.</span>' : ''} <a class="small" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a>${verLine}${certLine}</div></div>`;
         if (!wasTarget) {
           // v3.54 (Arnaud : « une fois la carte validée, reset direct pour démarrer un nouveau scan ») : la carte ajoutée reste
           // rappelée en haut (et « Ta carte brille ? »), l'écran revient à zéro, la caméra se rallume si la photo venait d'elle
-          doneBox.innerHTML = doneHtml; hideDone(ask ? 9000 : 2600); // (v3.55 : par-dessus la caméra, disparaît vite ; plus long s'il y a une question)
+          doneBox.innerHTML = doneHtml; hideDone(ask ? 9000 : sureAdd ? 3500 : 2600); // (v3.55 : par-dessus la caméra, disparaît vite ; plus long s'il y a une question)
           results.innerHTML = guideC(); setStatus('');
           el.querySelector('#sc-manual').classList.add('hidden');
           view.innerHTML = App.views.scan.empty('carte');
@@ -480,7 +481,7 @@ Object.assign(App.views.scan, {
       view.innerHTML = `<div class="sc-scanwrap"><span class="bphoto scan-txt">${isUrl ? `<img src="${src}" alt="Ta carte">` : ''}<i class="bscan"></i></span>
         <div class="sc-scanlbl"><div class="spinner"></div><span>${esc(msg)}</span></div></div>`;
       if (!isUrl) view.querySelector('.bphoto').prepend(src);
-      SS.scan(src, msg);
+      // (v3.56, Arnaud : plus de carte en plein écran pendant la lecture : l'écran à part ne sert qu'au choix)
     }
     /**
      * Propositions de la reconnaissance affichées (v3.36) : une carte déjà corrigée à la main passe devant (App.scanMemo.apply) ;
@@ -494,8 +495,15 @@ Object.assign(App.views.scan, {
       // rien de reconnu : gardé dans le carnet (complété si la carte est ensuite trouvée à la main)
       if (final && !a.cands.length && !donCard && !logId) logId = await App.scanMemo.log({ game, mode: 'carte', kind: 'aucune', photo: cardBlob, original: pageBlob, read: summary });
       showCandidates(a.cands, summary);
+      // v3.56 (Arnaud : « si le scan trouve la carte à 100 %, ne rien proposer, ça évite de vérifier pour rien ») :
+      // carte sûre → ajoutée tout de suite (déjà dans le Dex : seule la question « doublon ou même carte » reste)
+      const top = a.cands[0];
+      if (final && top && top.confident && !a.from && !(target && top.id !== target.id) && App.settings.autoAddSure !== false) {
+        autoPicked = true;
+        if (SS.open) SS.yes(); else { const p = results.querySelector(`[data-pick="${CSS.escape(top.id)}"]`); if (p) p.click(); }
+      }
     }
-    let scanTok = 0, recoCands = [], recoFrom = null, recoRead = '', pendingPick = false, logId = null;
+    let scanTok = 0, recoCands = [], recoFrom = null, recoRead = '', pendingPick = false, logId = null, autoPicked = false;
     const live = (tok = scanTok) => alive() && tok === scanTok; // (un nouveau scan, ou une carte choisie : la suite de l'ancien est ignorée)
     async function analyse(blob, poor = '') { // poor : problème de la photo qui vient d'être prise (v3.38)
       if (!blob) return; // recadrage vide (image pas encore affichée)
