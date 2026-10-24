@@ -186,6 +186,9 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 
 ## Comparer les codes avant de choisir (v3.51)
+
+## Carte suivante tout de suite (v3.54)
+- En mode **Une carte**, dès que tu touches **« C’est elle »**, l’écran revient à zéro pour la carte suivante : la **caméra se rallume toute seule** (si tu avais pris la photo avec elle). La carte que tu viens d’ajouter reste rappelée dans un petit bandeau vert en haut (avec « Voir la série », la version, la certification, et « Ta carte brille ? » si besoin) ; il disparaît à la photo suivante.
 - Quand le scanner te demande **« C’est laquelle ? »** (sauf Pokémon), il montre maintenant **un zoom sur le code imprimé de ta carte** (ex. « JMP-EN005 »), et à côté de chaque carte proposée **son code** (ex. « JMP-005 ») et sa rareté. Il suffit de trouver la proposition qui a le même code. Pour Yu-Gi-Oh!, seuls comptent les lettres avant le tiret et le numéro : « FR » ou « EN » ne change rien. Si plusieurs propositions ont le même code, c’est la rareté qui change (nom doré = Ultra Rare…).
 - Pareil en **Classeur** et **Rafale**, sur l’écran des cartes à vérifier.
 ## Capturer : choisir la licence, ou « Toutes les licences » (v3.11)

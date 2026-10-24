@@ -174,3 +174,10 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
 .sc-mycode img { display: block; width: 100%; max-width: 520px; border-radius: 8px; background: #000; }
 .sv .sc-mycode { margin: 8px 0; padding: 8px; }
 .sv .sc-mycode img { max-height: 90px; object-fit: contain; }
+
+/* ===== v3.54 : carte seule, remise à zéro après « C'est elle » : la carte ajoutée rappelée en haut ===== */
+.sc-done { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px; border-radius: 14px; background: color-mix(in srgb, var(--ok, #2ecc71) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok, #2ecc71) 45%, transparent); }
+.sc-done > img { flex: none; width: 40px; aspect-ratio: 63/88; object-fit: cover; border-radius: 4px; }
+.sc-done-t { min-width: 0; font-size: .9rem; line-height: 1.35; }
+.sc-done-t > div { margin-top: 4px !important; }
+.sc-done .sc-vask { margin-top: 6px; }
