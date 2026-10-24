@@ -129,7 +129,9 @@ App.views.account = {
     });
 
     // page de suppression déjà affichée : on ne la redessine pas (le mot tapé serait effacé)
-    const unsub = C.on(() => { if (C.user && !params.query.reset && !deleting && !(params.del && el.querySelector('#d-word'))) draw(); });
+    // (v3.53 : lien « mot de passe oublié » — la connexion par le lien peut arriver juste après l'affichage : on montre
+    //  alors le champ « Nouveau mot de passe » ; une fois affiché, il n'est plus redessiné, le mot tapé serait effacé)
+    const unsub = C.on(() => { if (C.user && !(params.query.reset && el.querySelector('#a-new')) && !deleting && !(params.del && el.querySelector('#d-word'))) draw(); });
     return unsub;
   },
 };
