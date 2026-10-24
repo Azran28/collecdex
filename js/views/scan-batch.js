@@ -186,7 +186,13 @@ Object.assign(App.views.scan, {
       if (!cols || window.__noCards) return false;
       const token = S.gridToken = (S.gridToken || 0) + 1;
       // v3.20 : classeur ouvert = 2 pages de 9 cherchées séparément, cartes droites ou couchées (detectSpread)
-      let r = null; try { r = dbl ? await R.detectSpread(img) : await R.detectCards(img, cols, rows); } catch (e) { console.warn('cartes', e); }
+      let r = null;
+      try {
+        // v3.59 (Arnaud) : en 4 cartes, elles peuvent être posées espacées (feuille, table) → chaque carte cherchée pour elle-même
+        // (detectLoose) ; mesuré aussi meilleur sur 4 cartes serrées d'une page. Moins de 3 trouvées : l'ancienne recherche.
+        if (S.fmt === '2x2') { r = await R.detectLoose(img, cols, rows); if (!r || r.found < 3) { const r2 = await R.detectCards(img, cols, rows); if (r2 && (!r || r2.found > r.found)) r = r2; } }
+        else r = dbl ? await R.detectSpread(img) : await R.detectCards(img, cols, rows);
+      } catch (e) { console.warn('cartes', e); }
       if (!S.photo || S.photo.img !== img || S.running || token !== S.gridToken || !r || r.found < Math.ceil(cols * rows * 0.7)) return false;
       // découpe habituelle (lecture prudente) sur la carte agrandie de 4 % ; la carte exacte en plus (snapped)
       const grow = (q, k) => { const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4; return q.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]); };

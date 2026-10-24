@@ -400,5 +400,54 @@ App.recognizerParts = App.recognizerParts || {};
     return { cells, found: best.a.found + b.found, rot: best.turn ? -90 : 0 };
   }
 
-  Object.assign(P, { detectCards, detectSpread, trueRatio });
+  /**
+   * v3.59 — cartes PAS côte à côte (Arnaud : « en 4 cartes, les cartes peuvent ne pas être côte à côte », posées espacées sur
+   * une feuille) : detectCards suppose des cartes régulièrement serrées (pas mesuré sur les voisines). Ici chaque carte est
+   * cherchée pour elle-même dans sa part de la photo (cols × rows, débordement de 22 %) : le meilleur cadre en forme de carte
+   * (vraies proportions ± 12 %) dont le centre tombe dans sa part ; puis tailles mises d'accord (une carte à plus de 25 % de la
+   * taille médiane reprend le cadre le plus proche de cette taille). → { cells, found, score } comme detectCards, ou null.
+   */
+  async function detectLoose(img, cols = 2, rows = 2, o = {}) {
+    const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+    if (!W || !H) return null;
+    const cw = W / cols, ch = H / rows, m = o.margin ?? 0.22, per = [];
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const x0 = Math.max(0, (i - m) * cw), x1 = Math.min(W, (i + 1 + m) * cw), y0 = Math.max(0, (j - m) * ch), y1 = Math.min(H, (j + 1 + m) * ch);
+      const k = Math.min(1, 1000 / Math.max(x1 - x0, y1 - y0)), c = document.createElement('canvas');
+      c.width = Math.round((x1 - x0) * k); c.height = Math.round((y1 - y0) * k);
+      c.getContext('2d').drawImage(img, x0, y0, x1 - x0, y1 - y0, 0, 0, c.width, c.height);
+      let r = null; try { r = P.findCard(c, { top: 40 }); } catch (e) { console.warn('bords', e); }
+      await pause();
+      const cands = ((r && r.cands) || []).map((cd) => {
+        const q = cd.quad.map(([x, y]) => [x0 + x * (x1 - x0), y0 + y * (y1 - y0)]), [cx, cy] = center(q), h = sizeOf(q)[1];
+        const dev = Math.abs(Math.log((trueRatio(q, W, H) || 0.01) / RATIO));
+        return { q, h, dev, s: cd.score - 30 * dev, inCell: cx >= i * cw && cx < (i + 1) * cw && cy >= j * ch && cy < (j + 1) * ch };
+      }).filter((cd) => cd.inCell && cd.dev < 0.12 && cd.h > 0.3 * ch && cd.h < 1.2 * ch);
+      cands.sort((a, b) => b.s - a.s);
+      per.push({ i, j, cands, pick: cands[0] || null });
+    }
+    // tailles d'accord : sur une feuille ou dans un classeur, les cartes ont toutes à peu près la même taille sur la photo
+    const hs = per.filter((p) => p.pick).map((p) => p.pick.h);
+    if (hs.length >= 2) {
+      const hm = med(hs);
+      for (const p of per) {
+        if (!p.pick || Math.abs(Math.log(p.pick.h / hm)) <= Math.log(1.25)) continue;
+        const ok = p.cands.filter((cd) => Math.abs(Math.log(cd.h / hm)) <= Math.log(1.25));
+        p.pick = ok[0] || null;
+      }
+    }
+    const found = per.filter((p) => p.pick).length;
+    if (!found) return null;
+    const hm = med(per.filter((p) => p.pick).map((p) => p.pick.h)), wm = hm / RATIO;
+    const cells = per.map((p) => {
+      // part sans carte trouvée : un cadre de la taille médiane au milieu de sa part (la lecture dira si c'est vide)
+      const q = p.pick ? p.pick.q : (() => { const cx = (p.i + 0.5) * cw, cy = (p.j + 0.5) * ch; return [[cx - wm / 2, cy - hm / 2], [cx + wm / 2, cy - hm / 2], [cx + wm / 2, cy + hm / 2], [cx - wm / 2, cy + hm / 2]]; })();
+      const f = q.map(([x, y]) => [x / W, y / H]), xs = f.map((pt) => pt[0]), ys = f.map((pt) => pt[1]);
+      return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), quad: f };
+    });
+    detectLoose.last = per.map((p) => p.pick && { s: Math.round(p.pick.s * 10) / 10, dev: Math.round(p.pick.dev * 100) / 100, h: Math.round(p.pick.h) });
+    return { cells, found, score: per.reduce((a, p) => a + (p.pick ? p.pick.s : 0), 0) };
+  }
+
+  Object.assign(P, { detectCards, detectSpread, detectLoose, trueRatio });
 })();
