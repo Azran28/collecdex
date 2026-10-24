@@ -781,7 +781,7 @@ Object.assign(App.views.scan, {
         el.querySelector('#r-pause').classList.remove('hidden');
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
       });
-      el.querySelector('#r-pause').addEventListener('click', () => { X.rStop(); if (S.cells.length >= 2) X.burstReview(); else if (S.cells.length) resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      el.querySelector('#r-pause').addEventListener('click', () => { X.rStop(); if (S.cells.length) X.burstReview(); }); // (v3.55 : l'écran d'analyse dès la 1re carte, plus de liste à chercher en bas)
       // photos de la galerie (plusieurs d'un coup) : ajoutées à la liste, sans certification
       el.querySelector('#r-files').addEventListener('change', async (e) => {
         const files = [...e.target.files]; e.target.value = '';
@@ -802,7 +802,7 @@ Object.assign(App.views.scan, {
             X.addBurstCell(blob, !!cut || r.auto || !!found, undefined, f);
           } catch (err) { console.warn(err); }
         }
-        if (files.length - pages >= 2) X.burstReview(); // plusieurs cartes : l'écran d'analyse
+        if (files.length - pages >= 1) X.burstReview(); // (v3.55 : dès 1 carte) l'écran d'analyse
         if (pages) App.util.toast(`${pages} photo${pages > 1 ? 's' : ''} de page${pages > 1 ? 's' : ''} ignorée${pages > 1 ? 's' : ''} : utilise « Page de classeur » pour celles-là`);
       });
     }

@@ -157,7 +157,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
           <button class="sv-row-open" data-sv="open" data-i="${c.i}" ${c.saved ? 'disabled' : ''}>
             <span class="sv-row-img"><img src="${cur ? visOf(cur) : c.url}" alt="" loading="lazy"></span>
             <span class="sv-row-txt"><b>${cur ? esc(cur.name) : 'Non reconnue'}</b>
-              <span class="muted">${cur ? `${esc(App.views.scan.setLabel(cur))} · ${esc(cur.localId)}` : 'Touche pour la chercher'}</span>
+              <span class="muted">${cur ? `${isPk() ? '' : esc(App.views.scan.codeOf(c.game || S.game, cur)) + ' · '}${esc(App.views.scan.setLabel(cur))}${isPk() ? ' · ' + esc(cur.localId) : ''}` : 'Touche pour la chercher'}</span>
               </span></button>
           <span class="sv-row-side"><span class="sv-tag">${t}</span>${doubt(c) ? '<span class="sv-tag warn">à vérifier ?</span>' : ''}${vp}</span></div>`;
       };
@@ -196,7 +196,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       const l = toCheck();
       if (l.length) svOpen('review', { list: l, idx: 0 }); else svOpen('recap');
     }
-    /** Rafale (au moins 2 cartes) : écran d'analyse ; lectures en cours → défilement, sinon cartes douteuses puis récapitulatif */
+    /** Rafale (dès la 1re carte, v3.55) : écran d'analyse ; lectures en cours → défilement, sinon cartes douteuses puis récapitulatif */
     function burstReview() {
       if (S.rPending > 0) return svOpen('scan');
       const l = toCheck();

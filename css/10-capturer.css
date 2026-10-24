@@ -176,8 +176,30 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
 .sv .sc-mycode img { max-height: 90px; object-fit: contain; }
 
 /* ===== v3.54 : carte seule, remise à zéro après « C'est elle » : la carte ajoutée rappelée en haut ===== */
-.sc-done { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px; border-radius: 14px; background: color-mix(in srgb, var(--ok, #2ecc71) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok, #2ecc71) 45%, transparent); }
+.sc-done { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; transition: transform .25s; padding: 8px 10px; border-radius: 14px; background: color-mix(in srgb, var(--ok, #2ecc71) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok, #2ecc71) 45%, transparent); }
 .sc-done > img { flex: none; width: 40px; aspect-ratio: 63/88; object-fit: cover; border-radius: 4px; }
 .sc-done-t { min-width: 0; font-size: .9rem; line-height: 1.35; }
 .sc-done-t > div { margin-top: 4px !important; }
 .sc-done .sc-vask { margin-top: 6px; }
+
+/* v3.55 : le bandeau passe par-dessus la caméra (ne prend plus de place) et disparaît vite */
+#sc-done:empty { display: none; }
+@media (max-width: 760px) {
+  #sc-done { position: fixed; z-index: 250; left: 10px; right: 10px; top: calc(env(safe-area-inset-top) + 64px); pointer-events: none; }
+  #sc-done .sc-done { pointer-events: auto; margin: 0; background: color-mix(in srgb, var(--ok, #2ecc71) 18%, #10131f); box-shadow: 0 10px 30px rgba(0,0,0,.5); animation: scDoneIn .25s ease-out; }
+  #sc-done .sc-done.out { transform: translateY(-140%); }
+  @keyframes scDoneIn { from { transform: translateY(-140%); } to { transform: none; } }
+}
+/* v3.55 : carte seule, écran d'analyse et de choix (téléphone) */
+.ss .ss-lic { display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; color: var(--muted); }
+.ss .sv-why .sc-code { font-size: .95rem; }
+.ss-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.ss-pills .ss-ok { background: rgba(46,204,113,.18); color: var(--text); }
+.ss-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ss .ss-acts .ss-row .btn { padding: 10px; font-size: .92rem; }
+.ss .ss-status:empty { display: none; }
+.ss .ss-status .panel { margin: 0 !important; padding: 10px 12px; }
+.ss .sc-mycode { margin: 0; }
+.ss .sc-mycode img { max-height: 110px; object-fit: contain; }
+.ss .linkbtn { align-self: center; }
+.ss-pair1 { grid-template-columns: minmax(0, min(60vw, 44vh)); }
