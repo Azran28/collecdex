@@ -113,7 +113,10 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       try {
         // (Final Fantasy, v3.44 : paillettes mesurées par l'adaptateur, ad.foil ; déjà faite pendant la lecture → réutilisée)
         const fo = !isPk() && ad.foil ? (cur.foil || await ad.foil(c.blob, cur)) : null;
-        const d = !isPk() && ad.foil ? { list: fo ? [fo.holo ? 'holo' : 'normal'] : ['normal'], sure: { base: !!(fo && fo.sure) }, info: { foil: fo } } : await R.detectVariants(c.blob, cur.variants, ad.img.card(cur, 'high'));
+        // (autres licences, v3.51 : rien à mesurer → « Normale » à vérifier, seulement pour une carte qui existe aussi en brillante)
+        const d = !isPk() && ad.foil ? { list: fo ? [fo.holo ? 'holo' : 'normal'] : ['normal'], sure: { base: !!(fo && fo.sure) }, info: { foil: fo } }
+          : !isPk() ? { list: cur.variants.normal ? ['normal'] : baseOpts(cur), sure: { base: baseOpts(cur).length <= 1 }, info: {} }
+          : await R.detectVariants(c.blob, cur.variants, ad.img.card(cur, 'high'));
         // (« sûre » seulement si la mesure l'est vraiment ; une version choisie à la main pendant la mesure n'est pas écrasée)
         if (c.choice === id && !(c.det && c.det.user)) c.det = { id, list: d.list, sure: !!(d.sure && d.sure.base), info: d.info };
       } catch (e) { if (c.choice === id) c.det = { id, list: [], sure: false }; }
@@ -150,7 +153,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       return `<div class="small bvers">${App.icons.icon('sparkles', 12)} Version :
         ${opts.length > 1 ? `<select data-vbase="${c.i}">${opts.map((k) => `<option value="${k}" ${k === base ? 'selected' : ''}>${VN[k]}</option>`).join('')}</select>` : `<b>${VN[opts[0]] || ''}</b>`}
         ${fe ? `<label class="check"><input type="checkbox" data-vfe="${c.i}" ${v.includes('firstEdition') ? 'checked' : ''}> 1ʳᵉ éd.</label>` : ''}
-        <span class="muted">(${c.det.user ? 'choisie' : c.det.sure ? 'mesurée sur la photo' : 'mesurée, à vérifier'})</span></div>`;
+        <span class="muted">(${c.det.user ? 'choisie' : c.det.sure ? 'mesurée sur la photo' : isPk() || ad.foil ? 'mesurée, à vérifier' : 'à vérifier'})</span></div>`;
     };
 
     function drawResults() {
@@ -234,7 +237,9 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       const sa = resultsEl.querySelector('#b-set-after'); if (sa && S.allSets) App.views.scan.fillSetSelect(sa, S.allSets);
       // brillance des cartes reconnues (ou changées) : mesurée en arrière-plan, affichée dès qu'elle est prête
       for (const c of S.cells) {
-        if ((!isPk() && !ad.foil) || c.saved || !c.choice || c.state === 'lecture' || (c.det && c.det.id === c.choice)) continue; // (versions holo / reverse : Pokémon ; brillant : Final Fantasy)
+        if (c.saved || !c.choice || c.state === 'lecture' || (c.det && c.det.id === c.choice)) continue;
+        // (versions holo / reverse : Pokémon ; brillant mesuré : Final Fantasy ; autres licences : seulement une carte à 2 versions, v3.51)
+        if (!isPk() && !ad.foil && baseOpts(c.cands.find((x) => x.id === c.choice)).length <= 1) continue;
         measureVers(c).then(() => { if (alive()) setTimeout(drawResults, 0); }); // (setTimeout : la page garde la main entre deux mesures)
       }
     }

@@ -161,3 +161,8 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
   @keyframes rotPhone { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
   html, body { overflow: hidden; }
 }
+
+/* v3.51 : « Ta carte brille ? » après l'ajout d'une carte qui existe en plusieurs versions, quand la photo ne permet pas d'être sûr */
+.sc-vask { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 196, 0, .45); background: rgba(255, 196, 0, .08); display: grid; gap: 8px; }
+.sc-vask .chips { gap: 8px; }
+.sc-vask .chip { padding: 8px 14px; font-size: .9rem; }

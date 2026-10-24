@@ -29,6 +29,8 @@ App.scanMemo = (() => {
    *   read (ce qui a été lu, en texte), cands (propositions, la 1re d'abord), chosen (la bonne carte) }
    */
   function log({ game, mode, kind, photo, original = null, read = '', cands = [], chosen = null }) {
+    // (comptes testeurs : le scan raté part aussi au labo de Claude, avec ce qui a été lu et proposé — js/scan-share.js)
+    if (App.scanShare && photo) App.scanShare.scan({ game, mode, kind, card: chosen, cands, read }, photo);
     if (!enabled() || !photo) return Promise.resolve(null);
     return serial(async () => {
       try {
