@@ -6,7 +6,7 @@
   <!-- Page de test (banc d'essai des méthodes de reconnaissance) : même sécurité que le site,
        + le modèle MobileNet (storage.googleapis.com) et 'unsafe-eval' (exigé par OpenCV.js ; seulement sur cette page,
        qui ne charge que des bibliothèques à version figée et empreinte SRI) -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://api.tcgdex.net https://assets.tcgdex.net https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com https://storage.googleapis.com blob: data:; img-src 'self' data: blob: https://assets.tcgdex.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://api.tcgdex.net https://assets.tcgdex.net https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://raw.githubusercontent.com https://storage.googleapis.com https://db.ygoprodeck.com https://tcgplayer-cdn.tcgplayer.com https://optcgapi.com https://images.weserv.nl https://content.publishing.riotgames.com https://azran28.github.io https://cdn.shopify.com blob: data:; img-src 'self' data: blob: https://assets.tcgdex.net https://raw.githubusercontent.com https://images.weserv.nl https://tcgplayer-cdn.tcgplayer.com https://cdn.shopify.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="app-version" content="20260928-173940">
   <meta name="robots" content="noindex">
   <title>CollecDex — Labo</title>
@@ -21,9 +21,11 @@
   <link rel="stylesheet" href="css/08-vitrine-import.css?v=20260928-173940">
   <link rel="stylesheet" href="css/09-combat-licences.css?v=20260928-173940">
   <link rel="stylesheet" href="css/10-capturer.css?v=20260928-173940">
-  <link rel="stylesheet" href="css/labo.css?v=20260928-185753">
+  <link rel="stylesheet" href="css/labo.css?v=20261024-2">
 </head>
 <body class="labo">
+  <!-- deux bancs d'essai : reconnaissance (labo.js) et cartes brillantes (labo-holo.js, ?brillant) -->
+  <nav class="lab-tabs"><a href="labo.html" id="tab-reco">Reconnaissance</a><a href="labo.html?brillant" id="tab-holo">Brillance</a></nav>
   <main id="labo" class="app"></main>
   <div id="modal" class="modal" hidden>
     <div class="modal-backdrop" data-close></div>
@@ -37,10 +39,19 @@
   <script src="js/icons.js?v=20260928-173940"></script>
   <script src="js/db.js?v=20260928-173940"></script>
   <script src="js/games/registry.js?v=20260928-173940"></script>
+  <script src="js/games/card-tools.js?v=20261024"></script>
   <script src="js/games/pokemon-rarity.js?v=20260928-173940"></script>
   <script src="js/games/pokemon-pullrates.js?v=20260928-173940"></script>
   <script src="js/games/pokemon-hors-serie.js?v=20261005"></script>
   <script src="js/games/pokemon.js?v=20260928-173940"></script>
+  <script src="js/games/onepiece-backs.js?v=20261024"></script>
+  <script src="js/games/lorcana-backs.js?v=20261024"></script>
+  <script src="js/games/onepiece.js?v=20261024"></script>
+  <script src="js/games/riftbound.js?v=20261024"></script>
+  <script src="js/games/lorcana.js?v=20261024"></script>
+  <script src="js/games/yugioh.js?v=20261024"></script>
+  <script src="js/games/finalfantasy.js?v=20261024"></script>
+  <script src="js/games/wankul.js?v=20261024"></script>
   <script src="js/collection.js?v=20260928-173940"></script>
   <script src="js/pokedex.js?v=20260928-173940"></script>
   <script src="js/recognizer-text.js?v=20260928-173940"></script>
@@ -50,6 +61,7 @@
   <script src="js/recognizer-image.js?v=20260928-173940"></script>
   <script src="js/recognizer-versions.js?v=20260928-173940"></script>
   <script src="js/recognizer.js?v=20260928-173940"></script>
-  <script src="js/labo.js?v=20260928-193813"></script>
+  <script src="js/labo.js?v=20261024"></script>
+  <script src="js/labo-holo.js?v=20261024-4"></script>
 </body>
 </html>
