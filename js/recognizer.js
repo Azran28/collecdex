@@ -265,12 +265,33 @@ App.recognizer = (() => {
    */
   let lastVariants = null;
 
-  async function addScanned(c, blob, mode = null, game = c.game || 'pokemon') {
+  /**
+   * Version d'une carte vue sur la photo : { list, sure, info } (sure = mesure nette ; une carte qui n'existe qu'en une
+   * version est toujours sûre). Pokémon : mesure de l'illustration ; Final Fantasy : paillettes (c.foil) ; autres licences :
+   * la rareté, sinon « Normale » à vérifier.
+   */
+  async function versionsOf(c, blob, game) {
+    if (c.pickedVariants) return { list: c.pickedVariants, sure: true }; // (vue et vérifiée dans la liste du classeur)
+    if (!c.variants) return null;
+    const base = ['normal', 'holo', 'reverse'].filter((k) => c.variants[k]);
+    if (game === 'pokemon') { const d = await detectVariants(blob, c.variants, ad().img.card(c, 'high')); return { ...d, sure: base.length <= 1 || !!(d.sure && d.sure.base) }; }
+    if (c.foil && c.variants.holo && c.variants.normal) return { list: [c.foil.holo ? 'holo' : 'normal'], sure: !!c.foil.sure, info: { foil: c.foil } };
+    return { list: c.variants.normal ? ['normal'] : Object.keys(c.variants).filter((k) => c.variants[k]), sure: base.length <= 1 };
+  }
+
+  /** share = { mode: 'carte'|'classeur'|'rafale', doubt, user } : pour les scans envoyés au labo (comptes testeurs, js/scan-share.js) */
+  async function addScanned(c, blob, mode = null, game = c.game || 'pokemon', share = {}) {
     const before = App.col.get(game, c.id);
     if (!mode) mode = before && before.qty > 0 ? 'photo' : 'nouvelle';
     const key = App.col.keyOf(game, c.id);
+    lastShare = null;
     if (mode === 'rien') return key;
-    if (mode === 'photo' && before) { await App.col.addPhoto(key, blob, { makeDisplay: true }); return key; }
+    if (mode === 'photo' && before) {
+      await App.col.addPhoto(key, blob, { makeDisplay: true });
+      // (même carte reprise en photo : c'est souvent un test ; envoyée au labo avec sa version, mesurée en arrière-plan)
+      if (App.scanShare && App.cloud && App.cloud.user) App.scanShare.isTester().then((ok) => ok && versionsOf(c, blob, game).catch(() => null).then((det) => App.scanShare.scan({ game, mode: share.mode, kind: 'photo', card: c, det, picked: c.pickedVariants, doubt: share.doubt, user: share.user }, blob))).catch(() => {});
+      return key;
+    }
     const set = c.set ? { id: c.set.id, name: c.set.name, symbol: c.set.symbol, logo: c.set.logo, official: c.set.cardCount && c.set.cardCount.official, group: c.set.serie || { id: c.serieId } } : null;
     await App.col.add(game, { ...c, serieId: c.serieId || (c.set && c.set.serie ? c.set.serie.id : '') }, set);
     // nouvelle carte : la photo devient son visuel ; doublon : la photo s'ajoute à ses photos
@@ -281,8 +302,7 @@ App.recognizer = (() => {
       // autre licence (One Piece, Riftbound) : la version vient de la carte elle-même (holo selon la rareté), rien à mesurer ;
       // (Final Fantasy, v3.44 : brillant mesuré sur la photo par l'adaptateur, c.foil)
       // carte qui existe en normal et en brillant (communes Riftbound) : normale (brillante à cocher sur sa fiche)
-      const det = c.pickedVariants ? { list: c.pickedVariants } : game !== 'pokemon' ? (c.variants ? { list: c.foil && c.variants.holo && c.variants.normal ? [c.foil.holo ? 'holo' : 'normal'] : c.variants.normal ? ['normal'] : Object.keys(c.variants).filter((k) => c.variants[k]) } : null)
-        : c.variants ? await detectVariants(blob, c.variants, ad().img.card(c, 'high')) : null;
+      const det = await versionsOf(c, blob, game);
       if (det && det.list.length) {
         const it = App.col.byKey(key);
         const vars = [...new Set([...((it && it.variants) || []), ...det.list])];
@@ -290,7 +310,19 @@ App.recognizer = (() => {
         lastVariants = det;
       } else lastVariants = null;
     } catch (e) { console.warn('versions', e); lastVariants = null; }
+    if (App.scanShare) lastShare = App.scanShare.scan({ game, mode: share.mode, kind: 'ajoutee', card: c, det: lastVariants, picked: c.pickedVariants, doubt: share.doubt, user: share.user }, blob);
     return key;
+  }
+  let lastShare = null; // (id du dernier scan envoyé au labo : la réponse à « Ta carte brille ? » s'y ajoute)
+
+  /**
+   * Version choisie par le dresseur après l'ajout (question « Ta carte brille ? » de la carte seule) : remplace la version
+   * de base trouvée (normale / holo / reverse), garde la 1re édition.
+   */
+  async function setBaseVariant(key, base) {
+    const it = App.col.byKey(key); if (!it) return;
+    const vars = [...new Set([...(it.variants || []).filter((v) => !['normal', 'holo', 'reverse'].includes(v)), base])];
+    await App.col.update(key, { variants: vars });
   }
 
   /** Ressemblance (0 à 1) entre ta photo et le visuel officiel d'une carte donnée */
@@ -311,5 +343,5 @@ App.recognizer = (() => {
     return out;
   }
 
-  return { get lastVariants() { return lastVariants; }, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, readZones, plausibleQuad, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, findCard, bestCard, bestCardIn, snapQuad, detectCards, detectSpread, trueRatio, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, stopLater, warm, RATIO: 63 / 88 };
+  return { get lastVariants() { return lastVariants; }, get lastShare() { return lastShare; }, setBaseVariant, wholeCardScores, recognize, read, inSet, manual, resemblance, resemblanceMany, readSummary, addScanned, readZones, plausibleQuad, looksEmpty, looksLikeBack, backScore, backScoreOf, looksLikePage, locateCard, refineCell, detectGrid, detectVariants, firstEditionStamp, foilIn, cardPixels, detectPage, detectDouble, cellCard, cutCard, findCard, bestCard, bestCardIn, snapQuad, detectCards, detectSpread, trueRatio, warpQuad, snapCells, _gridProfiles: gridProfiles, stop, stopLater, warm, RATIO: 63 / 88 };
 })();

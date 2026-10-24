@@ -387,6 +387,34 @@ App.cloud = (() => {
     return data ? data.pseudo : null;
   }
 
+  /**
+   * Scans de test envoyés au labo de Claude (v3.51, supabase-v19.sql) : seulement pour les comptes testeurs
+   * (table labo_testers, remplie à la main dans Supabase). Photo dans le stockage privé « labo/<compte>/<id>.webp »,
+   * le reste (carte, version décidée, réponse) dans la table labo_scans. Voir js/scan-share.js.
+   */
+  const labo = {
+    async tester() { if (!user || !(await waitReady()) || !user) return false; const { data, error } = await sb.rpc('labo_is_tester'); return !error && data === true; },
+    async put(id, game, data, blob) {
+      if (!user || !(await waitReady()) || !user) throw new Error('Connexion requise');
+      if (blob) { const { error } = await sb.storage.from('labo').upload(`${uid()}/${id}.webp`, blob, { upsert: true, contentType: blob.type || 'image/webp' }); if (error) throw new Error(error.message); }
+      const { error } = await sb.from('labo_scans').upsert({ id, game, data }); if (error) throw new Error(error.message);
+    },
+    async patch(id, data) { if (!user || !(await waitReady())) throw new Error('Connexion requise'); const { error } = await sb.from('labo_scans').update({ data }).eq('id', id); if (error) throw new Error(error.message); },
+    async list({ from = 0, to = 499, since = null } = {}) {
+      if (!user || !(await waitReady())) return [];
+      let q = sb.from('labo_scans').select('id,created_at,game,data').order('created_at', { ascending: false }).range(from, to);
+      if (since) q = q.gt('created_at', since);
+      const { data, error } = await q; if (error) throw new Error(error.message);
+      return data || [];
+    },
+    async photo(id) { if (!user || !(await waitReady())) return null; const { data, error } = await sb.storage.from('labo').download(`${uid()}/${id}.webp`); return error ? null : data; },
+    async remove(ids) {
+      if (!ids.length || !user || !(await waitReady())) return;
+      await sb.storage.from('labo').remove(ids.map((id) => `${uid()}/${id}.webp`));
+      await sb.from('labo_scans').delete().in('id', ids);
+    },
+  };
+
   // ---------- Compte ----------
   const redirect = () => location.origin + location.pathname;
   const tr = (e) => {
@@ -434,6 +462,13 @@ App.cloud = (() => {
       const { error: e2 } = await sb.storage.from('photos').remove(data.map((f) => `${me}/${f.name}`));
       if (e2) throw new Error('Effacement des photos impossible : ' + e2.message);
     }
+    // (photos des scans de test du labo, comptes testeurs seulement : sans erreur si le stockage « labo » n'existe pas)
+    for (let round = 0; round < 50; round++) {
+      const { data, error } = await sb.storage.from('labo').list(me, { limit: 100 });
+      if (error || !data || !data.length) break;
+      const { error: e2 } = await sb.storage.from('labo').remove(data.map((f) => `${me}/${f.name}`));
+      if (e2) break;
+    }
     // 2) compte et données
     const { error } = await sb.rpc('delete_my_account');
     if (error) throw notInstalled(error);
@@ -455,7 +490,7 @@ App.cloud = (() => {
   }
 
   return {
-    enabled, init, sync, flush, flushNow, rpc, publicRpc, fetchPhoto, fetchFriendPhoto, fetchPublicPhoto, myPseudo,
+    enabled, init, sync, flush, flushNow, rpc, publicRpc, fetchPhoto, fetchFriendPhoto, fetchPublicPhoto, myPseudo, labo,
     markItem, markDelete, markPhoto, markPhotoDelete, markProfile,
     signUp, signIn, signOut, resetPassword, newPassword, deleteAccount,
     get user() { return user; }, get state() { return state; }, get error() { return lastError; },

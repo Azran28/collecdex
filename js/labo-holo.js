@@ -236,6 +236,8 @@
         }
         render(); await sleep(0);
       }
+      // + les scans envoyés tout seuls par le téléphone (compte testeur), seulement ceux qui ont une bonne réponse
+      if (S.useScans && S.scans) for (const sc of S.scans) if (sc.label != null) S.items.push({ ...sc, res: {} });
       setStatus('Chargement du réseau de neurones…');
       const mn = await loadMN().catch((e) => { log('MobileNet : ' + e.message); return null; });
       let tPhoto = 0, tRef = 0;
@@ -269,6 +271,51 @@
     finally { S.running = false; render(); }
   }
 
+  // ---------- Scans du téléphone (v3.51, js/scan-share.js : envoyés tout seuls par les comptes testeurs) ----------
+  /** Bonne réponse d'un scan : la réponse à « Ta carte brille ? », ou la version choisie à la main dans le classeur */
+  function scanLabel(d) {
+    const base = (list) => (list || []).find((v) => ['normal', 'holo', 'reverse'].includes(v));
+    const v = d.answer || (d.user ? base(d.picked) : null);
+    return v ? (v === 'normal' ? 0 : 1) : null;
+  }
+  async function loadScans() {
+    if (S.loadingScans) return; S.loadingScans = true;
+    try {
+      if (!App.cloud || !App.cloud.enabled) throw new Error('Pas de serveur configuré.');
+      if (!S.cloudInit) { S.cloudInit = true; App.cloud.init().catch(() => {}); }
+      setStatus('Connexion au compte…');
+      for (let i = 0; i < 40 && App.cloud.state === 'synchro' && !App.cloud.user; i++) await sleep(250);
+      if (!App.cloud.user) throw new Error('Pas de compte connecté : connecte-toi sur le site (même adresse), puis reviens ici.');
+      if (!(await App.cloud.labo.tester())) throw new Error('Ce compte n’est pas testeur (script supabase-v19.sql, dernière ligne).');
+      const rows = await App.cloud.labo.list();
+      const out = [];
+      for (const [k, r] of rows.entries()) {
+        setStatus(`Mes scans : photo ${k + 1} / ${rows.length}`);
+        const key = 'labo-scan:' + r.id;
+        let blob = await App.db.get('cache', key).catch(() => null);
+        if (!blob) { blob = await App.cloud.labo.photo(r.id); if (blob) App.db.set('cache', key, blob).catch(() => {}); }
+        if (!blob) continue;
+        const d = r.data || {};
+        out.push({ scan: true, file: '📱 ' + new Date(r.created_at).toLocaleString('fr-FR'), i: 0, kind: d.mode || 'carte', jeu: r.game, id: d.card ? d.card.id : null, label: scanLabel(d), blob, url: URL.createObjectURL(blob), data: d });
+      }
+      S.scans = out; S.useScans = true;
+      setStatus(`${out.length} scans du téléphone, dont ${out.filter((x) => x.label != null).length} avec une bonne réponse (ta réponse à « Ta carte brille ? » ou la version choisie dans le classeur). « Lancer le test » les ajoute aux photos de test.`);
+    } catch (e) { setStatus('Mes scans : ' + e.message); }
+    finally { S.loadingScans = false; render(); }
+  }
+  const VN = { normal: 'normale', holo: 'brillante', reverse: 'reverse', firstEdition: '1ʳᵉ éd.' };
+  function scansHtml() {
+    if (!S.scans) return '';
+    const by = {}; S.scans.forEach((s) => { by[s.jeu] = (by[s.jeu] || 0) + 1; });
+    return `<h2>Mes scans du téléphone (${S.scans.length})</h2>
+      <p class="muted small">${Object.entries(by).map(([g, n]) => `${esc(GAMES[g] || g)} ${n}`).join(' · ') || 'Aucun scan pour l’instant.'}</p>
+      <div class="lab-grid">${S.scans.slice(0, 120).map((s) => { const d = s.data; return `<div class="lab-card">
+        <img src="${s.url}" alt="">
+        <div class="lab-want"><b>${esc(d.card ? d.card.name + ' ' + d.card.localId : 'Pas reconnue')}</b> · ${esc(GAMES[s.jeu] || s.jeu)}<div class="muted small">${esc(s.file)} · ${esc(d.mode || '')} · ${esc(d.kind || '')}</div></div>
+        <div class="muted small">Scanner : ${esc((d.auto || []).map((v) => VN[v] || v).join(' · ') || '—')}${d.sure ? ' (sûr)' : d.exist && d.exist.length > 1 ? ' (à vérifier)' : ''}${d.answer ? ` · ta réponse : <b>${esc(VN[d.answer] || d.answer)}</b>` : d.user ? ` · choisie : <b>${esc((d.picked || []).map((v) => VN[v] || v).join(' · '))}</b>` : ''}</div>
+      </div>`; }).join('')}</div>`;
+  }
+
   // ---------- Résultats ----------
   const pct = (a, b) => (b ? Math.round((100 * a) / b) : null);
   function table() {
@@ -288,12 +335,13 @@
     el.innerHTML = `
       <h1>Labo — cartes brillantes</h1>
       <p class="muted">Pour chaque carte des photos de test (découpée comme le fait le scanner) : est-elle brillante (holo, foil, reverse) ? Les 3 méthodes nouvelles sont <b>les mêmes pour toutes les licences</b>. Modèles appris en validation croisée : chaque carte est jugée par un modèle qui ne l’a jamais vue.</p>
-      <div class="lab-bar"><button class="btn primary" id="lab-run" ${S.running ? 'disabled' : ''}>Lancer le test</button>${ms ? `<span class="muted small">Mesures : ${ms.photo} ms par photo de carte, + ${ms.ref} ms pour le visuel officiel</span>` : ''}</div>
+      <div class="lab-bar"><button class="btn primary" id="lab-run" ${S.running ? 'disabled' : ''}>Lancer le test</button><button class="btn" id="lab-scans" ${S.loadingScans ? 'disabled' : ''}>📱 Récupérer mes scans</button>${S.scans ? `<label class="lab-chk"><input type="checkbox" id="lab-usescans" ${S.useScans ? 'checked' : ''}> les inclure dans le test</label>` : ''}${ms ? `<span class="muted small">Mesures : ${ms.photo} ms par photo de carte, + ${ms.ref} ms pour le visuel officiel</span>` : ''}</div>
       <div id="lab-status" class="muted">${esc(S.status || '')}</div>
       ${T.length ? `<div class="lab-tablewrap"><table class="lab-table">
         <thead><tr><th>Méthode</th><th>Toutes</th><th>Cartes à 2 versions</th>${Object.values(GAMES).map((g) => `<th>${esc(g)}</th>`).join('')}</tr></thead>
         <tbody>${T.map((r) => { const m = METHODS.find((x) => x.id === r.id); return `<tr class="${r === T.reduce((b, x) => (x.all.ok / (x.all.n || 1) > b.all.ok / (b.all.n || 1) ? x : b), T[0]) ? 'best' : ''}"><td><b>${esc(m.name)}</b><div class="muted small">${esc(m.desc)}</div></td>${cell(r.all)}${cell(r.two)}${Object.keys(GAMES).map((g) => cell(r.by[g])).join('')}</tr>`; }).join('')}</tbody>
       </table></div><p class="muted small">✨ = brillantes reconnues / brillantes ; normales = normales reconnues / normales. « Cartes à 2 versions » : celles qui existent en normale ET en brillante (la rareté ne suffit pas : c’est là que la photo doit trancher). « — » : rien à juger (ex. Actuel pour une carte dont on ne connaît pas l’identité).</p>` : ''}
+      ${scansHtml()}
       ${S.items.length ? `<h2>Carte par carte</h2><div class="lab-grid">${S.items.map((it) => `<div class="lab-card">
         <img src="${it.url}" alt="">
         <div class="lab-want"><b>${it.truth == null ? '? pas sûr' : it.truth ? '✨ Brillante' : 'Normale'}</b> · ${esc(GAMES[it.jeu])}<div class="muted small">${esc(it.name || it.id || '')} · ${esc(it.file)}${it.kind === 'page' ? ' · case ' + (it.i + 1) : ''}</div></div>
@@ -301,6 +349,8 @@
       </div>`).join('')}</div>` : ''}
       <details class="lab-log"><summary>Journal</summary><pre>${esc(S.log.join('\n'))}${S.models && S.models.hybride ? '\nModèle hybride (sur toutes les cartes à 2 versions) : ' + esc(JSON.stringify({ mu: S.models.hybride.mu, sd: S.models.hybride.sd, w: S.models.hybride.w, b: S.models.hybride.b })) : ''}</pre></details>`;
     el.querySelector('#lab-run').addEventListener('click', run);
+    el.querySelector('#lab-scans').addEventListener('click', loadScans);
+    const us = el.querySelector('#lab-usescans'); if (us) us.addEventListener('change', () => { S.useScans = us.checked; });
   }
   function setStatus(t) { S.status = t; const s = document.getElementById('lab-status'); if (s) s.textContent = t; }
 

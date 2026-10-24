@@ -678,6 +678,20 @@ test('classeur ouvert, 2 pages cherchées une par une', async (App) => {
   ok(Math.max(...errs) < 4, `pire carte à ${Math.max(...errs).toFixed(1)} %`);
 });
 
+// v3.51 : scans de test envoyés au labo de Claude — jamais sans compte testeur, sans photo, ni depuis les tests (site dans un cadre)
+test('labo : scans envoyés seulement par un compte testeur', async (App) => {
+  const S = App.scanShare, L = App.cloud.labo, keep = { ...L };
+  let puts = 0;
+  try {
+    Object.assign(L, { put: async () => { puts++; }, tester: async () => true });
+    const blob = new Blob([new Uint8Array(16)], { type: 'image/webp' });
+    eq(S.scan({ game: 'pokemon', kind: 'ajoutee' }, null), null, 'scan sans photo accepté');
+    eq(S.scan({ game: 'pokemon', kind: 'ajoutee' }, blob), null, 'scan préparé pendant les tests (site dans un cadre)');
+    await new Promise((r) => setTimeout(r, 300));
+    eq(puts, 0, 'scan envoyé pendant les tests');
+  } finally { Object.assign(L, keep); }
+});
+
 // v3.36 : corrections retenues et carnet des scans ratés (App.scanMemo) — les données de la personne sont remises telles quelles
 test('scanner : correction retenue, carnet des scans ratés', async (App) => {
   const M = App.scanMemo, kv = (k) => App.db.get('kv', k);

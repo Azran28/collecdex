@@ -398,7 +398,7 @@ Object.assign(App.views.scan, {
         if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
-        const key = await R.addScanned(c, cardBlob, mode, game);
+        const key = await R.addScanned(c, cardBlob, mode, game, { mode: 'carte' });
         // v3.36 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
         pendingPick = false;
         { const lid = logId, shown = recoCands, from = recoFrom, ph = cardBlob, orig = pageBlob, read = recoRead, g = game;
@@ -409,8 +409,17 @@ Object.assign(App.views.scan, {
         const myCert = cert; cert = null;
         const shotBlob = cardBlob;
         const VN = { normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1ʳᵉ édition' };
-        const det = mode === 'rien' ? null : R.lastVariants;
-        const verLine = det && det.list.length ? `<div class="small" style="margin-top:6px">${App.icons.icon('sparkles', 13)} Version reconnue : <b>${det.list.map((v) => VN[v] || v).join(' · ')}</b> <button class="linkbtn small" data-game="${esc(game)}" data-open-card="${esc(c.id)}">modifier</button></div>` : '';
+        const det = mode === 'rien' ? null : R.lastVariants, shareId = R.lastShare;
+        if (!isPk()) VN.holo = 'Brillante';
+        const verText = (list, how) => `<div class="small" style="margin-top:6px">${App.icons.icon('sparkles', 13)} Version ${how} : <b>${list.map((v) => VN[v] || v).join(' · ')}</b> <button class="linkbtn small" data-game="${esc(game)}" data-open-card="${esc(c.id)}">modifier</button></div>`;
+        // v3.51 (Arnaud : « demander seulement quand ça a vraiment du sens ») : la carte existe en normale ET en brillante
+        // (ou reverse) et la photo ne permet pas de trancher sûrement → une question en un geste, qui ne bloque rien
+        const baseOpts = ['normal', 'holo', 'reverse'].filter((k) => c.variants && c.variants[k]);
+        const ask = det && det.list.length && !det.sure && baseOpts.length > 1;
+        const guess = det && det.list.find((v) => baseOpts.includes(v));
+        const verLine = !det || !det.list.length ? '' : !ask ? verText(det.list, 'reconnue')
+          : `<div class="sc-vask" id="sc-vask"><div>${App.icons.icon('sparkles', 14)} <b>Ta carte brille ?</b> <span class="small muted">Elle existe en ${baseOpts.length} versions et ta photo ne permet pas d’être sûr.</span></div>
+            <div class="chips">${baseOpts.map((k) => `<button class="chip ${k === guess ? 'on' : ''}" data-vans="${k}">${k === 'normal' ? 'Non, normale' : k === 'holo' ? (isPk() ? 'Oui, holo' : 'Oui, brillante') : 'Reverse'}</button>`).join('')}</div></div>`;
         const what = mode === 'photo' ? 'Photo de <b>' + esc(c.name) + '</b> mise à jour.' : mode === 'doublon' ? `<b>✓ ${esc(c.name)}</b> : doublon ajouté (×${it.qty}).` : `<b>✓ ${esc(c.name)}</b> ajoutée à ton Dex, avec ta photo.`;
         const certLine = !App.cloud.enabled ? '' : !App.cloud.user ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} <a href="#/connexion">Connecte-toi</a> pour certifier tes captures.</div>`
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
@@ -420,6 +429,14 @@ Object.assign(App.views.scan, {
           <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
+        const vask = results.querySelector('#sc-vask');
+        if (vask) vask.onclick = async (ev) => {
+          const vb = ev.target.closest('[data-vans]'); if (!vb) return;
+          const v = vb.dataset.vans;
+          await R.setBaseVariant(key, v);
+          App.scanShare && App.scanShare.label(shareId, { answer: v }); // (bonne réponse pour le labo : comptes testeurs)
+          vask.outerHTML = verText([v, ...det.list.filter((x) => x === 'firstEdition')], 'choisie');
+        };
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
         if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
         if (myCert && myCert.passed && photoId) {
