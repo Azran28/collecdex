@@ -375,7 +375,7 @@
   const SLIDE_ZONES = [0.8, 0.83, 0.86, 0.89, 0.92, 0.95].map((y) => [y, y + 0.035, 8, 'sharp', 0.72, 0.92]);
   // ---------- Vérification par l'image (v2.94) : réseau de neurones + points clés, pour toutes les licences ----------
   // (code commun dans js/visual.js › check ; index de toutes les cartes One Piece : data/op-index, fait avec js/labo-index-op.js)
-  const OP_INDEX_V = 1;
+  const OP_INDEX_V = 2;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   const visualOpts = (codes) => ({
     index: 'data/op-index', v: OP_INDEX_V, cardsOf: (near) => fromIndex(near.map((x) => x.id)), urlOf: (c) => img.card(c, 'low'),
