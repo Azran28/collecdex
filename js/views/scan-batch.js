@@ -273,6 +273,7 @@ Object.assign(App.views.scan, {
     el.querySelector('#b-file2').addEventListener('change', fromFile); // galerie
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (S.running) return;
+      labLeftover(); // (v3.61 : page quittée → cases non enregistrées au labo)
       el.querySelector('#b-native').classList.remove('hidden'); if (PAGE_CERT) el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden'); certHelp(true);
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       S.photo = null; S.grid = null; S.cells = []; S.pageCert = null; S.pageId = null; resultsEl.innerHTML = ''; setStatus(''); { const cb = el.querySelector('#b-certline'); if (cb) cb.innerHTML = ''; }
@@ -300,7 +301,11 @@ Object.assign(App.views.scan, {
     function findingDone() { clearInterval(S.findTimer); S.findTimer = null; const o = view.querySelector('.b-finding'); if (o) o.remove(); }
 
     // ---------- Grille ajustable ----------
+    // ---------- Labo (comptes testeurs) : photo de la page et cases non enregistrées — voir scanBatchParts.labo (v3.61) ----------
+    const { labPage, labLeftover, proposedOf, readOf } = App.scanBatchParts.labo(X, { R, burst, modeQ });
+
     function startGrid(blob, cert = null) {
+      labLeftover(); // (v3.61 : nouvelle photo → la page d'avant part au labo avec ses cases non enregistrées)
       el.querySelector('#b-go').classList.add('hidden'); // la reconnaissance partira toute seule si la grille est sûre
       S.cells = []; resultsEl.innerHTML = App.views.scan.guide('classeur'); setStatus('');
       S.pageCert = cert; S.pageId = null;
@@ -723,15 +728,14 @@ Object.assign(App.views.scan, {
         const keys = [];
         // la page est gardée sur cet appareil : on pourra recadrer une carte depuis sa fiche
         if (!S.pageId && S.photo) { try { S.pageId = await App.col.keepPage(S.photo.blob); } catch (err) { console.warn(err); } }
+        for (const { c } of todo) c.saved = true; const labP = labPage(); for (const { c } of todo) c.saved = false; // (résumé de la page pour le labo : ces cartes comptées enregistrées)
         for (const { c, mode } of todo) {
           const cand = c.cands.find((x) => x.id === c.choice);
           if (!cand) continue;
           const picked = c.det && c.det.id === cand.id ? X.versOf(c) : null; // version vue (et corrigée) dans la liste
           // (v3.60, labo : ce que le scanner avait proposé — la proposition d'origine si la case a été changée à la main)
-          const sys = c.sys || { choice: c.choice, cands: c.cands }, top = (sys.cands || []).find((x) => x.id === sys.choice);
-          const proposed = top ? [top, ...sys.cands.filter((x) => x !== top)] : (sys.cands || []);
-          let read = ''; try { read = c.info ? R.readSummary(c.info) : ''; } catch (err) { /* */ }
-          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game, { mode: modeQ, doubt: !!(c.det && !c.det.user && !c.det.sure), user: !!(c.det && c.det.user), cands: proposed, read, corrige: !top || top.id !== cand.id });
+          const { top, list: proposed } = proposedOf(c), read = readOf(c);
+          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game, { mode: modeQ, doubt: !!(c.det && !c.det.user && !c.det.sure), user: !!(c.det && c.det.user), cands: proposed, read, corrige: !top || top.id !== cand.id, extra: labP || burst ? { page: labP, cell: c.i } : undefined });
           // v3.36 : carte choisie à la main → correction retenue, scan raté gardé dans le carnet
           if (c.sys) App.scanMemo.batchPicked(S.game, burst ? 'rafale' : 'classeur', c, cand, read).catch(() => {});
           c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
@@ -774,6 +778,7 @@ Object.assign(App.views.scan, {
 
     // Scanner — rafale (caméra ouverte, cartes prises toutes seules) : voir scanBatchParts.burst
     Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, resultsEl, setStatus, sv, urls, view }));
+    { const rb = X.resetBurst; X.resetBurst = (...a) => { labLeftover(); return rb(...a); }; } // (v3.61 : rafale remise à zéro → cartes non enregistrées au labo)
     if (burst) {
       el.querySelector('#r-start').addEventListener('click', async () => {
         S.rUsedCam = true;

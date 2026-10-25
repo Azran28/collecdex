@@ -290,7 +290,7 @@ App.recognizer = (() => {
     if (mode === 'photo' && before) {
       await App.col.addPhoto(key, blob, { makeDisplay: true });
       // (même carte reprise en photo : c'est souvent un test ; envoyée au labo avec sa version, mesurée en arrière-plan)
-      if (App.scanShare && App.cloud && App.cloud.user) App.scanShare.isTester().then((ok) => ok && versionsOf(c, blob, game).catch(() => null).then((det) => App.scanShare.scan({ game, mode: share.mode, kind: 'photo', card: c, det, picked: c.pickedVariants, doubt: share.doubt, user: share.user, cands: share.cands, read: share.read, corrige: share.corrige }, blob))).catch(() => {});
+      if (App.scanShare && App.cloud && App.cloud.user) App.scanShare.isTester().then((ok) => ok && versionsOf(c, blob, game).catch(() => null).then((det) => App.scanShare.scan({ game, mode: share.mode, kind: 'photo', card: c, det, picked: c.pickedVariants, doubt: share.doubt, user: share.user, cands: share.cands, read: share.read, corrige: share.corrige, extra: share.extra }, blob))).catch(() => {});
       return key;
     }
     const set = c.set ? { id: c.set.id, name: c.set.name, symbol: c.set.symbol, logo: c.set.logo, official: c.set.cardCount && c.set.cardCount.official, group: c.set.serie || { id: c.serieId } } : null;
@@ -311,7 +311,7 @@ App.recognizer = (() => {
         lastVariants = det;
       } else lastVariants = null;
     } catch (e) { console.warn('versions', e); lastVariants = null; }
-    if (App.scanShare) lastShare = App.scanShare.scan({ game, mode: share.mode, kind: 'ajoutee', card: c, det: lastVariants, picked: c.pickedVariants, doubt: share.doubt, user: share.user, cands: share.cands, read: share.read, corrige: share.corrige }, blob);
+    if (App.scanShare) lastShare = App.scanShare.scan({ game, mode: share.mode, kind: 'ajoutee', card: c, det: lastVariants, picked: c.pickedVariants, doubt: share.doubt, user: share.user, cands: share.cands, read: share.read, corrige: share.corrige, extra: share.extra }, blob);
     return key;
   }
   let lastShare = null; // (id du dernier scan envoyé au labo : la réponse à « Ta carte brille ? » s'y ajoute)

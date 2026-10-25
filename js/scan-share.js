@@ -65,7 +65,7 @@ App.scanShare = (() => {
 
   /**
    * Un scan à envoyer → son id (tout de suite ; l'envoi se fait en arrière-plan), ou null si ce compte n'est pas testeur.
-   * rec = { game, mode: 'carte'|'classeur'|'rafale', kind: 'ajoutee'|'photo'|'aucune'|'corrigee', card, cands, read,
+   * rec = { game, mode: 'carte'|'classeur'|'rafale', kind: 'ajoutee'|'photo'|'aucune'|'corrigee'|'page'|'ignoree', card, cands, read, extra,
    *         det: { list, sure, info }, picked (version choisie à la main), doubt (version à vérifier) }
    */
   function scan(rec, photo) {
@@ -82,10 +82,12 @@ App.scanShare = (() => {
         mesure: { holoRatio: info.holoRatio, reverseRatio: info.reverseRatio, foil: info.foil ? { score: info.foil.score, lap: info.foil.lap } : (rec.card && rec.card.foil ? { score: rec.card.foil.score, lap: rec.card.foil.lap } : undefined) },
         picked: rec.picked || null, doubt: !!rec.doubt, user: !!rec.user, // (user : version choisie à la main = bonne réponse)
         read: String(rec.read || '').slice(0, 300), corrige: !!rec.corrige, // (v3.60 : propositions du scanner pour chaque carte ajoutée, pas seulement les ratées)
+        ...(rec.extra || {}), // (v3.61 : page de classeur → { cells } ; carte d'une page → { page: id du scan de la page, cell, etat })
         cands: (rec.cands || []).slice(0, 5).map((c) => ({ ...cardRef(c), sure: !!c.confident })),
       };
       datas.set(id, { game: rec.game, data });
-      const blob = await App.util.resizeImage(photo, 800, 0.85, 'image/webp').catch(() => photo);
+      // (photo entière d'une page : plus grande, pour pouvoir la rejouer dans le labo)
+      const blob = await App.util.resizeImage(photo, rec.kind === 'page' ? 1800 : 800, rec.kind === 'page' ? 0.82 : 0.85, 'image/webp').catch(() => photo);
       try { await send(id, rec.game, data, blob); flush().catch(() => {}); } catch (e) { await keepForLater({ id, game: rec.game, data, blob }); }
     })().catch((e) => console.warn('scans du labo', e));
     return id;
