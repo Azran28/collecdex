@@ -412,6 +412,7 @@ Object.assign(App.views.scan, {
         if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
+        if (ad.withVersions) { const f = await ad.withVersions(c).catch(() => c); if (f !== c) Object.assign(c, f); } // (Pokémon, v3.63 : versions complétées : holo / reverse à choisir)
         const key = await R.addScanned(c, cardBlob, mode, game, { mode: 'carte', cands: recoCands, read: recoRead, corrige: !recoCands.length || recoCands[0].id !== c.id }); // (v3.60 : propositions pour le labo)
         // v3.36 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
         pendingPick = false;
@@ -442,7 +443,7 @@ Object.assign(App.views.scan, {
         const wasTarget = !!target, sureAdd = autoPicked; autoPicked = false;
         const doneHtml = `<div class="sc-done">${mode === 'rien' || !cardURL ? '' : `<img src="${cardURL}" alt="">`}<div class="sc-done-t">${what}${sureAdd ? ' <span class="small muted">Reconnue avec certitude.</span>' : ''} <a class="small" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a>${verLine}${certLine}</div></div>`;
         if (!wasTarget) {
-          // v3.54 (Arnaud : « une fois la carte validée, reset direct pour démarrer un nouveau scan ») : la carte ajoutée reste
+          // v3.63 (Arnaud : « une fois la carte validée, reset direct pour démarrer un nouveau scan ») : la carte ajoutée reste
           // rappelée en haut (et « Ta carte brille ? »), l'écran revient à zéro, la caméra se rallume si la photo venait d'elle
           doneBox.innerHTML = doneHtml; hideDone(ask ? 9000 : sureAdd ? 3500 : 2600); // (v3.55 : par-dessus la caméra, disparaît vite ; plus long s'il y a une question)
           results.innerHTML = guideC(); setStatus('');

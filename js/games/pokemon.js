@@ -169,12 +169,56 @@
 
   const CARD_FIELDS = 'id localId name image rarity category types illustrator hp variants { normal reverse holo firstEdition } attacks { name damage } abilities { name }';
 
+  // ---------- Versions corrigées (v3.63, Arnaud : « tu n'en reconnais aucune et je ne peux même pas les choisir comme holo ») ----------
+  // TCGdex dit souvent « seulement normale » quand il ne sait pas (Noir & Blanc : Symbios 57/114 ★H, Majaspic 5 et 6, et les
+  // reverses des communes). On complète alors avec la rareté de pokemontcg.io (fichiers publics sur GitHub, une série par fichier :
+  // « Rare Holo », « Rare Ultra »… = brillante seulement) et avec l'époque : depuis la Collection Légendaire (mai 2002), les
+  // communes, peu communes, rares et rares holo existent aussi en reverse. Rien ne change quand TCGdex connaît déjà d'autres versions.
+  const PT_URL = 'https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/cards/en/';
+  const PT_IDS = { lc: 'base6', 'sm3.5': 'sm35', 'sm7.5': 'sm75', 'swsh3.5': 'swsh35', 'swsh4.5': 'swsh45', 'swsh4.5sv': 'swsh45sv', 'swsh10.5': 'pgo', 'swsh12.5gg': 'swsh12pt5gg', cel25cc: 'cel25c', fut2020: 'fut20', hgssp: 'hsp', 'sv10.5b': 'zsv10pt5', 'sv10.5w': 'rsv10pt5' };
+  const ptcgId = (id) => PT_IDS[id] || String(id).replace(/\.5$/, 'pt5').replace(/^([a-z]+)0+(\d)/, '$1$2');
+  const PT = new Map(); // série → { numéro: rareté pokemontcg.io } (null : série inconnue là-bas)
+  const REL = new Map(); // série → date de sortie
+  const PLAIN = /^(Common|Uncommon|Rare|Promo|ACE SPEC Rare|Rare ACE)$/; // le reste (Rare Holo, Ultra, Secret, ex, Illustration…) = brillante
+  const REVERSE_SINCE = '2002-05-24';
+  async function ensureVersions(setIds) {
+    const todo = [...new Set(setIds)].filter((id) => id && !PT.has(id) && !HS.isSet(id));
+    if (!todo.length) return;
+    if (!REL.size) for (const s of await listSets().catch(() => [])) REL.set(s.id, s.releaseDate || '');
+    await Promise.all(todo.map(async (id) => {
+      if (/^tk-|^A\d|^B\d|^P-A$/.test(id)) { PT.set(id, null); return; } // (kits du dresseur, Pokémon Pocket : rien à corriger)
+      const m = await cached(`pk-pt1:${id}`, 30 * DAY, async () => {
+        const r = await fetch(PT_URL + ptcgId(id) + '.json').catch(() => null);
+        if (!r || r.status === 404) return { none: true };
+        if (!r.ok) throw new Error('pokemontcg.io ' + r.status);
+        const out = {}; for (const c of await r.json()) if (c && c.number && c.rarity) out[String(c.number).replace(/^0+(?=\d)/, '')] = c.rarity;
+        return out;
+      }).catch(() => null);
+      PT.set(id, m && !m.none ? m : null);
+    }));
+  }
+  /** Versions d'une carte TCGdex corrigées si TCGdex dit « seulement normale » (carte brute ou normCard ; renvoie une copie) */
+  function fixVersions(c, setId, cardmarket = null) {
+    const v = c && c.variants;
+    if (!v || v.holo || v.reverse || v.firstEdition) return c;
+    const m = PT.get(setId), r = m && m[String(c.localId).replace(/^0+(?=\d)/, '')];
+    const rel = REL.get(setId) || '', era = rel >= REVERSE_SINCE;
+    const nv = { ...v };
+    if (r && !PLAIN.test(r)) { nv.holo = true; nv.normal = false; }
+    const revOk = r ? /^(Common|Uncommon|Rare|Rare Holo)$/.test(r) : false;
+    if ((era && revOk) || (cardmarket && cardmarket['avg-holo'] != null && (revOk || !r))) nv.reverse = true;
+    if (nv.holo === v.holo && nv.reverse === v.reverse) return c;
+    const out = { ...c, variants: nv, versionsFixed: true };
+    if (r === 'Rare Holo' && /^(rare|)$/i.test(c.rarity || '')) out.rarity = 'Rare Holo'; // (TCGdex : « Rare » pour les holos anciennes)
+    return out;
+  }
+
   async function getSet(id) {
     id = String(id).replace(/["\\]/g, ''); // vient de l'adresse de la page : rien qui puisse casser la requête
     if (HS.isSet(id)) return HS.asSet();
     if (!enOnly.size) await listSets().catch(() => {}); // pour savoir si la série n'existe qu'en anglais
     const L = langFor(id);
-    return cached(`pk6:${L}:set:${id}`, 7 * DAY, async () => {
+    const s = await cached(`pk6:${L}:set:${id}`, 7 * DAY, async () => {
       let meta = null, cards = null;
       // 1) infos de la série
       try {
@@ -207,17 +251,27 @@
       set.rarityInfoMissing = set.cards.some((c) => !c.rarity);
       return set;
     });
+    await ensureVersions([id]).catch(() => {});
+    return { ...s, cards: s.cards.map((c) => fixVersions(c, id)) };
   }
 
   /** Détail complet d'une carte (avec prix du jour) */
   async function getCard(id, { fresh = false } = {}) {
     if (HS.has(id)) return HS.get(id);
     if (!enOnly.size) await listSets().catch(() => {});
-    const L = langFor(setOfCard(id));
-    return cached(`pk:${L}:card:${id}`, fresh ? 0 : DAY, async () => {
+    const sid = setOfCard(id), L = langFor(sid);
+    const c = await cached(`pk:${L}:card:${id}`, fresh ? 0 : DAY, async () => {
       const c = await getJSON(`/${L}/cards/${encodeURIComponent(id)}`);
       return c;
     });
+    await ensureVersions([sid]).catch(() => {});
+    return fixVersions(c, sid, c && c.pricing && c.pricing.cardmarket);
+  }
+  /** Scanner : versions corrigées d'une carte proposée (les recherches par nom ne téléchargent pas la rareté de chaque série) */
+  async function withVersions(c) {
+    if (!c || !c.setId || HS.isSet(c.setId)) return c;
+    await ensureVersions([c.setId]).catch(() => {});
+    return fixVersions(c, c.setId);
   }
 
   /** Infos de série au format attendu par le scanner */
@@ -333,7 +387,7 @@
   App.games.register('pokemon', {
     id: 'pokemon',
     name: 'Pokémon',
-    listSets, getSet, getCard, langFor, setLanguages, setLangFor, search, versions, findByNumber, price, tpMarket, img, cardmarketUrl,
+    listSets, getSet, getCard, withVersions, langFor, setLanguages, setLangFor, search, versions, findByNumber, price, tpMarket, img, cardmarketUrl,
     horsSerie: () => HS.CARDS, isHorsSerie: (c) => HS.tagged(c),
     setNamesEn, setCardsEn, searchEn,
     rarity: App.pokemonRarity,
