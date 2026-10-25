@@ -26,7 +26,21 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   // les anciennes holos sont notées « Rare » par la source : une carte qui n'existe qu'en holo compte comme holo
   const onlyHolo = card.variants && card.variants.holo && !card.variants.normal;
   const rrank = Math.max(ad.rarity.rank(card.rarity), onlyHolo ? 4 : 0);
-  const holoTier = rrank <= 2 ? 0 : rrank === 3 ? 1 : rrank <= 5 ? 2 : rrank <= 8 ? 3 : rrank <= 10 ? 4 : 5;
+  const tierOf = (r) => (r <= 2 ? 0 : r === 3 ? 1 : r <= 5 ? 2 : r <= 8 ? 3 : r <= 10 ? 4 : 5);
+  /**
+   * v3.54 (Arnaud : « le visuel des holos plus sympa et uniquement pour les holos ; pour les très rares non holo, le nom en doré
+   * ou arc-en-ciel ») : l'effet brillant ne s'affiche que pour une carte brillante — la version possédée (holo / reverse), sinon
+   * une carte qui n'existe qu'en brillant. Pokémon jusqu'à « Rare Holo » : seule l'illustration brille (reverse : tout sauf elle) ;
+   * cartes plus rares et autres licences : toute la carte.
+   */
+  const foilOf = () => {
+    const it = App.col.get(game, card.id), v = it && it.qty > 0 ? it.variants || [] : [];
+    const kind = v.includes('holo') ? 'holo' : v.includes('reverse') ? 'reverse' : onlyHolo && !(v.length && !v.includes('holo')) ? 'holo' : '';
+    return { kind, zone: kind === 'reverse' ? 'reverse' : kind && game === 'pokemon' && rrank <= 5 ? 'art' : 'full' };
+  };
+  const foilClass = () => { const f = foilOf(); return f.kind ? `foil foil-${f.zone} tier-${Math.max(2, tierOf(rrank))}` : 'tier-0'; };
+  // très rare mais pas brillante : nom doré (arc-en-ciel pour les plus rares)
+  const nameClass = () => (foilOf().kind || rrank < 5 ? '' : rrank >= 10 ? 'cd-name-rgb' : 'cd-name-gold');
 
   const variantNames = { normal: 'Normale', reverse: 'Reverse', holo: 'Holo', firstEdition: '1re édition' };
   const availVariants = Object.entries(card.variants || {}).filter(([k, v]) => v && variantNames[k]).map(([k]) => k);
@@ -52,9 +66,9 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     <div class="cd">
       <div class="cd-img">
         <div class="cd-fav-wrap" id="cd-favwrap"></div>
-        <div class="holo-card tier-${holoTier} cd-loading" id="cd-holo">
+        <div class="holo-card ${foilClass()} cd-loading" id="cd-holo">
           <img id="cd-img" alt="${esc(card.name)}" data-alt="${esc(card.name)}">
-          ${holoTier ? '<div class="holo-shine"></div><div class="holo-glare"></div>' : ''}${holoTier >= 4 ? '<div class="holo-sparkle"></div>' : ''}
+          <div class="holo-foil"></div><div class="holo-glare"></div>${tierOf(rrank) >= 4 ? '<div class="holo-sparkle"></div>' : ''}
         </div>
         <div class="row imgswitch" id="cd-imgswitch"></div>
         ${ctx.list ? `<div class="row cd-nav" style="margin-top:10px;justify-content:space-between">
@@ -64,7 +78,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
       </div>
       <div>
         <div class="muted">${esc(setInfo.name)} · n° ${esc(card.localId)}${setInfo.official && !ad.numLabel ? '/' + String(setInfo.official).padStart(String(card.localId).length, '0') : ''}</div>
-        <h1 style="margin-top:4px">${esc(card.name)}</h1>
+        <h1 style="margin-top:4px" id="cd-name" class="${nameClass()}">${esc(card.name)}</h1>
         <div class="row">${ad.rarity.symbol(card.rarity, 18)} <b>${esc(ad.rarity.label(card.rarity))}</b>${rate ? `<span class="pill">≈ 1 booster sur ${rate.toLocaleString('fr-FR')} pour cette rareté</span>` : ''}</div>
         <div class="cd-facts">
           ${card.category ? `<span>${esc(card.category)}${card.stage ? ' · ' + esc(card.stage) : ''}</span>` : ''}
@@ -239,7 +253,10 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     if (t.closest('[data-v]') && t.closest('#cd-vars')) {
       const v = t.closest('[data-v]').dataset.v; const it = App.col.get(game, card.id);
       const vars = it.variants.includes(v) ? it.variants.filter((x) => x !== v) : [...it.variants, v];
-      await App.col.update(key, { variants: vars, variantsAuto: null }); return drawMine();
+      await App.col.update(key, { variants: vars, variantsAuto: null });
+      // (l'effet brillant suit la version choisie)
+      { const h = body.querySelector('#cd-holo'), loading = h.classList.contains('cd-loading'); h.className = `holo-card ${foilClass()}${loading ? ' cd-loading' : ''}`; body.querySelector('#cd-name').className = nameClass(); }
+      return drawMine();
     }
     const cb = t.closest('[data-cond]');
     if (cb) {

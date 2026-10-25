@@ -272,6 +272,7 @@ App.recognizer = (() => {
    */
   async function versionsOf(c, blob, game) {
     if (c.pickedVariants) return { list: c.pickedVariants, sure: true }; // (vue et vérifiée dans la liste du classeur)
+    if (game === 'pokemon' && ad().withVersions) c = await ad().withVersions(c).catch(() => c); // (v3.54 : versions complétées quand TCGdex dit « seulement normale »)
     if (!c.variants) return null;
     const base = ['normal', 'holo', 'reverse'].filter((k) => c.variants[k]);
     if (game === 'pokemon') { const d = await detectVariants(blob, c.variants, ad().img.card(c, 'high')); return { ...d, sure: base.length <= 1 || !!(d.sure && d.sure.base) }; }

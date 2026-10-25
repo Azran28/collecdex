@@ -106,6 +106,7 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
     /** Mesure la brillance de la photo (reflets de l'illustration, du fond, logo 1re édition) pour la carte choisie */
     async function measureVers(c) {
       const cur = c.cands.find((x) => x.id === c.choice);
+      if (cur && ad.withVersions) { const f = await ad.withVersions(cur).catch(() => cur); if (f !== cur) Object.assign(cur, f); } // (Pokémon, v3.54 : versions complétées)
       // pas d'info de version pour cette carte : on le note (sinon elle serait remesurée sans fin et la page se figerait)
       if (!cur || !cur.variants) { c.det = { id: c.choice, list: [], none: true }; return; }
       const id = cur.id;

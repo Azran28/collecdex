@@ -401,6 +401,7 @@ Object.assign(App.views.scan, {
         if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
+        if (ad.withVersions) { const f = await ad.withVersions(c).catch(() => c); if (f !== c) Object.assign(c, f); } // (Pokémon, v3.54 : versions complétées : holo / reverse à choisir)
         const key = await R.addScanned(c, cardBlob, mode, game, { mode: 'carte' });
         // v3.36 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
         pendingPick = false;

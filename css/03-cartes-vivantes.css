@@ -228,3 +228,24 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 /* hors ligne : les boutons qui ont besoin du réseau sont atténués */
 .offline #c-prices { opacity: .45; pointer-events: none; }
 
+
+/* v3.54 — fiche carte : effet brillant seulement pour les cartes brillantes (holo / reverse / foil), nom doré pour les très rares non brillantes */
+.holo-card .holo-foil { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; display: none;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,.95) 0 .7px, transparent 1.3px),
+    radial-gradient(circle, rgba(255,245,200,.85) 0 .6px, transparent 1.2px),
+    repeating-linear-gradient(115deg, #ff4f6d 0%, #ffb347 7%, #f9f871 14%, #4dffa6 21%, #3fd5ff 28%, #8d6bff 35%, #ff4fd8 42%, #ff4f6d 49%);
+  background-size: 11px 13px, 17px 19px, 280% 280%;
+  background-position: calc(var(--pos) * .3) calc(var(--my) * .25), calc(100% - var(--pos) * .4) calc(var(--my) * .35), var(--pos) var(--my);
+  mix-blend-mode: color-dodge; opacity: calc(.2 + var(--hyp) * .35); filter: brightness(.65) contrast(1.7) saturate(1.25); }
+.holo-card.foil .holo-foil { display: block; }
+.holo-card.foil-art .holo-foil { clip-path: inset(11% 9% 50% 9%); }
+.holo-card.foil-reverse .holo-foil { clip-path: polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, 9% 11%, 91% 11%, 91% 50%, 9% 50%, 9% 11%); }
+.holo-card.tier-0 .holo-glare { opacity: calc(.18 + var(--hyp) * .25); }
+.holo-card.foil.tier-5 .holo-foil { opacity: calc(.32 + var(--hyp) * .4); }
+/* téléphone : le reflet glisse doucement tout seul tant qu'on ne touche pas la carte (seulement les brillantes) */
+@media (hover: none) { .holo-card.foil:not(.active) .holo-foil { animation: foilDrift 5s ease-in-out infinite alternate; } }
+@keyframes foilDrift { from { background-position: 0 0, 100% 0, 15% 25%; } to { background-position: 30% 40%, 60% 50%, 85% 75%; } }
+@media (prefers-reduced-motion: reduce) { .holo-card.foil .holo-foil { animation: none !important; } }
+.cd-name-gold { background: linear-gradient(100deg, #b8862b, #ffe08a 35%, #fff6d0 50%, #e8b923 65%, #a8741a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cd-name-rgb { background: linear-gradient(100deg, #ff6ec4, #7873f5 30%, #4ade80 60%, #facc15); -webkit-background-clip: text; background-clip: text; color: transparent; }
