@@ -397,8 +397,10 @@ App.views.scan = {
       } else if (modes.includes('continuous')) tune({ ...poi, focusMode: 'continuous' });
     };
     const cam = {
-      async start() {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
+      // light (v3.64, classeur feuilleté) : vidéo 1280 × 720 — lire une image 4K toutes les 90 ms ne laissait que ~4 images/s
+      // sur le téléphone d'Arnaud ; cam.photo() garde la pleine résolution du capteur (ImageCapture)
+      async start({ light = false } = {}) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: light ? 1280 : 3840 }, height: { ideal: light ? 720 : 2160 } }, audio: false });
         base = {};
         view.innerHTML = `<video autoplay playsinline muted></video>${guide ? '<div class="scan-guide"></div>' : ''}`;
         const v = view.querySelector('video');

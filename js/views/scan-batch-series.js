@@ -82,7 +82,7 @@ App.scanBatchParts.series = (X, { R, ad, alive, esc, isPk, setStatus, urls }) =>
           const seen = new Set(cands.map((x) => x.id));
           cell.cands = [...cands, ...cell.before.cands.filter((x) => !seen.has(x.id))].slice(0, 12);
           // nettement la plus ressemblante de la série (sans être sûre) : proposée, mais « À vérifier » et non cochée
-          // (v3.64, Arnaud : « tu proposes un résultat pour des cases qui n'ont aucun rapport avec une carte » — silhouette imprimée
+          // (v3.65, Arnaud : « tu proposes un résultat pour des cases qui n'ont aucun rapport avec une carte » — silhouette imprimée
           //  d'un album : Colombeau 0,46 contre 0,44 pour la 2ᵉ ; sans piste du texte, il faut maintenant une avance nette OU une
           //  illustration « très proche » (≥ 0,55), plus seulement « proche »)
           //  ni numéro ni nom lus : illustration « très proche » exigée dans tous les cas (même silhouette : 0,51 contre 0,44, avance suffisante)

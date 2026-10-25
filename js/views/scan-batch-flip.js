@@ -19,12 +19,27 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) 
     const f2 = el.querySelector('#b-file2'); if (f2) f2.closest('label').classList.toggle('hidden', flipping);
     el.querySelector('#b-flip-stop').classList.toggle('hidden', !flipping);
   };
+  // v3.64 (Arnaud : « pas clair ») : consigne en 3 étapes, et un conseil simple à la place de chaque raison technique
+  const ADVICE = {
+    'page pas tenue immobile après le geste': 'Après avoir tourné, <b>lâche la page</b> et ne bouge plus 1 seconde',
+    'page pas tenue immobile avant le geste': 'Avant de tourner, garde la page <b>immobile</b> 1 seconde',
+    'page changée d’un coup': 'Trop rapide pour la caméra : tourne <b>un peu moins vite</b>',
+    'la page n’a pas tourné comme une vraie page': 'Pas reconnu : garde <b>toute la page</b> dans l’image pendant le geste',
+  };
+  const advice = (why) => ADVICE[why] || App.util.esc(why || 'pas reconnu');
+  let fpsNow = 0;
   function drawLog() {
     const L = S.flipLog, ok = L.filter((x) => x.res.pass).length;
-    setStatus(`<div class="panel flip-log"><b>${I('shield', 14)} Essai : tourne les pages devant la caméra</b>
-      <div class="small muted">Les pages ne sont pas lues ni certifiées pendant l'essai : on vérifie seulement le geste.</div>
+    setStatus(`<div class="panel flip-log"><b>${I('shield', 14)} Essai : feuilleter le classeur</b>
+      <ol class="se-steps" style="margin:8px 0">
+        <li><i>1</i><span>Cadre <b>une seule page</b>, en entier, et ne bouge plus</span></li>
+        <li><i>2</i><span>Quand le bandeau dit <b>« Page vue »</b>, tourne la page comme d’habitude</span></li>
+        <li><i>3</i><span>Lâche la page et ne bouge plus : <b>✅ ou ❌</b> s’affiche</span></li>
+      </ol>
+      <div class="small muted">Pendant l’essai, les cartes ne sont ni lues ni certifiées : on vérifie seulement que la page tournée est reconnue.</div>
+      ${fpsNow && fpsNow < 8 ? `<div class="small" style="margin-top:6px;color:#c47800">Ta caméra donne peu d’images (${fpsNow.toFixed(1).replace('.', ',')} par seconde) : tourne plus lentement.</div>` : ''}
       ${L.length ? `<div style="margin-top:6px"><b>${ok} / ${L.length}</b> pages tournées reconnues</div>` : ''}
-      ${L.slice(-6).reverse().map((x) => `<div class="small">Page ${x.n} : ${x.res.pass ? '✅ geste reconnu' : `❌ ${App.util.esc(x.res.why || 'pas reconnu')}`} · geste ${sec(x.ms)} · ${x.fps.toFixed(1).replace('.', ',')} images/s</div>`).join('')}</div>`);
+      ${L.slice(-6).reverse().map((x) => `<div class="small">Page ${x.n} : ${x.res.pass ? '✅ reconnue' : `❌ ${advice(x.res.why)}`} <span class="muted">· geste ${sec(x.ms)} · ${x.fps.toFixed(1).replace('.', ',')} images/s</span></div>`).join('')}</div>`);
   }
   /** Petites images du geste en mosaïque (8 par rangée) pour le labo */
   function mosaic(frames) {
@@ -47,21 +62,23 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) 
     view.innerHTML = App.views.scan.empty('classeur', dims());
   }
   async function flipStart() {
-    try { await cam.start(); } catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${App.util.esc(e.message)}</span>`); return; }
+    try { await cam.start({ light: true }); } catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${App.util.esc(e.message)}</span>`); return; }
     App.sfx.unlock(); showButtons(true); S.flipping = true;
-    view.insertAdjacentHTML('beforeend', '<div class="r-live">Cadre <b>toute la page</b> et tiens-la immobile</div>');
-    S.flipLog = []; drawLog();
+    view.insertAdjacentHTML('beforeend', '<div class="r-live">1. Cadre <b>une page entière</b> et ne bouge plus</div>');
+    S.flipLog = []; S.flipFpsShown = 0; fpsNow = 0; drawLog();
     const w = T.watcher();
-    let n = 1, lastPage = 0;
+    let n = 1, lastPage = 0, ticks = [];
     S.flipTimer = setInterval(() => {
       if (!alive() || !cam.on || !cam.video || !cam.video.videoWidth) return;
       const r = cam.region(0); if (!r) return;
       const f = { t: performance.now(), g: T.grab(cam.video, r) };
+      ticks.push(f.t); if (ticks.length > 20) ticks.shift(); // cadence réelle (images lues par seconde)
+      if (ticks.length === 20 && !(S.flipFpsShown > 0)) { fpsNow = 19000 / (ticks[19] - ticks[0]); S.flipFpsShown = 1; drawLog(); }
       const was = w.state(), e = w.push(f), st = w.state();
       if (!e) {
-        if (st === 'page' && was !== 'page') { lastPage = f.t; hint(n === 1 ? '✓ Page vue — <b>tourne-la</b> (comme d’habitude)' : `Page ${n} vue — tourne la suivante`, 'go'); }
-        else if (st === 'geste' && was !== 'geste') hint('Tourne…', 'go');
-        else if (st === 'attente' && was !== 'attente') hint('Cadre <b>toute la page</b> et tiens-la immobile');
+        if (st === 'page' && was !== 'page') { lastPage = f.t; hint(`✓ Page vue — <b>tourne-la</b> maintenant`, 'go'); }
+        else if (st === 'geste' && was !== 'geste') hint('Tourne… puis lâche la page et ne bouge plus', 'go');
+        else if (st === 'attente' && was !== 'attente') hint('1. Cadre <b>une page entière</b> et ne bouge plus');
         return;
       }
       n++;
@@ -70,7 +87,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) 
       const item = { n, res: e.res, ms: fr[fr.length - 1].t - fr[Math.max(0, mv)].t, fps, sinceLast: lastPage ? f.t - lastPage : 0 };
       S.flipLog.push(item); drawLog();
       const score = `${S.flipLog.filter((x) => x.res.pass).length}/${S.flipLog.length}`;
-      hint(e.res.pass ? `✅ Page ${n} : geste reconnu (${score})` : `❌ Page ${n} : ${App.util.esc(e.res.why || 'pas reconnu')} (${score})`, e.res.pass ? 'ok' : 'warn');
+      hint(e.res.pass ? `✅ Page tournée reconnue (${score})` : `❌ ${advice(e.res.why)} (${score})`, e.res.pass ? 'ok' : 'warn');
       if (e.res.pass) App.sfx.click();
       try { if (navigator.vibrate) navigator.vibrate(e.res.pass ? 25 : [20, 60, 20]); } catch (err) { /* */ }
       lastPage = f.t;
