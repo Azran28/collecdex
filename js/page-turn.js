@@ -77,9 +77,10 @@ App.pageTurn = (() => {
     return best;
   }
   /** Jugement d'une vidéo : la page a-t-elle vraiment tourné ? → { pass, why, ev } */
-  function judge(frames, { tau = 0.1, need = 1 } = {}) { // réglage choisi au banc : 1 image nette suffit
+  // still : seuil d'immobilité (le suivi en direct donne le sien, mesuré sur la page immobile ; sinon tiré du film)
+  function judge(frames, { tau = 0.1, need = 1, still: stillT = null } = {}) { // réglage choisi au banc : 1 image nette suffit
     const d = frames.map((f, i) => (i ? madShift(f.g, frames[i - 1].g) : 0)).slice(1); // (mains qui tremblent : ±1 point toléré)
-    const med = [...d].sort((a, b) => a - b)[d.length >> 1] || 1, still = 2.5 * med + 1;
+    const med = [...d].sort((a, b) => a - b)[d.length >> 1] || 1, still = stillT || 2.5 * med + 1;
     const isStill = (i) => i > 0 && d[i - 1] < still;
     let a = 1; while (a < frames.length && isStill(a)) a++; // fin du début immobile (ancienne page)
     let b = frames.length - 1; while (b > a && isStill(b)) b--; // début de la fin immobile (nouvelle page)
@@ -135,7 +136,7 @@ App.pageTurn = (() => {
         if (st === 'page') { if (!isStill) { st = 'geste'; moveAt = buf.length - 1; } return null; }
         if (still < 4) return null; // geste : on attend que la nouvelle page soit immobile
         const frames = buf.slice(Math.max(0, moveAt - 5));
-        const res = judge(frames);
+        const res = judge(frames, { still: thr() });
         buf = buf.slice(-4); st = 'page'; moveAt = -1;
         if (res.why === 'même page avant et après') return null;
         return { frames, res };
