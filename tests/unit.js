@@ -805,3 +805,19 @@ test('certification en rafale : un défi pour plusieurs cartes', async (App) => 
     ok(S.certKey('rafale') === 'certRafale' && S.certKey() === 'certCarte', 'réglage propre à la rafale');
   } finally { App.cloud = real; }
 });
+
+// v3.62 : classeur feuilleté (essai) — une page qui glisse ou qui change d'un coup n'est pas une page tournée
+test('page tournée : glissement et changement d’un coup refusés', async (App) => {
+  await App.need('scan');
+  const T = App.pageTurn; ok(T && T.judge && T.watcher, 'App.pageTurn manquant');
+  const page = (seed) => { let a = seed; const rnd = () => ((a = (a * 1103515245 + 12345) % 2147483648) / 2147483648); const g = new Float32Array(T.GW * T.GH); const blk = []; for (let i = 0; i < 48; i++) blk.push(40 + rnd() * 180); for (let y = 0; y < T.GH; y++) for (let x = 0; x < T.GW; x++) g[y * T.GW + x] = blk[(Math.floor(y / 8) * 6 + Math.floor(x / 8)) % 48] + rnd() * 3; return g; };
+  const O = page(7), N = page(99), still = (g, n, t0) => Array.from({ length: n }, (_, i) => ({ t: t0 + i * 90, g }));
+  const cut = [...still(O, 6, 0), ...still(N, 6, 540)];
+  eq(T.judge(cut).pass, false, 'changement d’un coup');
+  const swipe = [...still(O, 6, 0)];
+  for (let k = 1; k <= 5; k++) { const s = Math.round(k / 6 * T.GW), g = new Float32Array(O.length); for (let y = 0; y < T.GH; y++) for (let x = 0; x < T.GW; x++) g[y * T.GW + x] = x + s < T.GW ? O[y * T.GW + x + s] : N[y * T.GW + x + s - T.GW]; swipe.push({ t: 540 + k * 90, g }); }
+  swipe.push(...still(N, 6, 1080));
+  eq(T.judge(swipe).pass, false, 'pages qui glissent');
+  const w = T.watcher(); let ev = null; for (const f of swipe) ev = w.push(f) || ev;
+  ok(ev && ev.res && ev.res.pass === false, 'le suivi en direct voit le geste et le refuse');
+});

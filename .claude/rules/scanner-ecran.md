@@ -120,3 +120,7 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 
 ## v3.57 : scan suivant dès la validation (classeur, rafale)
 - `svAction › next` : dernière carte de `review` (pas `sv.single`, pas de lecture en attente en rafale) → `saveAndNext()` (= « Enregistrer » du récapitulatif). `#b-add` repart toujours sur un nouveau scan (liste détaillée comprise) ; rafale : `#r-start` recliqué si `S.rUsedCam` (vrai au démarrage de la rafale, faux avec « Choisir des photos »). Récapitulatif seulement si aucune carte à vérifier.
+
+## v3.62 : classeur « feuilleté » (essai, comptes testeurs)
+- `scan-batch-flip.js` (`App.scanBatchParts.flip`, groupe `scan`, après `js/page-turn.js`) : `#b-flip` « Feuilleter (essai) » montré seulement si `App.scanShare.isTester()` (et pas en rafale), `#b-flip-stop`. `flipStart` : `cam.start()`, `S.flipping`, minuterie 90 ms (`S.flipTimer`) : `App.pageTurn.grab(cam.video, cam.region(0))` → `watcher().push` → bandeau `.r-live` (page vue / tourne / résultat + score) et journal `.flip-log` dans `#b-status` (`S.flipLog` : durée du geste, images/s). Rien n'est lu ni certifié. Chaque geste → `scanShare.scan({ kind: 'feuillete', extra: { feuillete: { pass, why, ev, ms, fps, n, ts } } }, mosaïque PNG 8 × 48×64)` ; le labo « Brillance » saute ce `kind`. `flipStop()` dans le nettoyage de `batch`.
+- Fausse caméra : `_tests-scanner/feuillete.js` (`__feuSetup()` = testeur simulé + vraies pages qui pivotent, `__feuRun(n, 'vrai'|'glisse'|'coupe')`).

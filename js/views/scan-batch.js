@@ -107,6 +107,8 @@ Object.assign(App.views.scan, {
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             ${certOn && !burst && PAGE_CERT ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
+            <button class="btn hidden" id="b-flip">${App.icons.icon('shield', 16)} Feuilleter (essai)</button>
+            <button class="btn hidden" id="b-flip-stop">Arrêter l’essai</button>
           </div>
           ${certOn && !burst && PAGE_CERT ? App.views.scan.certBlock('classeur', `<button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`) : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
@@ -778,6 +780,8 @@ Object.assign(App.views.scan, {
 
     // Scanner — rafale (caméra ouverte, cartes prises toutes seules) : voir scanBatchParts.burst
     Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, resultsEl, setStatus, sv, urls, view }));
+    // v3.62 : classeur feuilleté (essai, comptes testeurs) : voir scanBatchParts.flip
+    const { flipStop } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, view });
     { const rb = X.resetBurst; X.resetBurst = (...a) => { labLeftover(); return rb(...a); }; } // (v3.61 : rafale remise à zéro → cartes non enregistrées au labo)
     if (burst) {
       el.querySelector('#r-start').addEventListener('click', async () => {
@@ -831,6 +835,6 @@ Object.assign(App.views.scan, {
       });
     }
 
-    return () => { S.stopped = true; X.lockScroll(false); if (S.rTimer) clearInterval(S.rTimer); cam.stop(); urls.forEach((u) => URL.revokeObjectURL(u)); };
+    return () => { S.stopped = true; X.lockScroll(false); if (S.rTimer) clearInterval(S.rTimer); flipStop(); cam.stop(); urls.forEach((u) => URL.revokeObjectURL(u)); };
   },
 });

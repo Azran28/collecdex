@@ -16,6 +16,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "outils/serveur.ps1", "-NoBrowser", "-Port", "8771"],
       "port": 8771
+    },
+    {
+      "name": "collecdex-essai",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "outils/serveur.ps1", "-NoBrowser", "-Port", "8772"],
+      "port": 8772
     }
   ]
 }
