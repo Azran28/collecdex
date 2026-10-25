@@ -180,10 +180,29 @@ App.battle = (() => {
       type: SW_ASPECT[asp] || 'colorless', weak: [], res: [], attacks, energy: ambush ? 1 : 0, ko: false, ...extra,
     };
   }
-  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy ; unités et leaders Star Wars) */
-  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : game === 'wankul' ? isWkFighter(card) : game === 'starwars' ? isSwFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
+  /**
+   * Combattant Dragon Ball Super (v3.68, même moteur, adapté légèrement) : les cartes de Combat et les Leaders combattent.
+   * PV = 30 + puissance ÷ 1000 × 5 (10000 → 80, 25000 → 160) ; type = couleur (Rouge → Feu, Bleu → Eau, Vert → Plante, Jaune → Électrik,
+   * Noir → Obscurité) ; attaque = 10 + puissance ÷ 1000 × 3, coût selon le coût d'énergie (1 à 3) ; Double / Triple Frappe = + 20 / + 40
+   * dégâts ; Barrière = + 20 PV ; Bloqueur = « Garde » (1 énergie, moitié des dégâts) ; Leader = commence avec 1 énergie.
+   */
+  const DB_COLOR = { r: 'fire', b: 'water', v: 'grass', j: 'lightning', n: 'darkness', w: 'colorless' };
+  const isDbFighter = (card) => (card.kind === 'ba' || card.kind === 'le' || /^(Combat|Leader)$/i.test(card.category || '')) && +card.power > 0;
+  function fighterDB(card, extra = {}) {
+    const pw = Math.max(1, Math.min(40, Math.round((+card.power || 0) / 1000))), cost = card.cost === 'X' ? 6 : +card.cost || 0, text = String(card.text || '').split('\n\nÉveillé')[0];
+    const strike = /\[Triple Frappe\]/i.test(text) ? 40 : /\[Double Frappe\]/i.test(text) ? 20 : 0, barrier = /\[Barri[èe]re\]/i.test(text), blocker = /\[Bloqueur\]/i.test(text), leader = card.kind === 'le';
+    const hp = Math.min(240, Math.max(40, r10(30 + pw * 5 + (barrier ? 20 : 0))));
+    const attacks = [{ name: 'Attaque', cost: leader ? 1 : Math.min(3, 1 + Math.floor(cost / 3)), base: Math.max(10, r10(10 + pw * 3 + strike)), mode: '', noDamage: false, text: strike ? `${strike === 40 ? 'Triple' : 'Double'} Frappe : +${strike} dégâts` : '' }];
+    if (blocker) attacks.unshift({ name: 'Garde', cost: 1, base: Math.max(10, r10((10 + pw * 3) / 2)), mode: '', noDamage: false, text: 'Bloqueur' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'dragonball',
+      type: DB_COLOR[(card.colors || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: leader ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy ; unités et leaders Star Wars ; cartes de Combat et Leaders Dragon Ball) */
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : game === 'wankul' ? isWkFighter(card) : game === 'starwars' ? isSwFighter(card) : game === 'dragonball' ? isDbFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : game === 'wankul' ? fighterWK(card, extra) : game === 'starwars' ? fighterSW(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : game === 'wankul' ? fighterWK(card, extra) : game === 'starwars' ? fighterSW(card, extra) : game === 'dragonball' ? fighterDB(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -329,11 +348,20 @@ App.battle = (() => {
     { n: 4, name: 'Chevalier Jedi', desc: 'Les grandes figures de la Saga · une énergie d’avance', pool: sor(38, 49, 52, 56, 89, 135, 149, 184, 185, 197, 198), bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Seigneur Sith', desc: 'Les Légendaires et les vaisseaux amiraux · sors tes meilleures cartes', pool: sor(87, 51, 90, 40, 102, 149, 147, 179), bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Dragon Ball Super (v3.68 ; cartes de Combat de Critical Blow, data/db-cartes.json)
+  const bt22 = (...n) => n.map((x) => `bt22-${String(x).padStart(3, '0')}`);
+  const LEVELS_DB = [
+    { n: 1, name: 'Apprenti', desc: 'Petites cartes de Critical Blow · il joue un peu au hasard', pool: bt22(13, 14, 25, 29, 65, 70, 75, 76, 101, 42, 94, 109, 117, 102), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Combattant', desc: 'Guerriers aguerris · il attaque toujours au plus fort', pool: bt22(17, 20, 23, 24, 28, 41, 52, 61, 62, 64, 69, 71, 77, 106, 120), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Super Saiyan', desc: 'Les rares de Critical Blow · il connaît tes points faibles', pool: bt22(4, 11, 19, 34, 85, 89, 103, 10, 15, 63, 68, 104, 121, 122), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Guerrier légendaire', desc: 'Les Super Rares · une énergie d’avance', pool: bt22(21, 51, 58, 67, 88, 123, 127, 135, 43, 27), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Dieu de la destruction', desc: 'Gogeta, Broly, Cumber et les Secret Rares · sors tes meilleures cartes', pool: bt22(140, 139, 137, 132, 9, 66, 133, 51), bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : game === 'wankul' ? LEVELS_WK : game === 'starwars' ? LEVELS_SW : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : game === 'wankul' ? LEVELS_WK : game === 'starwars' ? LEVELS_SW : game === 'dragonball' ? LEVELS_DB : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterWK, fighterSW, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, isWkFighter, isSwFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, WK_EFF, SW_ASPECT, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, LEVELS_WK, LEVELS_SW, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterWK, fighterSW, fighterDB, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, isWkFighter, isSwFighter, isDbFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, WK_EFF, SW_ASPECT, DB_COLOR, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, LEVELS_WK, LEVELS_SW, LEVELS_DB, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

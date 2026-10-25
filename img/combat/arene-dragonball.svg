@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+  <!-- Décor des combats Dragon Ball Super, dessiné pour CollecDex : arène du Tenkaichi Budokai (dalles de pierre), ciel bleu, montagnes, temple -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a7fe0"/><stop offset=".55" stop-color="#7cc4ff"/><stop offset="1" stop-color="#d9f0ff"/></linearGradient>
+    <linearGradient id="st" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9e2d0"/><stop offset="1" stop-color="#b9ae94"/></linearGradient>
+    <linearGradient id="mt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5f8fb8"/><stop offset="1" stop-color="#9cc0dc"/></linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#sky)"/>
+  <g fill="#fff" opacity=".85"><ellipse cx="220" cy="120" rx="110" ry="28"/><ellipse cx="300" cy="105" rx="70" ry="24"/><ellipse cx="900" cy="90" rx="130" ry="30"/><ellipse cx="990" cy="78" rx="70" ry="22"/></g>
+  <path d="M0 400 140 250 260 340 420 220 560 330 700 240 860 330 1000 230 1200 360V430H0Z" fill="url(#mt)"/>
+  <!-- temple -->
+  <g transform="translate(600 300)">
+    <rect x="-150" y="20" width="300" height="80" fill="#f2e6c8" stroke="#8a6a3a" stroke-width="4"/>
+    <path d="M-190 25 0 -55 190 25Z" fill="#e3262b" stroke="#7a1010" stroke-width="5"/>
+    <path d="M-150 -5 0 -70 150 -5" fill="none" stroke="#ffb703" stroke-width="6"/>
+    <g fill="#8a6a3a"><rect x="-120" y="40" width="20" height="60"/><rect x="-50" y="40" width="20" height="60"/><rect x="30" y="40" width="20" height="60"/><rect x="100" y="40" width="20" height="60"/></g>
+  </g>
+  <!-- arène de pierre -->
+  <path d="M-50 700 120 420H1080L1250 700Z" fill="url(#st)" stroke="#8d8268" stroke-width="4"/>
+  <g stroke="#9c9177" stroke-width="3" fill="none">
+    <path d="M90 470H1110M50 540H1150M0 620H1200"/>
+    <path d="M300 420 230 700M480 420 450 700M600 420V700M720 420 750 700M900 420 970 700"/>
+  </g>
+  <path d="M-50 700 120 420H1080L1250 700" fill="none" stroke="#e8dfc6" stroke-width="10"/>
+</svg>

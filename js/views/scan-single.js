@@ -11,7 +11,7 @@ Object.assign(App.views.scan, {
     let ad = App.games.get(game);
     const isPk = () => game === 'pokemon';
     // exemples de la recherche à la main (nom, numéro) selon la licence
-    const HINTS = { pokemon: ['Nom (ex. Dracaufeu)', 'N° (ex. 025/165)'], onepiece: ['Nom (ex. Monkey D. Luffy)', 'Code (ex. OP09-004)'], riftbound: ['Nom anglais (ex. Pouty Poro)', 'Code (ex. OGN-013)'], lorcana: ['Nom (ex. Ariel)', 'N° (ex. 25/204)'], yugioh: ['Nom (ex. Magicien Sombre)', 'Code (ex. RGBT-FR007)'], finalfantasy: ['Nom (ex. Cloud)', 'Code (ex. 16-006C)'], wankul: ['Nom (ex. Chef kebab)', 'N° (ex. C#55)'], starwars: ['Nom (ex. Comte Dooku)', 'Code (ex. SOR 038)'] };
+    const HINTS = { pokemon: ['Nom (ex. Dracaufeu)', 'N° (ex. 025/165)'], onepiece: ['Nom (ex. Monkey D. Luffy)', 'Code (ex. OP09-004)'], riftbound: ['Nom anglais (ex. Pouty Poro)', 'Code (ex. OGN-013)'], lorcana: ['Nom (ex. Ariel)', 'N° (ex. 25/204)'], yugioh: ['Nom (ex. Magicien Sombre)', 'Code (ex. RGBT-FR007)'], finalfantasy: ['Nom (ex. Cloud)', 'Code (ex. 16-006C)'], wankul: ['Nom (ex. Chef kebab)', 'N° (ex. C#55)'], starwars: ['Nom (ex. Comte Dooku)', 'Code (ex. SOR 038)'], dragonball: ['Nom (ex. Son Goku)', 'Code (ex. BT22-083)'] };
     const hint = () => HINTS[game] || HINTS.onepiece;
     // la certification (dos de la carte, lampe) n'existe que pour Pokémon pour l'instant
     const guideC = () => App.views.scan.guide('carte'); // certification : Pokémon et One Piece (dos One Piece appris en v2.88)
@@ -351,7 +351,7 @@ Object.assign(App.views.scan, {
       const retry = `<div class="row sc-retry"><button class="btn primary" data-retry="photo">${App.icons.icon('camera', 16)} Réessayer</button>${lastShot ? '<button class="btn" data-retry="crop">✂ Recadrer cette photo</button>' : ''}</div>`;
       if (!cands.length) {
         setTimeout(() => SS.pick([], '', null, cardURL), 0); // (après le message ci-dessous)
-        results.innerHTML = `<div class="panel">${donCard ? `<b>C’est une carte DON!!</b><br><span class="small muted">Les cartes DON!! ne sont pas encore dans CollecDex : elles n’ont pas de numéro et Bandai ne les liste pas avec les autres cartes.</span>` : `Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (${({ pokemon: 'le numéro en bas doit être lisible', onepiece: 'le code en bas à droite, ex. OP10-001, doit être lisible', riftbound: 'le code en bas à gauche, ex. OGN · 013/298, doit être lisible', lorcana: 'le numéro en bas à gauche, ex. 25/204 • FR • 1, doit être lisible', yugioh: 'le code sous l’illustration, ex. RGBT-FR007, doit être lisible', finalfantasy: 'le code en bas au milieu, ex. 16-006C, doit être lisible', wankul: 'le code en bas à droite, ex. STELLAR · LAINK · C#55, doit être lisible', starwars: 'le code en bas à droite, ex. SOR • FR • 038/252, doit être lisible' })[game] || 'le numéro ou le code imprimé en bas doit être lisible'}) ou cherche-la ci-dessous.</span>`}${retry}</div>`;
+        results.innerHTML = `<div class="panel">${donCard ? `<b>C’est une carte DON!!</b><br><span class="small muted">Les cartes DON!! ne sont pas encore dans CollecDex : elles n’ont pas de numéro et Bandai ne les liste pas avec les autres cartes.</span>` : `Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (${({ pokemon: 'le numéro en bas doit être lisible', onepiece: 'le code en bas à droite, ex. OP10-001, doit être lisible', riftbound: 'le code en bas à gauche, ex. OGN · 013/298, doit être lisible', lorcana: 'le numéro en bas à gauche, ex. 25/204 • FR • 1, doit être lisible', yugioh: 'le code sous l’illustration, ex. RGBT-FR007, doit être lisible', finalfantasy: 'le code en bas au milieu, ex. 16-006C, doit être lisible', wankul: 'le code en bas à droite, ex. STELLAR · LAINK · C#55, doit être lisible', starwars: 'le code en bas à droite, ex. SOR • FR • 038/252, doit être lisible', dragonball: 'le code en bas à droite, ex. BT22-083 R, doit être lisible' })[game] || 'le numéro ou le code imprimé en bas doit être lisible'}) ou cherche-la ci-dessous.</span>`}${retry}</div>`;
         return;
       }
       results.innerHTML = `
@@ -607,11 +607,18 @@ Object.assign(App.views.scan, {
           // → on bascule tout seul (la licence dont le code se lit dans le texte d'abord)
           if (info.otherGame && !auto) { // (« Toutes » : les autres licences sont essayées plus bas, avec la photo d'origine)
             const raw = info.raw ? `${info.raw.bottom}\n${info.raw.full}` : '';
+            // (v3.68 : une licence qui propose une carte sans l'avoir lue ni reconnue à l'image — One Piece « Broggy » pour une carte
+            // Dragon Ball illisible au texte — ne l'emporte plus d'office : les suivantes sont essayées, la 1ʳᵉ sûre gagne, sinon la 1ʳᵉ trouvée)
+            let first = null;
             for (const g of App.views.scan.otherGames(raw, 'pokemon')) {
               const A = App.games.get(g); if (!A || !A.recognize) continue;
               const r = await A.recognize(blob, st).catch(() => null);
-              if (r && r.cands.length) { switchGame(g); ({ info, cands } = r); summary = info.read; switched = g; break; }
+              if (!(r && r.cands.length)) continue;
+              const t = r.cands[0];
+              if (t.confident || t.numOk) { first = { g, r }; break; }
+              if (!first) first = { g, r };
             }
+            if (first) { switchGame(first.g); ({ info, cands } = first.r); summary = info.read; switched = first.g; }
           }
           // v3.66 (album d'Arnaud : Majaspic 6/114 coupé en haut — le détecteur de bords prenait le haut de l'illustration pour le
           // haut de la carte, rien n'était lu) : ni numéro ni nom lus → les cadres suivants du détecteur, sur la photo d'origine ;

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Dos de carte Dragon Ball Super (carte cachée en combat Avancé), dessiné pour CollecDex : fond bleu nuit, rayons orange, boule à étoiles -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".45" r=".8"><stop offset="0" stop-color="#1e3c9a"/><stop offset=".6" stop-color="#0f1f5a"/><stop offset="1" stop-color="#060c26"/></radialGradient>
+    <radialGradient id="b" cx=".38" cy=".34" r=".75"><stop offset="0" stop-color="#ffe7a3"/><stop offset=".45" stop-color="#ffa51f"/><stop offset="1" stop-color="#c55a00"/></radialGradient>
+  </defs>
+  <rect width="630" height="880" rx="28" fill="#050a1e"/>
+  <rect x="24" y="24" width="582" height="832" rx="16" fill="url(#f)"/>
+  <g fill="#ff9d1c" opacity=".22">
+    <path d="M315 440 280 30H350ZM315 440 600 160 620 230ZM315 440 620 650 600 720ZM315 440 350 850H280ZM315 440 30 720 10 650ZM315 440 10 230 30 160Z"/>
+  </g>
+  <g transform="translate(315 440)">
+    <circle r="150" fill="url(#b)" stroke="#7a3300" stroke-width="9"/>
+    <g fill="#e3262b" stroke="#8a0f12" stroke-width="3" stroke-linejoin="round">
+      <path d="M-40 -55 -30 -33 -6 -30 -24 -14 -19 10 -40 -2 -61 10 -56 -14 -74 -30 -50 -33Z"/>
+      <path d="M40 -55 50 -33 74 -30 56 -14 61 10 40 -2 19 10 24 -14 6 -30 30 -33Z"/>
+      <path d="M0 15 10 37 34 40 16 56 21 80 0 68 -21 80 -16 56 -34 40 -10 37Z"/>
+    </g>
+    <ellipse cx="-62" cy="-78" rx="40" ry="24" fill="#fff" opacity=".45" transform="rotate(-35 -62 -78)"/>
+  </g>
+</svg>

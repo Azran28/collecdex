@@ -39,6 +39,7 @@
     ['#/jeu/finalfantasy', 'Séries Final Fantasy'], ['#/jeu/finalfantasy/serie/16', 'Série Emissaries of Light (Final Fantasy)'], ['#/jeu/finalfantasy/serie/PR', 'Promos Final Fantasy'],
     ['#/jeu/wankul', 'Séries Wankul'], ['#/jeu/wankul/serie/st', 'Série Stellar (Wankul)'], ['#/jeu/wankul/serie/to', 'Gagnants du Ticket d’or (Wankul)'],
     ['#/jeu/starwars', 'Séries Star Wars Unlimited'], ['#/jeu/starwars/serie/SOR', 'Série Étincelle de Rébellion (Star Wars)'], ['#/jeu/starwars/serie/P24', 'Promos 2024 (Star Wars)'],
+    ['#/jeu/dragonball', 'Séries Dragon Ball'], ['#/jeu/dragonball/serie/BT22', 'Série Critical Blow (Dragon Ball)'], ['#/jeu/dragonball/serie/P', 'Promos Dragon Ball'], ['#/jeu/dragonball/serie/SD23', 'Deck de démarrage (Dragon Ball)'],
     ['#/jeu/pokemon/serie/base1', 'Série Set de Base'], ['#/jeu/pokemon/hors-serie', 'Hors-série'],
     ['#/collection', 'Mon Dex'], ['#/objectifs', 'Objectifs'], ['#/importer', 'Importer'],
     ['#/compte', 'Vitrine'], ['#/amis', 'Amis'], ['#/connexion', 'Connexion'], ['#/parametres', 'Paramètres'],
@@ -51,6 +52,7 @@
     ['#/combat?jeu=finalfantasy', 'Combat Final Fantasy'], ['#/scan?jeu=finalfantasy', 'Capturer Final Fantasy'], ['#/scan?mode=classeur&jeu=finalfantasy', 'Capturer Final Fantasy (classeur)'],
     ['#/combat?jeu=wankul', 'Combat Wankul'], ['#/scan?jeu=wankul', 'Capturer Wankul'], ['#/scan?mode=classeur&jeu=wankul', 'Capturer Wankul (classeur)'],
     ['#/combat?jeu=starwars', 'Combat Star Wars Unlimited'], ['#/scan?jeu=starwars', 'Capturer Star Wars Unlimited'], ['#/scan?mode=classeur&jeu=starwars', 'Capturer Star Wars Unlimited (classeur)'],
+    ['#/combat?jeu=dragonball', 'Combat Dragon Ball'], ['#/scan?jeu=dragonball', 'Capturer Dragon Ball'], ['#/scan?mode=classeur&jeu=dragonball', 'Capturer Dragon Ball (classeur)'],
     ['#/capsules', 'Capsules'],
   ];
   const size = (w, h) => { const f = frame(); f.style.width = w + 'px'; f.style.height = h + 'px'; };

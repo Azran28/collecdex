@@ -23,3 +23,4 @@ paths:
 - Échec isolé vu le 14 oct. (v3.18, sans rapport avec le code changé) : combats « Riftbound avancé » (pas de fin après 400 actions) et « One Piece » (début > 90 s, données lentes à venir) ; passés en local et au passage suivant. Relancer avant de chercher plus loin (sans `gh` sur le PC : un nouvel envoi relance le robot).
 - Wankul (v3.48) : `outils/ci/wankul-cartes.mjs` dans `index.yml` (liste + visuels `data/wk-img/`, convertis par Chromium) ; pas de prix (`noPrices`). `checkIndex` accepte 958 cartes pour `wk-index`.
 - Star Wars Unlimited (v3.67) : `outils/ci/starwars-cartes.mjs` dans `index.yml` (~15 min : 103 pages de la base officielle), `prix-starwars.mjs` dans `site.yml`. 209 tests en local.
+- Dragon Ball Super (v3.68) : `outils/ci/dragonball-cartes.mjs` dans `index.yml` (~1 min : 76 pages du site Bandai + TCGplayer), `prix-dragonball.mjs` dans `site.yml`. 230 tests en local.

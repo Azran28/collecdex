@@ -66,7 +66,7 @@
       const drawTypes = () => {
         // les 11 types du jeu de cartes, toujours affichés (grisés si tu n'en as aucun)
         const cnt = {}; rows.forEach((r) => { if (r.type && !r.invalid) cnt[r.type] = (cnt[r.type] || 0) + 1; });
-        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">${game === 'onepiece' ? 'Toutes les couleurs' : game === 'riftbound' ? 'Tous les domaines' : game === 'lorcana' ? 'Toutes les encres' : game === 'yugioh' ? 'Tous les attributs' : game === 'finalfantasy' ? 'Tous les éléments' : game === 'wankul' ? 'Toutes les effigies' : game === 'starwars' ? 'Toutes les affinités' : 'Tous les types'}</button>` + typesOf(game).map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''} ${cnt[t] ? '' : 'none'}" data-t="${t}" style="--tc:${typeColor(t)}" ${cnt[t] ? '' : `disabled title="${say(game, 'Aucun Pokémon de ce type dans ta collection')}"`}><i></i>${esc(typeName(t, game))}${cnt[t] ? ` <small>${cnt[t]}</small>` : ''}</button>`).join('');
+        $('#bt-ftypes').innerHTML = `<button class="bt-tchip ${F.types.size ? '' : 'on'}" data-t="">${game === 'onepiece' ? 'Toutes les couleurs' : game === 'riftbound' ? 'Tous les domaines' : game === 'lorcana' ? 'Toutes les encres' : game === 'yugioh' ? 'Tous les attributs' : game === 'finalfantasy' ? 'Tous les éléments' : game === 'wankul' ? 'Toutes les effigies' : game === 'starwars' ? 'Toutes les affinités' : game === 'dragonball' ? 'Toutes les couleurs' : 'Tous les types'}</button>` + typesOf(game).map((t) => `<button class="bt-tchip ${F.types.has(t) ? 'on' : ''} ${cnt[t] ? '' : 'none'}" data-t="${t}" style="--tc:${typeColor(t)}" ${cnt[t] ? '' : `disabled title="${say(game, 'Aucun Pokémon de ce type dans ta collection')}"`}><i></i>${esc(typeName(t, game))}${cnt[t] ? ` <small>${cnt[t]}</small>` : ''}</button>`).join('');
       };
       drawTypes();
 
@@ -162,6 +162,7 @@
         : game === 'finalfantasy' ? 'Sans carte, tu joues avec un deck de prêt de 8 cartes : 2 Ifrit, Golem, Titan, Léviathan et 3 Cristaux.'
         : game === 'wankul' ? 'Sans carte, tu joues avec un deck de prêt de 8 cartes : 2 Valheim, Moria, Fnaf, Agrou et 3 Gemmes.'
         : game === 'starwars' ? 'Sans carte, tu joues avec un deck de prêt de 8 cartes : 2 Réparation, Avantage Tactique, Instant de Quiétude, Guet-Apens et 3 Ressources.'
+        : game === 'dragonball' ? 'Sans carte, tu joues avec un deck de prêt de 8 cartes : 2 Météore gigantesque de Destruction, Eau sacrée, Palais de Mamie Voyante, Élimination de Nuisance et 3 Énergies.'
         : game === 'yugioh' ? 'Sans carte, tu joues avec un deck de prêt de 8 cartes : 2 Médicament Rouge, Charge Intrépide, Épées de Révélation de la Lumière, Le Livre de la Lune et 3 Pot de Cupidité.'
         : 'Sans carte, tu joues avec une pioche de prêt de 8 cartes : 2 Potion, PlusPower, Défenseur, Transfert et 3 Énergies du type de ton 1er Pokémon.';
       if (!list.length) {

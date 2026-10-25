@@ -46,6 +46,7 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('finalfantasy'), 'Final Fantasy');
   ok(App.games.get('wankul'), 'Wankul');
   ok(App.games.get('starwars'), 'Star Wars Unlimited');
+  ok(App.games.get('dragonball'), 'Dragon Ball Super');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -134,6 +135,7 @@ test('combat : niveaux de l’ordinateur', (App) => {
   eq(App.battle.levels('finalfantasy').length, 5, 'niveaux Final Fantasy');
   eq(App.battle.levels('wankul').length, 5, 'niveaux Wankul');
   eq(App.battle.levels('starwars').length, 5, 'niveaux Star Wars');
+  eq(App.battle.levels('dragonball').length, 5, 'niveaux Dragon Ball');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -522,7 +524,7 @@ test('lecture : outils communs (forme de carte, nom lu, code corrigé par le nom
   eq(T.bestName(['TADASHl HAMADA', '6-155'], nm).k, 'tadashi hamada', 'nom mal lu retrouvé');
   const fx = await T.codeFix(['6-155'], new Set(['155']), async (ids) => ids.map((id) => ({ id, localId: '155' })), (x) => x.localId);
   ok(fx && fx[0].id === '6-155' && fx[0].codeFix, 'carte de ce nom au même numéro');
-  for (const g of ['onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul', 'starwars']) ok(typeof App.games.get(g).recognize === 'function', `lecture ${g}`);
+  for (const g of ['onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul', 'starwars', 'dragonball']) ok(typeof App.games.get(g).recognize === 'function', `lecture ${g}`);
 });
 
 // ---------- Wankul (v3.48) : cartes en français, visuels du site, codes imprimés, dos, combattant, cartes de pioche, import ----------
@@ -661,6 +663,71 @@ test('Import : lignes Star Wars Unlimited (Collectr, Cardmarket)', async (App) =
   const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
   eq([m1.status, m1.card.id], ['ok', 'sor-038'], 'par la série et le numéro');
   eq([m2.status, m2.card.id, list[1].ver.base], ['ok', 'sor-297', 'holo'], 'Hyperspace brillante');
+});
+// ---------- Dragon Ball Super (v3.68) : cartes en français, codes imprimés, combattant, cartes de pioche, import ----------
+test('index Dragon Ball Super (data/db-index) cohérent', async () => {
+  const m = await checkIndex('db-index');
+  ok(m.ids.includes('bt22-083') && m.ids.includes('bt22-009_spr') && m.ids.includes('p-001'), 'Son Gohan (bt22-083), version Special Rare (bt22-009_spr), promo (p-001)');
+});
+test('Dragon Ball Super : cartes en français (data/db-cartes.json)', async (App) => {
+  const A = App.games.get('dragonball'), sets = await A.listSets();
+  ok(sets.length >= 80, `${sets.length} séries`);
+  const s = await A.getSet('BT22');
+  eq([s.name, s.cardCount.official], ['Critical Blow', 140]);
+  const c = await A.getCard('bt22-083');
+  eq([c.name, c.nameEn, c.code, c.rarity, c.category, c.cost, c.power, c.colors], ['Son Gohan, Coup imprévu', 'Son Gohan, Unpredicted Blow', 'BT22-083 R', 'r', 'Combat', 3, 25000, ['j']]);
+  ok(/^\[Déflexion\]/.test(c.text), 'texte de la carte en français (data/db-textes.json)');
+  ok(/^https:\/\/images\.weserv\.nl\/\?url=www\.dbs-cardgame\.com%2Feurope-fr%2F.+BT22-083\.png/.test(A.img.card(c)), 'visuel officiel français, relayé');
+  const v = await A.getCard('bt22-009_spr');
+  eq([v.name, v.code, v.base, A.isOfficial(v.localId, s), A.isOfficial('009', s)], ['Son Gohan, Rugissement de la Bête (SPR)', 'BT22-009 SPR', 'bt22-009', false, true], 'version Special Rare : carte à part, en plus de la série');
+  const l = await A.getCard('bt22-001');
+  ok(l.category === 'Leader' && /Éveillé \(Son Gohan, Puissance inébranlable\)/.test(l.text), 'leader : recto et verso éveillé');
+  ok(A.img.logo(s) && A.img.logoCrop(s), 'visuel de la série (sachet recadré)');
+});
+test('Dragon Ball Super : code imprimé lu même mal reconnu', async (App) => {
+  const A = App.games.get('dragonball'); await A.listSets();
+  const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  eq(c('©B.S./S., T.A. BANDAI MADE IN JAPAN FR BT22-083 R')[0], 'BT22|83', '« BT22-083 R »');
+  eq(c('8T22-O90 C')[0], 'BT22|90', 'lettres lues à la place des chiffres');
+  eq(c('BT22-009 SPR')[0], 'BT22|9|SPR', 'version Special Rare');
+  eq(c('SD23-01 ST')[0], 'SD23|1', 'deck de démarrage');
+  eq(c('P-001 PR')[0], 'P|1', 'promo');
+  eq(c('Pikachu 025/165'), [], 'numéro Pokémon');
+  eq(c('OP09-004 SR'), [], 'code One Piece');
+  eq(c('Choisissez jusqu’à une carte de Combat adverse avec 15000 de puissance ou moins'), [], 'pas de code dans un texte de carte');
+});
+test('Dragon Ball Super : carte de Combat → combattant, cartes de pioche', async (App) => {
+  await App.need('match');
+  const f = App.battle.fighterDB({ id: 'x', name: 'Son Gohan', kind: 'ba', category: 'Combat', power: 25000, cost: 3, colors: ['j'], text: '[Double Frappe] [Barrière]' });
+  eq([f.hp, f.type, f.attacks[0].base, f.attacks[0].cost], [180, 'lightning', 110, 2]);
+  ok(App.battle.canFight({ kind: 'le', category: 'Leader', power: 10000 }, 'dragonball') && !App.battle.canFight({ kind: 'ex', category: 'Extra' }, 'dragonball'), 'cartes de Combat et Leaders combattent, pas les Extras');
+  const fx = (text) => App.battleCards.effectOf({ id: 'y', name: 'z', category: 'Extra', kind: 'ex', colors: ['r'], text }).key;
+  eq([fx('Choisissez jusqu’à une carte de Combat adverse avec 15000 de puissance ou moins et mettez-la KO.'), fx('[Contre : Attaque] Annulez l’attaque.'), fx('Choisissez une de vos cartes ; la carte gagne +10000 de puissance.'),
+    fx('[Terrain] [Permanent] Vos cartes jaunes…'), fx('Piochez une carte.')],
+  ['power', 'shield', 'power', 'stadium', 'charge']);
+  eq(App.battleCards.eneCard().fx.key, 'energy', 'énergie dessinée');
+  const A = App.games.get('dragonball');
+  eq(App.battle.levels('dragonball').length, 5, 'niveaux Dragon Ball');
+  for (const lv of App.battle.levels('dragonball')) for (const id of lv.pool) ok(await A.getCard(id).then((c) => App.battle.canFight(c, 'dragonball'), () => false), `adversaire ${id}`);
+  for (const id of App.battleCards.aiBag(5, 'grass', 'dragonball').filter((x) => x !== 'ENE')) ok(await A.getCard(id).then((c) => !App.battle.canFight(c, 'dragonball') && c.category === 'Extra', () => false), `carte de pioche ${id}`);
+});
+test('Capturer « Toutes » : une carte Dragon Ball Super reconnue sur son texte', async (App) => {
+  await App.need('reco', 'scan'); await App.games.get('dragonball').listSets();
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('Karin, Professeur de Combat COMBAT Z Déflexion Unique Permanent Si votre Leader est un Karin jaune PUISSANCE 10000 Personnage Origine Ère ©B.S./S., T.A. BANDAI MADE IN JAPAN FR BT22-084 C'), 'dragonball');
+  eq(S.otherGames('BT22-084 C', 'pokemon')[0], 'dragonball', 'Dragon Ball essayé d’abord quand son code se lit');
+  eq(App.recognizerParts.parse({ top: '', bottom: 'BT22-084 C', full: 'COMBAT Z Activation : Principale' }).otherGame, true, 'mode Pokémon : « pas une carte Pokémon »');
+});
+test('Import : lignes Dragon Ball Super (Collectr, Cardmarket)', async (App) => {
+  await App.need('import');
+  const I = App.importer;
+  const rows = [['Product Name', 'Category', 'Set', 'Card Number', 'Quantity'], ['Son Gohan, Unpredicted Blow', 'Dragon Ball Super CCG', 'Critical Blow', 'BT22-083', '1'], ['Son Gohan, Beast Roar (SPR)', 'Dragon Ball Super CCG', 'Critical Blow', 'BT22-009', '1'], ['Pikachu', 'Pokemon', 'Base Set', '58/102', '1']];
+  const det = I.detect(rows), list = I.rowsOf ? I.rowsOf(rows, det) : null;
+  ok(list && list.length === 3 && list[0].game === 'dragonball' && list[1].game === 'dragonball' && list[2].game !== 'dragonball', 'lignes reconnues comme Dragon Ball');
+  const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
+  eq([m1.status, m1.card.id], ['ok', 'bt22-083'], 'par le code');
+  eq([m2.status, m2.card.id], ['ok', 'bt22-009_spr'], 'version Special Rare');
 });
 // ---------- Riftbound : code imprimé lu sur la photo, combattant ----------
 test('Riftbound : code imprimé lu même mal reconnu', (App) => {
