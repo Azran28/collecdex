@@ -22,6 +22,9 @@ App.badges = (() => {
   const wkItems = (ctx) => ctx.items.filter((i) => i.game === 'wankul');
   // Star Wars Unlimited : titres des cartes possédées (« Dark Vador, Seigneur Noir Des Sith (Hyperspace) » → « dark vador »)
   const swNames = (ctx) => ctx.items.filter((i) => i.game === 'starwars').map((i) => N(String(i.snap.name).replace(/\s*\([^)]*\)$/, '').split(',')[0]));
+  // Dragon Ball Super : titres des cartes possédées (« Son Goku SS3, Prémonitions… (SPR) » → « son goku ss3 »)
+  const dbNames = (ctx) => ctx.items.filter((i) => i.game === 'dragonball').map((i) => N(String(i.snap.name).replace(/\s*\([^)]*\)$/, '').split(',')[0]));
+  const hasDb = (x, who) => dbNames(x).some((n) => n === who || n.startsWith(who + ' '));
   const L = [
     // Taille de la collection
     ['c1', 'Premier pas', 'Ta première carte dans ton Dex', 'sparkles', 1, (x) => x.n >= 1],
@@ -100,6 +103,10 @@ App.badges = (() => {
     ['sw-rebelles', 'Héros de l’Alliance', 'Leia Organa, Han Solo, Chewbacca, R2-D2 et C-3PO', 'saber', 2, (x) => ['leia organa', 'han solo', 'chewbacca', 'r2-d2', 'c-3po'].every((n) => swNames(x).includes(n))],
     ['sw-sith', 'Côté obscur', 'Dark Vador, Empereur Palpatine, Comte Dooku et Dark Maul', 'crown', 3, (x) => ['dark vador', 'empereur palpatine', 'comte dooku', 'dark maul'].every((n) => swNames(x).includes(n))],
     ['sw-hyper', 'Hyperespace', '3 cartes Hyperspace ou Showcase', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'starwars' && /\((Hyperspace|Showcase)\)$/.test(String(i.snap.name))).length >= 3],
+    ['db-saiyans', 'Fierté des Saiyans', 'Son Goku, Vegeta, Son Gohan, Trunks et Broly', 'dball', 1, (x) => ['son goku', 'vegeta', 'son gohan', 'trunks', 'broly'].every((n) => hasDb(x, n))],
+    ['db-fusion', 'Fusion !', 'Gogeta et Vegetto', 'dball', 2, (x) => ['gogeta', 'vegetto'].every((n) => hasDb(x, n))],
+    ['db-mechants', 'Les grands méchants', 'Freezer, Cell, Boo et Janemba', 'crown', 3, (x) => ['freezer', 'cell', 'boo', 'janemba'].every((n) => hasDb(x, n))],
+    ['db-divin', 'Rareté divine', 'Une carte God Rare ou Secret Rare', 'sparkles', 3, (x) => x.items.some((i) => i.game === 'dragonball' && /^(gdr|scr)$/.test(i.snap.rarity || ''))],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   const setsCache = {}; // séries de chaque licence

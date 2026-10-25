@@ -13,6 +13,14 @@
       'Mets K.O. les 3 personnages adverses pour gagner et débloquer le niveau suivant.',
       '<b>Avancé</b> (niveaux à part) : une pioche de 10 cartes Événement / Lieu au plus, plus 3 DON!! (sinon pioche de prêt), mélangée : 3 cartes en main au départ, 1 de plus à chacun de tes tours ; une carte par tour avant l’action. Effets simplifiés : [Contre] +X000 = protection, +X000 de puissance = dégâts en plus, KO = gros coup, renvoyer un personnage = Rafale, piocher = +1 DON!!, Lieu = +10 dégâts 3 tours.',
       'En Avancé, les personnages du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
+    ] : game === 'dragonball' ? [
+      '3 guerriers par équipe (cartes de Combat et Leaders Dragon Ball Super) : un qui combat, deux sur le banc. Une case vide est remplie par un guerrier de prêt.',
+      'Ta carte devient un combattant : PV = 30 + puissance ÷ 1000 × 5, attaque = 10 + puissance ÷ 1000 × 3, couleur = type ; Double / Triple Frappe = 20 / 40 dégâts en plus, Barrière = +20 PV, Bloqueur = attaque « Garde », un Leader commence avec 1 énergie. Pas de faiblesse ni de résistance.',
+      'À ton tour, ton guerrier gagne <b>1 énergie</b>, puis une action : <b>attaquer</b>, <b>+1 énergie</b> ou <b>changer</b> de guerrier.',
+      'Une attaque coûte de l’énergie selon le coût de la carte (1 à 3) ; l’énergie en plus reste pour la suite.',
+      'Mets K.O. les 3 guerriers adverses pour gagner et débloquer le niveau suivant.',
+      '<b>Avancé</b> (niveaux à part) : un deck de 10 cartes Extra au plus, plus 3 Énergies (sinon deck de prêt), mélangé : 2 cartes en main au départ, puis 1 de plus tous les 2 tours ; une carte par tour avant l’action. Effets simplifiés d’après le texte : « mettez-la KO » = gros coup, « +10000 de puissance » = dégâts en plus, « annulez l’attaque » = protection, Terrain = stade, piocher = +1 énergie.',
+      'En Avancé, les guerriers du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
     ] : game === 'starwars' ? [
       '3 unités par équipe (Unités et Leaders Star Wars Unlimited) : une qui combat, deux sur le banc. Une case vide est remplie par une unité de prêt.',
       'Ta carte devient un combattant : PV = 30 + PV de la carte × 12, attaque = 10 + puissance × 8, affinité = type (Vigilance, Commandement, Agressivité, Ruse ; Héroïsme ou Infamie si elle n’a que celle-là) ; Raid N = N × 10 dégâts en plus, Protégée = +20 PV, Embuscade = 1 ressource dès le départ, Sentinelle = 2ᵉ attaque « Garde ». Pas de faiblesse ni de résistance.',

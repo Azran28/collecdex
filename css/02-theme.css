@@ -113,6 +113,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .g-finalfantasy { --g: linear-gradient(135deg, #7fd3ff, #1f3f8f); }
 .g-wankul { --g: linear-gradient(135deg, #5b8cff, #1b2a8c); }
 .g-starwars { --g: linear-gradient(135deg, #ffe81f, #3a3a44 55%, #0b0b12); }
+.g-dragonball { --g: linear-gradient(135deg, #ffb703, #f77f00 50%, #1d4fb8); }
 .g-autres { --g: linear-gradient(135deg, #ff4fa3, #7c5cff); }
 
 /* Logos de séries (officiels ou générés) */

@@ -227,8 +227,32 @@ App.battleCards = (() => {
     return mk('heal', 30);
   }
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy / Wankul / Star Wars */
+  /**
+   * Effet simplifié d'une carte Extra Dragon Ball Super (v3.68) d'après son texte français : Énergie → +1 énergie ; « mettez-la KO »
+   * → gros coup ; « annulez l'attaque » → protection ; « +N000 de puissance » → dégâts en plus ; points de vie rajoutés → soin ;
+   * « en mode Repos » (carte adverse) → énergie adverse en moins ; renvoyer dans la main → Rafale ; piocher / regarder → +1 énergie ;
+   * [Terrain] → Stade.
+   */
+  const isDbCard = (card) => !!card && ((card.kind === 'ex' && Array.isArray(card.colors)) || card.kind === 'ene') && /^(extra|energie)$/.test(norm(card.category));
+  function effectOfDB(card) {
+    const text = norm(card.text || ''), cat = norm(card.category);
+    const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
+    let m;
+    if (cat === 'energie') return mk('energy', 1);
+    if (/adverse.{0,120}mettez-l[ae]s? ko|mettez-l[ae]s? ko/.test(text)) return mk('power', 40);
+    if (/annulez l'attaque/.test(text)) return mk('shield', 30);
+    if ((m = text.match(/\+(\d+)000 de puissance/))) return mk('power', Math.min(40, Math.max(10, +m[1] * 2)));
+    if (/rajoutez a votre main des cartes de vos points de vie|points de vie/.test(text) && /rajoutez|placez/.test(text)) return mk('heal', 30);
+    if (/adverse.{0,80}en mode repos/.test(text)) return mk('strip', 1);
+    if (/a la main de son proprietaire/.test(text)) return mk('gust');
+    if (/\[terrain\]/.test(text)) return mk('stadium', 10);
+    if (/piochez|regardez jusqu'a/.test(text)) return mk('charge');
+    return mk('heal', 30);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy / Wankul / Star Wars / Dragon Ball */
   function effectOf(card) {
+    if (isDbCard(card)) return effectOfDB(card);
     if (isSwCard(card)) return effectOfSW(card);
     if (isWkCard(card)) return effectOfWK(card);
     if (isFfCard(card)) return effectOfFF(card); // (avant les autres : « Monstre » existe aussi chez Yu-Gi-Oh!, qui a un passcode)
@@ -281,6 +305,7 @@ App.battleCards = (() => {
     if (/^https:\/\/fftcg\.cdn\.sewest\.net\//.test(card.image || '')) return App.games.get('finalfantasy').img.card(card, 'high'); // Final Fantasy : visuel relayé
     if (/^data\/wk-img\/[a-z0-9-]+\.webp$/.test(card.image || '')) return card.image; // Wankul : petite copie du visuel, rangée dans le site
     if (/^https:\/\/cdn\.starwarsunlimited\.com\//.test(card.image || '')) return App.games.get('starwars').img.card(card, 'high'); // Star Wars : visuel officiel (couché : tourné par le relais)
+    if (/^https:\/\/www\.dbs-cardgame\.com\//.test(card.image || '')) return App.games.get('dragonball').img.card(card); // Dragon Ball : visuel officiel relayé
     if (/^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+_in_1000x1000\.jpg$/.test(card.image || '')) return card.image.replace('_in_1000x1000', '_400w'); // (promo Final Fantasy)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
@@ -304,8 +329,11 @@ App.battleCards = (() => {
   // Ressource Star Wars Unlimited (v3.67) : pas de carte d'énergie dans ce jeu (n'importe quelle carte posée face cachée sert de ressource) → on la dessine
   const RES_IMG = 'img/combat/ressource-starwars.svg';
   const resCard = (extra = {}) => bagCard({ id: 'RES', name: 'Ressource', category: 'Ressource', kind: 'res', image: '' }, { img: RES_IMG, imgOff: RES_IMG, ...extra });
-  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana, « GEM » = gemme Wankul, « RES » = ressource Star Wars */
-  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra)) : id === 'GEM' ? Promise.resolve(gemCard(extra)) : id === 'RES' ? Promise.resolve(resCard(extra))
+  // Énergie Dragon Ball Super (v3.68) : pas de carte d'énergie dans ce jeu (n'importe quelle carte posée sert d'énergie) → on la dessine
+  const ENE_IMG = 'img/combat/energie-dragonball.svg';
+  const eneCard = (extra = {}) => bagCard({ id: 'ENE', name: 'Énergie', category: 'Énergie', kind: 'ene', image: '' }, { img: ENE_IMG, imgOff: ENE_IMG, ...extra });
+  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana, « GEM » = gemme Wankul, « RES » = ressource Star Wars, « ENE » = énergie Dragon Ball */
+  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra)) : id === 'GEM' ? Promise.resolve(gemCard(extra)) : id === 'RES' ? Promise.resolve(resCard(extra)) : id === 'ENE' ? Promise.resolve(eneCard(extra))
     : App.games.get(game || 'pokemon').getCard(id).then((c) => bagCard(c, extra)).catch(() => null)))).then((l) => l.filter(Boolean));
 
   const B = () => App.battle;
@@ -449,8 +477,20 @@ App.battleCards = (() => {
     [[sw(172), 1], [sw(69), 1], [sw(74), 2], [sw(222), 1], [sw(171), 1], [sw(220), 1]],
     [[sw(172), 2], [sw(78), 1], [sw(77), 1], [sw(73), 1], [sw(222), 1], [sw(216), 1], [sw(69), 1]],
   ];
+  // Dragon Ball Super (Extras de Critical Blow) : Météore gigantesque (+10000 : dégâts en plus), Eau sacrée (annule l'attaque :
+  // protection), Palais de Mamie Voyante / Île Jaguar (Terrain : Stade), Makankosappo (KO : gros coup), Élimination de Nuisance
+  // (regarder : +1 énergie), Kamehameha de Goku (+puissance), puis des Énergies
+  const db = (n) => `bt22-${String(n).padStart(3, '0')}`;
+  const AI_BAGS_DB = [
+    [[db(60), 2]],
+    [[db(60), 2], [db(111), 1]],
+    [[db(60), 2], [db(111), 1], [db(113), 1], [db(131), 1]],
+    [[db(7), 1], [db(86), 1], [db(60), 2], [db(111), 1], [db(80), 1], [db(131), 1]],
+    [[db(7), 2], [db(86), 1], [db(113), 1], [db(111), 1], [db(60), 1], [db(131), 1], [db(80), 1]],
+  ];
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
-  const aiBag = (level, type, game) => (game === 'starwars' ? [...many(AI_BAGS_SW[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('RES')]
+  const aiBag = (level, type, game) => (game === 'dragonball' ? [...many(AI_BAGS_DB[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('ENE')]
+    : game === 'starwars' ? [...many(AI_BAGS_SW[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('RES')]
     : game === 'wankul' ? [...many(AI_BAGS_WK[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('GEM')]
     : game === 'finalfantasy' ? [...many(AI_BAGS_FF[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('c-001')]
     : game === 'yugioh' ? [...many(AI_BAGS_YG[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('LOB-119')]
@@ -465,8 +505,10 @@ App.battleCards = (() => {
   //  Lorcana : 2 Lueur réparatrice, Il a un sabre !, Très mauvais caractère !, Emberlificotage, 3 encres)
   //  Yu-Gi-Oh! : 2 Médicament Rouge, Charge Intrépide, Épées de Révélation de la Lumière, Le Livre de la Lune, 3 Pot de Cupidité ;
   //  Final Fantasy : 2 Ifrit, Golem, Titan, Léviathan, 3 Cristaux ; Wankul : 2 Valheim, Moria, Fnaf, Agrou, 3 Gemmes ;
-  //  Star Wars : 2 Réparation, Avantage Tactique, Instant de Quiétude, Guet-Apens, 3 Ressources)
-  const loanBag = (type, game) => (game === 'starwars' ? [...many([[sw(74), 2], [sw(124), 1], [sw(73), 1], [sw(222), 1]]), 'RES', 'RES', 'RES']
+  //  Star Wars : 2 Réparation, Avantage Tactique, Instant de Quiétude, Guet-Apens, 3 Ressources ;
+  //  Dragon Ball : 2 Météore gigantesque de Destruction, Eau sacrée, Palais de Mamie Voyante, Élimination de Nuisance, 3 Énergies)
+  const loanBag = (type, game) => (game === 'dragonball' ? [...many([[db(60), 2], [db(111), 1], [db(113), 1], [db(131), 1]]), 'ENE', 'ENE', 'ENE']
+    : game === 'starwars' ?[...many([[sw(74), 2], [sw(124), 1], [sw(73), 1], [sw(222), 1]]), 'RES', 'RES', 'RES']
     : game === 'wankul' ? [...many([[wk(19), 2], [wk(17), 1], [wk(12), 1], [wk(26), 1]]), 'GEM', 'GEM', 'GEM']
     : game === 'finalfantasy' ? [...many([[ff(4), 2], [ff(106), 1], [ff(110), 1], [ff(178), 1]]), 'c-001', 'c-001', 'c-001']
     : game === 'yugioh' ? [...many([['LOB-E043', 2], ['MRL-E043', 1], ['LOB-E081', 1], ['PGD-035', 1]]), 'LOB-119', 'LOB-119', 'LOB-119']
@@ -485,5 +527,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, isWkCard, isSwCard, bagCard, donCard, inkCard, crystalCard, gemCard, resCard, loadBag, DON_IMG, INK_IMG, GEM_IMG, RES_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
+  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, isWkCard, isSwCard, isDbCard, bagCard, donCard, inkCard, crystalCard, gemCard, resCard, eneCard, loadBag, DON_IMG, INK_IMG, GEM_IMG, RES_IMG, ENE_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

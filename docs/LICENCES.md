@@ -19,7 +19,7 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 ## 0. Ordre conseillé (prochaines licences)
 1. **Final Fantasy TCG** ✅ — B, site officiel lisible, prix par le robot.
 2. **Star Wars: Unlimited** ✅ — fait en v3.67 (base officielle FFG en français).
-3. **Dragon Ball Super Fusion World** ✅ peu — C, s'inspirer de l'adaptateur One Piece.
+3. **Dragon Ball Super Card Game (Masters)** ✅ — fait en v3.68 (site officiel Bandai en français, photos d’Arnaud : Critical Blow). **Fusion World** (✅ peu ?) reste à faire : autre jeu (`FB01-001`), en anglais, même site (dbs-cardgame.com/fw), prix TCGplayer catégorie 80.
 4. **Cartes de supermarché** (Dreamworks Carrefour ✅ complète) — D, petites collections en « X/Y », à construire à partir des photos d'Arnaud. Il faudra un outil pour « créer une collection nous-mêmes », qui servira ensuite à toutes les licences D.
 5. **Wankul** ✅ — fait en v3.48 (le Wankuldex officiel de wankul.fr a toute la base : en fait **B**).
 6. **Digimon** (✅ ? à retrouver) — B.
@@ -39,6 +39,7 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 | Final Fantasy TCG ✅ | Square Enix | Base officielle + TCGplayer | En français (v3.43) |
 | Wankul ✅ | Wankil Studio | Wankuldex officiel (wankul.fr) | En français, visuels copiés dans le site, pas de prix (v3.48) |
 | Star Wars: Unlimited ✅ | Fantasy Flight Games | Base officielle + TCGplayer | En français (v3.67) |
+| Dragon Ball Super Card Game (Masters) ✅ | Bandai | Site officiel Bandai + TCGplayer | En français (v3.68) |
 
 ## 2. Grands TCG actuels (occident)
 | Licence | Éditeur | Popularité | Facilité | Source de données | Numéro | Note |
@@ -65,7 +66,7 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 | Licence | Éditeur | Popularité | Facilité | Source | Numéro | Note |
 |---|---|---|---|---|---|---|
 | Dragon Ball Super Fusion World ✅ peu | Bandai | ★★★★☆ | C | site officiel (dbs-cardgame.com/fw) | `FB01-001` | Même logique que One Piece |
-| Dragon Ball Super Card Game (Masters) | Bandai | ★★★☆☆ | C | site officiel, sites de fans | `BT1-001` | Version « Masters », toujours jouée |
+| Dragon Ball Super Card Game (Masters) ✅ | Bandai | ★★★☆☆ | **B** | Site officiel en français (dbs-cardgame.com/europe-fr/cartes, sans CORS : robot) + TCGplayer (catégorie 27) | `BT22-083 R` | Fait en v3.68 |
 | Digimon (2020) ✅ ? | Bandai | ★★★☆☆ | **B** | digimoncard.io (API gratuite, anglais) | `BT1-001` | Peu de prix |
 | Gundam Card Game | Bandai | ★★★☆☆ (en hausse) | C | site officiel (gundam-gcg.com) | `GD01-001` | Sorti en 2025, construit comme One Piece |
 | Union Arena | Bandai | ★★★☆☆ | C | site officiel (unionarena-tcg.com) | `UA01BT/…` | Plein de licences anime dans un seul jeu (Jujutsu Kaisen, Hunter x Hunter, Nikke…) |

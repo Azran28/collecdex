@@ -48,4 +48,5 @@
   test('combat complet contre l’ordinateur (Final Fantasy, avancé avec deck)', (App, W) => play(App, W, { game: 'finalfantasy', adv: true }), { net: true });
   test('combat complet contre l’ordinateur (Wankul, avancé avec deck)', (App, W) => play(App, W, { game: 'wankul', adv: true }));
   test('combat complet contre l’ordinateur (Star Wars Unlimited, avancé avec deck)', (App, W) => play(App, W, { game: 'starwars', adv: true }));
+  test('combat complet contre l’ordinateur (Dragon Ball Super, avancé avec deck)', (App, W) => play(App, W, { game: 'dragonball', adv: true }));
 })();

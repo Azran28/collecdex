@@ -13,3 +13,4 @@ Seule exception à « ajout par photo » : cartes sans photo, non certifiées (`
 - Mesuré : 300 lignes avec numéro 300/300 en 0,2 s ; sans numéro, 838 « ok » sur 8 séries, 0 faux. Fichiers de test fabriqués puis effacés.
 - **Wankul (v3.48)** : catégorie « Wankul » ou série « Wankul … » (une série « Origins » seule reste Riftbound, sauf catégorie Wankul : `rbSet` l’exclut) → `matchWK` (saison + numéro « C#55 », sinon nom). Voir `wankul.md`.
 - **Star Wars Unlimited (v3.67)** : catégorie « Star Wars… » ou série `SW_SETS` (anglais / français) → `matchSW` (série + numéro « 031/252 » / « 297 », sinon nom ; Hyperspace / Showcase / Prestige et « Foil » lus dans le nom). Voir `starwars.md`.
+- **Dragon Ball Super (v3.68)** : catégorie « Dragon Ball… » ou code « BT22-083 » (avant One Piece) → `matchDB` (code + version SPR / GDR, sinon nom) ; Fusion World ignoré. Voir `dragonball.md`.

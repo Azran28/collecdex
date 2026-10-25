@@ -271,6 +271,22 @@ App.importer = (() => {
         skip: null,
       };
       const cat = norm(get(r, 'category'));
+      // Dragon Ball Super Card Game (v3.68) : jeu indiqué (« Dragon Ball Super CCG ») ou code imprimé (« BT22-083 », « SD23-01 », « EX21-05 »)
+      // dans le numéro ou le nom ; version d'après le nom (« (SPR) », « (GDR) », promo) ; Fusion World (« FB01-001 ») : pas encore
+      const dbCode = `${get(r, 'number')} ${rawName}`.toUpperCase().match(/\b(BT|TB|DB|SD|XD|EB|EX)(\d{1,2})-(\d{2,3})(?:_?(SPR|GDR|PR\d*))?\b/);
+      if (/dragon ?ball/.test(cat) || (dbCode && !/pok|one ?piece|riftbound|lorcana|yu ?-?gi|final|wankul|star ?wars/.test(cat))) {
+        row.game = 'dragonball';
+        const vtxt = `${rawName} ${get(r, 'version')}`;
+        row.code = dbCode ? `${dbCode[1]}${dbCode[1] === 'EX' ? dbCode[2].padStart(2, '0') : +dbCode[2]}-${dbCode[3]}` : '';
+        row.dbVer = (dbCode && dbCode[4]) || (/\bSPR\b|special rare/i.test(vtxt) ? 'SPR' : /\bGDR\b|god rare/i.test(vtxt) ? 'GDR' : '');
+        if (/\bfoil\b|brillant|holo/i.test(vtxt)) row.ver = { ...row.ver, base: 'holo' };
+        row.name = rawName.replace(/\s*[([][^)\]]*[)\]]/g, '').replace(/\s*[-–]?\s*\b(BT|TB|DB|SD|XD|EB|EX)\d{1,2}-\d{2,3}\S*\s*$/i, '').trim() || row.name;
+        if (/fusion ?world/.test(cat) || /\bFB\d{2}-\d{3}\b/i.test(`${get(r, 'number')} ${rawName}`)) row.skip = 'Fusion World (pas encore pris en charge)';
+        else if (!dbCode && !num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
       // Star Wars Unlimited (v3.67) : jeu indiqué (« Star Wars: Unlimited ») ou série Star Wars Unlimited (nom anglais ou français) ;
       // numéro « 031/252 », Hyperspace « 297 » ; version dans le nom (« Inferno Four - Unforgetting (Hyperspace Foil) »)
       const swSet = String(get(r, 'set') || '').trim();
@@ -571,8 +587,33 @@ App.importer = (() => {
     return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'série ou numéro de la carte non indiqué' : 'le nom ne correspond pas tout à fait au numéro' };
   }
 
+  /** Ligne Dragon Ball : code « BT22-083 » (+ version SPR / GDR), sinon le nom (français ou anglais) et la série */
+  async function matchDB(row) {
+    const db = App.games.get('dragonball');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'dragonball' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    let list = [];
+    if (row.code) {
+      const [s, n] = row.code.split('-');
+      list = await db.byCode(s, n, row.dbVer && /^(SPR|GDR)$/.test(row.dbVer) ? row.dbVer : '');
+      // versions du même numéro (Special Rare, promo…) derrière
+      if (list.length) list.push(...(await db.search({ name: list[0].baseName })).filter((c) => (c.base || c.id) === (list[0].base || list[0].id) && c.id !== list[0].id));
+    }
+    const byCode = list.length > 0;
+    const sets = row.setName ? await db.setIdsByName(row.setName) : [];
+    if (!list.length && row.num && sets.length) for (const s of sets) list.push(...(await db.byCode(s, row.num.n)));
+    if (!list.length && q.length >= 2) list = (await db.search({ name: row.name })).filter((c) => nameScore(q, c.name, c.nameEn, c.baseName) >= 0.75 || nameScore(q, c.baseName, c.nameEn, c.baseName) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: row.setName && !sets.length ? `série « ${row.setName} » inconnue` : 'carte introuvable' };
+    if (sets.length && !byCode) { const inSet = new Set(sets); list = [...list.filter((c) => inSet.has(c.setId)), ...list.filter((c) => !inSet.has(c.setId))]; }
+    const okName = !q || nameScore(q, list[0].name, list[0].nameEn, list[0].baseName) >= 0.5;
+    const ver = (c) => (/_spr/.test(c.id) ? 'SPR' : /_gdr/.test(c.id) ? 'GDR' : /_pr/.test(c.id) ? 'PR' : '');
+    const status = byCode && (ver(list[0]) === (row.dbVer || '').replace(/\d+$/, '')) ? (okName ? 'ok' : 'verif') : list.length === 1 ? 'verif' : 'choix';
+    return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'code de la carte non indiqué' : 'le nom ne correspond pas tout à fait au code' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
+    if (row.game === 'dragonball') return matchDB(row);
     if (row.game === 'starwars') return matchSW(row);
     if (row.game === 'wankul') return matchWK(row);
     if (row.game === 'finalfantasy') return matchFF(row);
