@@ -506,6 +506,26 @@ Object.assign(App.views.scan, {
     }
     let scanTok = 0, recoCands = [], recoFrom = null, recoRead = '', pendingPick = false, logId = null, autoPicked = false;
     const live = (tok = scanTok) => alive() && tok === scanTok; // (un nouveau scan, ou une carte choisie : la suite de l'ancien est ignorée)
+    /**
+     * Autres cadres de la carte sur la photo d'origine (v3.66) : les 2e à 4e cadres du détecteur de bords (note ≥ 80 % du 1er),
+     * chacun lu ; renvoie { blob, info, cands } du premier qui fait lire la carte, ou null.
+     */
+    async function altCrops(src, st, on) {
+      const bmp = await createImageBitmap(src), k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const f = R.findCard(c, { top: 6 }); if (!f || !f.cands || f.cands.length < 2) return null;
+      const best = f.cands[0].score;
+      for (const x of f.cands.slice(1, 4)) {
+        if (x.score < best * 0.8 || !on()) break;
+        st('Autre cadrage de la carte…');
+        const b = await new Promise((res) => App.views.scan.warpTo(c, x.quad).toBlob(res, 'image/jpeg', 0.92));
+        const r = await R.recognize(b, () => {}, { atkBand: true }).catch(() => null);
+        const t = r && r.cands[0];
+        if (t && (t.confident || t.numOk || (t.nameScore || 0) >= 0.9)) return { blob: b, ...r };
+      }
+      return null;
+    }
     async function analyse(blob, poor = '') { // poor : problème de la photo qui vient d'être prise (v3.38)
       if (!blob) return; // recadrage vide (image pas encore affichée)
       const tok = ++scanTok; logId = null; recoCands = []; recoFrom = null; pendingPick = false;
@@ -592,6 +612,15 @@ Object.assign(App.views.scan, {
               const r = await A.recognize(blob, st).catch(() => null);
               if (r && r.cands.length) { switchGame(g); ({ info, cands } = r); summary = info.read; switched = g; break; }
             }
+          }
+          // v3.66 (album d'Arnaud : Majaspic 6/114 coupé en haut — le détecteur de bords prenait le haut de l'illustration pour le
+          // haut de la carte, rien n'était lu) : ni numéro ni nom lus → les cadres suivants du détecteur, sur la photo d'origine ;
+          // le premier qui fait lire la carte (sûre, numéro, ou nom ≥ 0,9) la remplace. Banc des bords : cadre « plus grand » ou
+          // « bonnes proportions » imposés d'office = pire (pochette prise) → seulement quand rien n'est lu, et vérifié par la lecture.
+          const readOk = (c) => !!(c && (c.confident || c.numOk || (c.nameScore || 0) >= 0.9));
+          if (ctx && !switched && !info.otherGame && !readOk(cands[0])) {
+            const alt = await altCrops(ctx, st, on).catch((e) => { console.warn('autres cadrages', e); return null; });
+            if (alt && on()) { blob = alt.blob; ({ info, cands } = alt); summary = R.readSummary(info); setCard(blob); }
           }
           if (useV && !switched && !info.otherGame) {
             const top = cands[0];
