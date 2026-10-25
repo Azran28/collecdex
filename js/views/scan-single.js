@@ -412,7 +412,7 @@ Object.assign(App.views.scan, {
         if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
-        const key = await R.addScanned(c, cardBlob, mode, game, { mode: 'carte' });
+        const key = await R.addScanned(c, cardBlob, mode, game, { mode: 'carte', cands: recoCands, read: recoRead, corrige: !recoCands.length || recoCands[0].id !== c.id }); // (v3.60 : propositions pour le labo)
         // v3.36 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
         pendingPick = false;
         { const lid = logId, shown = recoCands, from = recoFrom, ph = cardBlob, orig = pageBlob, read = recoRead, g = game;
