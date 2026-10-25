@@ -268,6 +268,26 @@ test('Lorcana : dos de carte reconnu (photo d’Arnaud réduite), pas une face',
   ok(s(back, 126, 176) >= 0.7, `dos : ${s(back, 126, 176).toFixed(2)}`);
   ok(s(f, 126, 176) < 0.4, `face : ${s(f, 126, 176).toFixed(2)}`);
 });
+// v3.59 (Arnaud) : en 4 cartes, des cartes posées espacées sur une feuille sont trouvées une par une, sur leurs vrais bords
+test('4 cartes espacées et de travers : chaque carte trouvée sur ses bords', async (App) => {
+  await App.need('reco');
+  const W = 900, H = 1200, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  g.fillStyle = '#ddd8cf'; g.fillRect(0, 0, W, H);
+  const place = [[250, 320, 0.05, 280], [660, 300, -0.04, 300], [230, 880, -0.03, 270], [640, 860, 0.06, 290]], truth = [];
+  place.forEach(([cx, cy, a, cw], k) => {
+    const ch = cw * 88 / 63; g.save(); g.translate(cx, cy); g.rotate(a);
+    g.fillStyle = '#f2c94c'; g.fillRect(-cw / 2, -ch / 2, cw, ch); // bordure jaune
+    g.fillStyle = `hsl(${k * 80 + 20} 60% 45%)`; g.fillRect(-cw / 2 + 14, -ch / 2 + 40, cw - 28, ch * 0.42); // illustration
+    g.fillStyle = '#9ccc65'; g.fillRect(-cw / 2 + 14, ch * 0.05, cw - 28, ch / 2 - 30); // zone de texte
+    g.fillStyle = '#222'; for (let l = 0; l < 6; l++) g.fillRect(-cw / 2 + 24, ch * 0.08 + l * 18, cw * (0.4 + (l % 3) * 0.15), 5);
+    g.restore();
+    truth.push([[-cw / 2, -ch / 2], [cw / 2, -ch / 2], [cw / 2, ch / 2], [-cw / 2, ch / 2]].map(([x, y]) => [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)]));
+  });
+  const r = await App.recognizer.detectLoose(c, 2, 2);
+  ok(r && r.found === 4, `cartes trouvées : ${r && r.found}`);
+  const errs = r.cells.map((cl, k) => { const t = truth[k], dg = Math.hypot(t[2][0] - t[0][0], t[2][1] - t[0][1]); return Math.max(...cl.quad.map(([x, y], j) => Math.hypot(x * W - t[j][0], y * H - t[j][1]))) / dg; });
+  ok(errs.every((e) => e < 0.03), `écart des coins (diagonale) : ${errs.map((e) => (e * 100).toFixed(1) + ' %').join(', ')}`);
+});
 test('Capturer « Toutes » : une carte Lorcana reconnue sur son texte', async (App) => {
   await App.need('reco', 'scan'); await App.games.get('lorcana').listSets();
   const S = App.views.scan, R = App.recognizer, keep = R.readZones;
@@ -765,4 +785,39 @@ test('scanner : photo floue, sombre, reflet', async (App) => {
   const blank = document.createElement('canvas'); blank.width = 300; blank.height = 400; blank.getContext('2d').fillStyle = '#777'; blank.getContext('2d').fillRect(0, 0, 300, 400);
   eq(S.problem(S.quality(blank)), '', 'pas de carte : pas de conseil');
   ok(S.TIPS.flou && S.TIPS.reflet && S.TIPS.sombre, 'phrases des conseils');
+});
+
+// v3.58 : rafale certifiée — un seul défi du serveur pour plusieurs cartes (supabase-v20.sql), une seule demande à la fois
+test('certification en rafale : un défi pour plusieurs cartes', async (App) => {
+  const real = App.cloud, calls = [];
+  App.cloud = new Proxy(real, { get(t, k) {
+    if (k === 'user') return { id: '00000000-0000-0000-0000-000000000001' }; if (k === 'enabled') return true;
+    if (k === 'rpc') return async (name, a) => { calls.push([name, a]); await sleep(30); return { id: 'defi-' + calls.length, challenge: 'retourne', uses: a.p_n }; };
+    const v = t[k]; return typeof v === 'function' ? v.bind(t) : v; } });
+  try {
+    const [a, b] = await Promise.all([App.certify.prepare('rafale'), App.certify.prepare('rafale')]);
+    eq(calls.length, 1, 'deux demandes en même temps = une seule au serveur');
+    eq(calls[0][1], { p_kind: 'rafale', p_n: 30 }, 'demande de la rafale');
+    ok(a && a === b && a.left === 30, 'défi partagé, 30 cartes');
+    eq((await App.certify.prepare('rafale')).id, a.id, 'le même défi tant qu’il reste des usages');
+    eq(calls.length, 1, 'pas de nouvelle demande');
+    const S = App.views.scan;
+    ok(S.certKey('rafale') === 'certRafale' && S.certKey() === 'certCarte', 'réglage propre à la rafale');
+  } finally { App.cloud = real; }
+});
+
+// v3.62 : classeur feuilleté (essai) — une page qui glisse ou qui change d'un coup n'est pas une page tournée
+test('page tournée : glissement et changement d’un coup refusés', async (App) => {
+  await App.need('scan');
+  const T = App.pageTurn; ok(T && T.judge && T.watcher, 'App.pageTurn manquant');
+  const page = (seed) => { let a = seed; const rnd = () => ((a = (a * 1103515245 + 12345) % 2147483648) / 2147483648); const g = new Float32Array(T.GW * T.GH); const blk = []; for (let i = 0; i < 48; i++) blk.push(40 + rnd() * 180); for (let y = 0; y < T.GH; y++) for (let x = 0; x < T.GW; x++) g[y * T.GW + x] = blk[(Math.floor(y / 8) * 6 + Math.floor(x / 8)) % 48] + rnd() * 3; return g; };
+  const O = page(7), N = page(99), still = (g, n, t0) => Array.from({ length: n }, (_, i) => ({ t: t0 + i * 90, g }));
+  const cut = [...still(O, 6, 0), ...still(N, 6, 540)];
+  eq(T.judge(cut).pass, false, 'changement d’un coup');
+  const swipe = [...still(O, 6, 0)];
+  for (let k = 1; k <= 5; k++) { const s = Math.round(k / 6 * T.GW), g = new Float32Array(O.length); for (let y = 0; y < T.GH; y++) for (let x = 0; x < T.GW; x++) g[y * T.GW + x] = x + s < T.GW ? O[y * T.GW + x + s] : N[y * T.GW + x + s - T.GW]; swipe.push({ t: 540 + k * 90, g }); }
+  swipe.push(...still(N, 6, 1080));
+  eq(T.judge(swipe).pass, false, 'pages qui glissent');
+  const w = T.watcher(); let ev = null; for (const f of swipe) ev = w.push(f) || ev;
+  ok(ev && ev.res && ev.res.pass === false, 'le suivi en direct voit le geste et le refuse');
 });

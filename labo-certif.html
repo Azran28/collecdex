@@ -71,6 +71,20 @@
   </div>
   <div id="results2"></div>
 
+  <h2>Rafale en paquet : chaque carte retournée devant la caméra</h2>
+  <div class="box">
+    <div class="row"><label>Séries de 5 cartes <select id="o-seq3"><option>4</option><option selected>8</option><option>16</option></select></label><button id="go3">Lancer le banc « rafale en paquet »</button></div>
+    <div id="status3" style="color:var(--mute);font-size:13px;margin-top:6px">Paquet face cachée tenu dans le cadre, vrai suivi du site (certify.tracker) et vrai déclenchement de la rafale.</div>
+  </div>
+  <div id="results3"></div>
+
+  <h2>Classeur feuilleté : la page tournée devant la caméra (essai)</h2>
+  <div class="box">
+    <div class="row"><label>Essais par page <select id="o-rep4"><option>1</option><option selected>2</option><option>3</option></select></label><button id="go4">Lancer le banc « classeur feuilleté »</button></div>
+    <div id="status4" style="color:var(--mute);font-size:13px;margin-top:6px">Tes pages de classeur (_tests-scanner), vrais gestes et tricheries sur tablette.</div>
+  </div>
+  <div id="results4"></div>
+
   <h2>Regarder une fausse vidéo</h2>
   <div class="box player">
     <canvas id="pv" width="360" height="480"></canvas>
@@ -94,5 +108,8 @@
 <script src="js/recognizer.js"></script>
 <script src="js/certify.js"></script>
 <script src="js/labo-certif.js"></script>
+<script src="js/labo-rafale.js"></script>
+<script src="js/page-turn.js"></script>
+<script src="js/labo-classeur.js"></script>
 </body>
 </html>

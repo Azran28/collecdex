@@ -1005,5 +1005,7 @@
   $('#go2').addEventListener('click', runLamp);
   $('#go').addEventListener('click', runAll);
   $('#p-go').addEventListener('click', play);
-  window.__laboApi = { runLamp, runRafale, runPages, tick, state, SCEN, ALGOS, simulate, judge, loadAll, runAll, summarize, core, squeezeScore, silScore, silhouette, hashStr };
+  window.__laboApi = { runLamp, runRafale, runPages, tick, state, SCEN, ALGOS, simulate, judge, loadAll, runAll, summarize, core, squeezeScore, silScore, silhouette, hashStr,
+    // pour le banc « rafale en paquet » (labo-rafale.js, v3.58)
+    parts: { VW, VH, REG, GW, GH, rng, lerp, ease, canvas, grayFrom, CACHE, drawCard, drawThumb, drawScreen, renderFrame, baseEnv, posed, screenScene, vcan, loadBmp, prepareDecor } };
 })();

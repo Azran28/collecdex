@@ -18,7 +18,7 @@ App.views.scan = {
       <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}" ${grid}>${mode === 'classeur' ? `${'<i></i>'.repeat(c * r)}` : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
       <b>${mode === 'classeur' ? `Photo d’une page de classeur <span class="muted">(${c * r} cartes)</span>` : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
       ${App.views.scan.curName ? `<em class="se-lic">${App.util.esc(App.views.scan.curName)}</em>` : ''}
-      ${mode === 'carte' && App.views.scan.certWanted() ? App.views.scan.certSteps() : `<span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>`}
+      ${mode !== 'classeur' && App.views.scan.certWanted(mode) ? App.views.scan.certSteps(mode) : `<span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>`}
     </div>`;
   },
 
@@ -28,16 +28,20 @@ App.views.scan = {
    */
   guide() { return ''; },
 
-  /** Certification demandée en carte seule (connecté et « Certifier » choisi ; v2.58 : optionnelle, demande d'Arnaud) */
-  certWanted() { return !!(App.certify && App.certify.available()) && App.settings.certCarte !== false; },
+  /**
+   * Certification demandée (connecté et « Certifier » choisi ; v2.58 : optionnelle, demande d'Arnaud) — carte seule
+   * (`certCarte`) ou rafale (v3.58, `certRafale` : paquet face cachée, chaque carte retournée devant la caméra)
+   */
+  certKey(mode = 'carte') { return mode === 'rafale' ? 'certRafale' : 'certCarte'; },
+  certWanted(mode = 'carte') { return !!(App.certify && App.certify.available()) && App.settings[App.views.scan.certKey(mode)] !== false; },
 
   /**
    * v3.16 (Arnaud : « la certif au même niveau que le choix des pages de classeur ») : deux tuiles au-dessus du cadre,
    * comme les formats du classeur, aux couleurs de la certification (vert = certifier). Rien si pas connecté.
    */
-  certPick() {
+  certPick(mode = 'carte') {
     if (!(App.certify && App.certify.available())) return '';
-    const on = App.settings.certCarte !== false, I = App.icons.icon;
+    const on = App.settings[App.views.scan.certKey(mode)] !== false, I = App.icons.icon;
     const opt = (v, icon, title, sub) => `<button type="button" class="fp-opt cp-opt${v ? ' cp-yes' : ''}${on === v ? ' on' : ''}" data-cert="${v ? 1 : 0}" role="radio" aria-checked="${on === v}">
         <span class="cp-ic">${I(icon, 18)}</span><span class="fp-t"><b>${title}</b><small>${sub}</small></span></button>`;
     return `<div class="fmt-pick cert-pick" role="radiogroup" aria-label="Certifier la carte">
@@ -46,8 +50,10 @@ App.views.scan = {
   },
 
   /** Les 3 gestes de la certification, dans le cadre vide (à la place de « Appuie sur… ») */
-  certSteps() {
-    const steps = ['Touche <b>Caméra</b>, montre d’abord le <b>dos</b>', 'La lampe clignote : garde-le <b>immobile</b>', '<b>Retourne</b> la carte, prends la photo'];
+  certSteps(mode = 'carte') {
+    const steps = mode === 'rafale'
+      ? ['Paquet <b>face cachée</b>, tenu <b>sous</b> le cadre', 'Monte une carte (<b>dos</b> visible), <b>retourne</b>-la', 'Tiens-la immobile : prise toute seule. La <b>suivante</b> !']
+      : ['Touche <b>Caméra</b>, montre d’abord le <b>dos</b>', 'La lampe clignote : garde-le <b>immobile</b>', '<b>Retourne</b> la carte, prends la photo'];
     return `<ol class="se-steps">${steps.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join('')}</ol>`;
   },
 

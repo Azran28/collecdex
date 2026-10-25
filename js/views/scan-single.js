@@ -23,6 +23,7 @@ Object.assign(App.views.scan, {
     el.innerHTML = `
       ${App.views.scan.gameChips(game, auto)}
       <div id="sc-target"></div>
+      <div id="sc-done"></div>
       <div class="set-first" style="max-width:640px" hidden>
         <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>Série de ta carte</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
         <select id="sc-set"><option value="">Série : je ne sais pas (chercher partout)</option></select>
@@ -76,8 +77,14 @@ Object.assign(App.views.scan, {
       el.querySelector('#sc-num').placeholder = hint()[1];
     }
     const view = el.querySelector('#sc-view');
-    const status = el.querySelector('#sc-status');
+    const status = el.querySelector('#sc-status'), doneBox = el.querySelector('#sc-done');
     const results = el.querySelector('#sc-results');
+    // bandeau « carte ajoutée » : retiré tout seul (ou en le touchant, hors liens et boutons)
+    let doneT = 0;
+    const hideDone = (ms) => { clearTimeout(doneT); doneT = setTimeout(() => { const d = doneBox.firstElementChild; if (!d) return; d.classList.add('out'); setTimeout(() => { if (d.parentNode === doneBox) d.remove(); }, 250); }, ms); };
+    doneBox.addEventListener('click', (e) => { if (!e.target.closest('a, button')) hideDone(0); });
+    // v3.55 : téléphone, analyse et choix dans un écran plein écran (scan-single-screen.js)
+    const SS = App.views.scan.singleScreen(el, { gameOf: () => game, adOf: () => ad, isPk, results, status, view });
     const setStatus = (html) => { status.innerHTML = html ? `<div class="panel" style="margin-bottom:14px">${html}</div>` : ''; };
     const spin = (msg) => { if (alive()) setStatus(`<div class="spinner"></div><div style="text-align:center">${esc(msg)}</div>`); };
     const cam = App.views.scan.camera(view, { guide: true });
@@ -149,11 +156,12 @@ Object.assign(App.views.scan, {
     });
     // photo certifiable si le dos a été vu (dans les 15 dernières secondes) et la carte retournée depuis
     el.querySelector('#sc-shot').addEventListener('click', () => shoot(!!(trk && trkTimer && trk.phase !== 'attente')));
-    let shooting = false, lastShot = null, tooClose = false, stopTips = null;
+    let shooting = false, lastShot = null, tooClose = false, stopTips = null, fromCam = false;
     // v3.38 : photo ratée (floue, reflet, trop sombre) dite tout de suite, avec de quoi la reprendre ; retiré si la carte est quand même sûre
     const POOR = { flou: 'Photo floue', reflet: 'Reflet sur la carte', sombre: 'Photo trop sombre' };
     const poorHtml = (k) => (POOR[k] ? `<div class="shot-warn"><span>${App.icons.icon('camera', 15)} <b>${POOR[k]}</b> : la carte risque de ne pas être reconnue.</span><button class="btn sm" data-retry="photo">Reprendre la photo</button></div>` : '');
     async function shoot(flipped) {
+      fromCam = true;
       if (shooting) return; // un seul appui compte (le défi de certification ne sert qu'une fois)
       shooting = true;
       // l'image est figée À L'INSTANT de l'appui (la suite peut prendre 1 à 2 s : on peut bouger)
@@ -225,7 +233,7 @@ Object.assign(App.views.scan, {
       el.querySelectorAll('.cp-opt').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
       if (view.querySelector('.scan-empty')) view.innerHTML = App.views.scan.empty('carte');
     });
-    el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { cam.stop(); cert = null; startCrop(e.target.files[0]); } e.target.value = ''; });
+    el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { SS.close(); cam.stop(); cert = null; fromCam = false; startCrop(e.target.files[0]); } e.target.value = ''; });
 
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
     let crop = null, autoCrop = false; // autoCrop : cadre placé tout seul sur une photo importée (validé d'office)
@@ -332,6 +340,7 @@ Object.assign(App.views.scan, {
     });
 
     function showCandidates(cands, info) {
+      autoPicked = false; // (remis par display si la carte sûre est ajoutée toute seule)
       if (target) {
         const i = cands.findIndex((c) => c.id === target.id);
         if (i >= 0) { const [t] = cands.splice(i, 1); t.isTarget = true; cands.unshift(t); }
@@ -341,6 +350,7 @@ Object.assign(App.views.scan, {
       // scan raté ou mauvaise carte : reprendre une photo (ou recadrer celle-ci) en un geste (demande d'Arnaud)
       const retry = `<div class="row sc-retry"><button class="btn primary" data-retry="photo">${App.icons.icon('camera', 16)} Réessayer</button>${lastShot ? '<button class="btn" data-retry="crop">✂ Recadrer cette photo</button>' : ''}</div>`;
       if (!cands.length) {
+        setTimeout(() => SS.pick([], '', null, cardURL), 0); // (après le message ci-dessous)
         results.innerHTML = `<div class="panel">${donCard ? `<b>C’est une carte DON!!</b><br><span class="small muted">Les cartes DON!! ne sont pas encore dans CollecDex : elles n’ont pas de numéro et Bandai ne les liste pas avec les autres cartes.</span>` : `Je n’ai pas reconnu la carte 😕<br><span class="small muted">Refais une photo plus nette (${({ pokemon: 'le numéro en bas doit être lisible', onepiece: 'le code en bas à droite, ex. OP10-001, doit être lisible', riftbound: 'le code en bas à gauche, ex. OGN · 013/298, doit être lisible', lorcana: 'le numéro en bas à gauche, ex. 25/204 • FR • 1, doit être lisible', yugioh: 'le code sous l’illustration, ex. RGBT-FR007, doit être lisible', finalfantasy: 'le code en bas au milieu, ex. 16-006C, doit être lisible', wankul: 'le code en bas à droite, ex. STELLAR · LAINK · C#55, doit être lisible' })[game] || 'le numéro ou le code imprimé en bas doit être lisible'}) ou cherche-la ci-dessous.</span>`}${retry}</div>`;
         return;
       }
@@ -370,6 +380,7 @@ Object.assign(App.views.scan, {
         ${[...new Set(cands.slice(0, 3).map((c) => c.name))].slice(0, 2).map((n) => `<button class="btn sm" data-versions="${esc(n)}" style="margin:4px 6px 0 0">Toutes les versions de « ${esc(n)} »</button>`).join('')}
         <div class="sc-retry-box"><span class="small muted">Aucune ne correspond ?</span>${retry}</div>`;
       if (!isPk()) App.views.scan.fillCodeZoom(results, game, cardBlob);
+      SS.pick(cands, info, cardBlob, cardURL);
       results.onclick = async (e) => {
         if (!cardBlob) return;
         const vb = e.target.closest('[data-versions]');
@@ -401,8 +412,8 @@ Object.assign(App.views.scan, {
         if (dm && dm.dataset.dupmode === 'annuler') { showCandidates(cands, ''); return; }
         (dm || b).disabled = true;
         const mode = dm ? dm.dataset.dupmode : null;
-        if (ad.withVersions) { const f = await ad.withVersions(c).catch(() => c); if (f !== c) Object.assign(c, f); } // (Pokémon, v3.54 : versions complétées : holo / reverse à choisir)
-        const key = await R.addScanned(c, cardBlob, mode, game, { mode: 'carte' });
+        if (ad.withVersions) { const f = await ad.withVersions(c).catch(() => c); if (f !== c) Object.assign(c, f); } // (Pokémon, v3.63 : versions complétées : holo / reverse à choisir)
+        const key = await R.addScanned(c, cardBlob, mode, game, { mode: 'carte', cands: recoCands, read: recoRead, corrige: !recoCands.length || recoCands[0].id !== c.id }); // (v3.60 : propositions pour le labo)
         // v3.36 : choix retenu (une autre carte que la 1re proposée revient en 1er la fois suivante) et scan raté gardé dans le carnet
         pendingPick = false;
         { const lid = logId, shown = recoCands, from = recoFrom, ph = cardBlob, orig = pageBlob, read = recoRead, g = game;
@@ -429,27 +440,39 @@ Object.assign(App.views.scan, {
           : myCert ? `<div class="small" id="sc-cert" style="margin-top:6px">${App.icons.icon('shield', 13)} ${myCert.passed ? 'Certification en cours…' : 'Non certifiée : ' + esc(myCert.reasons.join(', '))}</div>`
           : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (tu as choisi « Juste la photo »). Choisis « Certifier » au-dessus de la photo pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
-        results.innerHTML = `<div class="panel capture-done">${mode === 'rien' || !cardURL ? '' : `<div class="reveal rt-${App.ui.holoTier(ad.rarity.rank(c.rarity))}"><span class="burst"></span><img src="${cardURL}" alt=""></div>`}<div>${what}${verLine}${certLine}</div><br>
+        const wasTarget = !!target, sureAdd = autoPicked; autoPicked = false;
+        const doneHtml = `<div class="sc-done">${mode === 'rien' || !cardURL ? '' : `<img src="${cardURL}" alt="">`}<div class="sc-done-t">${what}${sureAdd ? ' <span class="small muted">Reconnue avec certitude.</span>' : ''} <a class="small" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a>${verLine}${certLine}</div></div>`;
+        if (!wasTarget) {
+          // v3.63 (Arnaud : « une fois la carte validée, reset direct pour démarrer un nouveau scan ») : la carte ajoutée reste
+          // rappelée en haut (et « Ta carte brille ? »), l'écran revient à zéro, la caméra se rallume si la photo venait d'elle
+          doneBox.innerHTML = doneHtml; hideDone(ask ? 9000 : sureAdd ? 3500 : 2600); // (v3.55 : par-dessus la caméra, disparaît vite ; plus long s'il y a une question)
+          results.innerHTML = guideC(); setStatus('');
+          el.querySelector('#sc-manual').classList.add('hidden');
+          view.innerHTML = App.views.scan.empty('carte');
+          if (fromCam) el.querySelector('#sc-cam').click();
+        } else results.innerHTML = `<div class="panel capture-done">${mode === 'rien' || !cardURL ? '' : `<div class="reveal rt-${App.ui.holoTier(ad.rarity.rank(c.rarity))}"><span class="burst"></span><img src="${cardURL}" alt=""></div>`}<div>${what}${verLine}${certLine}</div><br>
           <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
-        const vask = results.querySelector('#sc-vask');
+        const box = wasTarget ? results : doneBox;
+        const vask = box.querySelector('#sc-vask');
         if (vask) vask.onclick = async (ev) => {
           const vb = ev.target.closest('[data-vans]'); if (!vb) return;
           const v = vb.dataset.vans;
           await R.setBaseVariant(key, v);
           App.scanShare && App.scanShare.label(shareId, { answer: v }); // (bonne réponse pour le labo : comptes testeurs)
           vask.outerHTML = verText([v, ...det.list.filter((x) => x === 'firstEdition')], 'choisie');
+          if (!wasTarget) hideDone(1500);
         };
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
         if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
         if (myCert && myCert.passed && photoId) {
           App.certify.identity(shotBlob, c, game).then((ident) => App.certify.finish(key, photoId, myCert, ident)).then((r) => {
-            const line = results.querySelector('#sc-cert'); if (!line) return;
+            const line = box.querySelector('#sc-cert'); if (!line) return;
             line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}${r.unrecognized ? ' — reprends une photo plus nette pour la certifier' : ''}`;
           });
         }
-        results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = guideC(); setStatus(''); el.querySelector('#sc-cam').click(); } };
+        if (wasTarget) results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = guideC(); setStatus(''); el.querySelector('#sc-cam').click(); } };
       };
     }
 
@@ -459,6 +482,7 @@ Object.assign(App.views.scan, {
       view.innerHTML = `<div class="sc-scanwrap"><span class="bphoto scan-txt">${isUrl ? `<img src="${src}" alt="Ta carte">` : ''}<i class="bscan"></i></span>
         <div class="sc-scanlbl"><div class="spinner"></div><span>${esc(msg)}</span></div></div>`;
       if (!isUrl) view.querySelector('.bphoto').prepend(src);
+      // (v3.56, Arnaud : plus de carte en plein écran pendant la lecture : l'écran à part ne sert qu'au choix)
     }
     /**
      * Propositions de la reconnaissance affichées (v3.36) : une carte déjà corrigée à la main passe devant (App.scanMemo.apply) ;
@@ -472,8 +496,15 @@ Object.assign(App.views.scan, {
       // rien de reconnu : gardé dans le carnet (complété si la carte est ensuite trouvée à la main)
       if (final && !a.cands.length && !donCard && !logId) logId = await App.scanMemo.log({ game, mode: 'carte', kind: 'aucune', photo: cardBlob, original: pageBlob, read: summary });
       showCandidates(a.cands, summary);
+      // v3.56 (Arnaud : « si le scan trouve la carte à 100 %, ne rien proposer, ça évite de vérifier pour rien ») :
+      // carte sûre → ajoutée tout de suite (déjà dans le Dex : seule la question « doublon ou même carte » reste)
+      const top = a.cands[0];
+      if (final && top && top.confident && !a.from && !(target && top.id !== target.id) && App.settings.autoAddSure !== false) {
+        autoPicked = true;
+        if (SS.open) SS.yes(); else { const p = results.querySelector(`[data-pick="${CSS.escape(top.id)}"]`); if (p) p.click(); }
+      }
     }
-    let scanTok = 0, recoCands = [], recoFrom = null, recoRead = '', pendingPick = false, logId = null;
+    let scanTok = 0, recoCands = [], recoFrom = null, recoRead = '', pendingPick = false, logId = null, autoPicked = false;
     const live = (tok = scanTok) => alive() && tok === scanTok; // (un nouveau scan, ou une carte choisie : la suite de l'ancien est ignorée)
     async function analyse(blob, poor = '') { // poor : problème de la photo qui vient d'être prise (v3.38)
       if (!blob) return; // recadrage vide (image pas encore affichée)
@@ -492,6 +523,7 @@ Object.assign(App.views.scan, {
         im.src = cardURL;
       };
       showScan(cardURL, 'Lecture de la carte…');
+      clearTimeout(doneT); doneBox.innerHTML = ''; // (bandeau « carte ajoutée » de la carte d'avant)
       results.innerHTML = ''; setStatus(poorHtml(poor)); // (photo ratée : dit tout de suite, sans attendre l'échec de la lecture)
       const vr = view.getBoundingClientRect(); // toute la carte visible pendant la recherche
       if (vr.top < 60 || vr.bottom > window.innerHeight) window.scrollTo({ top: Math.max(0, window.scrollY + vr.top - 70), behavior: 'smooth' });
@@ -661,7 +693,7 @@ Object.assign(App.views.scan, {
     });
     el.querySelector('#sc-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') el.querySelector('#sc-search').click(); });
 
-    return () => { if (stopTips) stopTips(); cam.stop(); if (cardURL) URL.revokeObjectURL(cardURL); };
+    return () => { SS.stop(); if (stopTips) stopTips(); cam.stop(); if (cardURL) URL.revokeObjectURL(cardURL); };
   },
 
 });

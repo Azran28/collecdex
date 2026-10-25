@@ -85,7 +85,9 @@ Object.assign(App.views.scan, {
     // v2.57 : certification d'une page retirée pour le moment (la lampe ne marchait pas assez bien sur la page — Arnaud) ;
     // le code reste (livePage), il suffit de repasser PAGE_CERT à vrai
     const PAGE_CERT = false;
-    const RAFALE_CERT = false; // v2.58 : certification en rafale retirée pour le moment aussi (demande d'Arnaud)
+    // v3.58 (Arnaud) : rafale certifiée de nouveau, sans lampe : paquet face cachée, chaque carte retournée devant la
+    // caméra (le dos du paquet, puis la face) ; choix « Certifier / Juste la photo » comme en carte seule (certRafale)
+    const RAFALE_CERT = true;
     const setBox = (title) => `<div class="set-first" hidden>
             <div class="sf-head">${App.icons.icon('layers', 18)}<div><b>${title}</b> <span class="small muted">(facultatif, plus fiable)</span></div></div>
             <select id="b-set"><option value="">Série : je ne sais pas</option></select>
@@ -105,6 +107,8 @@ Object.assign(App.views.scan, {
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             ${certOn && !burst && PAGE_CERT ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
+            <button class="btn hidden" id="b-flip">${App.icons.icon('shield', 16)} Feuilleter (essai)</button>
+            <button class="btn hidden" id="b-flip-stop">Arrêter l’essai</button>
           </div>
           ${certOn && !burst && PAGE_CERT ? App.views.scan.certBlock('classeur', `<button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`) : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">
@@ -113,7 +117,7 @@ Object.assign(App.views.scan, {
             <div class="row action-dock"><button class="btn primary hidden" id="b-go">▶ Lancer la reconnaissance</button><button class="btn ghost" id="b-reset">Reprendre une photo</button></div>
           </div>`;
     el.innerHTML = burst ? `
-      ${gamePick}<div class="batch-wrap">
+      ${gamePick}${RAFALE_CERT ? App.views.scan.certPick('rafale') : ''}<div class="batch-wrap">
         <div>
           ${setBox('Série des cartes')}
           <div class="scan-view" id="b-view">${App.views.scan.empty('rafale')}</div>
@@ -123,7 +127,6 @@ Object.assign(App.views.scan, {
             <button class="btn hidden" id="r-pause">Pause</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
-          ${certOn && RAFALE_CERT ? App.views.scan.certBlock('rafale', App.views.scan.certSwitch('r-cert', true, `${App.icons.icon('shield', 16)} Certification`)) : ''}
           <div hidden>${pageCtl}${pageBtns}</div>
         </div>
         <div>
@@ -185,7 +188,13 @@ Object.assign(App.views.scan, {
       if (!cols || window.__noCards) return false;
       const token = S.gridToken = (S.gridToken || 0) + 1;
       // v3.20 : classeur ouvert = 2 pages de 9 cherchées séparément, cartes droites ou couchées (detectSpread)
-      let r = null; try { r = dbl ? await R.detectSpread(img) : await R.detectCards(img, cols, rows); } catch (e) { console.warn('cartes', e); }
+      let r = null;
+      try {
+        // v3.59 (Arnaud) : en 4 cartes, elles peuvent être posées espacées (feuille, table) → chaque carte cherchée pour elle-même
+        // (detectLoose) ; mesuré aussi meilleur sur 4 cartes serrées d'une page. Moins de 3 trouvées : l'ancienne recherche.
+        if (S.fmt === '2x2') { r = await R.detectLoose(img, cols, rows); if (!r || r.found < 3) { const r2 = await R.detectCards(img, cols, rows); if (r2 && (!r || r2.found > r.found)) r = r2; } }
+        else r = dbl ? await R.detectSpread(img) : await R.detectCards(img, cols, rows);
+      } catch (e) { console.warn('cartes', e); }
       if (!S.photo || S.photo.img !== img || S.running || token !== S.gridToken || !r || r.found < Math.ceil(cols * rows * 0.7)) return false;
       // découpe habituelle (lecture prudente) sur la carte agrandie de 4 % ; la carte exacte en plus (snapped)
       const grow = (q, k) => { const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4; return q.map(([x, y]) => [cx + (x - cx) * k, cy + (y - cy) * k]); };
@@ -266,6 +275,7 @@ Object.assign(App.views.scan, {
     el.querySelector('#b-file2').addEventListener('change', fromFile); // galerie
     el.querySelector('#b-reset').addEventListener('click', () => {
       if (S.running) return;
+      labLeftover(); // (v3.61 : page quittée → cases non enregistrées au labo)
       el.querySelector('#b-native').classList.remove('hidden'); if (PAGE_CERT) el.querySelector('#b-cam').classList.remove('hidden'); el.querySelector('#b-file2').closest('label').classList.remove('hidden'); el.querySelector('#b-shot').classList.add('hidden'); certHelp(true);
       cancelAuto(); el.querySelector('#b-auto').classList.add('hidden');
       S.photo = null; S.grid = null; S.cells = []; S.pageCert = null; S.pageId = null; resultsEl.innerHTML = ''; setStatus(''); { const cb = el.querySelector('#b-certline'); if (cb) cb.innerHTML = ''; }
@@ -293,7 +303,11 @@ Object.assign(App.views.scan, {
     function findingDone() { clearInterval(S.findTimer); S.findTimer = null; const o = view.querySelector('.b-finding'); if (o) o.remove(); }
 
     // ---------- Grille ajustable ----------
+    // ---------- Labo (comptes testeurs) : photo de la page et cases non enregistrées — voir scanBatchParts.labo (v3.61) ----------
+    const { labPage, labLeftover, proposedOf, readOf } = App.scanBatchParts.labo(X, { R, burst, modeQ });
+
     function startGrid(blob, cert = null) {
+      labLeftover(); // (v3.61 : nouvelle photo → la page d'avant part au labo avec ses cases non enregistrées)
       el.querySelector('#b-go').classList.add('hidden'); // la reconnaissance partira toute seule si la grille est sûre
       S.cells = []; resultsEl.innerHTML = App.views.scan.guide('classeur'); setStatus('');
       S.pageCert = cert; S.pageId = null;
@@ -716,13 +730,16 @@ Object.assign(App.views.scan, {
         const keys = [];
         // la page est gardée sur cet appareil : on pourra recadrer une carte depuis sa fiche
         if (!S.pageId && S.photo) { try { S.pageId = await App.col.keepPage(S.photo.blob); } catch (err) { console.warn(err); } }
+        for (const { c } of todo) c.saved = true; const labP = labPage(); for (const { c } of todo) c.saved = false; // (résumé de la page pour le labo : ces cartes comptées enregistrées)
         for (const { c, mode } of todo) {
           const cand = c.cands.find((x) => x.id === c.choice);
           if (!cand) continue;
           const picked = c.det && c.det.id === cand.id ? X.versOf(c) : null; // version vue (et corrigée) dans la liste
-          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game, { mode: modeQ, doubt: !!(c.det && !c.det.user && !c.det.sure), user: !!(c.det && c.det.user) });
+          // (v3.60, labo : ce que le scanner avait proposé — la proposition d'origine si la case a été changée à la main)
+          const { top, list: proposed } = proposedOf(c), read = readOf(c);
+          const key = await R.addScanned(picked && picked.length ? { ...cand, pickedVariants: picked } : cand, c.blob, mode === 'nouvelle' ? null : mode, S.game, { mode: modeQ, doubt: !!(c.det && !c.det.user && !c.det.sure), user: !!(c.det && c.det.user), cands: proposed, read, corrige: !top || top.id !== cand.id, extra: labP || burst ? { page: labP, cell: c.i } : undefined });
           // v3.36 : carte choisie à la main → correction retenue, scan raté gardé dans le carnet
-          if (c.sys) { let read = ''; try { read = c.info ? R.readSummary(c.info) : ''; } catch (err) { /* */ } App.scanMemo.batchPicked(S.game, burst ? 'rafale' : 'classeur', c, cand, read).catch(() => {}); }
+          if (c.sys) App.scanMemo.batchPicked(S.game, burst ? 'rafale' : 'classeur', c, cand, read).catch(() => {});
           c.vers = mode === 'rien' ? null : (R.lastVariants ? R.lastVariants.list : null);
           keys.push(key);
           const it = App.col.byKey(key);
@@ -753,27 +770,28 @@ Object.assign(App.views.scan, {
         App.util.toast(`${keys.length} carte${keys.length > 1 ? 's' : ''} enregistrée${keys.length > 1 ? 's' : ''} ✓`);
         // v3.41 (Arnaud) : validées depuis le récapitulatif → pas de retour au récap ni à la liste, on repart sur un nouveau scan
         // (la certification en arrière-plan continue : elle garde ses propres cartes)
-        if (S.newAfterSave) {
-          S.newAfterSave = false;
-          if (burst) X.resetBurst(); else el.querySelector('#b-reset').click();
-          window.scrollTo(0, 0);
-          return;
-        }
-        X.drawResults();
-        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // v3.57 : aussi depuis la liste détaillée (« pareil » : après la validation, le scan suivant)
+        S.newAfterSave = false;
+        if (burst) { X.resetBurst(); if (S.rUsedCam) el.querySelector('#r-start').click(); } // (rafale : la caméra repart si on s'en servait)
+        else el.querySelector('#b-reset').click();
+        window.scrollTo(0, 0);
       }
     });
 
     // Scanner — rafale (caméra ouverte, cartes prises toutes seules) : voir scanBatchParts.burst
     Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, resultsEl, setStatus, sv, urls, view }));
+    // v3.62 : classeur feuilleté (essai, comptes testeurs) : voir scanBatchParts.flip
+    const { flipStop } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, view });
+    { const rb = X.resetBurst; X.resetBurst = (...a) => { labLeftover(); return rb(...a); }; } // (v3.61 : rafale remise à zéro → cartes non enregistrées au labo)
     if (burst) {
       el.querySelector('#r-start').addEventListener('click', async () => {
+        S.rUsedCam = true;
         if (sv.open) X.svClose(); // on reprend la rafale : l'écran d'analyse se ferme
         try { await cam.start(); }
         catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${esc(e.message)}. Autorise la caméra, ou utilise « Choisir des photos ».</span>`); return; }
         App.sfx.unlock();
-        view.insertAdjacentHTML('beforeend', '<div class="r-live">Présente une carte dans le cadre</div>');
-        if (certOn && RAFALE_CERT) App.certify.prepare();
+        view.insertAdjacentHTML('beforeend', `<div class="r-live">${X.wantCert() ? 'Monte une carte dans le cadre, <b>dos</b> visible' : 'Présente une carte dans le cadre'}</div>`);
+        if (X.wantCert()) App.certify.prepare('rafale');
         S.rPrev = null; S.rStable = 0;
         S.rTrk = null;
         S.rTimer = setInterval(X.rTick, 100);
@@ -781,9 +799,19 @@ Object.assign(App.views.scan, {
         el.querySelector('#r-pause').classList.remove('hidden');
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
       });
-      el.querySelector('#r-pause').addEventListener('click', () => { X.rStop(); if (S.cells.length >= 2) X.burstReview(); else if (S.cells.length) resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      el.querySelector('#r-pause').addEventListener('click', () => { X.rStop(); if (S.cells.length) X.burstReview(); }); // (v3.55 : l'écran d'analyse dès la 1re carte, plus de liste à chercher en bas)
+      // tuiles « Certifier / Juste la photo » (v3.58, comme en carte seule ; retenu dans les réglages) — aussi pendant la rafale
+      el.addEventListener('click', (e) => {
+        const b = e.target.closest('.cp-opt'); if (!b) return;
+        App.settings.certRafale = b.dataset.cert === '1'; App.col.saveSettings().catch(() => {});
+        el.querySelectorAll('.cp-opt').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+        if (view.querySelector('.scan-empty')) view.innerHTML = App.views.scan.empty('rafale');
+        if (X.wantCert()) App.certify.prepare('rafale');
+        S.rTrk = null; S.rStable = 0;
+      });
       // photos de la galerie (plusieurs d'un coup) : ajoutées à la liste, sans certification
       el.querySelector('#r-files').addEventListener('change', async (e) => {
+        S.rUsedCam = false;
         const files = [...e.target.files]; e.target.value = '';
         let pages = 0;
         for (const f of files) {
@@ -802,11 +830,11 @@ Object.assign(App.views.scan, {
             X.addBurstCell(blob, !!cut || r.auto || !!found, undefined, f);
           } catch (err) { console.warn(err); }
         }
-        if (files.length - pages >= 2) X.burstReview(); // plusieurs cartes : l'écran d'analyse
+        if (files.length - pages >= 1) X.burstReview(); // (v3.55 : dès 1 carte) l'écran d'analyse
         if (pages) App.util.toast(`${pages} photo${pages > 1 ? 's' : ''} de page${pages > 1 ? 's' : ''} ignorée${pages > 1 ? 's' : ''} : utilise « Page de classeur » pour celles-là`);
       });
     }
 
-    return () => { S.stopped = true; X.lockScroll(false); if (S.rTimer) clearInterval(S.rTimer); cam.stop(); urls.forEach((u) => URL.revokeObjectURL(u)); };
+    return () => { S.stopped = true; X.lockScroll(false); if (S.rTimer) clearInterval(S.rTimer); flipStop(); cam.stop(); urls.forEach((u) => URL.revokeObjectURL(u)); };
   },
 });

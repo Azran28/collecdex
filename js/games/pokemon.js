@@ -169,7 +169,7 @@
 
   const CARD_FIELDS = 'id localId name image rarity category types illustrator hp variants { normal reverse holo firstEdition } attacks { name damage } abilities { name }';
 
-  // ---------- Versions corrigées (v3.54, Arnaud : « tu n'en reconnais aucune et je ne peux même pas les choisir comme holo ») ----------
+  // ---------- Versions corrigées (v3.63, Arnaud : « tu n'en reconnais aucune et je ne peux même pas les choisir comme holo ») ----------
   // TCGdex dit souvent « seulement normale » quand il ne sait pas (Noir & Blanc : Symbios 57/114 ★H, Majaspic 5 et 6, et les
   // reverses des communes). On complète alors avec la rareté de pokemontcg.io (fichiers publics sur GitHub, une série par fichier :
   // « Rare Holo », « Rare Ultra »… = brillante seulement) et avec l'époque : depuis la Collection Légendaire (mai 2002), les

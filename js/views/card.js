@@ -28,7 +28,7 @@ App.cardModal = async function (game, cardId, ctx = {}) {
   const rrank = Math.max(ad.rarity.rank(card.rarity), onlyHolo ? 4 : 0);
   const tierOf = (r) => (r <= 2 ? 0 : r === 3 ? 1 : r <= 5 ? 2 : r <= 8 ? 3 : r <= 10 ? 4 : 5);
   /**
-   * v3.54 (Arnaud : « le visuel des holos plus sympa et uniquement pour les holos ; pour les très rares non holo, le nom en doré
+   * v3.63 (Arnaud : « le visuel des holos plus sympa et uniquement pour les holos ; pour les très rares non holo, le nom en doré
    * ou arc-en-ciel ») : l'effet brillant ne s'affiche que pour une carte brillante — la version possédée (holo / reverse), sinon
    * une carte qui n'existe qu'en brillant. Pokémon jusqu'à « Rare Holo » : seule l'illustration brille (reverse : tout sauf elle) ;
    * cartes plus rares et autres licences : toute la carte.

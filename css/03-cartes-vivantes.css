@@ -229,7 +229,7 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 .offline #c-prices { opacity: .45; pointer-events: none; }
 
 
-/* v3.54 — fiche carte : effet brillant seulement pour les cartes brillantes (holo / reverse / foil), nom doré pour les très rares non brillantes */
+/* v3.63 — fiche carte : effet brillant seulement pour les cartes brillantes (holo / reverse / foil), nom doré pour les très rares non brillantes */
 .holo-card .holo-foil { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; display: none;
   background-image:
     radial-gradient(circle, rgba(255,255,255,.95) 0 .7px, transparent 1.3px),
