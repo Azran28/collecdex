@@ -82,7 +82,12 @@ App.scanBatchParts.series = (X, { R, ad, alive, esc, isPk, setStatus, urls }) =>
           const seen = new Set(cands.map((x) => x.id));
           cell.cands = [...cands, ...cell.before.cands.filter((x) => !seen.has(x.id))].slice(0, 12);
           // nettement la plus ressemblante de la série (sans être sûre) : proposée, mais « À vérifier » et non cochée
-          const ahead = top && !top.confident && cands[1] && top.visual != null && top.visual >= 0.45 && (top.score - cands[1].score >= 0.25 || !cell.before.choice);
+          // (v3.64, Arnaud : « tu proposes un résultat pour des cases qui n'ont aucun rapport avec une carte » — silhouette imprimée
+          //  d'un album : Colombeau 0,46 contre 0,44 pour la 2ᵉ ; sans piste du texte, il faut maintenant une avance nette OU une
+          //  illustration « très proche » (≥ 0,55), plus seulement « proche »)
+          //  ni numéro ni nom lus : illustration « très proche » exigée dans tous les cas (même silhouette : 0,51 contre 0,44, avance suffisante)
+          const textSays = top && (top.numOk || (top.nameScore || 0) >= 0.6);
+          const ahead = top && !top.confident && cands[1] && top.visual != null && top.visual >= (textSays ? 0.45 : 0.55) && (top.score - cands[1].score >= 0.25 || (!cell.before.choice && top.visual >= 0.55));
           if (top && (sameName || top.confident || ahead)) { cell.choice = top.id; cell.state = top.confident ? 'sure' : 'verifier'; }
           else { cell.choice = cell.before.choice; cell.state = cell.before.state; }
         } catch (e) { console.error(e); Object.assign(cell, { cands: cell.before.cands, choice: cell.before.choice, state: cell.before.state }); }

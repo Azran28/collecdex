@@ -52,7 +52,9 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       cell.state = !cands.length ? 'inconnue' : cands[0].confident ? 'sure' : 'verifier';
       // meilleure candidate qui ne ressemble pas à la photo, nom et numéro non lus : on ne la propose pas d'office
       const top = cands[0];
-      if (top && !top.confident && !top.numOk && top.visual != null && top.visual < 0.42 && (top.nameScore || 0) < 0.75) { cell.choice = ''; cell.state = 'inconnue'; }
+      // (v3.64 : « ressemble » = illustration très proche, ≥ 0,55 — une silhouette imprimée d'album donnait Colombeau à 0,46 ;
+      //  une vraie carte mal lue reste trouvable : la vérification par l'image compare ensuite aussi les cartes « inconnues »)
+      if (top && !top.confident && !top.numOk && top.visual != null && top.visual < 0.55 && (top.nameScore || 0) < 0.75) { cell.choice = ''; cell.state = 'inconnue'; }
       cell.checked = cell.state === 'sure'; // seules les cartes sûres sont cochées d'office
     }
 
@@ -134,12 +136,17 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       const m = S.cells.filter((c) => c.det && !c.det.measuring && c.det.info && c.det.info.reverseRatio != null);
       if (m.length < 4) return;
       const rs = m.map((c) => c.det.info.reverseRatio).sort((a, b) => a - b), med = rs[Math.floor(rs.length / 2)];
+      // (v3.64, page d'album d'Arnaud : 4 reverses Noir & Blanc 1,27 / 1,82 / 2,13 / 2,69 → la médiane est haute et la plus terne
+      //  restait « normale ». Page surtout faite de reverses mesurées (≥ 3 et la moitié) : 1,2 suffit — normales vues ≤ 1,17)
+      //  (seulement entre normale et reverse : une holo rare — holo ou reverse — garde la mesure habituelle, page 09 : Héliatronc)
+      const two = (c) => { const k = c.cands.find((x) => x.id === c.det.id); return !!(k && k.variants && k.variants.normal && k.variants.reverse); };
+      const nRev = m.filter((c) => two(c) && (c.det.list0 || c.det.list).includes('reverse')).length, revPage = nRev >= 3 && nRev * 2 >= m.filter(two).length;
       for (const c of m) {
         if (c.det.user) continue;
         const cur = c.cands.find((x) => x.id === c.det.id);
-        if (!cur || !cur.variants || !cur.variants.reverse) continue;
+        if (!cur || !cur.variants || !cur.variants.reverse || !cur.variants.normal) continue; // (v3.64 : holo rare = holo ou reverse : la mesure de la carte décide seule)
         if (!c.det.list0) { c.det.list0 = c.det.list; c.det.sure0 = c.det.sure; }
-        const r = c.det.info.reverseRatio, rel = r >= Math.max(1, 1.5 * med) && !c.det.list0.includes('reverse');
+        const r = c.det.info.reverseRatio, rel = (r >= Math.max(1, 1.5 * med) || (revPage && r >= 1.2)) && !c.det.list0.includes('reverse');
         c.det.list = rel ? ['reverse', ...c.det.list0.filter((v) => v === 'firstEdition')] : c.det.list0;
         c.det.sure = rel ? r >= 1.3 && r >= 2 * med : c.det.sure0;
       }
