@@ -45,6 +45,7 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('yugioh'), 'Yu-Gi-Oh!');
   ok(App.games.get('finalfantasy'), 'Final Fantasy');
   ok(App.games.get('wankul'), 'Wankul');
+  ok(App.games.get('starwars'), 'Star Wars Unlimited');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -132,6 +133,7 @@ test('combat : niveaux de l’ordinateur', (App) => {
   eq(App.battle.levels('yugioh').length, 5, 'niveaux Yu-Gi-Oh!');
   eq(App.battle.levels('finalfantasy').length, 5, 'niveaux Final Fantasy');
   eq(App.battle.levels('wankul').length, 5, 'niveaux Wankul');
+  eq(App.battle.levels('starwars').length, 5, 'niveaux Star Wars');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -520,7 +522,7 @@ test('lecture : outils communs (forme de carte, nom lu, code corrigé par le nom
   eq(T.bestName(['TADASHl HAMADA', '6-155'], nm).k, 'tadashi hamada', 'nom mal lu retrouvé');
   const fx = await T.codeFix(['6-155'], new Set(['155']), async (ids) => ids.map((id) => ({ id, localId: '155' })), (x) => x.localId);
   ok(fx && fx[0].id === '6-155' && fx[0].codeFix, 'carte de ce nom au même numéro');
-  for (const g of ['onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul']) ok(typeof App.games.get(g).recognize === 'function', `lecture ${g}`);
+  for (const g of ['onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul', 'starwars']) ok(typeof App.games.get(g).recognize === 'function', `lecture ${g}`);
 });
 
 // ---------- Wankul (v3.48) : cartes en français, visuels du site, codes imprimés, dos, combattant, cartes de pioche, import ----------
@@ -595,6 +597,71 @@ test('Import : lignes Wankul', async (App) => {
   eq([m2.status, m2.card.id], ['ok', 'or-179'], 'Laink légendaire Or');
 });
 
+
+// ---------- Star Wars Unlimited (v3.67) : cartes en français, codes imprimés, Hyperspace, combattant, cartes de pioche, import ----------
+test('index Star Wars Unlimited (data/sw-index) cohérent', async () => {
+  const m = await checkIndex('sw-index');
+  ok(m.ids.includes('sor-038') && m.ids.includes('sor-297') && m.ids.includes('sor-017'), 'Comte Dooku (sor-038), Inferno Quatre Hyperspace (sor-297), Han Solo leader (sor-017)');
+});
+test('Star Wars Unlimited : cartes en français (data/sw-cartes.json)', async (App) => {
+  const A = App.games.get('starwars'), sets = await A.listSets();
+  ok(sets.length >= 20, `${sets.length} séries`);
+  const s = await A.getSet('SOR');
+  eq([s.name, s.cardCount.official], ['Étincelle de Rébellion', 252]);
+  const c = await A.getCard('sor-038');
+  eq([c.name, c.nameEn, c.code, c.rarity, c.category, c.cost, c.power, c.hp], ['Comte Dooku, Dark Tyranus', 'Count Dooku, Darth Tyranus', 'SOR • FR • 038/252', 'r', 'Unité', 7, 5, 4]);
+  ok(/^https:\/\/cdn\.starwarsunlimited\.com\/.+\.png$/.test(A.img.card(c)), 'visuel officiel français');
+  const h = await A.getCard('sor-297');
+  eq([h.name, h.code, h.version, h.base, A.isOfficial(h.localId, s), A.isOfficial('038', s)], ['Inferno Quatre, Inoubliable (Hyperspace)', 'SOR • FR • 297', 'Hyperspace', 'sor-031', false, true], 'version Hyperspace : carte à part, en plus de la série');
+  const l = await A.getCard('sor-017');
+  ok(l.landscape && /^https:\/\/images\.weserv\.nl\/\?url=cdn\.starwarsunlimited\.com.+&ro=270/.test(A.img.card(l)), 'leader couché : tourné d’un quart de tour (sens du classeur)');
+  ok(sets.filter((x) => ['SOR', 'SHD', 'TWI', 'JTL', 'LOF', 'SEC', 'LAW'].includes(x.id)).every((x) => A.img.logo(x) && A.img.logoCrop(x)), 'visuel de chaque extension (sachet recadré)');
+});
+test('Star Wars Unlimited : code imprimé lu même mal reconnu', async (App) => {
+  const A = App.games.get('starwars'); await A.listSets();
+  const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  eq(c('©LFL ©FFG SOR • FR • 038/252')[0], 'SOR|38', '« SOR • FR • 038/252 »');
+  eq(c('OLFL OFFG SOR+FR  297')[0], 'SOR|297', 'Hyperspace « 297 », point lu « + »');
+  eq(c('OLFL OFFO SOR-FR (À 166/252')[0], 'SOR|166', 'symbole de rareté lu « (À »');
+  eq(c('S0R-FR 044/252')[0], 'SOR|44', 'série mal lue « S0R »');
+  eq(c('JTL • FR • 687')[0], 'JTL|687', 'numéro de la version brillante (Passage en Vitesse Lumière)');
+  eq(c('Pikachu 025/165'), [], 'numéro Pokémon');
+  eq(c('OGN · 013/298'), [], 'code Riftbound');
+  eq(c('Infligez 4 dégâts à une unité. 2/3'), [], 'pas de code dans un texte de carte');
+});
+test('Star Wars Unlimited : unité → combattant, cartes de pioche', async (App) => {
+  await App.need('match');
+  const f = App.battle.fighterSW({ id: 'x', name: 'Infanterie', kind: 'un', category: 'Unité', power: 3, hp: 3, cost: 2, aspects: ['co', 'he'], text: 'Raid 2 (Cette unité a +2/+0.)' });
+  eq([f.hp, f.type, f.attacks[0].base, f.attacks[0].cost], [70, 'grass', 50, 1]);
+  ok(App.battle.canFight({ kind: 'le', category: 'Leader', power: 4, hp: 6 }, 'starwars') && !App.battle.canFight({ kind: 'ev', category: 'Événement' }, 'starwars'), 'unités et leaders combattent, pas les événements');
+  const fx = (category, text) => App.battleCards.effectOf({ id: 'y', name: 'z', category, kind: category === 'Amélioration' ? 'up' : 'ev', aspects: [], text }).key;
+  eq([fx('Événement', 'Infligez 4 dégâts à une unité.'), fx('Événement', 'Éliminez une unité non-leader.'), fx('Événement', 'Donnez un jeton Bouclier à une unité.'),
+    fx('Événement', 'Renvoyez dans la main de son propriétaire une unité non-leader.'), fx('Amélioration', ''), fx('Événement', 'Choisissez un joueur. Il pioche 2 cartes.'), fx('Événement', 'Soignez 3 dégâts d’une unité ou d’une base.')],
+  ['power', 'power', 'shield', 'gust', 'toolHp', 'charge', 'heal']);
+  eq(App.battleCards.resCard().fx.key, 'energy', 'ressource = énergie');
+  const A = App.games.get('starwars');
+  eq(App.battle.levels('starwars').length, 5, 'niveaux Star Wars');
+  for (const lv of App.battle.levels('starwars')) for (const id of lv.pool) ok(await A.getCard(id).then((c) => App.battle.canFight(c, 'starwars'), () => false), `adversaire ${id}`);
+  for (const id of App.battleCards.aiBag(5, 'grass', 'starwars').filter((x) => x !== 'RES')) ok(await A.getCard(id).then((c) => !App.battle.canFight(c, 'starwars'), () => false), `carte de pioche ${id}`);
+});
+test('Capturer « Toutes » : une carte Star Wars Unlimited reconnue sur son texte', async (App) => {
+  await App.need('reco', 'scan'); await App.games.get('starwars').listSets();
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('UNITÉ TERRESTRE COMTE DOOKU DARK TYRANUS FORCE • SÉPARATISTE • SITH Protégée (Quand vous jouez cette unité, donnez-lui un jeton Bouclier.) ©LFL ©FFG SOR • FR • 038/252'), 'starwars');
+  eq(S.otherGames('SOR • FR • 038/252', 'pokemon')[0], 'starwars', 'Star Wars essayé d’abord quand son code se lit');
+  eq(App.recognizerParts.parse({ top: '', bottom: 'SHD • FR • 017/262', full: 'Unité terrestre' }).otherGame, true, 'mode Pokémon : « pas une carte Pokémon »');
+});
+test('Import : lignes Star Wars Unlimited (Collectr, Cardmarket)', async (App) => {
+  await App.need('import');
+  const I = App.importer;
+  const rows = [['Product Name', 'Category', 'Set', 'Card Number', 'Quantity'], ['Count Dooku - Darth Tyranus', 'Star Wars: Unlimited', 'Spark of Rebellion', '038/252', '1'], ['Inferno Four - Unforgetting (Hyperspace Foil)', 'Star Wars Unlimited', 'Spark of Rebellion', '297', '1'], ['Pikachu', 'Pokemon', 'Base Set', '58/102', '1']];
+  const det = I.detect(rows), list = I.rowsOf ? I.rowsOf(rows, det) : null;
+  ok(list && list.length === 3 && list[0].game === 'starwars' && list[1].game === 'starwars' && list[2].game !== 'starwars', 'lignes reconnues comme Star Wars Unlimited');
+  const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
+  eq([m1.status, m1.card.id], ['ok', 'sor-038'], 'par la série et le numéro');
+  eq([m2.status, m2.card.id, list[1].ver.base], ['ok', 'sor-297', 'holo'], 'Hyperspace brillante');
+});
 // ---------- Riftbound : code imprimé lu sur la photo, combattant ----------
 test('Riftbound : code imprimé lu même mal reconnu', (App) => {
   const c = (t) => App.games.get('riftbound').codesIn(t).map(([k]) => k);

@@ -20,6 +20,8 @@ App.badges = (() => {
   const ffNames = (ctx) => ctx.items.filter((i) => i.game === 'finalfantasy').map((i) => N(String(i.snap.name).replace(/\s*\(Full Art\)$/, '')));
   // Wankul : cartes possédées
   const wkItems = (ctx) => ctx.items.filter((i) => i.game === 'wankul');
+  // Star Wars Unlimited : titres des cartes possédées (« Dark Vador, Seigneur Noir Des Sith (Hyperspace) » → « dark vador »)
+  const swNames = (ctx) => ctx.items.filter((i) => i.game === 'starwars').map((i) => N(String(i.snap.name).replace(/\s*\([^)]*\)$/, '').split(',')[0]));
   const L = [
     // Taille de la collection
     ['c1', 'Premier pas', 'Ta première carte dans ton Dex', 'sparkles', 1, (x) => x.n >= 1],
@@ -93,6 +95,11 @@ App.badges = (() => {
     ['wk-terrains', 'Agent immobilier', '20 Terrains Wankul différents', 'wankil', 2, (x) => wkItems(x).filter((i) => i.snap.rarity === 't').length >= 20],
     ['wk-ticket', 'Ticket d’or', 'Une carte de Gagnant du Ticket d’or', 'star', 3, (x) => wkItems(x).some((i) => i.snap.rarity === 'tor')],
     ['wk-legende', 'Légende du Wankul', '3 cartes Légendaires (Bronze, Argent ou Or)', 'sparkles', 3, (x) => wkItems(x).filter((i) => ['lb', 'la', 'lo'].includes(i.snap.rarity)).length >= 3],
+    // Star Wars Unlimited (v3.67 : mêmes idées — un duo culte, une famille, les méchants, une version rare)
+    ['sw-skywalker', 'Je suis ton père', 'Luke Skywalker et Dark Vador', 'saber', 1, (x) => ['luke skywalker', 'dark vador'].every((n) => swNames(x).includes(n))],
+    ['sw-rebelles', 'Héros de l’Alliance', 'Leia Organa, Han Solo, Chewbacca, R2-D2 et C-3PO', 'saber', 2, (x) => ['leia organa', 'han solo', 'chewbacca', 'r2-d2', 'c-3po'].every((n) => swNames(x).includes(n))],
+    ['sw-sith', 'Côté obscur', 'Dark Vador, Empereur Palpatine, Comte Dooku et Dark Maul', 'crown', 3, (x) => ['dark vador', 'empereur palpatine', 'comte dooku', 'dark maul'].every((n) => swNames(x).includes(n))],
+    ['sw-hyper', 'Hyperespace', '3 cartes Hyperspace ou Showcase', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'starwars' && /\((Hyperspace|Showcase)\)$/.test(String(i.snap.name))).length >= 3],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   const setsCache = {}; // séries de chaque licence

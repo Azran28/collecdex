@@ -103,6 +103,9 @@ Chaque point a d'abord manqué sur une licence et a été corrigé après une re
 - **Toute la licence vérifiée avant de dire « fini »** (Arnaud, v3.45 : « check bien que tu as tout fait ») : reprendre chaque étape de ce skill et la liste `grep -rn -i "lorcana"` une par une, et le dire dans le message de fin.
 
 ## Pièges déjà rencontrés
+- **Versions à la même illustration mais au cadre différent** (Star Wars Hyperspace, v3.67) : l'image préfère TOUJOURS la version où l'illustration va jusqu'au bord (plus de points communs), même sur une carte normale. Le numéro doit trancher (le relire sur la carte recadrée avant de conclure « sûre ») ; sans numéro : la version la plus courante devant, « à vérifier ». Mesurer sur une page avant de faire confiance à l'image.
+- **Chemins d'images à vérifier un par un** (Star Wars, v3.67) : le CDN officiel avait des noms commençant par « / » (« //0401… ») ; en le retirant, 6 134 visuels sur 6 362 répondaient 403. Toujours tester tous les visuels (petit script HEAD, ~1 min) avant de construire l'index.
+- **Base sans CORS lente** (103 pages de 2 Mo) : la télécharger une fois dans le scratchpad pour mettre au point l'outil du robot (`build(raw, tcg)` séparé de `fetchAll`), au lieu de la relire à chaque essai.
 - Un code d'une autre licence lu comme le sien (« 25/165 » Pokémon, « 4/102 » à l'import) → exiger le code **complet** (langue, série) ou un total connu.
 - Sans les mots typiques dans `detectGame` / `otherGames`, la licence est essayée en dernier (> 30 s par carte).
 - Visuels officiels rognés plus serré que la carte → cadrage faux (Lorcana `OUTER`).

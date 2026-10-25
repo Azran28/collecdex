@@ -38,6 +38,7 @@
     ['#/jeu/yugioh', 'Séries Yu-Gi-Oh!'], ['#/jeu/yugioh/serie/RGBT', 'Série Raging Battle (Yu-Gi-Oh!)'], ['#/jeu/yugioh/serie/LOB', 'Série La Légende du Dragon Blanc (Yu-Gi-Oh!)'],
     ['#/jeu/finalfantasy', 'Séries Final Fantasy'], ['#/jeu/finalfantasy/serie/16', 'Série Emissaries of Light (Final Fantasy)'], ['#/jeu/finalfantasy/serie/PR', 'Promos Final Fantasy'],
     ['#/jeu/wankul', 'Séries Wankul'], ['#/jeu/wankul/serie/st', 'Série Stellar (Wankul)'], ['#/jeu/wankul/serie/to', 'Gagnants du Ticket d’or (Wankul)'],
+    ['#/jeu/starwars', 'Séries Star Wars Unlimited'], ['#/jeu/starwars/serie/SOR', 'Série Étincelle de Rébellion (Star Wars)'], ['#/jeu/starwars/serie/P24', 'Promos 2024 (Star Wars)'],
     ['#/jeu/pokemon/serie/base1', 'Série Set de Base'], ['#/jeu/pokemon/hors-serie', 'Hors-série'],
     ['#/collection', 'Mon Dex'], ['#/objectifs', 'Objectifs'], ['#/importer', 'Importer'],
     ['#/compte', 'Vitrine'], ['#/amis', 'Amis'], ['#/connexion', 'Connexion'], ['#/parametres', 'Paramètres'],
@@ -49,6 +50,7 @@
     ['#/combat?jeu=yugioh', 'Combat Yu-Gi-Oh!'], ['#/scan?jeu=yugioh', 'Capturer Yu-Gi-Oh!'], ['#/scan?mode=classeur&jeu=yugioh', 'Capturer Yu-Gi-Oh! (classeur)'],
     ['#/combat?jeu=finalfantasy', 'Combat Final Fantasy'], ['#/scan?jeu=finalfantasy', 'Capturer Final Fantasy'], ['#/scan?mode=classeur&jeu=finalfantasy', 'Capturer Final Fantasy (classeur)'],
     ['#/combat?jeu=wankul', 'Combat Wankul'], ['#/scan?jeu=wankul', 'Capturer Wankul'], ['#/scan?mode=classeur&jeu=wankul', 'Capturer Wankul (classeur)'],
+    ['#/combat?jeu=starwars', 'Combat Star Wars Unlimited'], ['#/scan?jeu=starwars', 'Capturer Star Wars Unlimited'], ['#/scan?mode=classeur&jeu=starwars', 'Capturer Star Wars Unlimited (classeur)'],
     ['#/capsules', 'Capsules'],
   ];
   const size = (w, h) => { const f = frame(); f.style.width = w + 'px'; f.style.height = h + 'px'; };

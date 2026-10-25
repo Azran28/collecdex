@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Carte « Ressource » (dessinée pour les combats Star Wars Unlimited de CollecDex : dans ce jeu, n'importe quelle carte posée face cachée sert de ressource) -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".42" r=".8"><stop offset="0" stop-color="#2d3a66"/><stop offset=".6" stop-color="#141a33"/><stop offset="1" stop-color="#070912"/></radialGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3a6"/><stop offset=".5" stop-color="#ffd21f"/><stop offset="1" stop-color="#b8860b"/></linearGradient>
+  </defs>
+  <rect width="630" height="880" rx="30" fill="#05060c"/>
+  <rect x="18" y="18" width="594" height="844" rx="20" fill="url(#f)" stroke="#ffd21f" stroke-width="6"/>
+  <g transform="translate(315 390)">
+    <path d="M0 -200 173 -100 173 100 0 200 -173 100 -173 -100Z" fill="none" stroke="url(#g)" stroke-width="16" stroke-linejoin="round"/>
+    <path d="M0 -110 95 -55 95 55 0 110 -95 55 -95 -55Z" fill="url(#g)" opacity=".9"/>
+  </g>
+  <rect x="120" y="680" width="390" height="90" rx="16" fill="#ffd21f"/>
+  <text x="315" y="742" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="54" fill="#0a0d1c">RESSOURCE</text>
+</svg>

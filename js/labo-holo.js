@@ -21,7 +21,7 @@
   const R = App.recognizer;
   const TEST = '_tests-scanner/';
   const FORMATS = { '3x3': [3, 3, ''] };
-  const GAMES = { pokemon: 'Pokémon', onepiece: 'One Piece', finalfantasy: 'Final Fantasy', lorcana: 'Lorcana', riftbound: 'Riftbound', yugioh: 'Yu-Gi-Oh!', wankul: 'Wankul' };
+  const GAMES = { pokemon: 'Pokémon', onepiece: 'One Piece', finalfantasy: 'Final Fantasy', lorcana: 'Lorcana', riftbound: 'Riftbound', yugioh: 'Yu-Gi-Oh!', wankul: 'Wankul', starwars: 'Star Wars' };
   const TF = { src: 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js', sri: 'sha384-vE8hbVJ4lezako5rlvE7bY0BVzWlFhZncPlckrqNwcUQpVtgbENTgZ8TBbnPjZre' };
   const MN_URL = 'https://storage.googleapis.com/tfjs-models/savedmodel/mobilenet_v2_1.0_224/model.json';
   const MN_NODE = 'module_apply_default/MobilenetV2/Logits/AvgPool';

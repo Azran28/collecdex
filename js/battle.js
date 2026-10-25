@@ -160,10 +160,30 @@ App.battle = (() => {
       type: WK_EFF[card.effigy] || 'colorless', weak: [], res: [], attacks, energy: 0, ko: false, ...extra,
     };
   }
-  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy) */
-  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : game === 'wankul' ? isWkFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
+  /**
+   * Combattant Star Wars Unlimited (v3.67, même moteur, adapté légèrement) : les Unités et les Leaders combattent.
+   * PV = 30 + PV de la carte × 12 ; type = affinité (Vigilance → Métal, Commandement → Plante, Agressivité → Feu, Ruse → Électrik,
+   * Héroïsme seul → Psy, Infamie seule → Obscurité) ; attaque = 10 + puissance × 8 (Raid N : + N × 10), coût selon le coût (1 à 3) ;
+   * Protégée (jeton Bouclier) = +20 PV ; Embuscade = commence avec 1 énergie ; Sentinelle = « Garde » (1 énergie, moitié des dégâts).
+   */
+  const SW_ASPECT = { vi: 'metal', co: 'grass', ag: 'fire', ru: 'lightning', he: 'psychic', in: 'darkness' };
+  const isSwFighter = (card) => (card.kind === 'un' || card.kind === 'le' || /^(Unité|Leader)$/i.test(card.category || '')) && card.power != null && +card.hp > 0;
+  function fighterSW(card, extra = {}) {
+    const pw = Math.max(0, Math.min(12, +card.power || 0)), life = Math.max(1, Math.min(15, +card.hp || 1)), cost = +card.cost || 0, text = String(card.text || '');
+    const raid = +((text.match(/\bRaid\s+(\d)/i) || [])[1] || 0), shield = /\bProt[ée]g[ée]e\b|\bShielded\b/i.test(text), ambush = /\bEmbuscade\b|\bAmbush\b/i.test(text), sentinel = /\bSentinelle\b|\bSentinel\b/i.test(text);
+    const hp = Math.min(240, Math.max(40, r10(30 + life * 12 + (shield ? 20 : 0))));
+    const attacks = [{ name: 'Attaque', cost: Math.min(3, 1 + Math.floor(cost / 3)), base: Math.max(10, r10(10 + pw * 8 + raid * 10)), mode: '', noDamage: false, text: raid ? `Raid ${raid} : +${raid * 10} dégâts` : '' }];
+    if (sentinel) attacks.unshift({ name: 'Garde', cost: 1, base: Math.max(10, r10((10 + pw * 8) / 2)), mode: '', noDamage: false, text: 'Sentinelle' });
+    const asp = (card.aspects || []).find((a) => a !== 'he' && a !== 'in') || (card.aspects || [])[0];
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'starwars',
+      type: SW_ASPECT[asp] || 'colorless', weak: [], res: [], attacks, energy: ambush ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy ; unités et leaders Star Wars) */
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : game === 'wankul' ? isWkFighter(card) : game === 'starwars' ? isSwFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : game === 'wankul' ? fighterWK(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : game === 'wankul' ? fighterWK(card, extra) : game === 'starwars' ? fighterSW(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -300,11 +320,20 @@ App.battle = (() => {
     { n: 4, name: 'Streamer', desc: 'Ultra rares et légendaires · une énergie d’avance', pool: or(161, 162, 165, 166, 168, 170, 173, 174, 145), bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Wankil', desc: 'Laink et Terracid en personne · sors tes meilleures cartes', pool: or(149, 150, 179, 180, 135, 136, 161, 165), bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Star Wars Unlimited (v3.67 ; unités d'Étincelle de Rébellion, data/sw-cartes.json)
+  const sor = (...n) => n.map((x) => `sor-${String(x).padStart(3, '0')}`);
+  const LEVELS_SW = [
+    { n: 1, name: 'Recrue', desc: 'Petites unités d’Étincelle de Rébellion · il joue un peu au hasard', pool: sor(32, 44, 59, 61, 81, 95, 128, 130, 140, 141, 190, 225, 237, 247), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Soldat', desc: 'Unités aguerries · il attaque toujours au plus fort', pool: sor(33, 46, 64, 66, 98, 112, 114, 164, 194, 210, 211, 229, 240, 249), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Commandant', desc: 'Héros et officiers · il connaît tes points faibles', pool: sor(34, 45, 47, 100, 115, 131, 133, 145, 146, 153, 182, 192, 196, 242), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Chevalier Jedi', desc: 'Les grandes figures de la Saga · une énergie d’avance', pool: sor(38, 49, 52, 56, 89, 135, 149, 184, 185, 197, 198), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Seigneur Sith', desc: 'Les Légendaires et les vaisseaux amiraux · sors tes meilleures cartes', pool: sor(87, 51, 90, 40, 102, 149, 147, 179), bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : game === 'wankul' ? LEVELS_WK : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : game === 'wankul' ? LEVELS_WK : game === 'starwars' ? LEVELS_SW : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterWK, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, isWkFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, WK_EFF, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, LEVELS_WK, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterWK, fighterSW, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, isWkFighter, isSwFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, WK_EFF, SW_ASPECT, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, LEVELS_WK, LEVELS_SW, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

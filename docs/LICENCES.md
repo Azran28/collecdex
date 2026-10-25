@@ -18,7 +18,7 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 
 ## 0. Ordre conseillé (prochaines licences)
 1. **Final Fantasy TCG** ✅ — B, site officiel lisible, prix par le robot.
-2. **Star Wars: Unlimited** ✅ peu — A, « 001/252 ».
+2. **Star Wars: Unlimited** ✅ — fait en v3.67 (base officielle FFG en français).
 3. **Dragon Ball Super Fusion World** ✅ peu — C, s'inspirer de l'adaptateur One Piece.
 4. **Cartes de supermarché** (Dreamworks Carrefour ✅ complète) — D, petites collections en « X/Y », à construire à partir des photos d'Arnaud. Il faudra un outil pour « créer une collection nous-mêmes », qui servira ensuite à toutes les licences D.
 5. **Wankul** ✅ — fait en v3.48 (le Wankuldex officiel de wankul.fr a toute la base : en fait **B**).
@@ -38,12 +38,13 @@ Liste établie le 18 oct. 2026 (connaissances de Claude + recherche web). Les so
 | Yu-Gi-Oh! ✅ | Konami | YGOPRODeck | Noms en français (v3.26) |
 | Final Fantasy TCG ✅ | Square Enix | Base officielle + TCGplayer | En français (v3.43) |
 | Wankul ✅ | Wankil Studio | Wankuldex officiel (wankul.fr) | En français, visuels copiés dans le site, pas de prix (v3.48) |
+| Star Wars: Unlimited ✅ | Fantasy Flight Games | Base officielle + TCGplayer | En français (v3.67) |
 
 ## 2. Grands TCG actuels (occident)
 | Licence | Éditeur | Popularité | Facilité | Source de données | Numéro | Note |
 |---|---|---|---|---|---|---|
 | Magic: The Gathering | Wizards of the Coast | ★★★★★ | **A** | Scryfall (api.scryfall.com) : complet, images HD, prix €/$, français | n° de collection + code de série | ~100 000 cartes : charger par série |
-| Star Wars: Unlimited ✅ peu | Fantasy Flight Games | ★★★☆☆ | **A** | swu-db.com (API) | « 001/252 » | Prix moins bien couverts |
+| Star Wars: Unlimited ✅ | Fantasy Flight Games | ★★★☆☆ | **A** | Base officielle (admin.starwarsunlimited.com › api/card-list, en français, sans CORS) + TCGplayer (catégorie 79) | « SOR • FR • 038/252 » | **Fait en v3.67** ; prix TCGplayer par le robot |
 | Flesh and Blood | Legend Story Studios | ★★★☆☆ | **B** | Base GitHub « the-fab-cube/flesh-and-blood-cards » (JSON complet) | `WTR001` | Pas de prix |
 | Final Fantasy TCG ✅ | Square Enix | ★★☆☆☆ | **B** | Recherche du site officiel (fftcg.square-enix-games.com) | `1-001H` | Prix TCGplayer (catégorie 24) par le robot — fait en v3.43 |
 | Grand Archive | Weebs of the Shore | ★★☆☆☆ | **A** | API officielle (index.gatcg.com / api.gatcg.com) | code de série | Petite communauté |

@@ -20,6 +20,7 @@ App.games = (() => {
     { id: 'yugioh', name: 'Yu-Gi-Oh!', icon: 'pyramid', status: 'actif', desc: 'Toutes les séries TCG, noms en français.' },
     { id: 'finalfantasy', name: 'Final Fantasy', icon: 'crystal', status: 'actif', desc: 'Toutes les séries Opus, promos et cristaux, en français.' },
     { id: 'wankul', name: 'Wankul', icon: 'wankil', status: 'actif', desc: 'Le jeu de Laink et Terracid : toutes les saisons et hors-séries.' },
+    { id: 'starwars', name: 'Star Wars Unlimited', icon: 'saber', status: 'actif', desc: 'Toutes les extensions, Hyperspace, Showcase et promos, en français.' },
     { id: 'magic', name: 'Magic: The Gathering', icon: 'sparkles', status: 'bientôt', desc: 'Toutes les extensions, prix inclus.' },
     { id: 'autres', name: 'Et au-delà…', icon: 'box', status: 'plus tard', desc: 'Figurines, Funko Pop, pièces, jeux vidéo…' },
   ];

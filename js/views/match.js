@@ -13,6 +13,14 @@
       'Mets K.O. les 3 personnages adverses pour gagner et débloquer le niveau suivant.',
       '<b>Avancé</b> (niveaux à part) : une pioche de 10 cartes Événement / Lieu au plus, plus 3 DON!! (sinon pioche de prêt), mélangée : 3 cartes en main au départ, 1 de plus à chacun de tes tours ; une carte par tour avant l’action. Effets simplifiés : [Contre] +X000 = protection, +X000 de puissance = dégâts en plus, KO = gros coup, renvoyer un personnage = Rafale, piocher = +1 DON!!, Lieu = +10 dégâts 3 tours.',
       'En Avancé, les personnages du banc adverse restent <b>face cachée</b> tant qu’ils n’ont pas combattu (et les tiens pour ton adversaire en ligne).',
+    ] : game === 'starwars' ? [
+      '3 unités par équipe (Unités et Leaders Star Wars Unlimited) : une qui combat, deux sur le banc. Une case vide est remplie par une unité de prêt.',
+      'Ta carte devient un combattant : PV = 30 + PV de la carte × 12, attaque = 10 + puissance × 8, affinité = type (Vigilance, Commandement, Agressivité, Ruse ; Héroïsme ou Infamie si elle n’a que celle-là) ; Raid N = N × 10 dégâts en plus, Protégée = +20 PV, Embuscade = 1 ressource dès le départ, Sentinelle = 2ᵉ attaque « Garde ». Pas de faiblesse ni de résistance.',
+      'À ton tour, ton unité gagne <b>1 ressource</b>, puis une action : <b>attaquer</b>, <b>+1 ressource</b> ou <b>changer</b> d’unité.',
+      'Une attaque coûte des ressources selon le coût de la carte (1 à 3) ; les ressources en plus restent pour la suite.',
+      'Mets K.O. les 3 unités adverses pour gagner et débloquer le niveau suivant.',
+      '<b>Avancé</b> (niveaux à part) : un deck de 10 Événements / Améliorations au plus, plus 3 Ressources (sinon deck de prêt), mélangé : 2 cartes en main au départ, puis 1 de plus tous les 2 tours ; une carte par tour avant l’action. Effets simplifiés : éliminer une unité = gros coup, « infligez N dégâts » / « +N/+N » = dégâts en plus, jeton Bouclier = protection, soigner = soin, renvoyer dans la main = Rafale, incliner = ressource adverse en moins, piocher = +1 ressource, Amélioration = +20 PV.',
+      'En Avancé, les unités du banc adverse restent <b>face cachée</b> tant qu’elles n’ont pas combattu (et les tiennes pour ton adversaire en ligne).',
     ] : game === 'wankul' ? [
       '3 personnages par équipe (Personnages Wankul, toutes raretés ; pas les Terrains) : un qui combat, deux sur le banc. Une case vide est remplie par un personnage de prêt.',
       'Ta carte devient un combattant : PV = 40 + force × 15, attaque = 10 + force × 8, effigie = type (Laink, Terracid, Invité, Random) ; une carte avec un COMBO a une 2ᵉ attaque « Combo » (+20 dégâts, 1 gemme de plus). Pas de faiblesse ni de résistance.',

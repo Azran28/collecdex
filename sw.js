@@ -133,8 +133,8 @@ self.addEventListener('fetch', (e) => {
 
   // Visuels officiels des cartes et des Pokémon (capsules) : copie gardée d'abord (ils ne changent pas)
   // (+ visuels One Piece et Riftbound, relayés par images.weserv.nl : Bandai refuse d'être affiché ailleurs, Riot n'autorise pas la comparaison ;
-  //  boosters Wankul de la boutique officielle, cdn.shopify.com)
-  if (u.hostname === 'assets.tcgdex.net' || u.hostname === 'images.weserv.nl' || u.hostname === 'cdn.shopify.com' || (u.hostname === 'raw.githubusercontent.com' && u.pathname.startsWith('/PokeAPI/sprites/'))) {
+  //  boosters Wankul de la boutique officielle, cdn.shopify.com ; visuels Star Wars Unlimited, cdn.starwarsunlimited.com)
+  if (u.hostname === 'assets.tcgdex.net' || u.hostname === 'images.weserv.nl' || u.hostname === 'cdn.shopify.com' || u.hostname === 'cdn.starwarsunlimited.com' || (u.hostname === 'raw.githubusercontent.com' && u.pathname.startsWith('/PokeAPI/sprites/'))) {
     e.respondWith((async () => {
       const c = await caches.open(IMAGES);
       const hit = await c.match(req.url);

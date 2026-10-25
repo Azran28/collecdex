@@ -202,8 +202,34 @@ App.battleCards = (() => {
     return mk('stadium', 10);
   }
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy / Wankul */
+  /**
+   * Effet simplifié d'une carte Star Wars Unlimited (v3.67 : Événement, Amélioration) d'après son texte français : Ressource → +1
+   * énergie ; « éliminez une unité » → gros coup ; « infligez N dégâts » / « +N/+M » → N × 10 dégâts en plus ; jeton Bouclier →
+   * protection ; « soignez N dégâts » → soin ; renvoyer dans la main → Rafale ; inclinez / « –N/–0 » → énergie adverse en moins ;
+   * piocher / chercher → +1 énergie ; Amélioration sans effet reconnu → +20 PV max.
+   */
+  const isSwCard = (card) => !!card && ((Array.isArray(card.aspects) && (card.kind === 'ev' || card.kind === 'up')) || card.kind === 'res') && /^(evenement|amelioration|ressource)$/.test(norm(card.category));
+  function effectOfSW(card) {
+    const text = norm(card.text || '').replace(/[–−]/g, '-'), cat = norm(card.category);
+    const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
+    const k = (v) => Math.min(40, Math.max(10, +v * 10));
+    let m;
+    if (cat === 'ressource' || /en jeu en tant que ressource/.test(text)) return mk('energy', 1);
+    if (/eliminez (?:une|toutes les) unites?/.test(text)) return mk('power', 40);
+    if ((m = text.match(/infligez (\d+) degats?/))) return mk('power', k(m[1]));
+    if ((m = text.match(/\+(\d)\/\+\d/))) return mk('power', k(m[1]));
+    if (/jetons? bouclier/.test(text)) return mk('shield', 30);
+    if ((m = text.match(/soignez (?:jusqu'a )?(\d+) degats?/))) return mk('heal', Math.min(40, Math.max(20, +m[1] * 10)));
+    if (/renvoyez .{0,60}dans la main/.test(text)) return mk('gust');
+    if (/inclinez (?:une|chaque) unite|-\d\/-0/.test(text)) return mk('strip', 1);
+    if (/piochez|pioche \d|cherchez/.test(text)) return mk('charge');
+    if (cat === 'amelioration') return mk('toolHp', 20);
+    return mk('heal', 30);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy / Wankul / Star Wars */
   function effectOf(card) {
+    if (isSwCard(card)) return effectOfSW(card);
     if (isWkCard(card)) return effectOfWK(card);
     if (isFfCard(card)) return effectOfFF(card); // (avant les autres : « Monstre » existe aussi chez Yu-Gi-Oh!, qui a un passcode)
     if (isYgCard(card)) return effectOfYG(card);
@@ -254,6 +280,7 @@ App.battleCards = (() => {
     if (/^https:\/\/images\.ygoprodeck\.com\//.test(card.image || '')) return App.games.get('yugioh').img.card(card, 'high'); // Yu-Gi-Oh! : visuel relayé (réduit)
     if (/^https:\/\/fftcg\.cdn\.sewest\.net\//.test(card.image || '')) return App.games.get('finalfantasy').img.card(card, 'high'); // Final Fantasy : visuel relayé
     if (/^data\/wk-img\/[a-z0-9-]+\.webp$/.test(card.image || '')) return card.image; // Wankul : petite copie du visuel, rangée dans le site
+    if (/^https:\/\/cdn\.starwarsunlimited\.com\//.test(card.image || '')) return App.games.get('starwars').img.card(card, 'high'); // Star Wars : visuel officiel (couché : tourné par le relais)
     if (/^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+_in_1000x1000\.jpg$/.test(card.image || '')) return card.image.replace('_in_1000x1000', '_400w'); // (promo Final Fantasy)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
@@ -261,7 +288,7 @@ App.battleCards = (() => {
   }
   /** Carte du sac prête pour le combat (img peut être ta photo ; imgOff = visuel officiel, envoyé à l'adversaire) */
   function bagCard(card, extra = {}) {
-    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$|^encre$|^cristal$|^gemme$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
+    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$|^encre$|^cristal$|^gemme$|^ressource$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
   }
   // carte DON!! One Piece : absente des listes de Bandai, on la dessine (img/combat/don.svg)
   const DON_IMG = 'img/combat/don.svg';
@@ -274,8 +301,11 @@ App.battleCards = (() => {
   // Gemme Wankul (v3.48) : pas de carte d'énergie dans ce jeu (les gemmes sont imprimées sur les cartes) → on la dessine
   const GEM_IMG = 'img/combat/gemme-wankul.svg';
   const gemCard = (extra = {}) => bagCard({ id: 'GEM', name: 'Gemme', category: 'Gemme', kind: 'gem', image: '' }, { img: GEM_IMG, imgOff: GEM_IMG, ...extra });
-  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana, « GEM » = gemme Wankul */
-  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra)) : id === 'GEM' ? Promise.resolve(gemCard(extra))
+  // Ressource Star Wars Unlimited (v3.67) : pas de carte d'énergie dans ce jeu (n'importe quelle carte posée face cachée sert de ressource) → on la dessine
+  const RES_IMG = 'img/combat/ressource-starwars.svg';
+  const resCard = (extra = {}) => bagCard({ id: 'RES', name: 'Ressource', category: 'Ressource', kind: 'res', image: '' }, { img: RES_IMG, imgOff: RES_IMG, ...extra });
+  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana, « GEM » = gemme Wankul, « RES » = ressource Star Wars */
+  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra)) : id === 'GEM' ? Promise.resolve(gemCard(extra)) : id === 'RES' ? Promise.resolve(resCard(extra))
     : App.games.get(game || 'pokemon').getCard(id).then((c) => bagCard(c, extra)).catch(() => null)))).then((l) => l.filter(Boolean));
 
   const B = () => App.battle;
@@ -408,8 +438,20 @@ App.battleCards = (() => {
     [[wk(13), 1], [wk(7), 1], [wk(19), 2], [wk(12), 1], [wk(18), 1], [wk(20), 1]],
     [[wk(13), 2], [wk(1), 1], [wk(2), 1], [wk(12), 1], [wk(18), 1], [wk(26), 1], [wk(24), 1]],
   ];
+  // Star Wars Unlimited (Étincelle de Rébellion) : Réparation (soin), Avantage Tactique (+2/+2), Instant de Quiétude (Bouclier),
+  // Désarmer (–4/–0 : énergie adverse en moins), Ouvrir le Feu (4 dégâts), Résilient (amélioration : +PV), Guet-Apens (renvoyer :
+  // Rafale), Briefing de Mission (piocher), Attaque Surprise (+3/+0), Triompher / Mettre au Tapis (éliminer : gros coup), puis des Ressources
+  const sw = (n) => `sor-${String(n).padStart(3, '0')}`;
+  const AI_BAGS_SW = [
+    [[sw(74), 2]],
+    [[sw(74), 2], [sw(124), 1]],
+    [[sw(74), 2], [sw(124), 1], [sw(73), 1], [sw(216), 1]],
+    [[sw(172), 1], [sw(69), 1], [sw(74), 2], [sw(222), 1], [sw(171), 1], [sw(220), 1]],
+    [[sw(172), 2], [sw(78), 1], [sw(77), 1], [sw(73), 1], [sw(222), 1], [sw(216), 1], [sw(69), 1]],
+  ];
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
-  const aiBag = (level, type, game) => (game === 'wankul' ? [...many(AI_BAGS_WK[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('GEM')]
+  const aiBag = (level, type, game) => (game === 'starwars' ? [...many(AI_BAGS_SW[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('RES')]
+    : game === 'wankul' ? [...many(AI_BAGS_WK[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('GEM')]
     : game === 'finalfantasy' ? [...many(AI_BAGS_FF[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('c-001')]
     : game === 'yugioh' ? [...many(AI_BAGS_YG[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('LOB-119')]
     : game === 'onepiece'
@@ -422,8 +464,10 @@ App.battleCards = (() => {
   //  Riftbound : 2 Hextech Ray, Discipline, Rune Prison, Retreat, 3 runes ;
   //  Lorcana : 2 Lueur réparatrice, Il a un sabre !, Très mauvais caractère !, Emberlificotage, 3 encres)
   //  Yu-Gi-Oh! : 2 Médicament Rouge, Charge Intrépide, Épées de Révélation de la Lumière, Le Livre de la Lune, 3 Pot de Cupidité ;
-  //  Final Fantasy : 2 Ifrit, Golem, Titan, Léviathan, 3 Cristaux ; Wankul : 2 Valheim, Moria, Fnaf, Agrou, 3 Gemmes)
-  const loanBag = (type, game) => (game === 'wankul' ? [...many([[wk(19), 2], [wk(17), 1], [wk(12), 1], [wk(26), 1]]), 'GEM', 'GEM', 'GEM']
+  //  Final Fantasy : 2 Ifrit, Golem, Titan, Léviathan, 3 Cristaux ; Wankul : 2 Valheim, Moria, Fnaf, Agrou, 3 Gemmes ;
+  //  Star Wars : 2 Réparation, Avantage Tactique, Instant de Quiétude, Guet-Apens, 3 Ressources)
+  const loanBag = (type, game) => (game === 'starwars' ? [...many([[sw(74), 2], [sw(124), 1], [sw(73), 1], [sw(222), 1]]), 'RES', 'RES', 'RES']
+    : game === 'wankul' ? [...many([[wk(19), 2], [wk(17), 1], [wk(12), 1], [wk(26), 1]]), 'GEM', 'GEM', 'GEM']
     : game === 'finalfantasy' ? [...many([[ff(4), 2], [ff(106), 1], [ff(110), 1], [ff(178), 1]]), 'c-001', 'c-001', 'c-001']
     : game === 'yugioh' ? [...many([['LOB-E043', 2], ['MRL-E043', 1], ['LOB-E081', 1], ['PGD-035', 1]]), 'LOB-119', 'LOB-119', 'LOB-119']
     : game === 'onepiece'
@@ -441,5 +485,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, isWkCard, bagCard, donCard, inkCard, crystalCard, gemCard, loadBag, DON_IMG, INK_IMG, GEM_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
+  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, isWkCard, isSwCard, bagCard, donCard, inkCard, crystalCard, gemCard, resCard, loadBag, DON_IMG, INK_IMG, GEM_IMG, RES_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

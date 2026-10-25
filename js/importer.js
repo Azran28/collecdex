@@ -245,6 +245,8 @@ App.importer = (() => {
   // Final Fantasy (v3.43) : code imprimé avec sa rareté (« 16-006C »), promo / réimpression (« PR-112 », « Re-006C »)
   const FF_CODE = /(?<![A-Z0-9])(\d{1,2}-\d{3}[CRHLSB]|PR-\d{3}|Re-\d{3}[CRHLSB]?)(?![0-9])/i;
   const LC_SETS = /^(the first chapter|premier chapitre|rise of the floodborn|l.ascension des floodborn|into the inklands|les terres d.encres|ursula.s return|le retour d.ursula|shimmering skies|ciel scintillant|azurite sea|la mer azurite|archazia.s island|l.[iî]le d.archazia|(the )?reign of jafar|le r[èe]gne de jafar|fabled|fabuleux|whispers in the well|lueurs dans les profondeurs|winterspell|givresort|wilds unknown|contr[ée]es inconnues|attack of the vine!?|invasion [ée]pineuse ?!?|hyperia city|into the inkdark|entrez en encresombre|illumineer.s quest.*|qu[êe]te des illumineurs.*|lorcana.*|disney lorcana.*)$/i;
+  // Star Wars Unlimited (v3.67) : séries (noms anglais et français)
+  const SW_SETS = /^(star\s*wars\s*:?\s*unlimited.*|spark of rebellion|[ée]tincelle de r[ée]bellion|shadows of the galaxy|ombres de la galaxie|twilight of the republic|cr[ée]puscule de la r[ée]publique|jump to lightspeed|passage en vitesse lumi[èe]re|legends of the force|l[ée]gendes de la force|secrets of power|secrets du pouvoir|a lawless time|sans foi ni loi|ashes of the empire|cendres de l.empire|homeworlds|mondes natals)(\s*:.*)?$/i;
   const SEALED = /\b(booster|display|elite trainer|etb|coffret|box|bundle|tin|pokebox|blister|deck|theme deck|starter|collection box|pack|sleeve|binder|classeur|portfolio|playmat)\b/i;
 
   /** Lignes du fichier → lignes à importer ({ name, setName, num, qty, lang, cond, ver, skip }) */
@@ -269,6 +271,21 @@ App.importer = (() => {
         skip: null,
       };
       const cat = norm(get(r, 'category'));
+      // Star Wars Unlimited (v3.67) : jeu indiqué (« Star Wars: Unlimited ») ou série Star Wars Unlimited (nom anglais ou français) ;
+      // numéro « 031/252 », Hyperspace « 297 » ; version dans le nom (« Inferno Four - Unforgetting (Hyperspace Foil) »)
+      const swSet = String(get(r, 'set') || '').trim();
+      if (/star ?wars/.test(cat) || (SW_SETS.test(swSet) && !/pok|one ?piece|riftbound|lorcana|yu ?-?gi|final|wankul/.test(cat))) {
+        row.game = 'starwars';
+        row.setName = swSet.replace(/^star\s*wars\s*:?\s*unlimited\s*[-:–]?\s*/i, '');
+        const vtxt = `${rawName} ${get(r, 'version')}`;
+        row.swVer = /hyperspace/i.test(vtxt) ? 'Hyperspace' : /showcase/i.test(vtxt) ? 'Showcase' : /serialized|num[ée]rot/i.test(vtxt) ? 'Prestige numérotée' : /prestige/i.test(vtxt) ? 'Prestige' : '';
+        if (/\bfoil\b|brillant/i.test(vtxt)) row.ver = { ...row.ver, base: 'holo' };
+        row.name = rawName.replace(/\s*[([][^)\]]*[)\]]/g, '').replace(/\s*[-–]?\s*\d{1,4}\s*(\/\s*\d{2,3})?\s*$/, '').trim() || row.name;
+        if (!num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
       // One Piece (v2.85) : jeu indiqué, ou code imprimé de la carte (« OP09-004 », « ST15-002 », « P-001 ») dans le numéro ou le nom
       const opCode = `${get(r, 'number')} ${rawName}`.toUpperCase().match(/\b(OP|ST|EB|PRB)\s?(\d{2})\s?-\s?(\d{3})\b|\bP-\d{3}\b/);
       if (/one ?piece/.test(cat) || (opCode && !/pok/.test(cat))) {
@@ -535,8 +552,28 @@ App.importer = (() => {
     return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'code de la carte non indiqué' : 'le nom ne correspond pas tout à fait au code' };
   }
 
+  /** Ligne Star Wars Unlimited : série + numéro (« 031/252 », « 297 »), sinon le nom (français ou anglais) et la série ; version d'après le nom */
+  async function matchSW(row) {
+    const sw = App.games.get('starwars');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'starwars' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    const sets = row.setName ? await sw.setIdsByName(row.setName) : [];
+    let list = [];
+    if (row.num) for (const s of sets) list.push(...(await sw.byCode(s, row.num.n)));
+    const byCode = list.length > 0;
+    if (!list.length && q.length >= 2) list = (await sw.search({ name: row.name })).filter((c) => nameScore(q, c.name, c.nameEn, c.baseName) >= 0.75 || nameScore(q, c.baseName, c.nameEn.split(',')[0], c.baseName) >= 0.85);
+    if (!list.length) return { status: 'introuvable', why: row.setName && !sets.length ? `série « ${row.setName} » inconnue` : 'carte introuvable' };
+    if (sets.length) { const inSet = new Set(sets); list = [...list.filter((c) => inSet.has(c.setId)), ...list.filter((c) => !inSet.has(c.setId))]; }
+    // version indiquée (Hyperspace, Showcase…) devant
+    list = [...list.filter((c) => (c.version || '') === row.swVer), ...list.filter((c) => (c.version || '') !== row.swVer)];
+    const okName = !q || nameScore(q, list[0].name, list[0].nameEn, list[0].baseName) >= 0.5 || nameScore(q, list[0].baseName, list[0].nameEn.split(',')[0], list[0].baseName) >= 0.8;
+    const status = byCode && list.length >= 1 && (list[0].version || '') === row.swVer ? (okName ? 'ok' : 'verif') : list.length === 1 ? 'verif' : 'choix';
+    return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'série ou numéro de la carte non indiqué' : 'le nom ne correspond pas tout à fait au numéro' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
+    if (row.game === 'starwars') return matchSW(row);
     if (row.game === 'wankul') return matchWK(row);
     if (row.game === 'finalfantasy') return matchFF(row);
     if (row.game === 'yugioh') return matchYG(row);

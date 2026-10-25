@@ -1,7 +1,7 @@
 /*
  * Mise à jour de la base de référence des images (data/vis-index.*, data/op-index.*, data/rb-index.*, data/lc-index.*, data/yg-index.*) : ajoute les cartes sorties depuis.
  * Lancé chaque semaine par le robot GitHub (.github/workflows/index.yml → outils/ci/index-maj.mjs), ou à la main :
- *   ouvrir outils/index-maj.html sur un serveur local, puis await __maj('pokemon') / __maj('onepiece') / __maj('riftbound') / __maj('lorcana') / __maj('yugioh') / __maj('finalfantasy') / __maj('wankul').
+ *   ouvrir outils/index-maj.html sur un serveur local, puis await __maj('pokemon') / __maj('onepiece') / __maj('riftbound') / __maj('lorcana') / __maj('yugioh') / __maj('finalfantasy') / __maj('wankul') / __maj('starwars').
  *
  * Les axes de réduction (Pf, Pa) ne sont pas recalculés : les nouvelles cartes sont projetées sur ceux de l'index,
  * exactement comme lors de sa fabrication (js/labo-index.js › pack, js/labo-index-op.js › pack), puis ajoutées à la fin.
@@ -9,7 +9,7 @@
  */
 (() => {
   const D = 1280;
-  const INDEX = { pokemon: 'data/vis-index', onepiece: 'data/op-index', riftbound: 'data/rb-index', lorcana: 'data/lc-index', yugioh: 'data/yg-index', finalfantasy: 'data/ff-index', wankul: 'data/wk-index' };
+  const INDEX = { pokemon: 'data/vis-index', onepiece: 'data/op-index', riftbound: 'data/rb-index', lorcana: 'data/lc-index', yugioh: 'data/yg-index', finalfantasy: 'data/ff-index', wankul: 'data/wk-index', starwars: 'data/sw-index' };
   const proj = (x, P, d) => { const y = new Float32Array(d); for (let i = 0; i < D; i++) { const xi = x[i]; if (!xi) continue; const o = i * d; for (let j = 0; j < d; j++) y[j] += xi * P[o + j]; } let n = 0; for (const t of y) n += t * t; n = Math.sqrt(n) || 1; for (let j = 0; j < d; j++) y[j] /= n; return y; };
   const quant = (y) => { let m = 0; for (const t of y) m = Math.max(m, Math.abs(t)); m = m || 1; return { q: Int8Array.from(y, (t) => Math.round((t / m) * 127)), s: m / 127 }; };
   const log = (t) => { console.log('[index]', t); const o = document.getElementById('out'); if (o) o.textContent += '\n' + t; };
@@ -80,5 +80,5 @@
     log(`${add.length} cartes ajoutées, ${failed.length} sans visuel (réessayées la prochaine fois)`);
     return { game, before: n, after: m, added: add.map((x) => x.id), failed, json: JSON.stringify(out), bin: b64(bin) };
   };
-  log('prêt : await __maj("pokemon"), __maj("onepiece"), __maj("riftbound"), __maj("lorcana"), __maj("yugioh"), __maj("finalfantasy") ou __maj("wankul")');
+  log('prêt : await __maj("pokemon"), __maj("onepiece"), __maj("riftbound"), __maj("lorcana"), __maj("yugioh"), __maj("finalfantasy"), __maj("wankul") ou __maj("starwars")');
 })();
