@@ -36,3 +36,4 @@ Mode d'emploi de Capturer (v2.46) : `open(slides, key, label, last)`, `scanSlide
 
 ## Icônes des licences (v3.69)
 - Une seule apparence partout = celle du Combat : `css/12-icones-licences.css` (dernier fichier CSS) met `--li-bg / --li-fg / --li-sh` sur `.g-<licence>` et les applique à `.game-tile .gicon` et `.lic-ic` (+ reflet `::after` aussi sur `.bt-lic-ic` / `.bt-hero-ic`). **Nouvelle licence** : ajouter sa ligne ici (mêmes couleurs que son `.bt-lic-ic`), sinon elle garde sa couleur `--g`.
+- **v3.70 : une seule façon de montrer une licence** : `App.ui.licIc(jeu, taille, classe)` (icône, `lic-ic-xs` = dans un texte) et `App.ui.licCount(n)` (« N dans ton Dex ») — à utiliser pour tout nouvel endroit. Choix d'une licence sur téléphone = `details.game-sw` (« Changer » → `.lic-grid`) : Explorer, Objectifs, Mon Dex (avec « Toutes les licences »). Mot « licence », jamais « jeu », dans les textes.

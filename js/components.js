@@ -252,5 +252,11 @@ App.ui = (() => {
   /** Nom des applis d'où viennent les fichiers importés (fiche carte, page Importer) */
   const IMPORT_SOURCES = { collectr: 'Collectr', cardmarket: 'Cardmarket', pokellector: 'Pokellector', dragonshield: 'Dragon Shield', tableau: 'un tableau' };
 
-  return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, fillSetSelect, IMPORT_SOURCES };
+  /**
+   * v3.70 (Arnaud : « règle les incohérences de ce genre sur toute l'appli ») : une seule façon de montrer une licence.
+   * licIc = son icône (celle du Combat, couleurs dans css/12-icones-licences.css) ; licCount = « 12 dans ton Dex ».
+   */
+  const licIc = (game, size = 18, cls = '') => { const g = App.games.info(game) || {}; return `<span class="lic-ic ${cls} g-${App.util.esc(game)}">${App.icons.icon(g.icon || 'sparkles', size)}</span>`; };
+  const licCount = (n) => `<small class="lic-n" title="Cartes de cette licence déjà dans ton Dex">${App.icons.icon('dex', 11)} ${n || 0} dans ton Dex</small>`;
+  return { favSetBtn, holoTier, setLogo, cropImage, progressBar, countHTML, cardTile, hydratePhotos, rarityRow, loading, errorBox, fillSetSelect, IMPORT_SOURCES, licIc, licCount };
 })();

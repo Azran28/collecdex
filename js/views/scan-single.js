@@ -674,8 +674,8 @@ Object.assign(App.views.scan, {
         if (!on()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         const warn = cands[0] && cands[0].confident ? '' : poorHtml(poor); // (carte sûre malgré tout : plus rien à dire)
-        setStatus((switched ? `<span class="small">${App.icons.icon(App.games.info(switched).icon, 14)} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b>${auto ? '' : ` : passage en ${esc(App.games.info(switched).name)}`}.</span>`
-          : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre jeu ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '') + warn);
+        setStatus((switched ? `<span class="small">${App.ui.licIc(switched, 11, 'lic-ic-xs')} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b>${auto ? '' : ` : passage en ${esc(App.games.info(switched).name)}`}.</span>`
+          : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre licence ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '') + warn);
         donCard = !!info.don;
         await display(cands, summary);
         // carte recadrée sur ses vrais bords en arrière-plan (texte sûr : on n'a pas attendu) — seulement si rien n'a changé entre-temps

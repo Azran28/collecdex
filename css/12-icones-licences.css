@@ -19,3 +19,12 @@
 /* petites tailles : liseré intérieur plus fin (sinon il mange l'icône) */
 @media (max-width: 760px) { .licences .game-tile .gicon, .lic-ic { box-shadow: var(--li-sh2, var(--li-sh, 0 4px 12px rgba(0,0,0,.3))); } }
 .g-pokemon { --li-sh2: 0 0 0 2px #1a1a2e inset, 0 4px 12px rgba(227,53,13,.4); }
+
+/* v3.70 : petite icône de licence dans un texte (pastilles d'Explorer sur ordinateur, « Licence reconnue », cadre de Capturer) */
+.lic-ic.lic-ic-xs { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; vertical-align: -5px; flex: none; }
+.lic-ic.lic-ic-xs { box-shadow: var(--li-sh2, 0 2px 6px rgba(0,0,0,.3)); }
+.g-pokemon .lic-ic-xs, .lic-ic-xs.g-pokemon { --li-sh2: 0 0 0 1.5px #1a1a2e inset; }
+.lic-ic.lic-all { background: linear-gradient(135deg, #ffd23f, #ff4fa3 40%, #7c5cff 70%, #34d5ff); color: #fff; }
+.chip .lic-ic-xs { margin-right: 2px; }
+button.lic-tile { font: inherit; cursor: pointer; text-align: left; width: 100%; }
+#c-gsw .game-sw { margin: 0 0 10px; }

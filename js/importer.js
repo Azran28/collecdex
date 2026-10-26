@@ -390,7 +390,7 @@ App.importer = (() => {
         out.push(row);
         return;
       }
-      if (cat && !/pok/.test(cat)) row.skip = 'autre jeu';
+      if (cat && !/pok/.test(cat)) row.skip = 'licence pas encore prise en charge';
       else if (/japan|japon/.test(cat) || row.lang === 'ja') row.skip = 'carte japonaise (pas encore prise en charge)';
       else if (!num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
       else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';

@@ -15,7 +15,7 @@ App.views.scan.singleScreen = (el, { gameOf, adOf, isPk, results, status, view }
   el.appendChild(box);
   const lock = (on) => document.documentElement.classList.toggle('sv-lock', on);
   let open = false, list = [], idx = 0, info = '', zoom = '', photo = '', mode = '';
-  const head = (label) => { const lic = App.games.info(G()); return `<div class="sv-top ss-top"><div class="bprog-lbl"><span>${label}</span>${lic ? `<b class="ss-lic">${App.icons.icon(lic.icon, 13)} ${esc(lic.name)}</b>` : ''}</div></div>`; };
+  const head = (label) => { const lic = App.games.info(G()); return `<div class="sv-top ss-top"><div class="bprog-lbl"><span>${label}</span>${lic ? `<b class="ss-lic">${App.ui.licIc(G(), 11, 'lic-ic-xs')} ${esc(lic.name)}</b>` : ''}</div></div>`; };
   const codeOf = (c) => esc(App.views.scan.codeOf(G(), c));
   const statusHtml = () => `<div class="ss-status">${status.innerHTML}</div>`;
 

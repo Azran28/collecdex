@@ -231,6 +231,12 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 ## Mêmes icônes de licences partout (v3.69)
 - Les icônes du Combat (pokéball, pièce d’or One Piece, rune Riftbound, joyau Lorcana, pyramide Yu-Gi-Oh!…) sont maintenant aussi sur l’**accueil**, dans **Capturer** (choix de la licence), dans **Explorer** (« Changer ») et dans les Objectifs. Petit reflet en haut, comme une pièce. Les licences sans combat (Magic, « Et au-delà… ») gardent leur couleur.
+
+## Licences : partout pareil (v3.70)
+- **Mon Dex** (téléphone) : le choix de la licence se fait comme dans Explorer et Objectifs — la licence choisie en haut, « Changer » déplie toutes tes licences en grille (avec « Toutes les licences »). Les séries et raretés proposées sont alors celles de cette licence. Sur ordinateur : la liste déroulante dit maintenant « Toutes les licences » (et plus « Tous les jeux »).
+- Le nombre sous chaque licence s’écrit partout pareil : « 12 dans ton Dex » (accueil, Capturer, Explorer, Mon Dex).
+- La petite icône de la licence (celle du Combat) apparaît aussi dans les pastilles d’Explorer sur ordinateur, dans le cadre de Capturer et dans « Licence reconnue ». Dans un combat, le bouton pour changer de licence s’appelle « Changer », comme ailleurs.
+- On parle partout de « licence » (plus de « jeu ») ; l’export Excel donne le bon nom de rareté pour chaque licence (avant : les noms Pokémon).
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
 - Quand tu valides la **dernière carte à vérifier** (« ✓ C’est elle » ou « Ne pas l’ajouter »), les cartes sont **enregistrées directement** et l’écran revient au scan de la page suivante : plus de passage par le récapitulatif. Pareil avec « Enregistrer » dans la liste détaillée. Le récapitulatif reste quand aucune carte n’est à vérifier (pour tout voir d’un coup d’œil avant d’enregistrer).
 - **Rafale** : la caméra se relance toute seule. **Classeur** : touche « Caméra » pour la page suivante (le téléphone ne permet pas d’ouvrir son appareil photo sans que tu touches un bouton).

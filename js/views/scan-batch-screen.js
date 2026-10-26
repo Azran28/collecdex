@@ -174,7 +174,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
           <button class="sv-f ${sv.filter ? '' : 'on'}" data-sv="filter" data-f="">Toutes <b>${shown.length}</b></button>
           ${chips.map((k) => `<button class="sv-f f-${k} ${sv.filter === k ? 'on' : ''}" data-sv="filter" data-f="${k}">${RECAP_F[k]} <b>${counts[k]}</b></button>`).join('')}</div>` : ''}
         <div class="sv-rows">${list.map(row).join('')}</div>
-        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre jeu). ` : ''}Touche une carte pour la changer, ou sa version (<b class="warn">?</b> = pas sûre) pour passer à la suivante.</div>
+        <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre licence). ` : ''}Touche une carte pour la changer, ou sa version (<b class="warn">?</b> = pas sûre) pour passer à la suivante.</div>
         <div class="sv-acts sv-final">
           <button class="btn primary" data-sv="save" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
           <button class="linkbtn" data-sv="close">Voir la liste détaillée</button>

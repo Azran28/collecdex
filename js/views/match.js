@@ -172,7 +172,7 @@
           <div class="bt-hero g-${game}">
             <span class="bt-hero-ic">${App.icons.icon(LC.icon, 22)}</span>
             <div class="bt-hero-t"><h1>${title}</h1><span class="small">${esc(LC.name)} · ${esc(LC.tag)}</span></div>
-            <a class="bt-hero-sw" href="#/combat">${App.icons.icon('swap', 14)} Licence</a>
+            <a class="bt-hero-sw" href="#/combat">${App.icons.icon('swap', 14)} Changer</a>
           </div>`;
         const beatenN = LVS.filter((L) => beaten[L.n]).length;
         let html;

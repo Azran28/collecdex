@@ -145,7 +145,7 @@ App.views.settings = {
       if (!items.length) return App.util.toast('Ton Dex est vide pour l’instant.');
       const num = (v) => (v ? String(Math.round(v * 100) / 100).replace('.', ',') : '');
       const rows = [['Jeu', 'Série', 'Numéro', 'Nom', 'Rareté', 'Quantité', 'Versions', 'Favorite', 'État', 'Prix marché', 'Devise', 'Valeur estimée (€)', 'Commentaire']];
-      for (const it of items) rows.push([App.games.info(it.game).name, it.snap.setName, it.snap.localId, it.snap.name, App.pokemonRarity.label(it.snap.rarity), it.qty, (it.variants || []).join(' '), it.favorite ? 'oui' : '', App.col.condLabel(it.cond), it.price && it.price.value != null ? String(it.price.value).replace('.', ',') : '', it.price ? it.price.unit || '' : '', num(App.col.valueOf(it)), it.note || '']);
+      for (const it of items) rows.push([App.games.info(it.game).name, it.snap.setName, it.snap.localId, it.snap.name, ((App.games.get(it.game) || {}).rarity || App.pokemonRarity).label(it.snap.rarity), it.qty, (it.variants || []).join(' '), it.favorite ? 'oui' : '', App.col.condLabel(it.cond), it.price && it.price.value != null ? String(it.price.value).replace('.', ',') : '', it.price ? it.price.unit || '' : '', num(App.col.valueOf(it)), it.note || '']);
       const csv = '\ufeff' + rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

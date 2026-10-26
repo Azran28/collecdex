@@ -16,9 +16,10 @@ App.views.collection = {
         <button class="btn sm" id="c-prices" title="Actualiser les prix" aria-label="Actualiser les prix">↻<span class="m-hide"> Prix</span></button>
       </div>
       <div class="stats" id="c-stats"></div>
+      <div id="c-gsw"></div>
       <div class="toolbar">
         <input type="search" id="c-q" placeholder="Rechercher une carte…">
-        <select id="c-game"></select>
+        <select id="c-game" class="m-hide"></select>
         <select id="c-set"></select>
         <select id="c-rar"></select>
         <select id="c-sort">
@@ -48,10 +49,21 @@ App.views.collection = {
     const grid = el.querySelector('#c-grid');
 
     const fillSelects = () => {
-      const items = App.col.all().filter((i) => i.qty > 0);
+      let items = App.col.all().filter((i) => i.qty > 0);
       const opt = (v, l, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
       const games = [...new Set(items.map((i) => i.game))];
-      el.querySelector('#c-game').innerHTML = opt('', 'Tous les jeux', state.game) + games.map((g) => opt(g, App.games.info(g).name, state.game)).join('');
+      el.querySelector('#c-game').innerHTML = opt('', 'Toutes les licences', state.game) + games.map((g) => opt(g, App.games.info(g).name, state.game)).join('');
+      // téléphone (v3.70) : même choix de licence qu'Explorer et Objectifs (« Changer » → grille), avec « Toutes les licences »
+      const count = {}; for (const i of items) count[i.game] = (count[i.game] || 0) + 1;
+      const cur = state.game && App.games.info(state.game);
+      el.querySelector('#c-gsw').innerHTML = games.length < 2 ? '' : `<details class="game-sw d-hide">
+        <summary>${cur ? App.ui.licIc(state.game, 18) : `<span class="lic-ic lic-all">${App.icons.icon('sparkles', 18)}</span>`}<b>${esc(cur ? cur.name : 'Toutes les licences')}</b><span class="spacer"></span><span class="gs-ch">${App.icons.icon('swap', 14)} Changer</span></summary>
+        <div class="lic-grid">
+          <button class="lic-tile lic-auto${state.game ? '' : ' last'}" data-cg=""><span class="lic-ic">${App.icons.icon('sparkles', 20)}</span><span class="lic-t"><b>Toutes les licences</b>${App.ui.licCount(items.length)}</span></button>
+          ${App.games.list.filter((g) => games.includes(g.id)).map((g) => `<button class="lic-tile${g.id === state.game ? ' last' : ''}" data-cg="${esc(g.id)}">${App.ui.licIc(g.id, 20)}<span class="lic-t"><b>${esc(g.name)}</b>${App.ui.licCount(count[g.id])}</span></button>`).join('')}
+        </div></details>`;
+      // séries et raretés : seulement celles de la licence choisie
+      if (state.game) items = items.filter((i) => i.game === state.game);
       const sets = new Map(items.map((i) => [i.setId, i.snap.setName]));
       el.querySelector('#c-set').innerHTML = opt('', 'Toutes les séries', state.set) + [...sets].sort((a, b) => a[1].localeCompare(b[1], 'fr')).map(([id, n]) => opt(id, n, state.set)).join('');
       // rareté → licence (noms et ordre propres à chaque jeu : « SuperRare » One Piece = « Super rare »)
@@ -134,8 +146,12 @@ App.views.collection = {
 
     el.querySelector('#c-q').addEventListener('input', debounce((e) => { state.q = e.target.value; draw(); }, 200));
     for (const [id, k] of [['#c-game', 'game'], ['#c-set', 'set'], ['#c-rar', 'rarity'], ['#c-sort', 'sort']]) {
-      el.querySelector(id).addEventListener('change', (e) => { state[k] = e.target.value; draw(); });
+      el.querySelector(id).addEventListener('change', (e) => { state[k] = e.target.value; if (k === 'game') { state.set = ''; state.rarity = ''; fillSelects(); } draw(); });
     }
+    el.querySelector('#c-gsw').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-cg]'); if (!b) return;
+      const s = el.querySelector('#c-game'); s.value = b.dataset.cg; s.dispatchEvent(new Event('change'));
+    });
     el.querySelector('#c-flag').addEventListener('click', (e) => {
       const b = e.target.closest('[data-flag]'); if (!b) return;
       state.flag = b.dataset.flag;

@@ -17,7 +17,7 @@ App.views.scan = {
     return `<div class="scan-empty">
       <div class="se-frame ${mode === 'classeur' ? 'grid' : ''}" ${grid}>${mode === 'classeur' ? `${'<i></i>'.repeat(c * r)}` : App.icons.icon(mode === 'rafale' ? 'rafale' : 'capture', 40)}</div>
       <b>${mode === 'classeur' ? `Photo d’une page de classeur <span class="muted">(${c * r} cartes)</span>` : mode === 'rafale' ? 'Tes cartes, l’une après l’autre' : 'Photo de ta carte'}</b>
-      ${App.views.scan.curName ? `<em class="se-lic">${App.util.esc(App.views.scan.curName)}</em>` : ''}
+      ${App.views.scan.curName ? `<em class="se-lic">${App.views.scan.curGame && App.views.scan.curGame !== App.views.scan.AUTO ? App.ui.licIc(App.views.scan.curGame, 11, 'lic-ic-xs') + ' ' : ''}${App.util.esc(App.views.scan.curName)}</em>` : ''}
       ${mode !== 'classeur' && App.views.scan.certWanted(mode) ? App.views.scan.certSteps(mode) : `<span>${mode === 'rafale' ? 'Appuie sur « Démarrer la rafale » ou « Choisir des photos »' : 'Appuie sur « Caméra » ou « Choisir une photo »'}</span>`}
     </div>`;
   },
@@ -185,7 +185,7 @@ App.views.scan = {
   /** « Licence reconnue toute seule » / « Licence reconnue : Riftbound » */
   autoLabel(game, found) {
     const g = App.games.info(game);
-    return found && g ? `${App.icons.icon(g.icon, 13)} Licence reconnue : <b>${App.util.esc(g.name)}</b>` : 'La licence de chaque carte est reconnue toute seule';
+    return found && g ? `${App.ui.licIc(game, 11, 'lic-ic-xs')} Licence reconnue : <b>${App.util.esc(g.name)}</b>` : 'La licence de chaque carte est reconnue toute seule';
   },
   /** Met à jour les puces après une carte reconnue en mode « Toutes » */
   showAutoGame(root, game) {
@@ -208,7 +208,7 @@ App.views.scan = {
     const games = App.views.scan.games(), soon = App.games.list.filter((g) => g.status !== 'actif' && g.id !== 'autres');
     const lastCls = (id) => (id === last ? ' last' : '');
     // nombre de cartes de la licence dans le Dex : petite icône du Dex + « 12 dans ton Dex » (v3.13 : on ne savait pas ce qu'était ce nombre)
-    const n = (k) => `<small class="lic-n" title="Cartes de cette licence déjà dans ton Dex">${I('dex', 11)} ${count[k] || 0} dans ton Dex</small>`;
+    const n = (k) => App.ui.licCount(count[k]);
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › Capturer</div>
       <h1 style="margin:0 0 2px">Capturer</h1>
@@ -288,7 +288,7 @@ App.views.scan = {
     const link = (m) => `#/scan?${[m ? 'mode=' + m : '', jq].filter(Boolean).join('&')}`;
     // licence choisie (v3.12 : plus de puces de licence ici — on la change avec la flèche retour / « Capturer »)
     const q = params.query.jeu, licName = q === App.views.scan.AUTO ? 'Toutes les licences' : (App.games.info(q || 'pokemon') || { name: 'Pokémon' }).name;
-    App.views.scan.curName = licName; // (rappelé dans le cadre vide : « Riftbound »)
+    App.views.scan.curName = licName; App.views.scan.curGame = q || 'pokemon'; // (rappelé dans le cadre vide : « Riftbound »)
     // téléphone (v3.13, Arnaud : « choix plus clair ») : une phrase sous les onglets dit ce que fait le mode choisi
     const MODE_HINT = {
       carte: '<b>Une carte</b> : une photo par carte. La plus fiable, et la seule qui peut <b>certifier</b> ta carte.',

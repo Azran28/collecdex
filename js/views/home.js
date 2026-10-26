@@ -42,7 +42,7 @@ App.views.home = {
             <div class="gicon">${App.icons.icon(g.icon, 26)}</div>
             <div class="gtxt">
               <h3>${esc(g.name)}</h3>
-              <div class="muted small">${on ? `<b style="color:var(--text)">${n}</b> carte${n > 1 ? 's' : ''}<span class="m-hide"> · </span>` : `<span class="d-hide">${esc(g.status)}</span>`}<span class="m-hide">${esc(g.desc)}</span></div>
+              <div class="muted small">${on ? App.ui.licCount(n) : `<span class="d-hide">${esc(g.status)}</span>`}<span class="m-hide">${esc(g.desc)}</span></div>
             </div>
             <span class="pill tag m-hide">${on ? 'dispo' : esc(g.status)}</span>
           </a>`;

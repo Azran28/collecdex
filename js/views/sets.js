@@ -28,11 +28,11 @@ App.views.sets = {
     const count = {};
     for (const it of App.col.all()) if (it.qty > 0) count[it.game] = (count[it.game] || 0) + 1;
     // PC : rangée de pastilles ; téléphone : la licence choisie, qui déplie toutes les licences en grille (pas de défilement de côté)
-    return `<div class="chips game-pick m-hide" role="tablist">${on.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/jeu/${g.id}" role="tab" aria-selected="${g.id === game}">${App.icons.icon(g.icon, 14)} ${esc(g.name)}</a>`).join('')}</div>
+    return `<div class="chips game-pick m-hide" role="tablist">${on.map((g) => `<a class="chip ${g.id === game ? 'on' : ''}" href="#/jeu/${g.id}" role="tab" aria-selected="${g.id === game}">${App.ui.licIc(g.id, 12, 'lic-ic-xs')} ${esc(g.name)}</a>`).join('')}</div>
       <details class="game-sw d-hide">
-        <summary class="g-${cur.id}"><span class="lic-ic">${App.icons.icon(cur.icon, 18)}</span><b>${esc(cur.name)}</b><span class="spacer"></span><span class="gs-ch">${App.icons.icon('swap', 14)} Changer</span></summary>
+        <summary>${App.ui.licIc(cur.id, 18)}<b>${esc(cur.name)}</b><span class="spacer"></span><span class="gs-ch">${App.icons.icon('swap', 14)} Changer</span></summary>
         <div class="lic-grid">${on.map((g) => `<a class="lic-tile g-${g.id}${g.id === game ? ' last' : ''}" href="#/jeu/${g.id}">
-          <span class="lic-ic">${App.icons.icon(g.icon, 20)}</span><span class="lic-t"><b>${esc(g.name)}</b><small>${count[g.id] || 0} carte${(count[g.id] || 0) > 1 ? 's' : ''}</small></span></a>`).join('')}</div>
+          ${App.ui.licIc(g.id, 20)}<span class="lic-t"><b>${esc(g.name)}</b>${App.ui.licCount(count[g.id])}</span></a>`).join('')}</div>
       </details>`;
   },
 
