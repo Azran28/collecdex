@@ -36,7 +36,7 @@ Copier la structure de `lorcana.js` : en-tête qui explique sources et identifia
 App.games.register('<id>', { id, name, listSets, getSet, getCard, search, versions, byCode, setIdsByName, price, img, recognize, manual, codesIn, names,
   visualCheck, langFor, cardmarketUrl, boosterUrl, isOfficial, logoText, extraLabel, priceNote, rarity, pullRates: () => null, source: { name, url } });
 ```
-- `registry.js` : passer la ligne en `status: 'actif'`, icône dédiée (nouvelle icône SVG dans `js/icons.js`, trait simple comme les autres), courte description.
+- `registry.js` : passer la ligne en `status: 'actif'`, icône dédiée (nouvelle icône SVG dans `js/icons.js`, trait simple comme les autres), courte description. Ajouter aussi sa ligne de couleurs dans `css/12-icones-licences.css` (mêmes couleurs que son icône de combat `.bt-lic-ic`) : c'est l'icône de la licence partout (accueil, Capturer, Explorer).
 - `index.html` : `<script src="js/games/<id>.js?v=…" defer></script>` à côté des autres adaptateurs ; **CSP** : ajouter tout nouveau domaine dans `connect-src` / `img-src` (sinon bloqué en silence).
 - `sw.js` : si les visuels passent par un nouveau domaine, l'ajouter là où sont mis en cache ceux de One Piece / Riftbound.
 - `css/02-theme.css` : `.g-<id> { --g: linear-gradient(…) }` (couleur de la licence) ; habillage du combat : `css/09-combat-licences.css` ; Explorer / Objectifs : la rangée `.game-pick` défile déjà sur téléphone (`sets.showPick`).

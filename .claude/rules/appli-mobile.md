@@ -33,3 +33,6 @@ Mode d'emploi de Capturer (v2.46) : `open(slides, key, label, last)`, `scanSlide
 
 ## Installation et service worker
 `js/install.js` (`App.install`) + `sw.js` + `manifest.webmanifest` + `icons/`. Le service worker ne touche jamais `version.json`, l'API TCGdex, ni Supabase ; pages en réseau d'abord ; fichiers `?v=` gardés (seule la dernière version de chaque fichier) ; visuels `assets.tcgdex.net` gardés (1500 max, réessais puis requête d'origine sans CORS) ; polices, bibliothèques CDN, modèle `/tfjs-models/`, images.weserv.nl, index `data/…?v=` gardés. v3.36 : bibliothèques à version figée (`@5.1.1`, `…/4.0.0_best_int/`), modèle et langue = copie gardée seule, sans nouveau téléchargement en arrière-plan (polices : toujours rafraîchies). Seule l'appli est gardée hors ligne sous « ./ » (les autres pages HTML sous leur adresse). `push` + `notificationclick` (voir `supabase.md`).
+
+## Icônes des licences (v3.69)
+- Une seule apparence partout = celle du Combat : `css/12-icones-licences.css` (dernier fichier CSS) met `--li-bg / --li-fg / --li-sh` sur `.g-<licence>` et les applique à `.game-tile .gicon` et `.lic-ic` (+ reflet `::after` aussi sur `.bt-lic-ic` / `.bt-hero-ic`). **Nouvelle licence** : ajouter sa ligne ici (mêmes couleurs que son `.bt-lic-ic`), sinon elle garde sa couleur `--g`.

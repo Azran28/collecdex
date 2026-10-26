@@ -228,6 +228,9 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - En **Une carte**, quand le scanner est **sûr à 100 %** de la carte (et de son impression), elle est **ajoutée directement** : rien à vérifier, le bandeau vert « ✓ … ajoutée — Reconnue avec certitude » s’affiche quelques secondes et la caméra est prête pour la suivante. Si tu l’as déjà, seule la question « doublon ou même carte » reste. Pas sûr → l’écran de choix comme avant.
 - Pendant la lecture, ta carte ne passe plus en plein écran : elle reste dans le cadre de la page, avec le rayon de scan.
 
+
+## Mêmes icônes de licences partout (v3.69)
+- Les icônes du Combat (pokéball, pièce d’or One Piece, rune Riftbound, joyau Lorcana, pyramide Yu-Gi-Oh!…) sont maintenant aussi sur l’**accueil**, dans **Capturer** (choix de la licence), dans **Explorer** (« Changer ») et dans les Objectifs. Petit reflet en haut, comme une pièce. Les licences sans combat (Magic, « Et au-delà… ») gardent leur couleur.
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
 - Quand tu valides la **dernière carte à vérifier** (« ✓ C’est elle » ou « Ne pas l’ajouter »), les cartes sont **enregistrées directement** et l’écran revient au scan de la page suivante : plus de passage par le récapitulatif. Pareil avec « Enregistrer » dans la liste détaillée. Le récapitulatif reste quand aucune carte n’est à vérifier (pour tout voir d’un coup d’œil avant d’enregistrer).
 - **Rafale** : la caméra se relance toute seule. **Classeur** : touche « Caméra » pour la page suivante (le téléphone ne permet pas d’ouvrir son appareil photo sans que tu touches un bouton).

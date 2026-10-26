@@ -1,0 +1,21 @@
+/* ===== v3.69 : l'icône de chaque licence = celle du Combat, partout (accueil, Explorer, Capturer, Objectifs)
+   (Arnaud : « les mêmes icônes des licences sur la home et le combat, prends celles du combat, plus sympa »)
+   Mêmes couleurs que 09-combat-licences.css / 11-combat-dragonball.css. Licence sans icône de combat : sa couleur --g. ===== */
+.g-pokemon { --li-bg: linear-gradient(180deg, #ff4a2b 0 50%, #fff 50%); --li-fg: #1a1a2e; --li-sh: 0 0 0 3px #1a1a2e inset, 0 6px 18px rgba(227,53,13,.45); }
+.g-onepiece { --li-bg: radial-gradient(circle at 35% 30%, #ffe7a0, #e8b04a 55%, #9a5c12); --li-fg: #3b230f; --li-sh: 0 6px 18px rgba(232,176,74,.45); }
+.g-riftbound { --li-bg: radial-gradient(circle at 35% 30%, #c9fbff, #3fd4e0 50%, #14527e); --li-fg: #07162e; --li-sh: 0 0 0 2px #c8a24a inset, 0 6px 18px rgba(63,212,224,.45); }
+.g-lorcana { --li-bg: radial-gradient(circle at 35% 30%, #efe7ff, #8f6bff 50%, #2a1f5c); --li-fg: #fff6dc; --li-sh: 0 0 0 2px #e7c36a inset, 0 6px 18px rgba(143,107,255,.45); }
+.g-yugioh { --li-bg: radial-gradient(circle at 35% 30%, #fff1c2, #e2b54a 50%, #7a3b1d); --li-fg: #2a1206; --li-sh: 0 0 0 2px #5a2a12 inset, 0 6px 18px rgba(226,181,74,.45); }
+.g-finalfantasy { --li-bg: radial-gradient(circle at 35% 30%, #e6f8ff, #5fb4f0 50%, #173f86); --li-fg: #fff; --li-sh: 0 0 0 2px #b9c0cf inset, 0 6px 18px rgba(95,180,240,.45); }
+.g-wankul { --li-bg: linear-gradient(135deg, #ffe9a6, #f5b82e 50%, #b8700c); --li-fg: #16287a; --li-sh: 0 0 0 2px #0d1a52 inset, 0 6px 18px rgba(245,184,46,.4); }
+.g-starwars { --li-bg: linear-gradient(135deg, #fff3a6, #ffd21f 50%, #b8860b); --li-fg: #0a0d1c; --li-sh: 0 0 0 2px #05060c inset, 0 6px 18px rgba(255,210,31,.35); }
+.g-dragonball { --li-bg: linear-gradient(135deg, #ffe7a3, #ff9d1c 50%, #c55a00); --li-fg: #0a0d1c; --li-sh: 0 0 0 2px #05060c inset, 0 6px 18px rgba(255,157,28,.35); }
+.game-tile .gicon, .lic-ic { background: var(--li-bg, var(--g, #2a2f52)); color: var(--li-fg, #fff); box-shadow: var(--li-sh, 0 6px 16px rgba(0,0,0,.35)); }
+/* un léger reflet en haut, comme une pièce (toutes les icônes) */
+.game-tile .gicon, .lic-ic, .bt-lic-ic, .bt-hero-ic { position: relative; overflow: hidden; }
+.game-tile .gicon::after, .lic-ic::after, .bt-lic-ic::after, .bt-hero-ic::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(160deg, rgba(255,255,255,.35), rgba(255,255,255,0) 42%); }
+.game-tile .gicon .ic, .lic-ic .ic, .bt-lic-ic .ic, .bt-hero-ic .ic { position: relative; z-index: 1; }
+/* petites tailles : liseré intérieur plus fin (sinon il mange l'icône) */
+@media (max-width: 760px) { .licences .game-tile .gicon, .lic-ic { box-shadow: var(--li-sh2, var(--li-sh, 0 4px 12px rgba(0,0,0,.3))); } }
+.g-pokemon { --li-sh2: 0 0 0 2px #1a1a2e inset, 0 4px 12px rgba(227,53,13,.4); }
