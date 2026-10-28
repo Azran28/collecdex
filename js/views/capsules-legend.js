@@ -21,6 +21,8 @@ App.capsuleLegend = (() => {
   const stars = (n) => `<div class="lg-stars"><i style="box-shadow:${Array.from({ length: n }, () => `${rnd(0, 100).toFixed(1)}vw ${rnd(0, 100).toFixed(1)}vh 0 ${Math.random() < 0.15 ? 1 : 0}px rgba(255,255,255,${rnd(0.3, 1).toFixed(2)})`).join(',')}"></i></div>`;
   const shocks = (n = 2) => dots(n, (i) => `<div class="lg-shock r${i + 1}"></div>`);
   const BOLT = '<path d="M38 0 L14 92 L32 92 L8 200 L52 74 L32 74 L50 0 Z"/>';
+  // aile droite de Lugia (dessin original) : l'épaule en (0, 100), cinq grandes plumes aux pointes sombres
+  const WING = 'M0 96 C 50 40, 150 6, 292 14 C 262 34, 250 44, 278 56 C 232 64, 220 76, 252 90 C 204 96, 192 108, 220 124 C 168 124, 140 138, 152 162 C 104 152, 60 136, 0 122 Z';
 
   const LEGENDS = {
     // Groudon : la sécheresse — un soleil écrasant, le sol se fend, la lave remonte
@@ -48,23 +50,22 @@ App.capsuleLegend = (() => {
       steps: [[0, 'lg-on'], [200, 'lg-l1'], [900, 'lg-bolt1'], [1500, 'lg-rise'], [2400, 'lg-bolt2'], [2900, 'lg-surge'], [3150, 'q']],
       burst: 3600,
     },
-    // Rayquaza (le 2e plus important après Arceus) : il veille dans la couche d'ozone, traverse le ciel étoilé,
-    // plonge à travers les nuages et fond comme une comète sur la tempête de Groudon et Kyogre, qu'il disperse
+    // Rayquaza (le 2e plus important après Arceus) : furieux et dangereux — un orage noir, deux yeux qui s'ouvrent
+    // dans les nuages, l'écran vire au rouge, il charge une sphère d'énergie qui aspire tout, puis un rayon pulvérise la capsule
     384: {
-      key: 'rayquaza', title: 'Gardien du ciel', vars: { '--lgf': '#eafff1', '--lgr': '#7dffb0' },
-      back: () => `${sky('linear-gradient(#000 0%, #040818 55%, #0b2346 82%, #2f8fe0 100%)')}${stars(160)}<div class="lg-earth"></div>
-        <svg class="lg-serpent" viewBox="0 0 1000 220" preserveAspectRatio="none" aria-hidden="true">
-          <path class="edge" d="M-260 130 C -60 30, 120 210, 330 110 S 640 20, 860 120 S 1120 190, 1300 90"/><path class="body" d="M-260 130 C -60 30, 120 210, 330 110 S 640 20, 860 120 S 1120 190, 1300 90"/><path class="belly" d="M-260 130 C -60 30, 120 210, 330 110 S 640 20, 860 120 S 1120 190, 1300 90"/>
-          <path class="rings" d="M-260 130 C -60 30, 120 210, 330 110 S 640 20, 860 120 S 1120 190, 1300 90"/></svg>
-        <div class="lg-clouds">${dots(7, (i) => `<i style="left:${rnd(-10, 80).toFixed(0)}%;--dl:${(i * 0.12).toFixed(2)}s;--w:${rnd(120, 260).toFixed(0)}px"></i>`)}</div>
-        <div class="lg-speed"></div>
-        <div class="lg-half left"><div class="lg-sun"></div></div><div class="lg-half right"><div class="lg-rain"></div></div>
-        <div class="lg-clear"></div><div class="lg-godrays"></div>${shocks(3)}
-        ${text('Au-dessus des nuages, là où l’air se raréfie…', '…le gardien du ciel veille.', 'En bas, la tempête fait rage… Il fond sur elle !')}`,
-      front: () => '<div class="lg-comet"></div>',
-      steps: [[0, 'lg-on'], [200, 'lg-l1'], [1200, 's-serp'], [1500, 'q'], [2500, 'lg-l2'], [3300, 's-dive'], [3350, 'q'], [3900, 'q'],
-        [4500, 's-storm'], [4600, 'lg-l3'], [5000, 'q'], [5500, 's-comet'], [5950, 's-impact'], [5950, 'f'], [5970, 'q'], [6000, 'r']],
-      burst: 6500,
+      key: 'rayquaza', title: 'Seigneur des cieux', vars: { '--lgf': '#eafff1', '--lgr': '#7dffb0' },
+      back: () => `${sky('linear-gradient(#010302 0%, #04100a 45%, #0a1c12 100%)')}
+        <div class="lg-storm">${dots(8, (i) => `<i style="left:${(i * 13 - 10 + rnd(-4, 4)).toFixed(0)}%;top:${rnd(-6, 30).toFixed(0)}%;--w:${rnd(220, 380).toFixed(0)}px;--dl:${rnd(0, 2).toFixed(2)}s"></i>`)}</div>
+        <div class="lg-eyes"><i class="l"></i><i class="r"></i></div><div class="lg-danger"></div>
+        <div class="lg-gather">${dots(30, () => `<i style="--a:${rnd(0, 360).toFixed(0)}deg;--d:${rnd(120, 240).toFixed(0)}px;--dl:${rnd(0, 0.9).toFixed(2)}s;--s:${rnd(5, 11).toFixed(1)}px"></i>`)}</div>
+        <div class="lg-charge"></div><div class="lg-blast"></div>
+        ${parts(26, 'up', '#7dffb0', '', [3, 7], [1.4, 2.6])}
+        ${text('Le ciel s’assombrit d’un coup…', 'Quelque chose gronde au-dessus des nuages…', 'Il est furieux.')}`,
+      front: () => `<div class="lg-beam"></div>
+        <div class="lg-debris">${dots(20, () => `<i style="--a:${rnd(0, 360).toFixed(0)}deg;--d:${rnd(120, 260).toFixed(0)}px;--rt:${rnd(-300, 300).toFixed(0)}deg;--s:${rnd(8, 20).toFixed(0)}px"></i>`)}</div>`,
+      steps: [[0, 'lg-on'], [200, 'lg-l1'], [900, 's-thunder'], [950, 'q'], [1600, 'lg-l2'], [1900, 's-eyes'], [1950, 'q'], [2700, 's-glare'], [2750, 'q'],
+        [3400, 'lg-l3'], [3600, 's-charge'], [3700, 'q'], [4300, 'q'], [4900, 'q'], [5300, 's-beam'], [5600, 's-impact'], [5600, 'f'], [5620, 'q'], [5650, 'lg-p'], [6100, 'q']],
+      burst: 6600,
     },
     // Mewtwo : le laboratoire du 1er film — la cuve, l'alarme, le verre qui se fend puis vole en éclats,
     // figé en l'air par la télékinésie, puis une onde psy
@@ -107,15 +108,22 @@ App.capsuleLegend = (() => {
         [3300, 's-unflip'], [3300, 'f'], [3350, 'r']],
       burst: 3800,
     },
-    // Lugia : la mer en furie, un tourbillon géant, des plumes argentées, une colonne d'eau, un chant au loin
+    // Lugia : la tempête sur l'océan ; une lueur argentée monte des profondeurs, la mer se soulève,
+    // d'immenses ailes se déploient et d'un battement chassent la tempête : ciel calme, lune, étoiles
     249: {
-      key: 'lugia', title: 'Gardien des mers', vars: { '--lgf': '#e8f3ff', '--lgr': '#bfe0ff', '--sea': 'rgba(20,60,120,.85)', '--wave': 'rgba(20,60,120,.85)' },
-      back: () => `${sky('linear-gradient(#01030a, #071530 55%, #0e2a52)')}<div class="lg-moon"></div><div class="lg-vortex"></div>
-        <div class="lg-pillar"></div>${parts(16, 'down', '#e9f2ff', 'feather', [6, 12], [2.6, 4])}${shocks(2)}
-        ${text('Les mers se déchaînent…', 'Le gardien des mers s’élève.')}`,
-      front: () => '<div class="lg-sea low"><div class="lg-wave w1"></div><div class="lg-wave w2"></div></div>',
-      steps: [[0, 'lg-on'], [200, 'lg-l1'], [700, 's-vortex'], [1500, 'q'], [1900, 'lg-p'], [2300, 'lg-l2'], [2700, 's-pillar'], [2750, 'q'], [3300, 'f'], [3350, 'r']],
-      burst: 3800,
+      key: 'lugia', title: 'Gardien des mers', vars: { '--lgf': '#eef5ff', '--lgr': '#cfe2ff' },
+      back: () => `${sky('linear-gradient(#010309 0%, #050c1c 50%, #0a1830 100%)')}
+        <div class="lg-calm">${stars(150)}<div class="lg-moon"></div></div>
+        <div class="lg-storm sea">${dots(8, (i) => `<i style="left:${(i * 13 - 10 + rnd(-4, 4)).toFixed(0)}%;top:${rnd(-6, 34).toFixed(0)}%;--w:${rnd(220, 380).toFixed(0)}px;--dl:${rnd(0, 2).toFixed(2)}s"></i>`)}</div>
+        <svg class="lg-wings" viewBox="-300 -40 600 260" aria-hidden="true"><defs>
+          <linearGradient id="lgwingr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4f8ff"/><stop offset=".62" stop-color="#cdd9f2"/><stop offset=".86" stop-color="#7d93c9"/><stop offset="1" stop-color="#34477f"/></linearGradient>
+          <linearGradient id="lgwingl" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#f4f8ff"/><stop offset=".62" stop-color="#cdd9f2"/><stop offset=".86" stop-color="#7d93c9"/><stop offset="1" stop-color="#34477f"/></linearGradient></defs>
+          <path fill="url(#lgwingr)" d="${WING}" transform="rotate(-20 0 100)"/><path fill="url(#lgwingl)" d="${WING}" transform="scale(-1 1) rotate(-20 0 100)"/></svg>
+        ${text('La tempête fait rage sur l’océan…', 'Une lueur argentée monte des profondeurs…', 'Le gardien des mers déploie ses ailes.')}`,
+      front: () => `<div class="lg-ocean"><div class="lg-deep"></div></div>${parts(26, 'up', 'rgba(225,240,255,.9)', 'drop', [6, 14], [0.9, 1.6])}`,
+      steps: [[0, 'lg-on'], [200, 'lg-l1'], [900, 's-thunder'], [1500, 'lg-l2'], [1500, 's-glow'], [2300, 's-swell'], [2350, 'q'], [2900, 'lg-l3'],
+        [3000, 's-wings'], [3000, 'lg-p'], [3050, 'q'], [3700, 's-beat'], [3750, 's-calm'], [4100, 'f'], [4150, 'r']],
+      burst: 4500,
     },
     // Ho-Oh : le premier épisode — un arc-en-ciel traverse le ciel, une plume aux sept couleurs tombe, les cloches sonnent
     250: {
@@ -148,18 +156,18 @@ App.capsuleLegend = (() => {
       steps: [[0, 'lg-on'], [200, 'lg-l1'], [500, 's-clock'], [1300, 's-past'], [1400, 'lg-p'], [2000, 'lg-l2'], [2600, 'r'], [3100, 'f']],
       burst: 3500,
     },
-    // Deoxys : une météorite traverse l'espace et s'écrase, son ADN se transforme, son cristal violet s'allume
+    // Deoxys : une boule de feu venue de l'espace grossit en approchant et s'écrase (explosion, fumée, débris),
+    // puis son ADN se transforme (double hélice de points lumineux orange et bleus)
     386: {
-      key: 'deoxys', vars: { '--lgf': '#ffd2a6', '--lgr': '#ff9a3c' },
-      back: () => `${sky('linear-gradient(#000, #070312 60%, #140a26)')}${stars(120)}
-        <svg class="lg-dna" viewBox="0 0 120 400" preserveAspectRatio="none" aria-hidden="true">
-          <path class="a" d="M30 0 C 90 50, 90 50, 30 100 S -30 150, 30 200 S 90 250, 30 300 S -30 350, 30 400"/>
-          <path class="b" d="M90 0 C 30 50, 30 50, 90 100 S 150 150, 90 200 S 30 250, 90 300 S 150 350, 90 400"/>
-          ${dots(16, (i) => `<path class="rung" d="M${i % 2 ? 40 : 50} ${12 + i * 25} H${i % 2 ? 80 : 70}"/>`)}</svg>
-        <div class="lg-core"></div>${shocks(3)}${text('Une météorite tombe du ciel…', 'Son ADN se transforme.')}`,
-      front: () => '<div class="lg-meteor"></div>',
-      steps: [[0, 'lg-on'], [200, 'lg-l1'], [600, 's-fall'], [1250, 's-hit'], [1250, 'f'], [1280, 'q'], [1300, 'r'], [1800, 's-dna'], [2000, 'lg-l2'], [2600, 's-core'], [3100, 'f']],
-      burst: 3500,
+      key: 'deoxys', vars: { '--lgf': '#ffe2c2', '--lgr': '#ff9a3c' },
+      back: () => `${sky('linear-gradient(#000, #05020d 60%, #120822)')}${stars(140)}<div class="lg-nebula"></div>
+        <div class="lg-fireball"></div><div class="lg-smoke"></div>
+        <div class="lg-helix">${dots(14, (i) => `<i class="a" style="--i:${i}"></i><i class="b" style="--i:${i}"></i>`)}</div>
+        ${parts(20, 'up', '#ff9a3c', '', [2, 5], [1.5, 2.8])}${text('Une boule de feu fonce vers toi…', 'Son ADN se transforme.')}`,
+      front: () => `<div class="lg-rock"><div class="lg-fall"><div class="lg-tail"></div><div class="lg-head"></div></div></div>
+        <div class="lg-debris">${dots(18, () => `<i style="--a:${rnd(180, 360).toFixed(0)}deg;--d:${rnd(110, 230).toFixed(0)}px;--rt:${rnd(-300, 300).toFixed(0)}deg;--s:${rnd(7, 16).toFixed(0)}px"></i>`)}</div>`,
+      steps: [[0, 'lg-on'], [200, 'lg-l1'], [400, 's-fall'], [1650, 's-impact'], [1650, 'f'], [1680, 'q'], [2300, 'lg-l2'], [2400, 's-dna'], [2400, 'lg-p'], [3300, 'f']],
+      burst: 3700,
     },
     // Shaymin : des Gracidées s'ouvrent partout sur l'écran, puis une rafale de pétales
     492: {

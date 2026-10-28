@@ -266,9 +266,9 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 ## Apparitions des grands légendaires et souvenirs (v3.76)
 - 12 Pokémon ont maintenant leur propre apparition, **impossible à passer la première fois** (on peut la passer ensuite) : le tirage ne change pas.
-  - **Rayquaza** (~7 s, le plus spectaculaire après Arceus, bannière « Gardien du ciel ») : la couche d'ozone et les étoiles, son corps qui traverse le ciel, le plongeon à travers les nuages, la tempête de Groudon et Kyogre, la comète verte qui la disperse.
+  - **Rayquaza** (~7 s, le plus spectaculaire après Arceus, bannière « Seigneur des cieux ») : un orage noir, deux yeux furieux s'ouvrent dans les nuages, l'écran vire au rouge, il charge une sphère d'énergie qui aspire tout, puis un rayon pulvérise la capsule.
   - **Mewtwo** (~5,5 s, « Créé par l'homme ») : la cuve du labo, l'alarme, le verre qui se fend, éclate et se fige par télékinésie, l'onde psy.
-  - **Groudon** (sécheresse), **Kyogre** (déluge), **Mew** (bulle rose… et le camion des rumeurs), **Giratina** (Monde Distorsion à l'envers), **Lugia** (« Gardien des mers »), **Ho-Oh** (arc-en-ciel et plume), **Celebi** (horloge à l'envers, sépia), **Deoxys** (météorite et ADN), **Shaymin** (Gracidées), **Léviator rouge** (seulement le chromatique, lac Colère).
+  - **Groudon** (sécheresse), **Kyogre** (déluge), **Mew** (bulle rose… et le camion des rumeurs), **Giratina** (Monde Distorsion à l'envers), **Lugia** (tempête sur l'océan, lueur des profondeurs, grandes ailes, le calme revient ; « Gardien des mers »), **Ho-Oh** (arc-en-ciel et plume), **Celebi** (horloge à l'envers, sépia), **Deoxys** (boule de feu, explosion, ADN en points lumineux), **Shaymin** (Gracidées), **Léviator rouge** (seulement le chromatique, lac Colère).
 - **Souvenirs** : à l'ouverture de l'appli, si tu possèdes déjà un de ces Pokémon (ou Carapuce) sans avoir vu son apparition, une fenêtre « Nouvelles apparitions ! » propose de les voir (pastille « Souvenir », rien n'est enregistré dans ta collection). Une fois vues, elles ne reviennent plus, même sur un autre appareil.
 - Revoir sur le PC : `http://localhost:8765/#/capsules?capsule=384` (numéro du Pokémon ; `?capsule=130-shiny` pour Léviator rouge).
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
