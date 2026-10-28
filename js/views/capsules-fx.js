@@ -55,7 +55,8 @@ App.capsuleFx = (() => {
 
   /**
    * À l'ouverture de l'appli : les Pokémon déjà attrapés dont l'apparition est nouvelle (pas encore vue)
-   * la rejouent une fois, en « souvenir » (rien n'est envoyé au serveur). « Plus tard » : reproposé la fois suivante.
+   * la rejouent une fois, en « souvenir » (rien n'est envoyé au serveur). Imposé (Arnaud) : un écran plein
+   * « Nouvelle apparition ! » qu'on ne peut que toucher pour lancer (ce toucher autorise aussi le son sur téléphone).
    */
   let asked = false;
   async function souvenirs() {
@@ -70,13 +71,19 @@ App.capsuleFx = (() => {
     if (!list.length) return;
     // pas par-dessus une ouverture, la présentation de l'appli ou une fenêtre
     if (document.querySelector('.cap-ov, #ob, .ask, #modal:not([hidden])')) { asked = false; setTimeout(souvenirs, 8000); return; }
-    const names = list.map((x) => (x.id === 130 ? 'Léviator rouge' : App.pokedex.name(x.id)));
-    const ok = await App.util.ask({
-      icon: 'capsule', title: 'Nouvelles apparitions !',
-      text: `${names.length > 1 ? 'Tes Pokémon ont' : 'Ton Pokémon a'} maintenant ${names.length > 1 ? 'leur' : 'sa'} propre apparition : ${names.join(', ')}. Tu veux ${names.length > 1 ? 'les' : 'la'} voir ?`,
-      ok: 'Voir', cancel: 'Plus tard',
-    });
-    if (!ok) return;
+    const many = list.length > 1;
+    const call = document.createElement('div');
+    call.className = 'fx-call';
+    call.innerHTML = `<div class="fx-call-glow"></div>
+      <div class="fx-call-mons">${list.map((x) => `<img src="${App.pokedex.img(x.id, x.shiny)}" alt="">`).join('')}</div>
+      <div class="fx-call-title">${many ? 'Nouvelles apparitions !' : 'Nouvelle apparition !'}</div>
+      <p class="fx-call-text">${many ? 'Tes Pokémon ont' : 'Ton Pokémon a'} maintenant ${many ? 'leur' : 'sa'} propre apparition :<br><b>${list.map((x) => App.util.esc(x.id === 130 ? 'Léviator rouge' : App.pokedex.name(x.id))).join(', ')}</b></p>
+      <div class="fx-call-tap">Touche l’écran pour ${many ? 'les' : 'la'} voir</div>`;
+    document.body.appendChild(call);
+    document.body.classList.add('cap-lock');
+    await new Promise((resolve) => call.addEventListener('click', resolve, { once: true }));
+    App.sfx.unlock();
+    call.remove();
     for (const x of list) await App.views.capsules.replay(x.id, x.shiny);
   }
 

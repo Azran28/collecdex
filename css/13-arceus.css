@@ -159,3 +159,20 @@
 /* bannière tamponnée */
 .fx-squad { color: #fff; letter-spacing: .14em; font-size: 1.2rem; padding: 3px 14px; border-radius: 8px; background: linear-gradient(135deg, #1f6fe0, #34a0ff); box-shadow: 0 4px 0 #0d3f8f, 0 0 22px rgba(52,160,255,.6); text-shadow: 0 2px 0 rgba(0,0,0,.35); transform: rotate(-3deg); animation: fxStamp .4s cubic-bezier(.2,1.6,.4,1) both !important; }
 @keyframes fxStamp { 0% { opacity: 0; transform: scale(2.4) rotate(-12deg); } 100% { opacity: 1; transform: scale(1) rotate(-3deg); } }
+
+/* Souvenirs : écran plein « Nouvelle apparition ! », imposé (on ne peut que toucher pour lancer) */
+.fx-call { position: fixed; inset: 0; z-index: 3100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; cursor: pointer;
+  background: radial-gradient(circle at 50% 42%, #2a2363 0%, #0b0d1c 72%); animation: fxCallIn .4s ease-out; -webkit-user-select: none; user-select: none; }
+@keyframes fxCallIn { from { opacity: 0; } }
+.fx-call-glow { position: absolute; left: 50%; top: 40%; width: 420px; height: 420px; margin: -210px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(rgba(255,215,106,.22) 0deg 8deg, transparent 8deg 22deg); -webkit-mask: radial-gradient(circle, #000 10%, transparent 65%); mask: radial-gradient(circle, #000 10%, transparent 65%); animation: capSpin 16s linear infinite; }
+.fx-call-mons { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 340px; }
+.fx-call-mons img { width: 92px; height: 92px; object-fit: contain; filter: brightness(0) drop-shadow(0 0 10px rgba(255,215,106,.9)); animation: fxCallMon 1.6s ease-in-out infinite alternate; pointer-events: none; }
+.fx-call-mons img:nth-child(2n) { animation-delay: -.8s; }
+@keyframes fxCallMon { to { transform: translateY(-8px) scale(1.05); filter: brightness(0) drop-shadow(0 0 18px rgba(255,215,106,1)); } }
+.fx-call-title { position: relative; font-family: Fredoka, Inter, sans-serif; font-size: 1.8rem; font-weight: 700; letter-spacing: .04em;
+  background: linear-gradient(90deg, #fff6d6, #ffd76a, #ff9ccf, #9ad8ff); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 12px rgba(255,215,106,.5)); }
+.fx-call-text { position: relative; margin: 0; max-width: 340px; color: #dfe3f5; line-height: 1.5; }
+.fx-call-text b { color: #fff; }
+.fx-call-tap { position: relative; margin-top: 10px; padding: 12px 22px; border-radius: 999px; font-weight: 700; color: #1b1534; background: linear-gradient(90deg, #ffd76a, #ff9ccf); box-shadow: 0 0 24px rgba(255,180,120,.6); animation: fxCallPulse 1.1s ease-in-out infinite; }
+@keyframes fxCallPulse { 50% { transform: scale(1.06); box-shadow: 0 0 36px rgba(255,180,120,.9); } }
