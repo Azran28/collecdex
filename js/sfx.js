@@ -91,6 +91,27 @@ App.sfx = (() => {
       }
       if (shiny) for (let i = 0; i < 8; i++) tone(N(100 + [0, 3, 7, 12][i % 4]), 0.9 + i * 0.09, 0.3, 'sine', 0.12);
     }),
+    /** Apparition d'Arceus (~9,5 s, calée sur js/views/capsules-god.js) : néant, battements, big bang, chœur, fanfare */
+    god: () => play(() => {
+      pad([N(26), N(33), N(38)], 0, 4.2, 0.09); // grondement du néant
+      [0.7, 1.5, 2.3].forEach((at, i) => { tone(70, at, 0.35, 'sine', 0.6 + i * 0.15, 38, 0.01); noise(at, 0.25, 0.2 + i * 0.1, 220, 'lowpass'); });
+      tone(N(45), 2.6, 1.3, 'sawtooth', 0.07, N(93)); noise(2.6, 1.3, 0.14, 3200, 'highpass'); // la lumière monte
+      tone(95, 3.9, 2.4, 'sine', 0.95, 28, 0.005); noise(3.9, 1.8, 0.65, 240, 'lowpass'); noise(3.9, 0.6, 0.35, 4200, 'highpass'); // big bang
+      pad([N(38), N(50), N(57), N(62), N(66), N(69)], 4.3, 5.6, 0.12); // chœur
+      [74, 78, 81, 86, 90, 93].forEach((m, i) => tone(N(m), 5.9 + i * 0.36, 1.4, 'sine', 0.16)); // cloches
+      tone(N(62), 7.6, 0.7, 'sine', 0.14, N(98));
+      [[62, 0], [69, 0], [74, 0], [78, 0.18], [81, 0.36], [86, 0.6]].forEach(([m, d]) => { // fanfare finale
+        tone(N(m), 8.3 + d, d === 0.6 ? 1.6 : 0.5, 'triangle', 0.26); tone(N(m), 8.3 + d, d === 0.6 ? 1.6 : 0.5, 'square', 0.07);
+      });
+      noise(8.3, 0.5, 0.3, 2600, 'highpass');
+      for (let i = 0; i < 16; i++) tone(N(98 + [0, 4, 7, 12][i % 4]), 9 + i * 0.07, 0.4, 'sine', 0.09);
+    }),
+    /** Le titre « ??? » qui se brouille puis devient « Dieu » */
+    godTitle: () => play(() => {
+      for (let i = 0; i < 8; i++) tone(300 + Math.random() * 1600, i * 0.07, 0.05, 'square', 0.05);
+      [86, 90, 93, 98].forEach((m, i) => tone(N(m), 0.63 + i * 0.05, 1.2, 'sine', 0.15));
+      tone(N(50), 0.63, 1.6, 'sine', 0.3);
+    }),
     click: () => play(() => tone(900, 0, 0.04, 'triangle', 0.15)),
     // combats (Match)
     energy: () => play(() => { tone(N(84), 0, 0.08, 'triangle', 0.18); tone(N(91), 0.06, 0.12, 'triangle', 0.16); }),

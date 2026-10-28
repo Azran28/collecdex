@@ -237,6 +237,13 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Le nombre sous chaque licence s’écrit partout pareil : « 12 dans ton Dex » (accueil, Capturer, Explorer, Mon Dex).
 - La petite icône de la licence (celle du Combat) apparaît aussi dans les pastilles d’Explorer sur ordinateur, dans le cadre de Capturer et dans « Licence reconnue ». Dans un combat, le bouton pour changer de licence s’appelle « Changer », comme ailleurs.
 - On parle partout de « licence » (plus de « jeu ») ; l’export Excel donne le bon nom de rareté pour chaque licence (avant : les noms Pokémon).
+
+## Arceus, le « Dieu » des capsules (v3.71)
+- **Arceus** n'est plus un Fabuleux : il a sa propre rareté, **« Dieu »**, gardée secrète. Tant qu'on ne l'a pas attrapé, le site écrit **« ??? »** (filtre du Pokédex, fiche d'Arceus) ; elle n'apparaît pas dans les « Chances d'obtention ».
+- C'est le Pokémon le plus rare : **0,1 %** à chaque capsule (normale ou grande). Il se revend **500 éclats** (×5 s'il est chromatique).
+- S'il sort, une **apparition spéciale d'environ 10 secondes**, impossible à passer : le néant, la capsule qui se fissure de lumière, un big bang, l'anneau aux 17 plaques, Arceus qui descend en silhouette puis prend ses couleurs, et le titre « ??? » qui devient « Dieu des Pokémon ».
+- **La revoir sur ton PC** : lance CollecDex puis ouvre `http://localhost:8765/#/capsules?arceus` (ou `?arceus=shiny` pour la version chromatique). Rien n'est enregistré ; ça ne marche pas sur le site en ligne, pour garder le secret.
+- **À faire une fois dans Supabase** : *SQL Editor* → *New query* → coller tout le fichier `supabase/sql/supabase-v21.sql` → *Run*. Sans lui, Arceus reste tiré comme un fabuleux (0,5 % partagé avec les autres) et revendu 150.
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
 - Quand tu valides la **dernière carte à vérifier** (« ✓ C’est elle » ou « Ne pas l’ajouter »), les cartes sont **enregistrées directement** et l’écran revient au scan de la page suivante : plus de passage par le récapitulatif. Pareil avec « Enregistrer » dans la liste détaillée. Le récapitulatif reste quand aucune carte n’est à vérifier (pour tout voir d’un coup d’œil avant d’enregistrer).
 - **Rafale** : la caméra se relance toute seule. **Classeur** : touche « Caméra » pour la page suivante (le téléphone ne permet pas d’ouvrir son appareil photo sans que tu touches un bouton).

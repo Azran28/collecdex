@@ -27,7 +27,9 @@
     </svg>`;
   }
 
-  const tierPill = (t) => `<span class="tier-pill" style="--tc:${P().TIER[t].color}">${esc(P().TIER[t].name)}</span>`;
+  // rareté cachée (Arceus) : « ??? » tant qu'on ne l'a pas attrapé
+  const tierPill = (t, known = true) => `<span class="tier-pill ${P().TIER[t].secret ? 'secret' : ''}" style="--tc:${P().TIER[t].color}">${esc(P().TIER[t].secret && !known ? '???' : P().TIER[t].name)}</span>`;
+  const rareText = (id) => (P().TIER[P().tier(id)].secret ? 'C’est le Dieu des Pokémon.' : `C’est un Pokémon ${P().TIER[P().tier(id)].name.toLowerCase()}.`);
 
   /** Choisir son avatar parmi ses Pokémon attrapés → { id, shiny } ou null */
   async function pickAvatar() {
@@ -92,7 +94,7 @@
       <div class="sp-info">
         <div class="muted small">${P().num(id)} · ${esc(P().region(id))}</div>
         <h2>${esc(P().name(id))}</h2>
-        <div class="row" style="gap:8px">${tierPill(P().tier(id))}${c0.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
+        <div class="row" style="gap:8px">${tierPill(P().tier(id), got)}${c0.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
         <p class="small muted sp-count">${got ? `Attrapé ${d.n} fois${c0.shiny ? ` (dont ${c0.shiny} chromatique${c0.shiny > 1 ? 's' : ''})` : ''} · la première fois le ${App.util.dateFr(new Date(d.first).toISOString())}.` : 'Pas encore attrapé : ouvre des capsules pour le trouver !'}</p>
         ${got ? `<div class="chips" id="sp-sw"><button class="chip" data-sh="0">Normal${c0.normal ? ` ×${c0.normal}` : ''}</button><button class="chip" data-sh="1">✦ Chromatique${c0.shiny ? ` ×${c0.shiny}` : ''}</button></div>
           <button class="btn primary" id="sp-av" style="margin-top:12px">${App.icons.icon('user', 16)} En faire mon avatar</button>` : ''}
@@ -136,7 +138,7 @@
         if ((last || rare) && !await App.util.ask({
           icon: 'coin', danger: true,
           title: last ? `Vendre ton dernier ${P().name(id)} ?` : `Vendre ${P().name(id)} ?`,
-          text: [last ? 'Il quittera ton Pokédex.' : '', rare ? `C’est un Pokémon ${P().TIER[P().tier(id)].name.toLowerCase()}.` : ''].filter(Boolean).join(' '),
+          text: [last ? 'Il quittera ton Pokédex.' : '', rare ? rareText(id) : ''].filter(Boolean).join(' '),
           ok: `Vendre (+${pts(App.capsules.price(id, sh) * n)})`,
         })) return;
         sb.disabled = true;
@@ -156,7 +158,7 @@
    * puis le Pokémon apparaît avec un effet d'autant plus spectaculaire qu'il est rare.
    * Toucher l'écran passe l'animation.
    */
-  async function openAnimation(kind = 'normal') {
+  async function openAnimation(kind = 'normal', demo = null) {
     const ov = document.createElement('div');
     ov.className = 'cap-ov';
     ov.innerHTML = `<div class="cap-ov-bg"></div><div class="cap-flash"></div>
@@ -170,57 +172,70 @@
       <div class="cap-hint small">Touche pour passer</div>`;
     document.body.appendChild(ov);
     document.body.classList.add('cap-lock');
-    let skip = false;
-    ov.addEventListener('click', (e) => { if (!e.target.closest('button')) skip = true; });
+    let skip = false, locked = false; // locked : l'apparition d'Arceus ne se passe pas
+    ov.addEventListener('click', (e) => { if (!locked && !e.target.closest('button')) skip = true; });
     const wait = async (ms) => { const end = Date.now() + ms; while (!skip && Date.now() < end) await sleep(40); };
     const close = () => { ov.classList.add('co-out'); document.body.classList.remove('cap-lock'); setTimeout(() => ov.remove(), 250); };
 
     // le tirage part tout de suite (réseau) pendant que la capsule tombe
-    const res = App.capsules.open(kind).then((r) => ({ r }), (e) => ({ e }));
+    // demo : faux tirage pour revoir une animation (rien n'est envoyé au serveur)
+    const res = demo ? sleep(300).then(() => ({ r: demo })) : App.capsules.open(kind).then((r) => ({ r }), (e) => ({ e }));
     App.sfx.unlock();
     ov.classList.add('co-drop');
     setTimeout(() => App.sfx.drop(), 430); // la capsule touche le sol
     const out = await res;
     if (out.e) { close(); App.util.toast(out.e.message || 'Ouverture impossible', 4000); return null; }
-    const r = out.r, t = r.tier, T = P().TIER[t];
+    // rareté d'après le site : Arceus est tiré comme un fabuleux par le serveur, mais il est « Dieu » ici
+    const r = out.r, t = P().tier(r.species), T = P().TIER[t], god = !!T.secret;
     ov.style.setProperty('--tc', T.color);
     const img = ov.querySelector('.cap-mon img');
     img.src = P().img(r.species, r.shiny);
-    await wait(650);
-
-    // secousses : 1 (commun) à 3 (légendaire / fabuleux) ; la lueur prend la couleur de la rareté
-    const shakes = t <= 2 ? 1 : t <= 4 ? 2 : 3;
-    for (let i = 0; i < shakes && !skip; i++) {
-      ov.classList.remove('co-wobble'); void ov.offsetWidth; ov.classList.add('co-wobble');
-      App.sfx.wobble(i);
-      if (i === shakes - 1) ov.classList.add('co-hint');
-      await wait(760);
+    const sparkles = () => { if (r.shiny) ov.querySelector('.cap-sparkles').innerHTML = Array.from({ length: 12 }, () => `<b style="left:${10 + Math.random() * 80}%;top:${8 + Math.random() * 80}%;--dl:${Math.random() * 1.6}s">✦</b>`).join(''); };
+    if (god) {
+      // Arceus : sa propre apparition, impossible à passer (js/views/capsules-god.js)
+      skip = false; locked = true;
+      ov.querySelector('.cap-hint').remove();
+      if (r.shiny) ov.classList.add('co-shiny');
+      sparkles();
+      await App.capsuleGod.play(ov);
+    } else {
+      await wait(650);
+      // secousses : 1 (commun) à 3 (légendaire / fabuleux) ; la lueur prend la couleur de la rareté
+      const shakes = t <= 2 ? 1 : t <= 4 ? 2 : 3;
+      for (let i = 0; i < shakes && !skip; i++) {
+        ov.classList.remove('co-wobble'); void ov.offsetWidth; ov.classList.add('co-wobble');
+        App.sfx.wobble(i);
+        if (i === shakes - 1) ov.classList.add('co-hint');
+        await wait(760);
+      }
+      // ouverture
+      ov.classList.add('co-burst', 'co-t' + t);
+      App.sfx.open(t, r.shiny);
+      if (r.shiny) ov.classList.add('co-shiny');
+      const parts = [0, 0, 8, 14, 22, 32, 40][t];
+      ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('');
+      sparkles();
+      await wait(t >= 5 ? 900 : 550);
     }
-    // ouverture
-    ov.classList.add('co-burst', 'co-t' + t);
-    App.sfx.open(t, r.shiny);
-    if (r.shiny) ov.classList.add('co-shiny');
-    const parts = [0, 0, 8, 14, 22, 32, 40][t];
-    ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('');
-    if (r.shiny) ov.querySelector('.cap-sparkles').innerHTML = Array.from({ length: 12 }, () => `<b style="left:${10 + Math.random() * 80}%;top:${8 + Math.random() * 80}%;--dl:${Math.random() * 1.6}s">✦</b>`).join('');
-    await wait(t >= 5 ? 900 : 550);
     ov.classList.add('co-reveal');
     const isNew = r.count === 1;
-    const left = kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
-    const shop = r.coins !== undefined, p = shop ? App.capsules.price(r.species, r.shiny) : 0;
+    const left = demo ? 0 : kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
+    const shop = !demo && r.coins !== undefined, p = shop ? App.capsules.price(r.species, r.shiny) : 0;
     ov.querySelector('.cap-text').innerHTML = `
-      ${t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
+      ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
       <div class="cap-name">${esc(P().name(r.species))}</div>
-      <div class="row cap-tags">${tierPill(t)}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? '<span class="new-pill">Nouveau !</span>' : `<span class="dup-pill">×${r.count}</span>`}</div>
+      <div class="row cap-tags">${tierPill(t, !god)}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? '<span class="new-pill">Nouveau !</span>' : `<span class="dup-pill">×${r.count}</span>`}</div>
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
       <div class="small cap-tap">Touche ${esc(P().name(r.species))} ${left > 0 ? 'pour ouvrir la suivante' : 'pour revenir à tes capsules'}</div>
       <div class="row cap-btns">
         ${left > 0 ? `<button class="btn primary" data-again>${App.icons.icon('capsule', 16)} Ouvrir la suivante (${left})</button>` : ''}
-        <button class="btn" data-avatar>En faire mon avatar</button>
+        ${demo ? '' : '<button class="btn" data-avatar>En faire mon avatar</button>'}
         ${shop ? `<button class="btn" data-sell>${App.icons.icon('coin', 16)} Vendre (+${p})</button>` : ''}
         <button class="btn ghost" data-close>Fermer</button>
       </div>`;
-    ov.querySelector('.cap-hint').remove();
+    if (god) await App.capsuleGod.revealTitle(ov);
+    else ov.querySelector('.cap-hint').remove();
+    locked = false;
     return new Promise((resolve) => {
       // toucher le Pokémon = ouvrir la suivante (s'il en reste), sinon revenir à la page des capsules
       const mon = ov.querySelector('.cap-mon');
@@ -232,7 +247,7 @@
         if (sb) {
           const prof = await App.col.getProfile().catch(() => ({}));
           if (prof.avatarPoke && prof.avatarPoke.id === r.species && !!prof.avatarPoke.shiny === !!r.shiny && r.count === 1) { App.util.toast('C’est ton avatar : impossible de le vendre', 3500); return; }
-          if ((t >= 5 || r.shiny) && !await App.util.ask({ icon: 'coin', danger: true, title: `Vendre ${P().name(r.species)}${r.shiny ? ' chromatique' : ''} ?`, text: r.shiny ? 'Les chromatiques sont très rares.' : `C’est un Pokémon ${T.name.toLowerCase()}.`, ok: `Vendre (+${p} éclats)` })) return;
+          if ((t >= 5 || r.shiny) && !await App.util.ask({ icon: 'coin', danger: true, title: `Vendre ${P().name(r.species)}${r.shiny ? ' chromatique' : ''} ?`, text: r.shiny ? 'Les chromatiques sont très rares.' : rareText(r.species), ok: `Vendre (+${p} éclats)` })) return;
           sb.disabled = true;
           try { const x = await App.capsules.sell(r.species, r.shiny, 1); App.sfx.click(); sb.innerHTML = `${App.icons.icon('check', 16)} Vendu (+${x.gain})`; ov.querySelector('[data-avatar]').disabled = true; }
           catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
@@ -256,6 +271,10 @@
     capsuleSVG, pickAvatar, setAvatar, openLoop,
     async render(el, params, alive) {
       const state = { region: +(params.query.r || 0), tier: 0, only: false };
+      // #/capsules?arceus : revoir l'apparition d'Arceus, seulement sur le PC (localhost), pour ne pas dévoiler le secret
+      if ('arceus' in params.query && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+        setTimeout(() => openAnimation('normal', { species: App.pokedex.GOD, tier: 7, shiny: params.query.arceus === 'shiny', count: 1 }), 400);
+      }
 
       if (!App.cloud.enabled || !App.cloud.user) {
         el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Capsules</div>
@@ -292,7 +311,7 @@
             <div class="chips" id="cp-regions">${['Tous', ...P().REGIONS].map((r, i) => `<button class="chip ${state.region === i ? 'on' : ''}" data-r="${i}">${esc(r)}</button>`).join('')}</div>
           </div>
           <div class="toolbar">
-            <select id="cp-tier"><option value="0">Toutes les raretés</option>${[1, 2, 3, 4, 5, 6].map((t) => `<option value="${t}">${esc(P().TIER[t].name)}</option>`).join('')}</select>
+            <select id="cp-tier"><option value="0">Toutes les raretés</option>${[1, 2, 3, 4, 5, 6].map((t) => `<option value="${t}">${esc(P().TIER[t].name)}</option>`).join('')}<option value="7">???</option></select>
             <label class="check small" id="cp-only-l" ${state.region ? '' : 'hidden'}><input type="checkbox" id="cp-only"> Attrapés seulement</label>
             <span class="spacer"></span><span class="muted small" id="cp-shown"></span>
           </div>

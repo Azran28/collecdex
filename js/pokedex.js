@@ -19,10 +19,13 @@ App.pokedex = (() => {
     4: { name: 'Très rare', color: '#a78bfa', odds: 4.5 },
     5: { name: 'Légendaire', color: '#ffc83d', odds: 2 },
     6: { name: 'Fabuleux', color: '#ff5fa2', odds: 0.5 },
+    // rareté cachée : seulement Arceus, « ??? » tant qu'on ne l'a pas attrapé (tiré par le serveur comme un fabuleux)
+    7: { name: 'Dieu', color: '#ffe7a3', odds: 0, secret: true },
   };
+  const GOD = 493;
 
   const name = (id) => NAMES[id - 1] || '#' + id;
-  const tier = (id) => +TIERS[id - 1] || 1;
+  const tier = (id) => (+id === GOD ? 7 : +TIERS[id - 1] || 1);
   const gen = (id) => GEN_END.findIndex((e) => id <= e) + 1;
   const region = (id) => REGIONS[gen(id) - 1];
   const ART = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/';
@@ -53,5 +56,5 @@ App.pokedex = (() => {
     return stages;
   }
 
-  return { TOTAL, TIER, REGIONS, GEN_END, name, tier, gen, region, img, num, family };
+  return { TOTAL, TIER, GOD, REGIONS, GEN_END, name, tier, gen, region, img, num, family };
 })();

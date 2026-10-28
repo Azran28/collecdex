@@ -48,8 +48,8 @@ App.capsules = (() => {
   }
 
   // ---------- Boutique ----------
-  /** Prix de vente d'un Pokémon (même barème que sur le serveur) : commun 1 … fabuleux 150, chromatique ×5 */
-  const PRICES = [0, 1, 3, 8, 20, 100, 150];
+  /** Prix de vente d'un Pokémon (même barème que sur le serveur) : commun 1 … fabuleux 150, Arceus 500, chromatique ×5 */
+  const PRICES = [0, 1, 3, 8, 20, 100, 150, 500]; // 7 = Arceus (« Dieu », supabase-v21.sql)
   const price = (species, shiny = false) => PRICES[App.pokedex.tier(species)] * (shiny ? 5 : 1);
   /** Doublons vendables d'un coup : on garde 1 exemplaire normal de chaque Pokémon, les chromatiques ne sont pas vendus */
   function dupes(dex) {
