@@ -29,17 +29,20 @@
 
   // rareté cachée (Arceus) : « ??? » tant qu'on ne l'a pas attrapé
   const tierPill = (t, known = true) => `<span class="tier-pill ${P().TIER[t].secret ? 'secret' : ''}" style="--tc:${P().TIER[t].color}">${esc(P().TIER[t].secret && !known ? '???' : P().TIER[t].name)}</span>`;
+  // « Forme Feu » (Arceus), « Lettre B » / « Signe ! » (Zarbi)
+  const formLabel = (id, F) => (+id === 201 ? `${F.key.length === 1 ? 'Lettre' : 'Signe'} ${F.name}` : `Forme ${F.name}`);
   const rareText = (id) => (P().TIER[P().tier(id)].secret ? 'C’est le Dieu des Pokémon.' : `C’est un Pokémon ${P().TIER[P().tier(id)].name.toLowerCase()}.`);
 
   /** Choisir son avatar parmi ses Pokémon attrapés → { id, shiny } ou null */
   async function pickAvatar() {
     const dex = await App.capsules.dex().catch(() => new Map());
-    const forms = dex.has(P().GOD) ? await App.capsules.forms().catch(() => new Map()) : new Map();
+    await App.capsules.forms(0).catch(() => null); // charge les formes attrapées (Arceus, Zarbi)
     const list = [];
     for (const [id, d] of [...dex.entries()].sort((a, b) => a[0] - b[0])) {
-      // Arceus : une case par forme attrapée (normale et chromatique)
-      if (id === P().GOD && forms.size) {
-        for (const f of P().FORMS) {
+      // Pokémon à formes (Arceus, Zarbi) : une case par forme attrapée (normale et chromatique)
+      const forms = P().formsOf(id) ? await App.capsules.forms(id).catch(() => new Map()) : new Map();
+      if (forms.size) {
+        for (const f of P().formsOf(id)) {
           const c = forms.get(f.key); if (!c) continue;
           if (c.n > c.shiny) list.push({ id, shiny: false, form: f.key });
           if (c.shiny) list.push({ id, shiny: true, form: f.key });
@@ -96,9 +99,10 @@
     const d = dex.get(id);
     const got = !!d, c0 = counts(d);
     let sh = c0.normal === 0 && c0.shiny > 0; // seulement le chromatique : on montre celui-là d'abord
-    // Arceus : ses 18 formes (une par type) ; la forme affichée = la première attrapée
-    const forms = id === P().GOD && got ? await App.capsules.forms().catch(() => new Map()) : null;
-    let form = forms && forms.size ? P().FORMS.find((f) => forms.has(f.key)).key : null;
+    // Pokémon à formes (Arceus : 18 types, Zarbi : 28 lettres) ; la forme affichée = la première attrapée
+    const FL = P().formsOf(id);
+    const forms = FL && got ? await App.capsules.forms(id).catch(() => new Map()) : null;
+    let form = forms && forms.size ? FL.find((f) => forms.has(f.key)).key : null;
     if (form) { const c = forms.get(form); sh = c.n === c.shiny; }
     const st = App.capsules.state, shop = !!(got && st && st.shop);
     const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
@@ -108,9 +112,9 @@
     const evoHTML = fam.flat().length > 1 ? `<div class="sp-evo"><h3>Évolutions</h3><div class="evo-line">${fam.map((stage) => `<div class="evo-stage">${stage.map(famCell).join('')}</div>`).join('<span class="evo-arrow" aria-hidden="true">›</span>')}</div></div>` : '';
     const shinyHTML = `<div class="sp-evo"><h3>Version chromatique</h3><div class="evo-line">${evoCell(id, c0.shiny > 0, true, -1)}
       <p class="small muted" style="margin:0;align-self:center">${c0.shiny ? `Tu l’as attrapé en chromatique${c0.shiny > 1 ? ` ${c0.shiny} fois` : ''} ✦` : 'Pas encore attrapé en chromatique (1 % de chance à chaque capsule, 3 % avec une grande capsule).'}</p></div></div>`;
-    const formsHTML = forms ? `<div class="sp-evo"><h3>Les 18 formes <span class="muted small">${forms.size}/18</span></h3>
-      <p class="small muted" style="margin:0 0 8px">Chaque Arceus attrapé est une forme que tu n’as pas encore.</p>
-      <div class="form-grid">${P().FORMS.map((f) => { const c = forms.get(f.key); return `<button class="evo-cell form-cell ${c ? 'got' : 'miss'}" data-form="${f.key}" style="--tc:${f.color}" title="${esc(P().fullName(id, f.key))}${c ? '' : ' (pas encore attrapé)'}">
+    const formsHTML = forms ? `<div class="sp-evo"><h3>Les ${FL.length} formes <span class="muted small">${forms.size}/${FL.length}</span></h3>
+      <p class="small muted" style="margin:0 0 8px">Chaque ${esc(P().name(id))} attrapé est une forme que tu n’as pas encore.</p>
+      <div class="form-grid ${id === 201 ? 'unown' : ''}">${FL.map((f) => { const c = forms.get(f.key); return `<button class="evo-cell form-cell ${c ? 'got' : 'miss'}" data-form="${f.key}" style="--tc:${f.color}" title="${esc(P().fullName(id, f.key))}${c ? '' : ' (pas encore attrapé)'}">
         <span class="evo-img"><img src="${P().img(id, false, f.key)}" alt="" loading="lazy">${c && c.shiny ? '<span class="evo-sh">✦</span>' : ''}</span><span class="evo-n">${esc(f.name)}</span></button>`; }).join('')}</div></div>` : '';
     const body = App.util.openModal(`<div class="sp-modal">
       <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id, sh)}" alt="${esc(P().name(id))}" width="200" height="200"><span class="sp-q">?</span></div>
@@ -220,7 +224,7 @@
     const r = out.r, t = P().tier(r.species), T = P().TIER[t], god = !!T.secret;
     ov.style.setProperty('--tc', T.color);
     const img = ov.querySelector('.cap-mon img');
-    const fm = P().form(r.species, r.form), F = fm ? P().FORM[fm] : null; // forme d'Arceus (supabase-v22.sql)
+    const fm = P().form(r.species, r.form), F = fm ? P().formInfo(r.species, fm) : null; // forme (Arceus, Zarbi : supabase-v22/v23.sql)
     if (F) ov.style.setProperty('--gt', F.color);
     img.src = P().img(r.species, r.shiny, fm);
     const sparkles = () => { if (r.shiny) ov.querySelector('.cap-sparkles').innerHTML = Array.from({ length: 12 }, () => `<b style="left:${10 + Math.random() * 80}%;top:${8 + Math.random() * 80}%;--dl:${Math.random() * 1.6}s">✦</b>`).join(''); };
@@ -254,14 +258,14 @@
     if (fx) ov.classList.add(fx.cls);
     ov.classList.add('co-reveal');
     const isNew = fm ? r.form_count === 1 : r.count === 1;
-    const nForms = fm && !demo ? (await App.capsules.forms().catch(() => new Map())).size : 0;
+    const nForms = fm && !demo ? (await App.capsules.forms(r.species).catch(() => new Map())).size : 0;
     const left = demo ? 0 : kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
     const shop = !demo && r.coins !== undefined, p = shop ? App.capsules.price(r.species, r.shiny) : 0;
     ov.querySelector('.cap-text').innerHTML = `
       ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
       <div class="cap-name">${esc(P().name(r.species))}</div>
-      <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">Forme ${esc(F.name)}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? `<span class="new-pill">${F ? 'Nouvelle forme !' : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
-      ${nForms ? `<div class="small god-forms">Formes d’Arceus : <b>${nForms}/18</b></div>` : ''}
+      <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">${esc(formLabel(r.species, F))}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? `<span class="new-pill">${F ? 'Nouvelle forme !' : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
+      ${nForms ? `<div class="small cap-forms">Formes de ${esc(P().name(r.species))} : <b>${nForms}/${P().formsOf(r.species).length}</b></div>` : ''}
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
       <div class="small cap-tap">Touche ${esc(P().name(r.species))} ${left > 0 ? 'pour ouvrir la suivante' : 'pour revenir à tes capsules'}</div>
       <div class="row cap-btns">
@@ -312,15 +316,17 @@
       // #/capsules?arceus (ou ?arceus=feu, ?arceus=feu-shiny) : revoir l'apparition d'Arceus, seulement sur le PC (localhost),
       // pour ne pas dévoiler le secret ; sans forme indiquée, une forme au hasard
       if ('arceus' in params.query && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
-        const w = params.query.arceus.split('-').map((x) => App.util.norm(x)), F = P().FORMS;
+        const w = params.query.arceus.split('-').map((x) => App.util.norm(x)), F = P().formsOf(P().GOD);
         const pick = F.find((f) => w.includes(f.key) || w.includes(App.util.norm(f.name)));
         const form = (pick || F[Math.floor(Math.random() * F.length)]).key;
         setTimeout(() => openAnimation('normal', { species: P().GOD, tier: 7, shiny: w.includes('shiny'), form, count: 1, form_count: 1 }), 400);
       }
       // #/capsules?capsule=7 (ou ?capsule=7-shiny) : revoir l'ouverture d'un Pokémon (apparitions spéciales), seulement sur le PC
       if ('capsule' in params.query && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
-        const w = params.query.capsule.split('-'), id = parseInt(w[0], 10);
-        if (id >= 1 && id <= P().TOTAL && id !== P().GOD) setTimeout(() => openAnimation('normal', { species: id, tier: P().tier(id), shiny: w.includes('shiny'), count: 1 }), 400);
+        const w = params.query.capsule.split('-'), id = parseInt(w[0], 10), FL = P().formsOf(id);
+        // Zarbi : ?capsule=201-b (sinon une lettre au hasard)
+        const form = FL ? P().form(id, w[1]) || FL[Math.floor(Math.random() * FL.length)].key : null;
+        if (id >= 1 && id <= P().TOTAL && id !== P().GOD) setTimeout(() => openAnimation('normal', { species: id, tier: P().tier(id), shiny: w.includes('shiny'), form, count: 1, form_count: 1 }), 400);
       }
 
       if (!App.cloud.enabled || !App.cloud.user) {
@@ -367,7 +373,7 @@
         </section>`;
 
       const $ = (s) => el.querySelector(s);
-      let dex = new Map(), godForms = 0; // formes d'Arceus attrapées (sur 18)
+      let dex = new Map(), formCount = {}; // nombre de formes attrapées (Arceus, Zarbi)
 
       const drawStatus = () => {
         const s = App.capsules.state;
@@ -432,7 +438,7 @@
           const t = P().tier(i);
           return d ? `<button class="dex-cell got" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="${esc(P().name(i))}">
               <img src="${P().img(i)}" alt="" loading="lazy"><span class="dn">${esc(P().name(i))}</span><span class="dnum">${P().num(i)}</span>
-              ${d.n > 1 ? `<span class="dq">×${d.n}</span>` : ''}${d.shiny ? '<span class="dsh" title="Chromatique">✦</span>' : ''}${i === P().GOD && godForms ? `<span class="dforms" title="Formes d’Arceus">${godForms}/18</span>` : ''}</button>`
+              ${d.n > 1 ? `<span class="dq">×${d.n}</span>` : ''}${d.shiny ? '<span class="dsh" title="Chromatique">✦</span>' : ''}${formCount[i] ? `<span class="dforms" title="Formes attrapées">${formCount[i]}/${P().formsOf(i).length}</span>` : ''}</button>`
             : `<button class="dex-cell miss" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="Pas encore attrapé"><span class="dq-miss">?</span>${q ? `<span class="dn">${esc(P().name(i))}</span>` : ''}<span class="dnum">${P().num(i)}</span></button>`;
         }).join('') : `<div class="empty panel">${q ? 'Aucun Pokémon ne correspond à ta recherche.' : dex.size ? 'Aucun Pokémon ici avec ces filtres.' : 'Ton Pokédex est vide : ouvre ta première capsule !'}</div>`;
       };
@@ -446,7 +452,9 @@
 
       const refreshDex = async (fresh) => {
         dex = await App.capsules.dex({ fresh }).catch(() => new Map());
-        godForms = dex.has(P().GOD) ? (await App.capsules.forms({ fresh }).catch(() => new Map())).size : 0;
+        formCount = {};
+        await App.capsules.forms(0, { fresh }).catch(() => null);
+        for (const id of [P().GOD, 201]) if (dex.has(id)) formCount[id] = (await App.capsules.forms(id).catch(() => new Map())).size;
         if (!alive()) return; drawCount(); drawGrid(); drawShop(); };
 
       el.addEventListener('click', (e) => {

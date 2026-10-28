@@ -257,6 +257,12 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Recherche** dans « Mon Pokédex » des capsules : tape un nom (« cara ») ou un numéro (« 7 ») ; elle cherche dans tout le Pokédex, attrapés ou non (ceux qui manquent restent grisés, avec leur nom).
 - **Carapuce** a une apparition spéciale, comme dans l'animé : tourbillon d'eau, ses **lunettes de soleil** tombent du ciel sur son nez (clac, éclat sur le verre, petit hochement de tête, gouttes d'eau) , la bannière **« Carapute »**, puis il danse un petit coup avec ses lunettes. Le tirage ne change pas. Elle se joue aussi si on touche l'écran pour aller plus vite.
 - Revoir sur le PC : `http://localhost:8765/#/capsules?capsule=7` (ou `?capsule=7-shiny`). Marche pour n'importe quel numéro.
+
+## Les 28 Zarbi (v3.75)
+- **Zarbi** existe maintenant en **28 formes** : les 26 lettres, « ! » et « ? ». Comme pour Arceus, **chaque Zarbi attrapé est une forme que tu n'as pas encore** (ensuite au hasard). Les Zarbi déjà attrapés ont reçu chacun une lettre différente.
+- À l'ouverture : « Lettre B » ou « Signe ? », « Nouvelle forme ! », « Formes de Zarbi : 4/28 ». Fiche : grille « Les 28 formes » ; case du Pokédex « x/28 » ; avatar avec la lettre choisie.
+- Démo sur le PC : `http://localhost:8765/#/capsules?capsule=201-b` (ou `201-question`, `201-exclamation`).
+- **À faire une fois dans Supabase** : coller tout `supabase/sql/supabase-v23.sql` → *Run*.
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
 - Quand tu valides la **dernière carte à vérifier** (« ✓ C’est elle » ou « Ne pas l’ajouter »), les cartes sont **enregistrées directement** et l’écran revient au scan de la page suivante : plus de passage par le récapitulatif. Pareil avec « Enregistrer » dans la liste détaillée. Le récapitulatif reste quand aucune carte n’est à vérifier (pour tout voir d’un coup d’œil avant d’enregistrer).
 - **Rafale** : la caméra se relance toute seule. **Classeur** : touche « Caméra » pour la page suivante (le téléphone ne permet pas d’ouvrir son appareil photo sans que tu touches un bouton).

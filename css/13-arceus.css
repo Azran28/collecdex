@@ -112,7 +112,7 @@
 .cap-ov.co-god .god-motes i { background: var(--gt, #ffe7a3); box-shadow: 0 0 8px var(--gt, #ffd76a); }
 .cap-ov.co-god .god-nebula { background: radial-gradient(ellipse 45% 35% at 50% 45%, color-mix(in srgb, var(--gt, #ffd76a) 38%, transparent), transparent 70%),
   radial-gradient(ellipse 40% 30% at 30% 30%, rgba(124,92,255,.35), transparent 70%), radial-gradient(ellipse 40% 30% at 72% 65%, rgba(52,213,255,.22), transparent 70%); }
-.god-forms { color: #f6e7b8; }
+.cap-forms { color: #f6e7b8; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
 .form-grid .evo-cell { width: auto; }
 .form-cell.miss { cursor: default; }

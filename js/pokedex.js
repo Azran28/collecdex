@@ -23,15 +23,22 @@ App.pokedex = (() => {
     7: { name: 'Dieu', color: '#ffe7a3', odds: 0, secret: true },
   };
   const GOD = 493;
-  // les 18 formes d'Arceus (une par type), même ordre que arceus_forms() dans supabase-v22.sql
-  const FORMS = [['normal', 'Normal', '#a8a77a'], ['fighting', 'Combat', '#c22e28'], ['flying', 'Vol', '#a98ff3'], ['poison', 'Poison', '#a33ea1'],
+  // Pokémon à formes à collectionner, même ordre que pokemon_forms() dans supabase-v23.sql ; la 1re = image normale
+  // Arceus : 18 formes, une par type (supabase-v22.sql)
+  const ARCEUS = [['normal', 'Normal', '#a8a77a'], ['fighting', 'Combat', '#c22e28'], ['flying', 'Vol', '#a98ff3'], ['poison', 'Poison', '#a33ea1'],
     ['ground', 'Sol', '#e2bf65'], ['rock', 'Roche', '#b6a136'], ['bug', 'Insecte', '#a6b91a'], ['ghost', 'Spectre', '#735797'], ['steel', 'Acier', '#b7b7ce'],
     ['fire', 'Feu', '#ee8130'], ['water', 'Eau', '#6390f0'], ['grass', 'Plante', '#7ac74c'], ['electric', 'Électrik', '#f7d02c'], ['psychic', 'Psy', '#f95587'],
-    ['ice', 'Glace', '#96d9d6'], ['dragon', 'Dragon', '#6f35fc'], ['dark', 'Ténèbres', '#705746'], ['fairy', 'Fée', '#d685ad']]
-    .map(([key, name, color]) => ({ key, name, color }));
-  const FORM = Object.fromEntries(FORMS.map((f) => [f.key, f]));
-  /** Forme valide (sinon null) : seulement pour Arceus, et jamais une valeur inconnue venue des données d'un autre */
-  const form = (id, f) => (+id === GOD && FORM[f] ? f : null);
+    ['ice', 'Glace', '#96d9d6'], ['dragon', 'Dragon', '#6f35fc'], ['dark', 'Ténèbres', '#705746'], ['fairy', 'Fée', '#d685ad']];
+  // Zarbi : 28 formes, les 26 lettres, « ! » et « ? » (supabase-v23.sql)
+  const UNOWN = [...'abcdefghijklmnopqrstuvwxyz'].map((c) => [c, c.toUpperCase(), '#8f9bc4']).concat([['exclamation', '!', '#8f9bc4'], ['question', '?', '#8f9bc4']]);
+  const FORMS_OF = Object.fromEntries([[GOD, ARCEUS], [201, UNOWN]].map(([id, l]) => [id, l.map(([key, name, color]) => ({ key, name, color }))]));
+  const FORM_OF = Object.fromEntries(Object.entries(FORMS_OF).map(([id, l]) => [id, Object.fromEntries(l.map((f) => [f.key, f]))]));
+  /** Formes d'un Pokémon (null s'il n'en a pas) */
+  const formsOf = (id) => FORMS_OF[+id] || null;
+  /** Détails d'une forme { key, name, color } (null si inconnue) */
+  const formInfo = (id, f) => (FORM_OF[+id] && Object.hasOwn(FORM_OF[+id], f) ? FORM_OF[+id][f] : null);
+  /** Forme valide (sinon null) : jamais une valeur inconnue venue des données d'un autre */
+  const form = (id, f) => (formInfo(id, f) ? f : null);
 
   const name = (id) => NAMES[id - 1] || '#' + id;
   const tier = (id) => (+id === GOD ? 7 : +TIERS[id - 1] || 1);
@@ -41,12 +48,12 @@ App.pokedex = (() => {
   // id forcé en nombre : l'avatar d'un ami vient de SES données, il ne doit jamais pouvoir injecter du code dans la page
   const img = (id, shiny = false, f = null) => {
     const n = parseInt(id, 10), fm = form(n, f);
-    return n >= 1 && n <= TOTAL ? `${ART}${shiny ? 'shiny/' : ''}${n}${fm && fm !== 'normal' ? '-' + fm : ''}.png` : '';
+    return n >= 1 && n <= TOTAL ? `${ART}${shiny ? 'shiny/' : ''}${n}${fm && fm !== formsOf(n)[0].key ? '-' + fm : ''}.png` : '';
   };
   /** Image d'un avatar Pokémon { id, shiny, form } */
   const avatarImg = (a) => (a && a.id ? img(a.id, !!a.shiny, a.form) : '');
-  /** Nom avec la forme : « Arceus (Feu) » */
-  const fullName = (id, f) => { const fm = form(id, f); return fm && fm !== 'normal' ? `${name(id)} (${FORM[fm].name})` : name(id); };
+  /** Nom avec la forme : « Arceus (Feu) », « Zarbi (B) » */
+  const fullName = (id, f) => { const fm = form(id, f); return fm && (fm !== formsOf(id)[0].key || +id === 201) ? `${name(id)} (${formInfo(id, fm).name})` : name(id); };
   const num = (id) => '#' + String(id).padStart(4, '0');
 
   // Évolutions (données PokéAPI, « evolves_from ») : pour chaque espèce, l'écart avec celle dont elle évolue
@@ -72,5 +79,5 @@ App.pokedex = (() => {
     return stages;
   }
 
-  return { TOTAL, TIER, GOD, FORMS, FORM, form, REGIONS, GEN_END, name, fullName, tier, gen, region, img, avatarImg, num, family };
+  return { TOTAL, TIER, GOD, formsOf, formInfo, form, REGIONS, GEN_END, name, fullName, tier, gen, region, img, avatarImg, num, family };
 })();
