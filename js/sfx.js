@@ -52,6 +52,37 @@ App.sfx = (() => {
     }
   }
   const N = (m) => 440 * Math.pow(2, (m - 69) / 12); // numéro de note MIDI → fréquence
+  /** Rugissement d'un grand Pokémon : deux voix rauques qui descendent + souffle */
+  function roar(at, f, dur = 1.1) {
+    tone(f, at, dur, 'sawtooth', 0.22, f * 0.55, 0.06); tone(f * 1.5, at + 0.03, dur * 0.9, 'sawtooth', 0.1, f * 0.8, 0.08);
+    noise(at, dur, 0.35, f * 4, 'bandpass');
+  }
+  const thunder = (at) => { noise(at, 0.15, 0.5, 3000, 'highpass'); noise(at + 0.05, 1.3, 0.6, 180, 'lowpass'); };
+  /** Scènes des grands légendaires (calées sur js/views/capsules-legend.js) ; la fanfare d'ouverture suit (open) */
+  const LEGEND = {
+    groudon: () => {
+      pad([N(24), N(31), N(36)], 0, 3.8, 0.08); // grondement
+      [0.6, 1.3, 3.0].forEach((at) => { tone(52, at, 0.5, 'sine', 0.9, 30, 0.005); noise(at, 0.3, 0.35, 260, 'lowpass'); }); // pas lourds
+      noise(1.9, 0.7, 0.5, 900, 'bandpass'); tone(140, 1.9, 0.6, 'sawtooth', 0.08, 60); // le sol se fend
+      noise(2.4, 1.2, 0.12, 5200, 'highpass'); // grésillement de la lave
+      roar(3.45, 105, 1.2);
+    },
+    kyogre: () => {
+      noise(0, 3.7, 0.16, 6000, 'highpass'); noise(0.2, 3.4, 0.1, 1400, 'bandpass'); // pluie
+      thunder(0.9); thunder(2.4);
+      tone(70, 1.5, 1.4, 'sine', 0.35, 150); noise(1.5, 1.4, 0.25, 500, 'lowpass'); // la mer monte
+      noise(2.9, 0.8, 0.55, 650, 'lowpass'); tone(90, 2.9, 0.7, 'sine', 0.5, 45); // la vague
+      roar(3.3, 85, 1.3);
+    },
+    rayquaza: () => {
+      noise(0, 1.9, 0.14, 800, 'bandpass'); pad([N(38), N(45)], 0, 2.6, 0.06); // vent, tension
+      thunder(1.3);
+      tone(N(55), 1.8, 0.8, 'sawtooth', 0.06, N(86)); noise(1.8, 0.8, 0.25, 1600, 'bandpass'); // il fond du ciel
+      noise(2.6, 0.25, 0.6, 4200, 'highpass'); tone(3200, 2.6, 0.22, 'square', 0.05, 500); // la griffe tranche
+      roar(2.7, 140, 1.0);
+      pad([N(57), N(62), N(66), N(69)], 3.1, 1.6, 0.08); // ciel dégagé
+    },
+  };
 
   function play(fn) { if (!on()) return; try { if (ac()) fn(); } catch (e) { /* pas de son, tant pis */ } }
 
@@ -123,6 +154,7 @@ App.sfx = (() => {
       [0, 0.29, 0.58, 0.87].forEach((d, i) => { tone(i % 2 ? 73 : 55, 0.86 + d, 0.18, 'sine', 0.5, 45, 0.005); noise(0.86 + d + 0.145, 0.05, 0.3, 2600, 'bandpass'); });
       [[57, 60, 64], [62, 65, 69], [57, 60, 64], [55, 59, 62]].forEach((ch, i) => ch.forEach((m) => tone(N(m), 0.93 + i * 0.29, 0.12, 'square', 0.04)));
     }),
+    legend: (key) => play(() => { if (LEGEND[key]) LEGEND[key](); }),
     click: () => play(() => tone(900, 0, 0.04, 'triangle', 0.15)),
     // combats (Match)
     energy: () => play(() => { tone(N(84), 0, 0.08, 'triangle', 0.18); tone(N(91), 0.06, 0.12, 'triangle', 0.16); }),

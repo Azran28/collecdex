@@ -228,6 +228,16 @@
     if (F) ov.style.setProperty('--gt', F.color);
     img.src = P().img(r.species, r.shiny, fm);
     const sparkles = () => { if (r.shiny) ov.querySelector('.cap-sparkles').innerHTML = Array.from({ length: 12 }, () => `<b style="left:${10 + Math.random() * 80}%;top:${8 + Math.random() * 80}%;--dl:${Math.random() * 1.6}s">✦</b>`).join(''); };
+    // ouverture : la capsule éclate, particules et fanfare selon la rareté
+    const burst = () => {
+      ov.classList.add('co-burst', 'co-t' + t);
+      App.sfx.open(t, r.shiny);
+      if (r.shiny) ov.classList.add('co-shiny');
+      const parts = [0, 0, 8, 14, 22, 32, 40, 40][t];
+      ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('');
+      sparkles();
+    };
+    const lg = !god && App.capsuleLegend.get(r.species, r.shiny);
     if (god) {
       // Arceus : sa propre apparition, impossible à passer (js/views/capsules-god.js)
       skip = false; locked = true;
@@ -235,6 +245,11 @@
       if (r.shiny) ov.classList.add('co-shiny');
       sparkles();
       await App.capsuleGod.play(ov);
+    } else if (lg) {
+      // grands légendaires : leur apparition, impossible à passer la première fois (js/views/capsules-legend.js)
+      skip = false; locked = !App.capsuleFx.seen(r.species);
+      if (locked) ov.querySelector('.cap-hint').remove();
+      await App.capsuleLegend.play(ov, lg, wait, burst);
     } else {
       await wait(650);
       // secousses : 1 (commun) à 3 (légendaire / fabuleux) ; la lueur prend la couleur de la rareté
@@ -245,13 +260,7 @@
         if (i === shakes - 1) ov.classList.add('co-hint');
         await wait(760);
       }
-      // ouverture
-      ov.classList.add('co-burst', 'co-t' + t);
-      App.sfx.open(t, r.shiny);
-      if (r.shiny) ov.classList.add('co-shiny');
-      const parts = [0, 0, 8, 14, 22, 32, 40][t];
-      ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('');
-      sparkles();
+      burst();
       await wait(t >= 5 ? 900 : 550);
     }
     const fx = !god && App.capsuleFx.get(r.species); // apparition spéciale (Carapuce à lunettes…), js/views/capsules-fx.js
@@ -264,7 +273,7 @@
     ov.querySelector('.cap-text').innerHTML = `
       ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
       <div class="cap-name">${esc(P().name(r.species))}</div>
-      <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">${esc(formLabel(r.species, F))}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? `<span class="new-pill">${F ? 'Nouvelle forme !' : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
+      <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">${esc(formLabel(r.species, F))}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${demo && demo.souvenir ? '<span class="dup-pill">Souvenir</span>' : isNew ? `<span class="new-pill">${F ? 'Nouvelle forme !' : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
       ${nForms ? `<div class="small cap-forms">Formes de ${esc(P().name(r.species))} : <b>${nForms}/${P().formsOf(r.species).length}</b></div>` : ''}
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
       <div class="small cap-tap">Touche ${esc(P().name(r.species))} ${left > 0 ? 'pour ouvrir la suivante' : 'pour revenir à tes capsules'}</div>
@@ -276,8 +285,10 @@
       </div>`;
     if (fx) fx.play(ov);
     if (god) await App.capsuleGod.revealTitle(ov);
-    else ov.querySelector('.cap-hint').remove();
+    else ov.querySelector('.cap-hint')?.remove();
     locked = false;
+    // apparition spéciale vue (vrai tirage ou souvenir) : elle ne sera plus imposée ni proposée en souvenir
+    if (!demo || demo.souvenir) App.capsuleFx.markSeen(r.species, r.shiny);
     return new Promise((resolve) => {
       // toucher le Pokémon = ouvrir la suivante (s'il en reste), sinon revenir à la page des capsules
       const mon = ov.querySelector('.cap-mon');
@@ -301,6 +312,9 @@
     });
   }
 
+  /** Rejoue l'ouverture d'un Pokémon déjà attrapé, en « souvenir » (rien n'est envoyé au serveur) */
+  const replay = (id, shiny = false) => openAnimation('normal', { species: id, tier: P().tier(id), shiny, count: 1, souvenir: true });
+
   async function openLoop(after, kind = 'normal') {
     for (;;) {
       const x = await openAnimation(kind);
@@ -310,7 +324,7 @@
   }
 
   App.views.capsules = {
-    capsuleSVG, pickAvatar, setAvatar, openLoop, speciesModal,
+    capsuleSVG, pickAvatar, setAvatar, openLoop, speciesModal, replay,
     async render(el, params, alive) {
       const state = { region: +(params.query.r || 0), tier: 0, only: false, q: '' };
       // #/capsules?arceus (ou ?arceus=feu, ?arceus=feu-shiny) : revoir l'apparition d'Arceus, seulement sur le PC (localhost),

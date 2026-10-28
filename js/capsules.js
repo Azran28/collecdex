@@ -33,7 +33,12 @@ App.capsules = (() => {
 
   async function status() {
     if (!App.cloud.enabled || !App.cloud.user) { st = null; notify(); return null; }
-    try { return take(await App.cloud.rpc('capsule_status')); }
+    try {
+      const s = take(await App.cloud.rpc('capsule_status'));
+      // nouvelles apparitions de Pokémon déjà attrapés : une fois par lancement, après la synchro du compte
+      if (App.capsuleFx) setTimeout(() => App.capsuleFx.souvenirs().catch(() => {}), 4000);
+      return s;
+    }
     catch (e) { if (isMissing(e)) { missing = true; notify(); } throw e; }
   }
 

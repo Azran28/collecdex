@@ -37,5 +37,48 @@ App.capsuleFx = (() => {
     },
   };
 
-  return { get: (id) => FX[id] || null };
+  // ---------- Apparitions déjà vues (réglage du compte, suit d'un appareil à l'autre) et souvenirs ----------
+  // clé : le numéro du Pokémon (« 130s » = Léviator rouge, seulement en chromatique)
+  const keyOf = (id, shiny) => {
+    id = +id;
+    if (id === 130) return shiny ? '130s' : null;
+    return FX[id] || id === App.pokedex.GOD || App.capsuleLegend.get(id, shiny) ? String(id) : null;
+  };
+  const seenList = () => (Array.isArray(App.settings.fxSeen) ? App.settings.fxSeen : []);
+  const seen = (id, shiny = false) => { const k = keyOf(id, shiny); return !k || seenList().includes(k); };
+  function markSeen(id, shiny = false) {
+    const k = keyOf(id, shiny);
+    if (!k || seenList().includes(k)) return;
+    App.settings.fxSeen = [...seenList(), k];
+    App.col.saveSettings().catch(() => {});
+  }
+
+  /**
+   * À l'ouverture de l'appli : les Pokémon déjà attrapés dont l'apparition est nouvelle (pas encore vue)
+   * la rejouent une fois, en « souvenir » (rien n'est envoyé au serveur). « Plus tard » : reproposé la fois suivante.
+   */
+  let asked = false;
+  async function souvenirs() {
+    if (asked || App.play || !App.capsules.ready()) return;
+    asked = true;
+    const dex = await App.capsules.dex().catch(() => new Map());
+    const list = [];
+    for (const [id, d] of [...dex.entries()].sort((a, b) => a[0] - b[0])) {
+      if (keyOf(id, false) && !seen(id, false)) list.push({ id, shiny: false });
+      if (id === 130 && d.shiny && !seen(130, true)) list.push({ id, shiny: true });
+    }
+    if (!list.length) return;
+    // pas par-dessus une ouverture, la présentation de l'appli ou une fenêtre
+    if (document.querySelector('.cap-ov, #ob, .ask, #modal:not([hidden])')) { asked = false; setTimeout(souvenirs, 8000); return; }
+    const names = list.map((x) => (x.id === 130 ? 'Léviator rouge' : App.pokedex.name(x.id)));
+    const ok = await App.util.ask({
+      icon: 'capsule', title: 'Nouvelles apparitions !',
+      text: `${names.length > 1 ? 'Tes Pokémon ont' : 'Ton Pokémon a'} maintenant ${names.length > 1 ? 'leur' : 'sa'} propre apparition : ${names.join(', ')}. Tu veux ${names.length > 1 ? 'les' : 'la'} voir ?`,
+      ok: 'Voir', cancel: 'Plus tard',
+    });
+    if (!ok) return;
+    for (const x of list) await App.views.capsules.replay(x.id, x.shiny);
+  }
+
+  return { get: (id) => FX[id] || null, seen, markSeen, souvenirs };
 })();
