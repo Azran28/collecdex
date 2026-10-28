@@ -112,6 +112,14 @@ App.sfx = (() => {
       [86, 90, 93, 98].forEach((m, i) => tone(N(m), 0.63 + i * 0.05, 1.2, 'sine', 0.15));
       tone(N(50), 0.63, 1.6, 'sine', 0.3);
     }),
+    /** Carapuce : les lunettes tombent (sifflement), « clac » sur le nez, éclat du verre, accord funk */
+    shades: () => play(() => {
+      tone(1700, 0, 0.42, 'sine', 0.09, 260); noise(0, 0.42, 0.12, 1800, 'bandpass');
+      noise(0.46, 0.06, 0.55, 3200, 'bandpass'); tone(2400, 0.46, 0.07, 'square', 0.07);
+      tone(55, 0.5, 0.5, 'sine', 0.7, 38, 0.005); // basse
+      [[57, 60, 64, 67], [57, 60, 64, 67], [55, 59, 62, 66]].forEach((ch, i) => ch.forEach((m) => tone(N(m), 0.55 + [0, 0.24, 0.48][i], 0.16, 'square', 0.05)));
+      tone(N(100), 0.62, 0.7, 'sine', 0.13); tone(N(107), 0.68, 0.6, 'sine', 0.09); // éclat
+    }),
     click: () => play(() => tone(900, 0, 0.04, 'triangle', 0.15)),
     // combats (Match)
     energy: () => play(() => { tone(N(84), 0, 0.08, 'triangle', 0.18); tone(N(91), 0.06, 0.12, 'triangle', 0.16); }),

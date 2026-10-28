@@ -233,3 +233,6 @@ body.cap-lock { overflow: hidden; }
 
 .fr-card .linkbtn { font-size: .76rem; }
 
+
+/* recherche dans le Pokédex des capsules */
+.cp-q { flex: 1; min-width: 0; max-width: 420px; }

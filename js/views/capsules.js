@@ -250,6 +250,8 @@
       sparkles();
       await wait(t >= 5 ? 900 : 550);
     }
+    const fx = !god && App.capsuleFx.get(r.species); // apparition spéciale (Carapuce à lunettes…), js/views/capsules-fx.js
+    if (fx) ov.classList.add(fx.cls);
     ov.classList.add('co-reveal');
     const isNew = fm ? r.form_count === 1 : r.count === 1;
     const nForms = fm && !demo ? (await App.capsules.forms().catch(() => new Map())).size : 0;
@@ -268,6 +270,7 @@
         ${shop ? `<button class="btn" data-sell>${App.icons.icon('coin', 16)} Vendre (+${p})</button>` : ''}
         <button class="btn ghost" data-close>Fermer</button>
       </div>`;
+    if (fx) fx.play(ov);
     if (god) await App.capsuleGod.revealTitle(ov);
     else ov.querySelector('.cap-hint').remove();
     locked = false;
@@ -305,7 +308,7 @@
   App.views.capsules = {
     capsuleSVG, pickAvatar, setAvatar, openLoop, speciesModal,
     async render(el, params, alive) {
-      const state = { region: +(params.query.r || 0), tier: 0, only: false };
+      const state = { region: +(params.query.r || 0), tier: 0, only: false, q: '' };
       // #/capsules?arceus (ou ?arceus=feu, ?arceus=feu-shiny) : revoir l'apparition d'Arceus, seulement sur le PC (localhost),
       // pour ne pas dévoiler le secret ; sans forme indiquée, une forme au hasard
       if ('arceus' in params.query && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
@@ -313,6 +316,11 @@
         const pick = F.find((f) => w.includes(f.key) || w.includes(App.util.norm(f.name)));
         const form = (pick || F[Math.floor(Math.random() * F.length)]).key;
         setTimeout(() => openAnimation('normal', { species: P().GOD, tier: 7, shiny: w.includes('shiny'), form, count: 1, form_count: 1 }), 400);
+      }
+      // #/capsules?capsule=7 (ou ?capsule=7-shiny) : revoir l'ouverture d'un Pokémon (apparitions spéciales), seulement sur le PC
+      if ('capsule' in params.query && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+        const w = params.query.capsule.split('-'), id = parseInt(w[0], 10);
+        if (id >= 1 && id <= P().TOTAL && id !== P().GOD) setTimeout(() => openAnimation('normal', { species: id, tier: P().tier(id), shiny: w.includes('shiny'), count: 1 }), 400);
       }
 
       if (!App.cloud.enabled || !App.cloud.user) {
@@ -349,6 +357,7 @@
           <div class="toolbar">
             <div class="chips" id="cp-regions">${['Tous', ...P().REGIONS].map((r, i) => `<button class="chip ${state.region === i ? 'on' : ''}" data-r="${i}">${esc(r)}</button>`).join('')}</div>
           </div>
+          <div class="toolbar"><input type="search" id="cp-q" class="cp-q" placeholder="Rechercher un Pokémon (nom ou numéro)…" autocomplete="off"></div>
           <div class="toolbar">
             <select id="cp-tier"><option value="0">Toutes les raretés</option>${[1, 2, 3, 4, 5, 6].map((t) => `<option value="${t}">${esc(P().TIER[t].name)}</option>`).join('')}<option value="7">???</option></select>
             <label class="check small" id="cp-only-l" ${state.region ? '' : 'hidden'}><input type="checkbox" id="cp-only"> Attrapés seulement</label>
@@ -405,24 +414,27 @@
         const R = state.region, G = P().GEN_END;
         // « Attrapés seulement » n'a de sens que dans une région (« Tous » ne montre déjà que les attrapés)
         $('#cp-only-l').hidden = !R;
-        const from = R ? (R === 1 ? 1 : G[R - 2] + 1) : 1, to = R ? G[R - 1] : P().TOTAL;
+        // recherche : dans tout le Pokédex (attrapés ou non), par nom ou numéro, sans tenir compte de la région
+        const q = App.util.norm(state.q), qn = /^\d+$/.test(q) ? +q : 0;
+        const from = R && !q ? (R === 1 ? 1 : G[R - 2] + 1) : 1, to = R && !q ? G[R - 1] : P().TOTAL;
         const ids = [];
         for (let i = from; i <= to; i++) {
+          if (q && !(qn ? i === qn || String(i).startsWith(q) : App.util.norm(P().name(i)).includes(q))) continue;
           if (state.tier && P().tier(i) !== state.tier) continue;
-          if (state.only && !dex.has(i)) continue;
+          if (state.only && !q && !dex.has(i)) continue;
           ids.push(i);
         }
         // « Tous » : seulement les Pokémon attrapés (sinon 1025 cases)
-        const list = R === 0 ? ids.filter((i) => dex.has(i)) : ids;
-        $('#cp-shown').textContent = R === 0 ? '' : `${list.length} affichés`;
+        const list = R === 0 && !q ? ids.filter((i) => dex.has(i)) : ids;
+        $('#cp-shown').textContent = R === 0 && !q ? '' : `${list.length} affiché${list.length > 1 ? 's' : ''}`;
         $('#cp-grid').innerHTML = list.length ? list.map((i) => {
           const d = dex.get(i);
           const t = P().tier(i);
           return d ? `<button class="dex-cell got" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="${esc(P().name(i))}">
               <img src="${P().img(i)}" alt="" loading="lazy"><span class="dn">${esc(P().name(i))}</span><span class="dnum">${P().num(i)}</span>
               ${d.n > 1 ? `<span class="dq">×${d.n}</span>` : ''}${d.shiny ? '<span class="dsh" title="Chromatique">✦</span>' : ''}${i === P().GOD && godForms ? `<span class="dforms" title="Formes d’Arceus">${godForms}/18</span>` : ''}</button>`
-            : `<button class="dex-cell miss" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="Pas encore attrapé"><span class="dq-miss">?</span><span class="dnum">${P().num(i)}</span></button>`;
-        }).join('') : `<div class="empty panel">${dex.size ? 'Aucun Pokémon ici avec ces filtres.' : 'Ton Pokédex est vide : ouvre ta première capsule !'}</div>`;
+            : `<button class="dex-cell miss" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="Pas encore attrapé"><span class="dq-miss">?</span>${q ? `<span class="dn">${esc(P().name(i))}</span>` : ''}<span class="dnum">${P().num(i)}</span></button>`;
+        }).join('') : `<div class="empty panel">${q ? 'Aucun Pokémon ne correspond à ta recherche.' : dex.size ? 'Aucun Pokémon ici avec ces filtres.' : 'Ton Pokédex est vide : ouvre ta première capsule !'}</div>`;
       };
 
       const drawCount = () => {
@@ -474,6 +486,7 @@
           App.sfx.click();
         }
       });
+      el.addEventListener('input', (e) => { if (e.target.id === 'cp-q') { state.q = e.target.value; drawGrid(); } });
       el.addEventListener('change', (e) => {
         if (e.target.id === 'cp-tier') { state.tier = +e.target.value; drawGrid(); }
         if (e.target.id === 'cp-only') { state.only = e.target.checked; drawGrid(); }

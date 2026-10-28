@@ -121,3 +121,33 @@
   .form-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
   .form-grid .evo-img { width: 50px; height: 50px; }
 }
+
+/* ===== APPARITIONS SPÉCIALES (js/views/capsules-fx.js) ===== */
+/* Carapuce : tourbillon d'eau, lunettes de soleil qui tombent du ciel, « Escouade Carapuce » */
+.fx-water { position: absolute; width: 560px; height: 560px; left: 50%; top: 50%; margin: -280px 0 0 -280px; z-index: 0; border-radius: 50%; opacity: 0; transform: scale(.4);
+  background: repeating-conic-gradient(from 0deg, rgba(52,160,255,.55) 0deg 8deg, transparent 8deg 22deg, rgba(150,217,255,.35) 22deg 26deg, transparent 26deg 40deg);
+  -webkit-mask: radial-gradient(circle, #000 0%, transparent 66%); mask: radial-gradient(circle, #000 0%, transparent 66%); }
+.cap-ov.fx-squirtle.co-reveal .fx-water { opacity: 1; transform: none; transition: opacity .5s, transform .7s cubic-bezier(.2,.9,.3,1); animation: capSpin 9s linear infinite reverse; }
+.cap-ov.fx-squirtle.co-reveal .cap-rays { opacity: 0 !important; }
+.fx-shades { position: absolute; left: 19%; top: 13.5%; width: 37%; transform: translateY(-70vh) rotate(-30deg); opacity: 0; pointer-events: none; filter: drop-shadow(0 3px 4px rgba(0,0,0,.45)); }
+.fx-shades svg { display: block; width: 100%; height: auto; }
+.cap-ov.fx-drop .fx-shades { animation: fxShadesDrop .48s cubic-bezier(.5,0,.7,.3) forwards; }
+@keyframes fxShadesDrop { 0% { opacity: 1; transform: translateY(-70vh) rotate(-30deg); } 100% { opacity: 1; transform: translateY(0) rotate(-7deg); } }
+.cap-ov.fx-on .fx-shades { opacity: 1; animation: fxShadesLand .35s ease-out forwards; }
+@keyframes fxShadesLand { 0% { transform: translateY(0) rotate(-7deg); } 40% { transform: translateY(5px) rotate(-5deg) scaleY(.9); } 100% { transform: translateY(0) rotate(-7deg); } }
+/* éclat qui traverse le verre droit */
+.fx-glint { position: absolute; left: 66%; top: 18%; width: 22px; height: 22px; opacity: 0; background: radial-gradient(circle, #fff 0 18%, transparent 20%), linear-gradient(90deg, transparent 46%, #fff 50%, transparent 54%), linear-gradient(0deg, transparent 46%, #fff 50%, transparent 54%); }
+.cap-ov.fx-on .fx-glint { animation: fxGlint .9s .15s ease-out; }
+@keyframes fxGlint { 0% { opacity: 0; transform: scale(.2) rotate(0); } 35% { opacity: 1; transform: scale(1.4) rotate(45deg); } 100% { opacity: 0; transform: scale(.6) rotate(90deg); } }
+/* il hoche la tête quand les lunettes arrivent */
+.cap-ov.fx-on .cap-mon img { animation: fxNod .4s ease-out; }
+@keyframes fxNod { 40% { transform: translateY(6px) rotate(2deg); } }
+.cap-ov.fx-on .cap-scene { animation: capShake .35s; }
+/* gouttes d'eau */
+.fx-drops { position: absolute; left: 50%; top: 50%; z-index: 5; }
+.fx-drops i { position: absolute; width: 7px; height: 10px; margin: -5px -3px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #8fd3ff; box-shadow: 0 0 6px #34a0ff; opacity: 0; }
+.cap-ov.fx-on .fx-drops i { animation: fxDrop .8s var(--dl) ease-out forwards; }
+@keyframes fxDrop { 0% { opacity: 1; transform: rotate(var(--a)) translateX(20px); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) translateY(30px); } }
+/* bannière tamponnée */
+.fx-squad { color: #fff; letter-spacing: .14em; font-size: 1.2rem; padding: 3px 14px; border-radius: 8px; background: linear-gradient(135deg, #1f6fe0, #34a0ff); box-shadow: 0 4px 0 #0d3f8f, 0 0 22px rgba(52,160,255,.6); text-shadow: 0 2px 0 rgba(0,0,0,.35); transform: rotate(-3deg); animation: fxStamp .4s cubic-bezier(.2,1.6,.4,1) both !important; }
+@keyframes fxStamp { 0% { opacity: 0; transform: scale(2.4) rotate(-12deg); } 100% { opacity: 1; transform: scale(1) rotate(-3deg); } }
