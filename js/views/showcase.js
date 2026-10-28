@@ -43,7 +43,7 @@ App.views.showcase = {
           if (it.displayPhoto && (!pubName || d.photos)) { const u = await photo(it.displayPhoto); if (u) return { src: u, mine: true }; }
           return { src: ad.img.card({ image: it.snap.image, id: it.id, setId: it.setId, localId: it.snap.localId, serieId: it.snap.serieId, lang: it.lang || 'fr' }, q), mine: false };
         },
-        avatar: async (p) => (p.avatarPoke && p.avatarPoke.id && !App.play ? App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny) : p.avatar && (!pubName || d.photos) ? photo(p.avatar) : ''),
+        avatar: async (p) => (p.avatarPoke && p.avatarPoke.id && !App.play ? App.pokedex.avatarImg(p.avatarPoke) : p.avatar && (!pubName || d.photos) ? photo(p.avatar) : ''),
       };
     } else {
       S = {

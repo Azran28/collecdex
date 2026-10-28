@@ -15,6 +15,7 @@ paths:
 → `supabase-v19.sql` (v3.52, scans de test pour le labo : `labo_testers` (sans règle d’accès, remplie à la main : dernière ligne du script, l’adresse est tapée par Arnaud), `labo_is_tester()`, `labo_scans` (id, user_id, game, data ≤ 16 Ko, 2 000 max par compte), stockage privé `labo` (`labo/<uid>/<id>.webp`, 1 Mo, lecture/écriture seulement par un testeur pour son dossier) ; `cloud.deleteAccount` efface aussi `labo/<uid>/`).
 → `supabase-v20.sql` (v3.58, rafale certifiée : `cert_start(p_kind, p_n)` accepte `rafale` → défi `retourne` avec `max_uses = least(p_n, 30)`, la réponse donne `uses` ; `cert_finish` inchangé).
 → `supabase-v21.sql` (v3.71, Arceus « Dieu » : rareté 7 permise dans `dex_species`, Arceus seul dedans, `capsule_price` 7 = 500, `capsule_open` tire Arceus à 0,1 % avant la rareté habituelle, capsule normale ou grande).
+→ `supabase-v22.sql` (v3.72, 18 formes d'Arceus : colonne `caught.form`, `arceus_forms()`, `capsule_open` donne une forme pas encore possédée + `form`/`form_count`, `capsule_forms()`, ventes qui gardent une forme de chaque).
 
 - Dans ce projet, `service_role` n'a PAS de droits par défaut sur les nouvelles tables : les donner explicitement (`grant … to service_role`, fait pour `push_config` et `push_subs`).
 - Toute nouvelle table liée à un dresseur doit avoir `references auth.users (id) on delete cascade`, sinon ses lignes survivent à la suppression du compte.

@@ -7,6 +7,7 @@ App.capsules = (() => {
   let st = null;          // { stock, max, next_at (ms), coins, bonus, big, shop }
   let offset = 0;         // heure du serveur - heure du téléphone
   let dexCache = null;    // Map espèce → { n, shiny, first, last }
+  let formsCache = null;  // formes d'Arceus attrapées : Map forme → { n, shiny } (supabase-v22.sql)
   let timer = null, missing = false;
   const listeners = new Set();
   const notify = () => listeners.forEach((f) => { try { f(st); } catch (e) { console.error(e); } });
@@ -44,6 +45,11 @@ App.capsules = (() => {
       d.n++; if (r.shiny) d.shiny++; d.last = Date.now();
       dexCache.set(r.species, d);
     }
+    if (formsCache && r.form) {
+      const f = formsCache.get(r.form) || { n: 0, shiny: 0 };
+      f.n++; if (r.shiny) f.shiny++;
+      formsCache.set(r.form, f);
+    }
     return r;
   }
 
@@ -51,10 +57,11 @@ App.capsules = (() => {
   /** Prix de vente d'un Pokémon (même barème que sur le serveur) : commun 1 … fabuleux 150, Arceus 500, chromatique ×5 */
   const PRICES = [0, 1, 3, 8, 20, 100, 150, 500]; // 7 = Arceus (« Dieu », supabase-v21.sql)
   const price = (species, shiny = false) => PRICES[App.pokedex.tier(species)] * (shiny ? 5 : 1);
-  /** Doublons vendables d'un coup : on garde 1 exemplaire normal de chaque Pokémon, les chromatiques ne sont pas vendus */
+  /** Doublons vendables d'un coup : on garde 1 exemplaire normal de chaque Pokémon (et de chaque forme d'Arceus), les chromatiques ne sont pas vendus */
   function dupes(dex) {
     let n = 0, gain = 0;
-    for (const [id, d] of dex) { const extra = Math.max(0, d.n - d.shiny - 1); n += extra; gain += extra * price(id); }
+    const keepGod = formsCache ? Math.max(1, [...formsCache.values()].filter((f) => f.n > f.shiny).length) : 1;
+    for (const [id, d] of dex) { const extra = Math.max(0, d.n - d.shiny - (id === App.pokedex.GOD ? keepGod : 1)); n += extra; gain += extra * price(id); }
     return { n, gain };
   }
   async function sell(species, shiny = false, n = 1) {
@@ -65,12 +72,15 @@ App.capsules = (() => {
       d.n -= r.sold; if (shiny) d.shiny -= r.sold;
       if (d.n <= 0) dexCache.delete(species);
     }
+    if (species === App.pokedex.GOD) formsCache = null; // le serveur a choisi quelles formes partent : on relira
     return r;
   }
   async function sellDupes() {
     const r = await App.cloud.rpc('capsule_sell_dupes');
     take(r);
     if (dexCache) for (const d of dexCache.values()) d.n = d.shiny + Math.min(1, d.n - d.shiny);
+    if (formsCache) for (const f of formsCache.values()) f.n = f.shiny + Math.min(1, f.n - f.shiny);
+    if (dexCache && formsCache && dexCache.has(App.pokedex.GOD)) { const d = dexCache.get(App.pokedex.GOD); d.n = [...formsCache.values()].reduce((s, f) => s + f.n, 0) || d.n; }
     return r;
   }
   async function buy(kind, n = 1) { return take(await App.cloud.rpc('capsule_buy', { p_kind: kind, p_n: n })); }
@@ -84,6 +94,14 @@ App.capsules = (() => {
     dexCache = new Map((rows || []).map((x) => [x.species, { n: x.n, shiny: x.shiny, first: new Date(x.first_at).getTime(), last: new Date(x.last_at).getTime() }]));
     return dexCache;
   }
+  /** Formes d'Arceus attrapées (vide si supabase-v22.sql n'est pas encore lancé) */
+  async function forms({ fresh = false } = {}) {
+    if (!ready()) return new Map();
+    if (formsCache && !fresh) return formsCache;
+    const rows = await App.cloud.rpc('capsule_forms').catch(() => []);
+    formsCache = new Map((rows || []).filter((x) => x.species === App.pokedex.GOD && App.pokedex.FORM[x.form]).map((x) => [x.form, { n: x.n, shiny: x.shiny }]));
+    return formsCache;
+  }
 
   /** Temps restant avant la prochaine capsule, en texte (« 42 min », « 1 h 05 ») */
   function countdown() {
@@ -95,7 +113,7 @@ App.capsules = (() => {
 
   /** Image d'avatar du profil : le Pokémon choisi (sinon l'ancienne photo, s'il y en a une) */
   async function avatarURL(p) {
-    if (p && p.avatarPoke && p.avatarPoke.id && !App.play) return App.pokedex.img(p.avatarPoke.id, !!p.avatarPoke.shiny);
+    if (p && p.avatarPoke && p.avatarPoke.id && !App.play) return App.pokedex.avatarImg(p.avatarPoke);
     if (p && p.avatar) return App.col.photoURL(p.avatar).catch(() => '');
     return '';
   }
@@ -105,13 +123,13 @@ App.capsules = (() => {
   App.cloud.on(() => {
     const u = App.cloud.user ? App.cloud.user.id : null;
     if (u === lastUser) return;
-    lastUser = u; dexCache = null; missing = false;
+    lastUser = u; dexCache = null; formsCache = null; missing = false;
     if (u && !App.play) status().catch(() => {}); else { st = null; notify(); }
   });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ready() && !App.play) status().catch(() => {}); });
 
   return {
-    status, open, dex, countdown, avatarURL, sell, sellDupes, buy, price, dupes, total, PRICES,
+    status, open, dex, forms, countdown, avatarURL, sell, sellDupes, buy, price, dupes, total, PRICES,
     get state() { return st; }, get missing() { return missing; }, ready,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
   };

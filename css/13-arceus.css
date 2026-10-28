@@ -106,3 +106,18 @@
 @media (prefers-reduced-motion: reduce) {
   .cap-ov.g-quake .cap-ball .capsule, .cap-ov.g-crack .cap-ball .capsule, .cap-ov.g-shake .cap-scene, .god-banner.glitch { animation: none; }
 }
+
+/* ===== LES 18 FORMES D'ARCEUS (supabase-v22.sql) ===== */
+/* la poussière et la nébuleuse prennent la couleur du type tiré (--gt) */
+.cap-ov.co-god .god-motes i { background: var(--gt, #ffe7a3); box-shadow: 0 0 8px var(--gt, #ffd76a); }
+.cap-ov.co-god .god-nebula { background: radial-gradient(ellipse 45% 35% at 50% 45%, color-mix(in srgb, var(--gt, #ffd76a) 38%, transparent), transparent 70%),
+  radial-gradient(ellipse 40% 30% at 30% 30%, rgba(124,92,255,.35), transparent 70%), radial-gradient(ellipse 40% 30% at 72% 65%, rgba(52,213,255,.22), transparent 70%); }
+.god-forms { color: #f6e7b8; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }
+.form-grid .evo-cell { width: auto; }
+.form-cell.miss { cursor: default; }
+.dex-cell .dforms { position: absolute; bottom: 24px; right: 6px; font-size: .64rem; font-weight: 800; color: #fff3c4; background: rgba(0,0,0,.6); border: 1px solid rgba(255,231,163,.6); padding: 0 5px; border-radius: 999px; }
+@media (max-width: 760px) {
+  .form-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+  .form-grid .evo-img { width: 50px; height: 50px; }
+}

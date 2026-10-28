@@ -244,6 +244,14 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - S'il sort, une **apparition spéciale d'environ 10 secondes**, impossible à passer : le néant, la capsule qui se fissure de lumière, un big bang, l'anneau aux 17 plaques, Arceus qui descend en silhouette puis prend ses couleurs, et le titre « ??? » qui devient « Dieu des Pokémon ».
 - **La revoir sur ton PC** : lance CollecDex puis ouvre `http://localhost:8765/#/capsules?arceus` (ou `?arceus=shiny` pour la version chromatique). Rien n'est enregistré ; ça ne marche pas sur le site en ligne, pour garder le secret.
 - **À faire une fois dans Supabase** : *SQL Editor* → *New query* → coller tout le fichier `supabase/sql/supabase-v21.sql` → *Run*. Sans lui, Arceus reste tiré comme un fabuleux (0,5 % partagé avec les autres) et revendu 150.
+
+## Les 18 formes d'Arceus (v3.72)
+- Arceus existe en **18 formes**, une par type (Normal, Combat, Vol, Poison, Sol, Roche, Insecte, Spectre, Acier, Feu, Eau, Plante, Électrik, Psy, Glace, Dragon, Ténèbres, Fée). **Chaque Arceus attrapé est une forme que tu n'as pas encore** ; quand tu as les 18, la forme est tirée au hasard.
+- À l'ouverture : « Forme Feu », « Nouvelle forme ! » et « Formes d'Arceus : 3/18 » ; la poussière et la nébuleuse de l'apparition prennent la couleur du type.
+- Fiche d'Arceus : grille **« Les 18 formes »** (attrapées en couleur, les autres grisées) ; toucher une forme l'affiche, et « En faire mon avatar » prend cette forme. Dans le Pokédex, la case d'Arceus montre **x/18**.
+- La vente garde une forme de chaque : on vend d'abord les doubles d'une même forme.
+- Démo sur le PC : `http://localhost:8765/#/capsules?arceus=feu` (ou `?arceus=dragon-shiny`, sans rien = forme au hasard).
+- **À faire une fois dans Supabase**, après `supabase-v21.sql` : coller tout `supabase/sql/supabase-v22.sql` → *Run*.
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
 - Quand tu valides la **dernière carte à vérifier** (« ✓ C’est elle » ou « Ne pas l’ajouter »), les cartes sont **enregistrées directement** et l’écran revient au scan de la page suivante : plus de passage par le récapitulatif. Pareil avec « Enregistrer » dans la liste détaillée. Le récapitulatif reste quand aucune carte n’est à vérifier (pour tout voir d’un coup d’œil avant d’enregistrer).
 - **Rafale** : la caméra se relance toute seule. **Classeur** : touche « Caméra » pour la page suivante (le téléphone ne permet pas d’ouvrir son appareil photo sans que tu touches un bouton).

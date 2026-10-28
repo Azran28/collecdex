@@ -34,8 +34,18 @@
   /** Choisir son avatar parmi ses Pokémon attrapés → { id, shiny } ou null */
   async function pickAvatar() {
     const dex = await App.capsules.dex().catch(() => new Map());
+    const forms = dex.has(P().GOD) ? await App.capsules.forms().catch(() => new Map()) : new Map();
     const list = [];
     for (const [id, d] of [...dex.entries()].sort((a, b) => a[0] - b[0])) {
+      // Arceus : une case par forme attrapée (normale et chromatique)
+      if (id === P().GOD && forms.size) {
+        for (const f of P().FORMS) {
+          const c = forms.get(f.key); if (!c) continue;
+          if (c.n > c.shiny) list.push({ id, shiny: false, form: f.key });
+          if (c.shiny) list.push({ id, shiny: true, form: f.key });
+        }
+        continue;
+      }
       list.push({ id, shiny: false });
       if (d.shiny) list.push({ id, shiny: true });
     }
@@ -45,12 +55,16 @@
         <h2>Choisis ton avatar</h2>
         ${list.length ? `<p class="small muted">Parmi les Pokémon que tu as attrapés (${list.length}).</p>
           <input type="search" id="av-q" placeholder="Rechercher…">
-          <div class="av-grid">${list.map((x) => `<button class="av-cell ${x.shiny ? 'shiny' : ''}" data-av="${x.id}" data-sh="${x.shiny ? 1 : 0}" data-n="${esc(App.util.norm(P().name(x.id)))}" title="${esc(P().name(x.id))}${x.shiny ? ' (chromatique)' : ''}"><img src="${P().img(x.id, x.shiny)}" alt="" loading="lazy"><span>${esc(P().name(x.id))}</span></button>`).join('')}</div>`
+          <div class="av-grid">${list.map((x) => `<button class="av-cell ${x.shiny ? 'shiny' : ''}" data-av="${x.id}" data-sh="${x.shiny ? 1 : 0}" data-form="${esc(x.form || '')}" data-n="${esc(App.util.norm(P().fullName(x.id, x.form)))}" title="${esc(P().fullName(x.id, x.form))}${x.shiny ? ' (chromatique)' : ''}"><img src="${P().img(x.id, x.shiny, x.form)}" alt="" loading="lazy"><span>${esc(P().fullName(x.id, x.form))}</span></button>`).join('')}</div>`
           : `<p class="muted">Tu n’as pas encore attrapé de Pokémon. Ouvre des capsules pour en attraper !</p><a class="btn primary" href="#/capsules">${App.icons.icon('capsule', 16)} Mes capsules</a>`}
       </div>`, () => { if (!done) resolve(null); });
       body.addEventListener('click', (e) => {
         const c = e.target.closest('[data-av]');
-        if (c) { done = true; resolve({ id: +c.dataset.av, shiny: c.dataset.sh === '1' }); App.util.closeModal(); }
+        if (c) {
+          done = true;
+          const fm = P().form(+c.dataset.av, c.dataset.form);
+          resolve({ id: +c.dataset.av, shiny: c.dataset.sh === '1', ...(fm ? { form: fm } : {}) }); App.util.closeModal();
+        }
         if (e.target.closest('a[href]')) App.util.closeModal();
       });
       const q = body.querySelector('#av-q');
@@ -59,13 +73,14 @@
   }
 
   /** Enregistre le Pokémon comme avatar (et oublie l'ancienne photo de profil) */
-  async function setAvatar(id, shiny) {
+  async function setAvatar(id, shiny, form = null) {
     const p = await App.col.getProfile();
     if (p.avatar) { App.cloud.markPhotoDelete(p.avatar); p.avatar = null; }
-    p.avatarPoke = { id, shiny: !!shiny };
+    const fm = P().form(id, form);
+    p.avatarPoke = { id, shiny: !!shiny, ...(fm ? { form: fm } : {}) };
     await App.col.saveProfile(p);
     App.col.notify();
-    App.util.toast(`${P().name(id)} est ton nouvel avatar ✓`);
+    App.util.toast(`${P().fullName(id, fm)} est ton nouvel avatar ✓`);
   }
 
   /** Petite case d'un Pokémon dans la fiche (évolutions, chromatique) : grisée avec « ? » s'il n'est pas attrapé */
@@ -77,10 +92,14 @@
   const counts = (d) => ({ normal: d ? d.n - d.shiny : 0, shiny: d ? d.shiny : 0 });
 
   /** Fiche d'un Pokémon (attrapé ou non) : évolutions, version chromatique, avatar et vente ; onChange() après une vente */
-  function speciesModal(id, dex, onChange) {
+  async function speciesModal(id, dex, onChange) {
     const d = dex.get(id);
     const got = !!d, c0 = counts(d);
     let sh = c0.normal === 0 && c0.shiny > 0; // seulement le chromatique : on montre celui-là d'abord
+    // Arceus : ses 18 formes (une par type) ; la forme affichée = la première attrapée
+    const forms = id === P().GOD && got ? await App.capsules.forms().catch(() => new Map()) : null;
+    let form = forms && forms.size ? P().FORMS.find((f) => forms.has(f.key)).key : null;
+    if (form) { const c = forms.get(form); sh = c.n === c.shiny; }
     const st = App.capsules.state, shop = !!(got && st && st.shop);
     const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
     const fam = P().family(id);
@@ -89,26 +108,35 @@
     const evoHTML = fam.flat().length > 1 ? `<div class="sp-evo"><h3>Évolutions</h3><div class="evo-line">${fam.map((stage) => `<div class="evo-stage">${stage.map(famCell).join('')}</div>`).join('<span class="evo-arrow" aria-hidden="true">›</span>')}</div></div>` : '';
     const shinyHTML = `<div class="sp-evo"><h3>Version chromatique</h3><div class="evo-line">${evoCell(id, c0.shiny > 0, true, -1)}
       <p class="small muted" style="margin:0;align-self:center">${c0.shiny ? `Tu l’as attrapé en chromatique${c0.shiny > 1 ? ` ${c0.shiny} fois` : ''} ✦` : 'Pas encore attrapé en chromatique (1 % de chance à chaque capsule, 3 % avec une grande capsule).'}</p></div></div>`;
+    const formsHTML = forms ? `<div class="sp-evo"><h3>Les 18 formes <span class="muted small">${forms.size}/18</span></h3>
+      <p class="small muted" style="margin:0 0 8px">Chaque Arceus attrapé est une forme que tu n’as pas encore.</p>
+      <div class="form-grid">${P().FORMS.map((f) => { const c = forms.get(f.key); return `<button class="evo-cell form-cell ${c ? 'got' : 'miss'}" data-form="${f.key}" style="--tc:${f.color}" title="${esc(P().fullName(id, f.key))}${c ? '' : ' (pas encore attrapé)'}">
+        <span class="evo-img"><img src="${P().img(id, false, f.key)}" alt="" loading="lazy">${c && c.shiny ? '<span class="evo-sh">✦</span>' : ''}</span><span class="evo-n">${esc(f.name)}</span></button>`; }).join('')}</div></div>` : '';
     const body = App.util.openModal(`<div class="sp-modal">
       <div class="sp-art t${P().tier(id)}" style="--tc:${P().TIER[P().tier(id)].color}"><img id="sp-img" src="${P().img(id, sh)}" alt="${esc(P().name(id))}" width="200" height="200"><span class="sp-q">?</span></div>
       <div class="sp-info">
         <div class="muted small">${P().num(id)} · ${esc(P().region(id))}</div>
-        <h2>${esc(P().name(id))}</h2>
+        <h2 id="sp-name">${esc(P().fullName(id, form))}</h2>
         <div class="row" style="gap:8px">${tierPill(P().tier(id), got)}${c0.shiny ? '<span class="shiny-pill">✦ Chromatique</span>' : ''}</div>
         <p class="small muted sp-count">${got ? `Attrapé ${d.n} fois${c0.shiny ? ` (dont ${c0.shiny} chromatique${c0.shiny > 1 ? 's' : ''})` : ''} · la première fois le ${App.util.dateFr(new Date(d.first).toISOString())}.` : 'Pas encore attrapé : ouvre des capsules pour le trouver !'}</p>
         ${got ? `<div class="chips" id="sp-sw"><button class="chip" data-sh="0">Normal${c0.normal ? ` ×${c0.normal}` : ''}</button><button class="chip" data-sh="1">✦ Chromatique${c0.shiny ? ` ×${c0.shiny}` : ''}</button></div>
           <button class="btn primary" id="sp-av" style="margin-top:12px">${App.icons.icon('user', 16)} En faire mon avatar</button>` : ''}
         ${shop ? `<div class="sp-sell" id="sp-sell"></div>` : ''}
-      </div></div>${evoHTML}${shinyHTML}`);
+      </div></div>${formsHTML}${evoHTML}${shinyHTML}`);
     body.addEventListener('click', (e) => {
       const ev = e.target.closest('[data-evo]');
       if (ev && +ev.dataset.evo !== id) speciesModal(+ev.dataset.evo, dex, onChange);
     });
-    const own = () => (sh ? counts(d).shiny : counts(d).normal) > 0;
-    // version affichée (normale / chromatique) : grisée si tu ne l'as pas, sans changer la taille de la fiche
+    const own = () => {
+      if (form) { const c = forms.get(form); return !!c && (sh ? c.shiny : c.n - c.shiny) > 0; }
+      return (sh ? counts(d).shiny : counts(d).normal) > 0;
+    };
+    // version affichée (normale / chromatique, et forme d'Arceus) : grisée si tu ne l'as pas, sans changer la taille de la fiche
     const drawVersion = () => {
       body.querySelector('.sp-modal').classList.toggle('sp-miss', !own());
-      body.querySelector('#sp-img').src = P().img(id, sh);
+      body.querySelector('#sp-img').src = P().img(id, sh, form);
+      body.querySelector('#sp-name').textContent = P().fullName(id, form);
+      body.querySelectorAll('.form-cell').forEach((c) => c.classList.toggle('cur', c.dataset.form === form));
       body.querySelectorAll('#sp-sw .chip').forEach((c) => c.classList.toggle('on', (c.dataset.sh === '1') === sh));
       const av = body.querySelector('#sp-av');
       if (av) { av.disabled = !own(); av.title = own() ? '' : `Tu n’as pas ${P().name(id)} en version ${sh ? 'chromatique' : 'normale'}`; }
@@ -127,7 +155,9 @@
     body.addEventListener('click', async (e) => {
       const b = e.target.closest('#sp-sw [data-sh]');
       if (b) { sh = b.dataset.sh === '1'; drawVersion(); drawSell(); }
-      if (e.target.closest('#sp-av')) { if (!own()) return; await setAvatar(id, sh); App.util.closeModal(); }
+      const fc = e.target.closest('.form-cell.got');
+      if (fc) { form = fc.dataset.form; drawVersion(); }
+      if (e.target.closest('#sp-av')) { if (!own()) return; await setAvatar(id, sh, form); App.util.closeModal(); }
       const sb = e.target.closest('[data-sell]');
       if (sb) {
         const n = +sb.dataset.sell, have = sh ? d.shiny : d.n - d.shiny;
@@ -146,7 +176,8 @@
           const r = await App.capsules.sell(id, sh, n);
           App.sfx.click();
           App.util.toast(`+${pts(r.gain)} (tu as ${pts(r.coins)})`);
-          if (d.n <= 0) { dex.delete(id); App.util.closeModal(); } else { drawVersion(); drawSell(); }
+          // Arceus : le serveur a choisi quelles formes partent, on ferme la fiche (elle sera relue)
+          if (d.n <= 0 || forms) { if (d.n <= 0) dex.delete(id); App.util.closeModal(); } else { drawVersion(); drawSell(); }
           if (onChange) onChange();
         } catch (err) { App.util.toast(err.message, 4000); sb.disabled = false; }
       }
@@ -189,7 +220,9 @@
     const r = out.r, t = P().tier(r.species), T = P().TIER[t], god = !!T.secret;
     ov.style.setProperty('--tc', T.color);
     const img = ov.querySelector('.cap-mon img');
-    img.src = P().img(r.species, r.shiny);
+    const fm = P().form(r.species, r.form), F = fm ? P().FORM[fm] : null; // forme d'Arceus (supabase-v22.sql)
+    if (F) ov.style.setProperty('--gt', F.color);
+    img.src = P().img(r.species, r.shiny, fm);
     const sparkles = () => { if (r.shiny) ov.querySelector('.cap-sparkles').innerHTML = Array.from({ length: 12 }, () => `<b style="left:${10 + Math.random() * 80}%;top:${8 + Math.random() * 80}%;--dl:${Math.random() * 1.6}s">✦</b>`).join(''); };
     if (god) {
       // Arceus : sa propre apparition, impossible à passer (js/views/capsules-god.js)
@@ -218,13 +251,15 @@
       await wait(t >= 5 ? 900 : 550);
     }
     ov.classList.add('co-reveal');
-    const isNew = r.count === 1;
+    const isNew = fm ? r.form_count === 1 : r.count === 1;
+    const nForms = fm && !demo ? (await App.capsules.forms().catch(() => new Map())).size : 0;
     const left = demo ? 0 : kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
     const shop = !demo && r.coins !== undefined, p = shop ? App.capsules.price(r.species, r.shiny) : 0;
     ov.querySelector('.cap-text').innerHTML = `
       ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
       <div class="cap-name">${esc(P().name(r.species))}</div>
-      <div class="row cap-tags">${tierPill(t, !god)}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? '<span class="new-pill">Nouveau !</span>' : `<span class="dup-pill">×${r.count}</span>`}</div>
+      <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">Forme ${esc(F.name)}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${isNew ? `<span class="new-pill">${F ? 'Nouvelle forme !' : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
+      ${nForms ? `<div class="small god-forms">Formes d’Arceus : <b>${nForms}/18</b></div>` : ''}
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
       <div class="small cap-tap">Touche ${esc(P().name(r.species))} ${left > 0 ? 'pour ouvrir la suivante' : 'pour revenir à tes capsules'}</div>
       <div class="row cap-btns">
@@ -242,7 +277,7 @@
       mon.classList.add('tap-next');
       mon.addEventListener('click', () => { close(); resolve({ r, again: left > 0 }); }, { once: true });
       ov.querySelector('.cap-btns').addEventListener('click', async (e) => {
-        if (e.target.closest('[data-avatar]')) { await setAvatar(r.species, r.shiny); e.target.closest('[data-avatar]').disabled = true; return; }
+        if (e.target.closest('[data-avatar]')) { await setAvatar(r.species, r.shiny, fm); e.target.closest('[data-avatar]').disabled = true; return; }
         const sb = e.target.closest('[data-sell]');
         if (sb) {
           const prof = await App.col.getProfile().catch(() => ({}));
@@ -268,12 +303,16 @@
   }
 
   App.views.capsules = {
-    capsuleSVG, pickAvatar, setAvatar, openLoop,
+    capsuleSVG, pickAvatar, setAvatar, openLoop, speciesModal,
     async render(el, params, alive) {
       const state = { region: +(params.query.r || 0), tier: 0, only: false };
-      // #/capsules?arceus : revoir l'apparition d'Arceus, seulement sur le PC (localhost), pour ne pas dévoiler le secret
+      // #/capsules?arceus (ou ?arceus=feu, ?arceus=feu-shiny) : revoir l'apparition d'Arceus, seulement sur le PC (localhost),
+      // pour ne pas dévoiler le secret ; sans forme indiquée, une forme au hasard
       if ('arceus' in params.query && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
-        setTimeout(() => openAnimation('normal', { species: App.pokedex.GOD, tier: 7, shiny: params.query.arceus === 'shiny', count: 1 }), 400);
+        const w = params.query.arceus.split('-').map((x) => App.util.norm(x)), F = P().FORMS;
+        const pick = F.find((f) => w.includes(f.key) || w.includes(App.util.norm(f.name)));
+        const form = (pick || F[Math.floor(Math.random() * F.length)]).key;
+        setTimeout(() => openAnimation('normal', { species: P().GOD, tier: 7, shiny: w.includes('shiny'), form, count: 1, form_count: 1 }), 400);
       }
 
       if (!App.cloud.enabled || !App.cloud.user) {
@@ -319,7 +358,7 @@
         </section>`;
 
       const $ = (s) => el.querySelector(s);
-      let dex = new Map();
+      let dex = new Map(), godForms = 0; // formes d'Arceus attrapées (sur 18)
 
       const drawStatus = () => {
         const s = App.capsules.state;
@@ -381,7 +420,7 @@
           const t = P().tier(i);
           return d ? `<button class="dex-cell got" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="${esc(P().name(i))}">
               <img src="${P().img(i)}" alt="" loading="lazy"><span class="dn">${esc(P().name(i))}</span><span class="dnum">${P().num(i)}</span>
-              ${d.n > 1 ? `<span class="dq">×${d.n}</span>` : ''}${d.shiny ? '<span class="dsh" title="Chromatique">✦</span>' : ''}</button>`
+              ${d.n > 1 ? `<span class="dq">×${d.n}</span>` : ''}${d.shiny ? '<span class="dsh" title="Chromatique">✦</span>' : ''}${i === P().GOD && godForms ? `<span class="dforms" title="Formes d’Arceus">${godForms}/18</span>` : ''}</button>`
             : `<button class="dex-cell miss" data-sp="${i}" style="--tc:${P().TIER[t].color}" title="Pas encore attrapé"><span class="dq-miss">?</span><span class="dnum">${P().num(i)}</span></button>`;
         }).join('') : `<div class="empty panel">${dex.size ? 'Aucun Pokémon ici avec ces filtres.' : 'Ton Pokédex est vide : ouvre ta première capsule !'}</div>`;
       };
@@ -393,7 +432,10 @@
         $('#cp-bar').innerHTML = `<div style="margin:6px 0 14px">${App.ui.progressBar(p)}</div>`;
       };
 
-      const refreshDex = async (fresh) => { dex = await App.capsules.dex({ fresh }).catch(() => new Map()); if (!alive()) return; drawCount(); drawGrid(); drawShop(); };
+      const refreshDex = async (fresh) => {
+        dex = await App.capsules.dex({ fresh }).catch(() => new Map());
+        godForms = dex.has(P().GOD) ? (await App.capsules.forms({ fresh }).catch(() => new Map())).size : 0;
+        if (!alive()) return; drawCount(); drawGrid(); drawShop(); };
 
       el.addEventListener('click', (e) => {
         const r = e.target.closest('[data-r]');

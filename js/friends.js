@@ -29,7 +29,7 @@ App.friends = (() => {
     || /^https:\/\/cdn\.starwarsunlimited\.com\/\/?[A-Za-z0-9_.-]{6,140}\.png$/.test(v)) ? v : ''); // (Final Fantasy : visuels de Square Enix, promos TCGplayer ; Wankul : copie du visuel rangée dans le site ; Star Wars : visuels officiels)
   const game = (v) => (typeof v === 'string' && App.games.get(v) ? v : null);
   const oneOf = (v, list, def) => (list.some(([k]) => k === v) ? v : def);
-  const avatarPoke = (a) => { a = obj(a); const id = parseInt(a.id, 10); return id >= 1 && id <= App.pokedex.TOTAL ? { id, shiny: !!a.shiny } : null; };
+  const avatarPoke = (a) => { a = obj(a); const id = parseInt(a.id, 10); return id >= 1 && id <= App.pokedex.TOTAL ? { id, shiny: !!a.shiny, ...(App.pokedex.form(id, a.form) ? { form: App.pokedex.form(id, a.form) } : {}) } : null; };
 
   function cleanItem(it) {
     it = obj(it);
