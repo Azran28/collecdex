@@ -119,6 +119,9 @@ App.sfx = (() => {
       tone(55, 0.5, 0.5, 'sine', 0.7, 38, 0.005); // basse
       [[57, 60, 64, 67], [57, 60, 64, 67], [55, 59, 62, 66]].forEach((ch, i) => ch.forEach((m) => tone(N(m), 0.55 + [0, 0.24, 0.48][i], 0.16, 'square', 0.05)));
       tone(N(100), 0.62, 0.7, 'sine', 0.13); tone(N(107), 0.68, 0.6, 'sine', 0.09); // éclat
+      // la petite danse : basse et claquements sur le temps
+      [0, 0.29, 0.58, 0.87].forEach((d, i) => { tone(i % 2 ? 73 : 55, 0.86 + d, 0.18, 'sine', 0.5, 45, 0.005); noise(0.86 + d + 0.145, 0.05, 0.3, 2600, 'bandpass'); });
+      [[57, 60, 64], [62, 65, 69], [57, 60, 64], [55, 59, 62]].forEach((ch, i) => ch.forEach((m) => tone(N(m), 0.93 + i * 0.29, 0.12, 'square', 0.04)));
     }),
     click: () => play(() => tone(900, 0, 0.04, 'triangle', 0.15)),
     // combats (Match)

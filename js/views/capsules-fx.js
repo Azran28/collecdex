@@ -1,7 +1,7 @@
 /*
  * Apparitions spéciales de certains Pokémon, jouées par-dessus l'ouverture normale (rien ne change au tirage).
  * Arceus a la sienne, à part (capsules-god.js). Ajouter un Pokémon : une entrée dans FX, ses styles dans css/13-arceus.css.
- * Carapuce (7) : ses lunettes de soleil tombent du ciel, comme l'Escouade Carapuce de l'animé.
+ * Carapuce (7) : ses lunettes de soleil tombent du ciel (l'Escouade Carapuce de l'animé), « Carapute », petite danse.
  */
 App.capsuleFx = (() => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -30,7 +30,9 @@ App.capsuleFx = (() => {
         await sleep(470); // les lunettes touchent son nez
         ov.classList.add('fx-on');
         const text = ov.querySelector('.cap-text');
-        if (text) text.insertAdjacentHTML('afterbegin', '<div class="cap-banner fx-squad">Escouade Carapuce</div>');
+        if (text) text.insertAdjacentHTML('afterbegin', '<div class="cap-banner fx-squad">Carapute</div>');
+        await sleep(380); // petite danse
+        ov.classList.add('fx-dance');
       },
     },
   };

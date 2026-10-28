@@ -143,6 +143,14 @@
 .cap-ov.fx-on .cap-mon img { animation: fxNod .4s ease-out; }
 @keyframes fxNod { 40% { transform: translateY(6px) rotate(2deg); } }
 .cap-ov.fx-on .cap-scene { animation: capShake .35s; }
+/* petite danse (lunettes comprises : on fait bouger toute la case) */
+.cap-ov.fx-dance .cap-mon { opacity: 1; transform: none; animation: fxDance 1.15s ease-in-out; }
+@keyframes fxDance {
+  0%, 100% { transform: none; }
+  12% { transform: translateX(-16px) rotate(-9deg); } 25% { transform: translateY(-14px); }
+  37% { transform: translateX(16px) rotate(9deg); } 50% { transform: none; }
+  62% { transform: translateX(-12px) rotate(-7deg) scaleY(.94); } 75% { transform: translateY(-12px) rotate(0); }
+  87% { transform: translateX(10px) rotate(6deg); } }
 /* gouttes d'eau */
 .fx-drops { position: absolute; left: 50%; top: 50%; z-index: 5; }
 .fx-drops i { position: absolute; width: 7px; height: 10px; margin: -5px -3px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: #8fd3ff; box-shadow: 0 0 6px #34a0ff; opacity: 0; }

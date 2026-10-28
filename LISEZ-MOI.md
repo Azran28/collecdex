@@ -255,7 +255,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 ## Recherche et Carapuce à lunettes (v3.73)
 - **Recherche** dans « Mon Pokédex » des capsules : tape un nom (« cara ») ou un numéro (« 7 ») ; elle cherche dans tout le Pokédex, attrapés ou non (ceux qui manquent restent grisés, avec leur nom).
-- **Carapuce** a une apparition spéciale, comme dans l'animé : tourbillon d'eau, ses **lunettes de soleil** tombent du ciel sur son nez (clac, éclat sur le verre, petit hochement de tête, gouttes d'eau) et la bannière **« Escouade Carapuce »**. Le tirage ne change pas. Elle se joue aussi si on touche l'écran pour aller plus vite.
+- **Carapuce** a une apparition spéciale, comme dans l'animé : tourbillon d'eau, ses **lunettes de soleil** tombent du ciel sur son nez (clac, éclat sur le verre, petit hochement de tête, gouttes d'eau) , la bannière **« Carapute »**, puis il danse un petit coup avec ses lunettes. Le tirage ne change pas. Elle se joue aussi si on touche l'écran pour aller plus vite.
 - Revoir sur le PC : `http://localhost:8765/#/capsules?capsule=7` (ou `?capsule=7-shiny`). Marche pour n'importe quel numéro.
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
 - Quand tu valides la **dernière carte à vérifier** (« ✓ C’est elle » ou « Ne pas l’ajouter »), les cartes sont **enregistrées directement** et l’écran revient au scan de la page suivante : plus de passage par le récapitulatif. Pareil avec « Enregistrer » dans la liste détaillée. Le récapitulatif reste quand aucune carte n’est à vérifier (pour tout voir d’un coup d’œil avant d’enregistrer).
