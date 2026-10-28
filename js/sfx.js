@@ -75,12 +75,75 @@ App.sfx = (() => {
       roar(3.3, 85, 1.3);
     },
     rayquaza: () => {
-      noise(0, 1.9, 0.14, 800, 'bandpass'); pad([N(38), N(45)], 0, 2.6, 0.06); // vent, tension
-      thunder(1.3);
-      tone(N(55), 1.8, 0.8, 'sawtooth', 0.06, N(86)); noise(1.8, 0.8, 0.25, 1600, 'bandpass'); // il fond du ciel
-      noise(2.6, 0.25, 0.6, 4200, 'highpass'); tone(3200, 2.6, 0.22, 'square', 0.05, 500); // la griffe tranche
-      roar(2.7, 140, 1.0);
-      pad([N(57), N(62), N(66), N(69)], 3.1, 1.6, 0.08); // ciel dégagé
+      pad([N(62), N(69), N(74), N(78)], 0, 3.3, 0.05); noise(0, 3.2, 0.06, 900, 'bandpass'); // les étoiles, le vent d'altitude
+      tone(55, 1.2, 2.2, 'sawtooth', 0.08, 70); roar(1.6, 70, 1.8); // le serpent passe
+      noise(3.3, 1.2, 0.35, 1200, 'bandpass'); noise(3.6, 1.0, 0.3, 2400, 'bandpass'); tone(900, 3.3, 1.2, 'sine', 0.06, 200); // le plongeon
+      thunder(4.5); noise(4.5, 1.4, 0.12, 6000, 'highpass'); // la tempête
+      tone(300, 5.5, 0.45, 'sine', 0.15, 2400); // la comète siffle
+      tone(70, 5.95, 2, 'sine', 0.95, 24, 0.005); noise(5.95, 1.6, 0.7, 220, 'lowpass'); noise(5.95, 0.4, 0.4, 5000, 'highpass'); // impact
+      roar(6, 150, 1.5);
+      pad([N(50), N(57), N(62), N(66), N(69)], 6.2, 2.6, 0.1); // le ciel se dégage
+    },
+    mewtwo: () => {
+      tone(55, 0, 4.8, 'sine', 0.25); pad([N(33), N(40)], 0, 4.8, 0.05); // les machines du labo
+      for (let i = 0; i < 4; i++) tone(N(88), 0.3 + i * 0.6, 0.08, 'sine', 0.08); // moniteur
+      for (let i = 0; i < 4; i++) tone(880, 1 + i * 0.5, 0.25, 'square', 0.05, 640); // alarme
+      [1.5, 2.1].forEach((at) => { noise(at, 0.12, 0.5, 4000, 'highpass'); tone(2600, at, 0.08, 'triangle', 0.1); }); // le verre se fend
+      noise(3, 0.6, 0.6, 5000, 'highpass'); for (let i = 0; i < 6; i++) tone(2000 + i * 400, 3 + i * 0.03, 0.15, 'triangle', 0.06); // il vole en éclats
+      tone(N(96), 3.45, 1.2, 'sine', 0.1); tone(N(97), 3.45, 1.2, 'sine', 0.07); // tout se fige
+      tone(N(48), 3.7, 1.2, 'sawtooth', 0.07, N(60)); // l'onde psy monte
+      tone(80, 4.5, 1, 'sine', 0.6, 40); roar(4.55, 180, 1);
+    },
+    mew: () => {
+      [0.3, 0.45, 0.6, 1.7, 1.85, 2, 2.15].forEach((at, i) => tone(N(91 + (i % 3) * 3), at, 0.12, 'triangle', 0.12, N(98 + (i % 2) * 2))); // petits rires
+      tone(400, 0.5, 1.1, 'sine', 0.05, 800); tone(500, 1.6, 1.3, 'sine', 0.06, 1400); // la bulle file
+      tone(1400, 2.9, 0.06, 'sine', 0.3, 300); noise(2.9, 0.08, 0.3, 3000, 'bandpass'); // pop
+      for (let i = 0; i < 6; i++) tone(N(96 + [0, 4, 7][i % 3]), 2.95 + i * 0.06, 0.3, 'sine', 0.08);
+    },
+    giratina: () => {
+      pad([N(33), N(34), N(40)], 0, 3.8, 0.08); // un accord qui grince
+      tone(60, 0.6, 1.5, 'sawtooth', 0.08, 30); noise(0.6, 1.2, 0.2, 400, 'lowpass'); // le portail s'ouvre
+      tone(200, 1.3, 1, 'sine', 0.2, 60); noise(1.3, 0.6, 0.25, 1200, 'bandpass'); // tout bascule
+      noise(2.2, 1.2, 0.15, 300, 'lowpass'); tone(N(45), 2.2, 1.2, 'sawtooth', 0.04, N(44)); // les ombres
+      roar(3.3, 120, 1.3); tone(60, 3.3, 1, 'sine', 0.5, 30);
+    },
+    lugia: () => {
+      noise(0, 3.8, 0.2, 500, 'lowpass'); noise(0, 3.8, 0.06, 1800, 'bandpass'); // la mer, le vent
+      noise(0.7, 1.4, 0.2, 900, 'bandpass'); tone(150, 0.7, 1.4, 'sine', 0.15, 60); // le tourbillon
+      [76, 79, 83, 81, 79, 76].forEach((m, i) => { tone(N(m), 1.9 + i * 0.3, 0.6, 'sine', 0.13); tone(N(m), 2.05 + i * 0.3, 0.5, 'sine', 0.04); }); // un chant au loin
+      noise(2.7, 0.8, 0.5, 800, 'lowpass'); tone(90, 2.7, 0.8, 'sine', 0.4, 180); // la colonne d'eau
+      roar(3.3, 220, 1.2);
+    },
+    hooh: () => {
+      [84, 88, 91, 96, 91, 88, 84].forEach((m, i) => { tone(N(m), 0.5 + i * 0.3, 0.9, 'triangle', 0.16); tone(N(m + 12), 0.5 + i * 0.3, 0.5, 'sine', 0.05); }); // les cloches
+      tone(N(96), 0.5, 1.3, 'sine', 0.05, N(108)); // l'arc-en-ciel
+      noise(3, 0.8, 0.3, 1500, 'bandpass'); tone(300, 3, 0.8, 'sawtooth', 0.05, 900); // les flammes
+      roar(3.3, 280, 1); tone(N(84), 3.4, 1.4, 'triangle', 0.12);
+    },
+    celebi: () => {
+      for (let i = 0; i < 11; i++) noise(0.5 + i * 0.25, 0.03, 0.4, 4000, 'bandpass'); // tic-tac
+      tone(N(84), 1.3, 0.9, 'sine', 0.14, null, 0.8); tone(N(79), 1.6, 0.9, 'sine', 0.1, null, 0.8); // un carillon à l'envers
+      pad([N(60), N(64), N(67), N(71)], 1.4, 2.2, 0.05);
+      for (let i = 0; i < 8; i++) tone(N(96 + [0, 2, 4, 7][i % 4]), 3.1 + i * 0.05, 0.3, 'sine', 0.08);
+    },
+    deoxys: () => {
+      tone(2400, 0.6, 0.65, 'sine', 0.1, 300); noise(0.6, 0.65, 0.15, 3000, 'bandpass'); // la météorite siffle
+      tone(60, 1.25, 1.2, 'sine', 0.9, 25, 0.005); noise(1.25, 1, 0.6, 250, 'lowpass'); // impact
+      [60, 67, 72, 75, 79, 72, 67, 75].forEach((m, i) => tone(N(m + 12), 1.8 + i * 0.12, 0.1, 'square', 0.05)); // l'ADN
+      tone(N(72), 2.6, 0.8, 'sawtooth', 0.06, N(84)); // le cristal
+      tone(800, 3.1, 0.6, 'square', 0.06, 300); tone(1200, 3.15, 0.5, 'square', 0.04, 500);
+    },
+    shaymin: () => {
+      [72, 76, 79, 84, 88, 91, 96].forEach((m, i) => tone(N(m), 0.5 + i * 0.13, 0.5, 'sine', 0.11)); // les fleurs s'ouvrent
+      noise(1.6, 1, 0.3, 2000, 'bandpass'); // la rafale de pétales
+      for (let i = 0; i < 6; i++) tone(N(98 + [0, 4, 7][i % 3]), 2.5 + i * 0.06, 0.3, 'sine', 0.08);
+    },
+    leviator: () => {
+      for (let i = 0; i < 14; i++) tone(200 + Math.random() * 300, 0.5 + i * 0.15, 0.06, 'sine', 0.15, 120); // le lac bouillonne
+      tone(70, 1.2, 1.5, 'sawtooth', 0.1, 55); // grondement
+      [1.6, 2.1, 2.6].forEach((at) => tone(55, at, 0.3, 'sine', 0.7, 35, 0.005)); // la rage bat
+      noise(2.2, 0.9, 0.5, 700, 'lowpass'); // les geysers
+      roar(3.1, 90, 1.5);
     },
   };
 

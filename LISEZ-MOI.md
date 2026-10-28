@@ -263,6 +263,14 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - À l'ouverture : « Lettre B » ou « Signe ? », « Nouvelle forme ! », « Formes de Zarbi : 4/28 ». Fiche : grille « Les 28 formes » ; case du Pokédex « x/28 » ; avatar avec la lettre choisie.
 - Démo sur le PC : `http://localhost:8765/#/capsules?capsule=201-b` (ou `201-question`, `201-exclamation`).
 - **À faire une fois dans Supabase** : coller tout `supabase/sql/supabase-v23.sql` → *Run*.
+
+## Apparitions des grands légendaires et souvenirs (v3.76)
+- 12 Pokémon ont maintenant leur propre apparition, **impossible à passer la première fois** (on peut la passer ensuite) : le tirage ne change pas.
+  - **Rayquaza** (~7 s, le plus spectaculaire après Arceus, bannière « Gardien du ciel ») : la couche d'ozone et les étoiles, son corps qui traverse le ciel, le plongeon à travers les nuages, la tempête de Groudon et Kyogre, la comète verte qui la disperse.
+  - **Mewtwo** (~5,5 s, « Créé par l'homme ») : la cuve du labo, l'alarme, le verre qui se fend, éclate et se fige par télékinésie, l'onde psy.
+  - **Groudon** (sécheresse), **Kyogre** (déluge), **Mew** (bulle rose… et le camion des rumeurs), **Giratina** (Monde Distorsion à l'envers), **Lugia** (« Gardien des mers »), **Ho-Oh** (arc-en-ciel et plume), **Celebi** (horloge à l'envers, sépia), **Deoxys** (météorite et ADN), **Shaymin** (Gracidées), **Léviator rouge** (seulement le chromatique, lac Colère).
+- **Souvenirs** : à l'ouverture de l'appli, si tu possèdes déjà un de ces Pokémon (ou Carapuce) sans avoir vu son apparition, une fenêtre « Nouvelles apparitions ! » propose de les voir (pastille « Souvenir », rien n'est enregistré dans ta collection). Une fois vues, elles ne reviennent plus, même sur un autre appareil.
+- Revoir sur le PC : `http://localhost:8765/#/capsules?capsule=384` (numéro du Pokémon ; `?capsule=130-shiny` pour Léviator rouge).
 ## Classeur et Rafale : page suivante tout de suite (v3.57)
 - Quand tu valides la **dernière carte à vérifier** (« ✓ C’est elle » ou « Ne pas l’ajouter »), les cartes sont **enregistrées directement** et l’écran revient au scan de la page suivante : plus de passage par le récapitulatif. Pareil avec « Enregistrer » dans la liste détaillée. Le récapitulatif reste quand aucune carte n’est à vérifier (pour tout voir d’un coup d’œil avant d’enregistrer).
 - **Rafale** : la caméra se relance toute seule. **Classeur** : touche « Caméra » pour la page suivante (le téléphone ne permet pas d’ouvrir son appareil photo sans que tu touches un bouton).

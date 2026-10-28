@@ -247,7 +247,7 @@
       await App.capsuleGod.play(ov);
     } else if (lg) {
       // grands légendaires : leur apparition, impossible à passer la première fois (js/views/capsules-legend.js)
-      skip = false; locked = !App.capsuleFx.seen(r.species);
+      skip = false; locked = !App.capsuleFx.seen(r.species, r.shiny);
       if (locked) ov.querySelector('.cap-hint').remove();
       await App.capsuleLegend.play(ov, lg, wait, burst);
     } else {
@@ -271,7 +271,7 @@
     const left = demo ? 0 : kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
     const shop = !demo && r.coins !== undefined, p = shop ? App.capsules.price(r.species, r.shiny) : 0;
     ov.querySelector('.cap-text').innerHTML = `
-      ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
+      ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : lg && lg.title ? `<div class="cap-banner lg-title">${esc(lg.title)}</div>` : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
       <div class="cap-name">${esc(P().name(r.species))}</div>
       <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">${esc(formLabel(r.species, F))}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${demo && demo.souvenir ? '<span class="dup-pill">Souvenir</span>' : isNew ? `<span class="new-pill">${F ? 'Nouvelle forme !' : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
       ${nForms ? `<div class="small cap-forms">Formes de ${esc(P().name(r.species))} : <b>${nForms}/${P().formsOf(r.species).length}</b></div>` : ''}
