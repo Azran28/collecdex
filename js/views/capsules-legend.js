@@ -4,7 +4,7 @@
  * Impossible à passer la première fois (App.capsuleFx.seen), passable ensuite. Rien ne change au tirage.
  * Hiérarchie (Arnaud) : Arceus (capsules-god.js) > Rayquaza (~7 s) > Mewtwo (~5,5 s) > les autres (~4 s) ; Carapuce = clin d'œil (capsules-fx.js).
  * Chaque entrée : back / front = décor derrière / devant la capsule ; steps = [moment en ms, classe posée sur .cap-ov]
- * (« q » = l'écran tremble, « f » = éclair de la couleur --lgf, « r » = ondes de choc) ; burst = moment où la capsule éclate ;
+ * (« q » = l'écran tremble, « f » = éclair de la couleur --lgf, « r » = ondes de choc, « t » = la foudre éclaire les nuages) ; burst = moment où la capsule éclate ;
  * title = bannière à la place de « Légendaire ! » ; vars = variables CSS posées sur .cap-ov.
  * Les classes d'étape commencent par « s- » (ou lg-on / lg-l1… / lg-p) : jamais le nom d'un élément du décor.
  * Styles : css/14-legendaires.css ; son : App.sfx.legend(key).
@@ -55,7 +55,7 @@ App.capsuleLegend = (() => {
     384: {
       key: 'rayquaza', title: 'Seigneur des cieux', vars: { '--lgf': '#eafff1', '--lgr': '#7dffb0' },
       back: () => `${sky('linear-gradient(#010302 0%, #04100a 45%, #0a1c12 100%)')}
-        <div class="lg-storm">${dots(8, (i) => `<i style="left:${(i * 13 - 10 + rnd(-4, 4)).toFixed(0)}%;top:${rnd(-6, 30).toFixed(0)}%;--w:${rnd(220, 380).toFixed(0)}px;--dl:${rnd(0, 2).toFixed(2)}s"></i>`)}</div>
+        <div class="lg-storm">${dots(8, (i) => `<i style="left:${(i * 13 - 10 + rnd(-4, 4)).toFixed(0)}%;top:${rnd(-6, 30).toFixed(0)}%;--w:${rnd(220, 380).toFixed(0)}px;--dl:${rnd(0, 2).toFixed(2)}s;--dx:${rnd(-70, 70).toFixed(0)}px;--dy:${rnd(-14, 14).toFixed(0)}px;--du:${rnd(2.4, 4.4).toFixed(2)}s"></i>`)}</div>
         <div class="lg-eyes"><i class="l"></i><i class="r"></i></div><div class="lg-danger"></div>
         <div class="lg-gather">${dots(30, () => `<i style="--a:${rnd(0, 360).toFixed(0)}deg;--d:${rnd(120, 240).toFixed(0)}px;--dl:${rnd(0, 0.9).toFixed(2)}s;--s:${rnd(5, 11).toFixed(1)}px"></i>`)}</div>
         <div class="lg-charge"></div><div class="lg-blast"></div>
@@ -63,8 +63,8 @@ App.capsuleLegend = (() => {
         ${text('Le ciel s’assombrit d’un coup…', 'Quelque chose gronde au-dessus des nuages…', 'Il est furieux.')}`,
       front: () => `<div class="lg-beam"></div>
         <div class="lg-debris">${dots(20, () => `<i style="--a:${rnd(0, 360).toFixed(0)}deg;--d:${rnd(120, 260).toFixed(0)}px;--rt:${rnd(-300, 300).toFixed(0)}deg;--s:${rnd(8, 20).toFixed(0)}px"></i>`)}</div>`,
-      steps: [[0, 'lg-on'], [200, 'lg-l1'], [900, 's-thunder'], [950, 'q'], [1600, 'lg-l2'], [1900, 's-eyes'], [1950, 'q'], [2700, 's-glare'], [2750, 'q'],
-        [3400, 'lg-l3'], [3600, 's-charge'], [3700, 'q'], [4300, 'q'], [4900, 'q'], [5300, 's-beam'], [5600, 's-impact'], [5600, 'f'], [5620, 'q'], [5650, 'lg-p'], [6100, 'q']],
+      steps: [[0, 'lg-on'], [200, 'lg-l1'], [900, 't'], [950, 'q'], [1600, 'lg-l2'], [1900, 's-eyes'], [1950, 'q'], [2700, 's-glare'], [2750, 'q'],
+        [2300, 't'], [3400, 'lg-l3'], [3600, 's-charge'], [4100, 't'], [3700, 'q'], [4300, 'q'], [4900, 'q'], [4950, 't'], [5300, 's-beam'], [5600, 's-impact'], [5600, 'f'], [5620, 'q'], [5650, 'lg-p'], [6100, 'q']],
       burst: 6600,
     },
     // Mewtwo : le laboratoire du 1er film — la cuve, l'alarme, le verre qui se fend puis vole en éclats,
@@ -112,33 +112,37 @@ App.capsuleLegend = (() => {
     // d'immenses ailes se déploient et d'un battement chassent la tempête : ciel calme, lune, étoiles
     249: {
       key: 'lugia', title: 'Gardien des mers', vars: { '--lgf': '#eef5ff', '--lgr': '#cfe2ff' },
-      back: () => `${sky('linear-gradient(#010309 0%, #050c1c 50%, #0a1830 100%)')}
+      back: () => `${sky('linear-gradient(#0c1a36 0%, #1b3160 50%, #2b4a80 100%)')}
         <div class="lg-calm">${stars(150)}<div class="lg-moon"></div></div>
-        <div class="lg-storm sea">${dots(8, (i) => `<i style="left:${(i * 13 - 10 + rnd(-4, 4)).toFixed(0)}%;top:${rnd(-6, 34).toFixed(0)}%;--w:${rnd(220, 380).toFixed(0)}px;--dl:${rnd(0, 2).toFixed(2)}s"></i>`)}</div>
+        <div class="lg-storm sea">${dots(8, (i) => `<i style="left:${(i * 13 - 10 + rnd(-4, 4)).toFixed(0)}%;top:${rnd(-6, 34).toFixed(0)}%;--w:${rnd(220, 380).toFixed(0)}px;--dl:${rnd(0, 2).toFixed(2)}s;--dx:${rnd(-70, 70).toFixed(0)}px;--dy:${rnd(-14, 14).toFixed(0)}px;--du:${rnd(2.4, 4.4).toFixed(2)}s"></i>`)}</div>
         <svg class="lg-wings" viewBox="-300 -40 600 260" aria-hidden="true"><defs>
           <linearGradient id="lgwingr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f4f8ff"/><stop offset=".62" stop-color="#cdd9f2"/><stop offset=".86" stop-color="#7d93c9"/><stop offset="1" stop-color="#34477f"/></linearGradient>
           <linearGradient id="lgwingl" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#f4f8ff"/><stop offset=".62" stop-color="#cdd9f2"/><stop offset=".86" stop-color="#7d93c9"/><stop offset="1" stop-color="#34477f"/></linearGradient></defs>
           <path fill="url(#lgwingr)" d="${WING}" transform="rotate(-20 0 100)"/><path fill="url(#lgwingl)" d="${WING}" transform="scale(-1 1) rotate(-20 0 100)"/></svg>
         ${text('La tempête fait rage sur l’océan…', 'Une lueur argentée monte des profondeurs…', 'Le gardien des mers déploie ses ailes.')}`,
       front: () => `<div class="lg-ocean"><div class="lg-deep"></div></div>${parts(26, 'up', 'rgba(225,240,255,.9)', 'drop', [6, 14], [0.9, 1.6])}`,
-      steps: [[0, 'lg-on'], [200, 'lg-l1'], [900, 's-thunder'], [1500, 'lg-l2'], [1500, 's-glow'], [2300, 's-swell'], [2350, 'q'], [2900, 'lg-l3'],
+      steps: [[0, 'lg-on'], [200, 'lg-l1'], [900, 't'], [1500, 'lg-l2'], [1500, 's-glow'], [2300, 's-swell'], [2350, 'q'], [2900, 'lg-l3'],
         [3000, 's-wings'], [3000, 'lg-p'], [3050, 'q'], [3700, 's-beat'], [3750, 's-calm'], [4100, 'f'], [4150, 'r']],
       burst: 4500,
     },
-    // Ho-Oh : le premier épisode — un arc-en-ciel traverse le ciel, une plume aux sept couleurs tombe, les cloches sonnent
+    // Ho-Oh : le premier épisode — l'aube se lève, un arc-en-ciel (une bande douce, pas des traits) s'étend dans le ciel,
+    // une plume aux sept couleurs tombe, le Feu Sacré monte en flammes multicolores, puis des ailes de feu se déploient
     250: {
-      key: 'hooh', vars: { '--lgf': '#fff4c2', '--lgr': '#ffd23f' },
-      back: () => `${sky('linear-gradient(#1b2a6b 0%, #6b4a9e 40%, #ff8a6b 75%, #ffd27a 100%)')}
-        <svg class="lg-rainbow" viewBox="0 0 400 220" preserveAspectRatio="none" aria-hidden="true">
-          ${['#ff4d4d', '#ff9a3c', '#ffe066', '#6be07a', '#4db8ff', '#6f6bff', '#c86bff'].map((c, i) => `<path d="M-20 220 A 220 190 0 0 1 420 220" stroke="${c}" transform="translate(0 ${i * 9})"/>`).join('')}</svg>
+      key: 'hooh', title: 'Gardien des arcs-en-ciel', vars: { '--lgf': '#fff4c2', '--lgr': '#ffd23f' },
+      back: () => `${sky('linear-gradient(#141c4a 0%, #3b2f6e 45%, #7a4b7e 75%, #b8697a 100%)')}<div class="lg-dawn"></div>
+        <div class="lg-arc"></div>
         <svg class="lg-plume" viewBox="0 0 40 120" aria-hidden="true"><defs><linearGradient id="lgplume" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#ff4d4d"/><stop offset=".3" stop-color="#ffe066"/><stop offset=".55" stop-color="#6be07a"/><stop offset=".8" stop-color="#4db8ff"/><stop offset="1" stop-color="#c86bff"/></linearGradient></defs>
-          <path d="M20 2 C 36 30, 38 70, 20 118 C 2 70, 4 30, 20 2 Z" fill="url(#lgplume)"/><path d="M20 10 V116" stroke="#fff" stroke-width="1.5" opacity=".7"/></svg>
-        ${parts(24, 'up', '#ffe27a', '', [2, 5], [2, 3.4])}<div class="lg-flames"></div>${shocks(2)}
-        ${text('Un arc-en-ciel traverse le ciel…', 'Une plume aux sept couleurs tombe.')}`,
+          <path d="M20 2 C 36 30, 38 70, 20 118 C 2 70, 4 30, 20 2 Z" fill="url(#lgplume)"/></svg>
+        <svg class="lg-wings fire" viewBox="-300 -40 600 260" aria-hidden="true"><defs>
+          <linearGradient id="lgfirer" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff3c4"/><stop offset=".35" stop-color="#ffb347"/><stop offset=".65" stop-color="#ff5a3c"/><stop offset=".85" stop-color="#6be07a"/><stop offset="1" stop-color="#4db8ff"/></linearGradient>
+          <linearGradient id="lgfirel" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#fff3c4"/><stop offset=".35" stop-color="#ffb347"/><stop offset=".65" stop-color="#ff5a3c"/><stop offset=".85" stop-color="#6be07a"/><stop offset="1" stop-color="#4db8ff"/></linearGradient></defs>
+          <path fill="url(#lgfirer)" d="${WING}" transform="rotate(-16 0 100)"/><path fill="url(#lgfirel)" d="${WING}" transform="scale(-1 1) rotate(-16 0 100)"/></svg>
+        ${parts(40, 'up', '#ff9a3c', 'flame', [14, 28], [0.9, 1.6])}${parts(18, 'up', '#fff1a8', '', [2, 4], [2, 3.2])}${shocks(2)}
+        ${text('L’aube se lève…', 'Un arc-en-ciel s’étend, une plume aux sept couleurs tombe…', 'Le Feu Sacré s’embrase !')}`,
       front: () => '',
-      steps: [[0, 'lg-on'], [200, 'lg-l1'], [500, 's-rainbow'], [1500, 's-plume'], [1900, 'lg-l2'], [2000, 'lg-p'], [3000, 's-flames'], [3300, 'f'], [3350, 'r']],
-      burst: 3800,
+      steps: [[0, 'lg-on'], [200, 'lg-l1'], [300, 's-dawn'], [900, 's-arc'], [1500, 'lg-l2'], [1600, 's-plume'], [2500, 'lg-l3'], [2500, 'lg-p'], [3000, 's-wings'], [3050, 'q'], [3500, 'f'], [3550, 'r']],
+      burst: 3900,
     },
     // Celebi : le voyage dans le temps — une horloge qui tourne à l'envers, tout passe en sépia, les feuilles remontent
     251: {
@@ -208,7 +212,7 @@ App.capsuleLegend = (() => {
     let at = 0;
     for (const [ms, cls] of lg.steps) {
       await wait(ms - at); at = ms;
-      if (cls === 'q') again('lg-q'); else if (cls === 'f') again('lg-f', 750); else if (cls === 'r') again('lg-r'); else ov.classList.add(cls);
+      if (cls === 'q') again('lg-q'); else if (cls === 'f') again('lg-f', 750); else if (cls === 'r') again('lg-r'); else if (cls === 't') again('s-thunder'); else ov.classList.add(cls);
     }
     await wait(lg.burst - at);
     ov.classList.remove('lg-f');

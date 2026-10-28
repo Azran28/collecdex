@@ -76,7 +76,7 @@ App.sfx = (() => {
     },
     rayquaza: () => {
       pad([N(26), N(27), N(33)], 0, 6, 0.09); noise(0, 3, 0.1, 400, 'lowpass'); // orage noir, accord qui grince
-      thunder(0.9);
+      [0.9, 2.3, 4.1, 4.95].forEach(thunder); // la foudre dans les nuages
       roar(1.9, 55, 2.2); tone(40, 1.9, 2, 'sine', 0.6, 32); // un grondement énorme dans les nuages
       roar(2.7, 120, 1.4); roar(2.75, 180, 1.2); // la colère
       [3.6, 4.2, 4.8].forEach((at, i) => tone(55, at, 0.35, 'sine', 0.6 + i * 0.15, 35, 0.005)); // battements
@@ -118,10 +118,12 @@ App.sfx = (() => {
       tone(620, 4.15, 0.9, 'sine', 0.16, 900); tone(930, 4.18, 0.8, 'sine', 0.06, 1350); // son cri, aigu et pur
     },
     hooh: () => {
-      [84, 88, 91, 96, 91, 88, 84].forEach((m, i) => { tone(N(m), 0.5 + i * 0.3, 0.9, 'triangle', 0.16); tone(N(m + 12), 0.5 + i * 0.3, 0.5, 'sine', 0.05); }); // les cloches
-      tone(N(96), 0.5, 1.3, 'sine', 0.05, N(108)); // l'arc-en-ciel
-      noise(3, 0.8, 0.3, 1500, 'bandpass'); tone(300, 3, 0.8, 'sawtooth', 0.05, 900); // les flammes
-      roar(3.3, 280, 1); tone(N(84), 3.4, 1.4, 'triangle', 0.12);
+      pad([N(57), N(61), N(64)], 0.3, 2.4, 0.05); // l'aube
+      [84, 88, 91, 96, 91, 88, 84].forEach((m, i) => { tone(N(m), 0.9 + i * 0.28, 0.9, 'triangle', 0.15); tone(N(m + 12), 0.9 + i * 0.28, 0.5, 'sine', 0.05); }); // les cloches
+      tone(N(96), 0.9, 1.4, 'sine', 0.05, N(108)); // l'arc-en-ciel
+      noise(2.5, 1.4, 0.25, 1800, 'bandpass'); noise(2.7, 1.2, 0.15, 4000, 'highpass'); tone(200, 2.5, 1.2, 'sawtooth', 0.05, 700); // le Feu Sacré crépite
+      noise(3, 0.7, 0.5, 900, 'bandpass'); // les ailes de feu
+      roar(3.4, 300, 1.1); tone(N(84), 3.5, 1.5, 'triangle', 0.12);
     },
     celebi: () => {
       for (let i = 0; i < 11; i++) noise(0.5 + i * 0.25, 0.03, 0.4, 4000, 'bandpass'); // tic-tac
