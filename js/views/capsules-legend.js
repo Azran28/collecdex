@@ -83,15 +83,21 @@ App.capsuleLegend = (() => {
         [3000, 's-shatter'], [3000, 'f'], [3050, 'q'], [3450, 's-freeze'], [3700, 's-psy'], [4500, 'r'], [4550, 'q']],
       burst: 4900,
     },
-    // Mew : une petite bulle rose qui joue autour de la capsule, des loopings, un rire… et le camion des rumeurs
+    // Mew : un coin de forêt avec une petite cascade ; une bulle rose sort du bassin, joue autour de la capsule,
+    // fait des loopings en riant, éclate en petits cœurs avec son cri « Meeew ! »
     151: {
       key: 'mew', vars: { '--lgf': '#ffe0f0', '--lgr': '#ff9ccf' },
-      back: () => `${sky('linear-gradient(#ffd1e8 0%, #c9d9ff 60%, #a9e4ff 100%)')}<div class="lg-fluff">${dots(5, () => `<i style="left:${rnd(-10, 80).toFixed(0)}%;top:${rnd(5, 70).toFixed(0)}%;--w:${rnd(90, 180).toFixed(0)}px"></i>`)}</div>
-        <svg class="lg-truck" viewBox="0 0 120 60" aria-hidden="true"><rect x="2" y="8" width="72" height="38" rx="3"/><path d="M76 20 H100 L116 34 V46 H76 Z"/><circle cx="22" cy="50" r="8"/><circle cx="96" cy="50" r="8"/></svg>
-        ${parts(22, 'up', '#ffffff', '', [2, 5], [2.2, 3.6])}${shocks(2)}${text('Un petit rire résonne…', 'Il paraît qu’il se cache sous un camion…')}`,
+      back: () => `${sky('linear-gradient(#bfe9ff 0%, #d9f4ea 45%, #a9dcb0 100%)')}
+        <div class="lg-rocks"><i class="l"></i><i class="r"></i></div>
+        <div class="lg-falls"><div class="lg-flow"></div></div>
+        <div class="lg-pool"></div><div class="lg-mist">${dots(7, (i) => `<i style="left:${(i * 14 + rnd(-4, 4)).toFixed(0)}%;--dl:${rnd(0, 1.6).toFixed(2)}s;--w:${rnd(50, 90).toFixed(0)}px"></i>`)}</div>
+        <svg class="lg-tree l" viewBox="0 0 200 300" aria-hidden="true"><rect x="88" y="150" width="24" height="150" rx="8" fill="#6b4a32"/><circle cx="100" cy="120" r="70" fill="#3f9a52"/><circle cx="55" cy="160" r="48" fill="#2f8447"/><circle cx="148" cy="155" r="50" fill="#2f8447"/><circle cx="80" cy="80" r="42" fill="#56b067"/><circle cx="125" cy="95" r="34" fill="#68c27a"/></svg><svg class="lg-tree r" viewBox="0 0 200 300" aria-hidden="true"><rect x="88" y="150" width="24" height="150" rx="8" fill="#6b4a32"/><circle cx="100" cy="120" r="70" fill="#3f9a52"/><circle cx="55" cy="160" r="48" fill="#2f8447"/><circle cx="148" cy="155" r="50" fill="#2f8447"/><circle cx="80" cy="80" r="42" fill="#56b067"/><circle cx="125" cy="95" r="34" fill="#68c27a"/></svg><div class="lg-bush l"></div><div class="lg-bush r"></div>
+        ${parts(18, 'up', '#ffffff', '', [2, 4], [2.4, 3.8])}<div class="lg-hearts">${dots(12, () => `<i style="--a:${rnd(0, 360).toFixed(0)}deg;--d:${rnd(70, 150).toFixed(0)}px;--dl:${rnd(0, 0.25).toFixed(2)}s"></i>`)}</div>${shocks(2)}
+        ${text('Près d’une cascade, au fond de la forêt…', 'Une petite bulle rose joue entre les arbres…', '« Meeew ! »')}`,
       front: () => '<div class="lg-orbit"><div class="lg-bubble"></div></div>',
-      steps: [[0, 'lg-on'], [200, 'lg-l1'], [300, 'lg-p'], [500, 's-orbit'], [1600, 's-loop'], [2000, 'lg-l2'], [2900, 's-pop'], [2900, 'f'], [2950, 'r']],
-      burst: 3300,
+      steps: [[0, 'lg-on'], [200, 'lg-l1'], [300, 'lg-p'], [900, 's-rise'], [1700, 's-orbit'], [1900, 'lg-l2'], [2700, 's-loop'], [3200, 'lg-l3'],
+        [3400, 's-pop'], [3400, 'f'], [3450, 'r']],
+      burst: 3800,
     },
     // Giratina : le Monde Distorsion — un portail s'ouvre, tout bascule à l'envers, des ombres rampent, puis tout se remet d'aplomb
     487: {

@@ -57,6 +57,23 @@ App.sfx = (() => {
     tone(f, at, dur, 'sawtooth', 0.22, f * 0.55, 0.06); tone(f * 1.5, at + 0.03, dur * 0.9, 'sawtooth', 0.1, f * 0.8, 0.08);
     noise(at, dur, 0.35, f * 4, 'bandpass');
   }
+  /**
+   * Petite voix chantée (cri de Mew, son original) : une note aiguë avec vibrato qui monte puis redescend,
+   * filtrée comme une voyelle qui passe de « i » à « ou » (« Meeew »)
+   */
+  function voice(at, dur, f0, peak, end, vol = 0.3) {
+    const c = ctx, t = c.currentTime + at, o = c.createOscillator(), g = c.createGain(), lfo = c.createOscillator(), lg = c.createGain();
+    const fa = c.createBiquadFilter(), fb = c.createBiquadFilter();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(peak, t + dur * 0.3); o.frequency.exponentialRampToValueAtTime(end, t + dur);
+    lfo.frequency.value = 7; lg.gain.value = peak * 0.025; lfo.connect(lg); lg.connect(o.frequency); // vibrato
+    fa.type = 'bandpass'; fa.Q.value = 5; fa.frequency.setValueAtTime(500, t); fa.frequency.linearRampToValueAtTime(900, t + dur * 0.3); fa.frequency.linearRampToValueAtTime(420, t + dur);
+    fb.type = 'bandpass'; fb.Q.value = 7; fb.frequency.setValueAtTime(2800, t + dur * 0.1); fb.frequency.linearRampToValueAtTime(950, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * 0.4, t + 0.04); // « m »
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.12); g.gain.setValueAtTime(vol, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(fa); o.connect(fb); fa.connect(g); fb.connect(g); g.connect(master);
+    o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+  }
   const thunder = (at) => { noise(at, 0.15, 0.5, 3000, 'highpass'); noise(at + 0.05, 1.3, 0.6, 180, 'lowpass'); };
   /** Scènes des grands légendaires (calées sur js/views/capsules-legend.js) ; la fanfare d'ouverture suit (open) */
   const LEGEND = {
@@ -96,10 +113,15 @@ App.sfx = (() => {
       tone(80, 4.5, 1, 'sine', 0.6, 40); roar(4.55, 180, 1);
     },
     mew: () => {
-      [0.3, 0.45, 0.6, 1.7, 1.85, 2, 2.15].forEach((at, i) => tone(N(91 + (i % 3) * 3), at, 0.12, 'triangle', 0.12, N(98 + (i % 2) * 2))); // petits rires
-      tone(400, 0.5, 1.1, 'sine', 0.05, 800); tone(500, 1.6, 1.3, 'sine', 0.06, 1400); // la bulle file
-      tone(1400, 2.9, 0.06, 'sine', 0.3, 300); noise(2.9, 0.08, 0.3, 3000, 'bandpass'); // pop
-      for (let i = 0; i < 6; i++) tone(N(96 + [0, 4, 7][i % 3]), 2.95 + i * 0.06, 0.3, 'sine', 0.08);
+      noise(0, 3.6, 0.1, 900, 'lowpass'); noise(0, 3.6, 0.05, 2600, 'bandpass'); // la cascade
+      [[0.5, 96], [0.62, 100], [1.3, 98]].forEach(([at, m]) => tone(N(m), at, 0.1, 'sine', 0.06, N(m + 5))); // des oiseaux
+      tone(300, 0.9, 0.8, 'sine', 0.07, 900); noise(0.9, 0.3, 0.12, 1500, 'bandpass'); // la bulle sort de l'eau
+      voice(1.75, 0.38, 900, 1250, 1000, 0.18); // « mew ! »
+      [2, 2.12, 2.24, 2.75, 2.87].forEach((at, i) => tone(N(91 + (i % 3) * 3), at, 0.11, 'triangle', 0.1, N(98 + (i % 2) * 2))); // petits rires
+      tone(500, 2.7, 1.1, 'sine', 0.05, 1400); // le looping
+      voice(3.1, 0.95, 820, 1250, 640, 0.3); // « Meeewww »
+      tone(1400, 3.4, 0.06, 'sine', 0.3, 300); noise(3.4, 0.08, 0.3, 3000, 'bandpass'); // pop
+      for (let i = 0; i < 6; i++) tone(N(96 + [0, 4, 7][i % 3]), 3.45 + i * 0.06, 0.3, 'sine', 0.08);
     },
     giratina: () => {
       pad([N(33), N(34), N(40)], 0, 3.8, 0.08); // un accord qui grince
