@@ -17,6 +17,7 @@ paths:
 → `supabase-v21.sql` (v3.71, Arceus « Dieu » : rareté 7 permise dans `dex_species`, Arceus seul dedans, `capsule_price` 7 = 500, `capsule_open` tire Arceus à 0,1 % avant la rareté habituelle, capsule normale ou grande).
 → `supabase-v22.sql` (v3.72, 18 formes d'Arceus : colonne `caught.form`, `arceus_forms()`, `capsule_open` donne une forme pas encore possédée + `form`/`form_count`, `capsule_forms()`, ventes qui gardent une forme de chaque).
 → `supabase-v23.sql` (v3.75, 28 formes de Zarbi : `pokemon_forms(sp)`, `capsule_open` générique, lettres données aux Zarbi déjà attrapés).
+→ `supabase-v24.sql` (v3.79, capsule de la semaine : `capsule_week_start/theme`, `easter_day`, `capsule_theme_pool`, `capsule_is_event/is_skin`, `capsule_open('week')`, ventes sans costumes, `_capsule_json.week`).
 
 - Dans ce projet, `service_role` n'a PAS de droits par défaut sur les nouvelles tables : les donner explicitement (`grant … to service_role`, fait pour `push_config` et `push_subs`).
 - Toute nouvelle table liée à un dresseur doit avoir `references auth.users (id) on delete cascade`, sinon ses lignes survivent à la suppression du compte.

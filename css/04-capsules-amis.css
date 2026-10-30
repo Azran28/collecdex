@@ -236,3 +236,10 @@ body.cap-lock { overflow: hidden; }
 
 /* recherche dans le Pokédex des capsules */
 .cp-q { flex: 1; min-width: 0; max-width: 420px; }
+
+/* capsule de la semaine (supabase-v24.sql) : couleurs du thème (--th, --th2) ; événement = cadre plus marqué */
+.shop-item.theme { border-color: color-mix(in srgb, var(--th) 55%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--th) 14%, transparent), transparent 70%); }
+.shop-item.theme.event { box-shadow: 0 0 0 1px color-mix(in srgb, var(--th2) 60%, transparent), 0 0 22px color-mix(in srgb, var(--th2) 30%, transparent); }
+.shop-item.theme .link { display: block; margin-top: 4px; padding: 0; border: 0; background: none; color: var(--th); font: inherit; font-size: .78rem; font-weight: 700; text-decoration: underline; cursor: pointer; text-align: left; }
+.btn.theme-btn { background: linear-gradient(135deg, var(--th), var(--th2)); color: #fff; border-color: transparent; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.cap-banner.skin-banner { color: var(--tc); }

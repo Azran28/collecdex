@@ -20,7 +20,7 @@ App.capsules = (() => {
     if (r.now) offset = new Date(r.now).getTime() - Date.now();
     const shop = r.coins !== undefined; // boutique installée (supabase-v5.sql)
     st = { stock: r.stock, max: r.max || 10, next_at: r.next_at ? new Date(r.next_at).getTime() : null,
-      shop, coins: r.coins || 0, bonus: r.bonus || 0, big: r.big || 0, prices: r.prices || { capsule: 20, grande: 150 } };
+      shop, coins: r.coins || 0, bonus: r.bonus || 0, big: r.big || 0, prices: r.prices || { capsule: 20, grande: 150 }, week: r.week || null }; // week = capsule de la semaine (supabase-v24.sql)
     clearTimeout(timer);
     // quand la prochaine capsule arrive, on redemande au serveur
     if (st.next_at) timer = setTimeout(() => status().catch(() => {}), Math.max(2000, st.next_at - now() + 1500));
@@ -44,7 +44,7 @@ App.capsules = (() => {
 
   /** Ouvre une capsule : 'normal' (réserve gratuite, puis capsules achetées) ou 'grande' */
   async function open(kind = 'normal') {
-    const r = await App.cloud.rpc('capsule_open', kind === 'grande' ? { p_kind: 'grande' } : {});
+    const r = await App.cloud.rpc('capsule_open', kind === 'normal' ? {} : { p_kind: kind }); // 'grande' ou 'week' (capsule de la semaine)
     take(r);
     if (dexCache) {
       const d = dexCache.get(r.species) || { n: 0, shiny: 0, first: Date.now(), last: 0 };
@@ -67,7 +67,13 @@ App.capsules = (() => {
   function dupes(dex) {
     let n = 0, gain = 0;
     const keep = (id) => (formsCache && formsCache.has(id) ? Math.max(1, [...formsCache.get(id).values()].filter((f) => f.n > f.shiny).length) : 1);
-    for (const [id, d] of dex) { const extra = Math.max(0, d.n - d.shiny - keep(id)); n += extra; gain += extra * price(id); }
+    // costumes (Pikachu, Cadoizo) : jamais vendus, on garde aussi un exemplaire sans costume
+    const skinNormal = (id) => (formsCache && formsCache.has(id) ? [...formsCache.get(id).values()].reduce((s, f) => s + f.n - f.shiny, 0) : 0);
+    for (const [id, d] of dex) {
+      const FL = App.pokedex.formsOf(id), skins = FL && FL[1].skin;
+      const extra = Math.max(0, skins ? d.n - d.shiny - skinNormal(id) - 1 : d.n - d.shiny - keep(id));
+      n += extra; gain += extra * price(id);
+    }
     return { n, gain };
   }
   async function sell(species, shiny = false, n = 1) {
@@ -84,14 +90,8 @@ App.capsules = (() => {
   async function sellDupes() {
     const r = await App.cloud.rpc('capsule_sell_dupes');
     take(r);
-    if (dexCache) for (const d of dexCache.values()) d.n = d.shiny + Math.min(1, d.n - d.shiny);
-    if (formsCache) {
-      for (const [sp, m] of formsCache) {
-        for (const f of m.values()) f.n = f.shiny + Math.min(1, f.n - f.shiny);
-        const d = dexCache && dexCache.get(sp);
-        if (d) d.n = [...m.values()].reduce((s, f) => s + f.n, 0) || d.n;
-      }
-    }
+    // le serveur garde une forme de chaque et tous les costumes : on relira tout plutôt que de deviner
+    dexCache = null; formsCache = null;
     return r;
   }
   async function buy(kind, n = 1) { return take(await App.cloud.rpc('capsule_buy', { p_kind: kind, p_n: n })); }

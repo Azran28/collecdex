@@ -31,7 +31,12 @@ App.pokedex = (() => {
     ['ice', 'Glace', '#96d9d6'], ['dragon', 'Dragon', '#6f35fc'], ['dark', 'Ténèbres', '#705746'], ['fairy', 'Fée', '#d685ad']];
   // Zarbi : 28 formes, les 26 lettres, « ! » et « ? » (supabase-v23.sql)
   const UNOWN = [...'abcdefghijklmnopqrstuvwxyz'].map((c) => [c, c.toUpperCase(), '#8f9bc4']).concat([['exclamation', '!', '#8f9bc4'], ['question', '?', '#8f9bc4']]);
-  const FORMS_OF = Object.fromEntries([[GOD, ARCEUS], [201, UNOWN]].map(([id, l]) => [id, l.map(([key, name, color]) => ({ key, name, color }))]));
+  // Costumes d'événement (capsule de la semaine, supabase-v24.sql) : Pikachu et Cadoizo ; images dessinées pour le site
+  // (img/skins/, accessoire posé sur l'image officielle), jamais données par une capsule ordinaire, ne se vendent pas
+  const PIKA = [['normal', 'Normal', '#f7d02c'], ['halloween', 'Halloween', '#ff8a1f'], ['xmas', 'Noël', '#e53935'], ['newyear', 'Nouvel An', '#7c5cff'],
+    ['valentine', 'Saint-Valentin', '#ff5fa2'], ['patrick', 'Saint-Patrick', '#2fa04f'], ['easter', 'Pâques', '#ffb3d1'], ['summer', 'Été', '#34b5f0']];
+  const DELIBIRD = [['normal', 'Normal', '#e53935'], ['xmas', 'Noël', '#1b7a3a']];
+  const FORMS_OF = Object.fromEntries([[GOD, ARCEUS], [201, UNOWN], [25, PIKA], [225, DELIBIRD]].map(([id, l]) => [id, l.map(([key, name, color], i) => ({ key, name, color, skin: (id === 25 || id === 225) && i > 0 }))]));
   const FORM_OF = Object.fromEntries(Object.entries(FORMS_OF).map(([id, l]) => [id, Object.fromEntries(l.map((f) => [f.key, f]))]));
   /** Formes d'un Pokémon (null s'il n'en a pas) */
   const formsOf = (id) => FORMS_OF[+id] || null;
@@ -48,6 +53,7 @@ App.pokedex = (() => {
   // id forcé en nombre : l'avatar d'un ami vient de SES données, il ne doit jamais pouvoir injecter du code dans la page
   const img = (id, shiny = false, f = null) => {
     const n = parseInt(id, 10), fm = form(n, f);
+    if (fm && formInfo(n, fm).skin) return `img/skins/${shiny ? 'shiny/' : ''}${n}-${fm}.webp`; // costume (dessiné pour le site)
     return n >= 1 && n <= TOTAL ? `${ART}${shiny ? 'shiny/' : ''}${n}${fm && fm !== formsOf(n)[0].key ? '-' + fm : ''}.png` : '';
   };
   /** Image d'un avatar Pokémon { id, shiny, form } */

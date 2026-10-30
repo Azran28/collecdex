@@ -264,6 +264,13 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Démo sur le PC : `http://localhost:8765/#/capsules?capsule=201-b` (ou `201-question`, `201-exclamation`).
 - **À faire une fois dans Supabase** : coller tout `supabase/sql/supabase-v23.sql` → *Run*.
 
+## Capsule de la semaine et costumes de Pikachu (v3.79)
+- Dans la **boutique**, une **capsule de la semaine**, achetée et ouverte tout de suite. Elle **change chaque jeudi à 20 h**.
+- **Semaines d'événement (75 éclats)** : les Pokémon du thème, et **20 % de chances d'avoir Pikachu costumé** (Cadoizo aussi à Noël). Halloween (Spectre et Ténèbres, chapeau de sorcière), Noël sur 2 semaines (Glace, bonnet), Nouvel An (Feu et Électrik, chapeau de fête), Saint-Valentin (Fée, couronne de cœurs), Saint-Patrick (Plante, chapeau de farfadet), Pâques (Normal, oreilles de lapin), Été autour du 14 juillet (Eau, lunettes de soleil).
+- **Les autres semaines (50 éclats)** : un type (Feu, Eau, Plante…) ou une région (Kanto, Johto…), à tour de rôle.
+- Chromatique 2 %. Les costumes se rangent dans la fiche de Pikachu (« Les costumes ») et peuvent servir d'avatar ; **ils ne se vendent pas**.
+- **À faire une fois dans Supabase** : coller tout `supabase/sql/supabase-v24.sql` → *Run*. Sans lui, l'article n'apparaît pas.
+
 ## Apparitions des grands légendaires et souvenirs (v3.76)
 - 12 Pokémon ont maintenant leur propre apparition, **impossible à passer la première fois** (on peut la passer ensuite) : le tirage ne change pas.
   - **Rayquaza** (~7 s, le plus spectaculaire après Arceus, bannière « Seigneur des cieux ») : un orage noir, deux yeux furieux s'ouvrent dans les nuages, l'écran vire au rouge, il charge une sphère d'énergie qui aspire tout, puis un rayon pulvérise la capsule.

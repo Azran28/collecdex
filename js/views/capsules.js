@@ -6,11 +6,14 @@
 
   /** Capsule CollecDex (dessin original) : moitié haute holographique, moitié basse sombre, étoile */
   let uid = 0;
-  function capsuleSVG(cls = '', size = 120, gold = false) {
+  function capsuleSVG(cls = '', size = 120, gold = false, theme = null) {
     const g = 'capg' + (++uid), d = 'capd' + uid, h = 'caph' + uid;
-    // grande capsule : moitié haute dorée
-    const top = gold ? '<stop offset="0" stop-color="#fff6c2"/><stop offset=".35" stop-color="#ffd23f"/><stop offset=".75" stop-color="#ff9d2e"/><stop offset="1" stop-color="#c96b00"/>'
+    // grande capsule : moitié haute dorée ; capsule du mois : couleurs et dessin du thème
+    const top = theme ? theme.stops.map((c, i) => `<stop offset="${[0, 0.35, 0.72, 1][i]}" stop-color="${c}"/>`).join('')
+      : gold ? '<stop offset="0" stop-color="#fff6c2"/><stop offset=".35" stop-color="#ffd23f"/><stop offset=".75" stop-color="#ff9d2e"/><stop offset="1" stop-color="#c96b00"/>'
       : '<stop offset="0" stop-color="#ffd23f"/><stop offset=".38" stop-color="#ff4fa3"/><stop offset=".72" stop-color="#7c5cff"/><stop offset="1" stop-color="#34d5ff"/>';
+    const emblem = theme ? `<text x="60" y="48" text-anchor="middle" font-size="30">${theme.icon}</text>`
+      : '<path d="M60 22l5.2 11.6 12.6 1.3-9.4 8.5 2.7 12.4L60 49.4l-11.1 6.4 2.7-12.4-9.4-8.5 12.6-1.3z" fill="#fff" stroke="#0b0d1f" stroke-width="2.4" stroke-linejoin="round"/>';
     return `<svg class="capsule ${cls} ${gold ? 'gold' : ''}" width="${size}" height="${Math.round(size * 1.25)}" viewBox="0 0 120 150" aria-hidden="true">
       <defs>
         <linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1">${top}</linearGradient>
@@ -21,7 +24,7 @@
         <path d="M24 98 A36 36 0 0 0 60 132" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5" stroke-linecap="round"/></g>
       <g class="cap-top"><path d="M12 74 V54 A48 48 0 0 1 108 54 V74 Z" fill="url(#${g})" stroke="#0b0d1f" stroke-width="3"/>
         <path d="M12 74 V54 A48 48 0 0 1 108 54 V74 Z" fill="url(#${h})"/>
-        <path d="M60 22l5.2 11.6 12.6 1.3-9.4 8.5 2.7 12.4L60 49.4l-11.1 6.4 2.7-12.4-9.4-8.5 12.6-1.3z" fill="#fff" stroke="#0b0d1f" stroke-width="2.4" stroke-linejoin="round"/></g>
+        ${emblem}</g>
       <rect class="cap-seam" x="10" y="72" width="100" height="6" rx="3" fill="#0b0d1f"/>
       <rect class="cap-glow" x="14" y="73.5" width="92" height="3" rx="1.5" fill="#fff"/>
     </svg>`;
@@ -30,7 +33,7 @@
   // rareté cachée (Arceus) : « ??? » tant qu'on ne l'a pas attrapé
   const tierPill = (t, known = true) => `<span class="tier-pill ${P().TIER[t].secret ? 'secret' : ''}" style="--tc:${P().TIER[t].color}">${esc(P().TIER[t].secret && !known ? '???' : P().TIER[t].name)}</span>`;
   // « Forme Feu » (Arceus), « Lettre B » / « Signe ! » (Zarbi)
-  const formLabel = (id, F) => (+id === 201 ? `${F.key.length === 1 ? 'Lettre' : 'Signe'} ${F.name}` : `Forme ${F.name}`);
+  const formLabel = (id, F) => (+id === 201 ? `${F.key.length === 1 ? 'Lettre' : 'Signe'} ${F.name}` : F.skin ? `Costume ${F.name}` : `Forme ${F.name}`);
   const rareText = (id) => (P().TIER[P().tier(id)].secret ? 'C’est le Dieu des Pokémon.' : `C’est un Pokémon ${P().TIER[P().tier(id)].name.toLowerCase()}.`);
 
   /** Choisir son avatar parmi ses Pokémon attrapés → { id, shiny } ou null */
@@ -101,7 +104,14 @@
     let sh = c0.normal === 0 && c0.shiny > 0; // seulement le chromatique : on montre celui-là d'abord
     // Pokémon à formes (Arceus : 18 types, Zarbi : 28 lettres) ; la forme affichée = la première attrapée
     const FL = P().formsOf(id);
-    const forms = FL && got ? await App.capsules.forms(id).catch(() => new Map()) : null;
+    const forms = FL && got ? new Map(await App.capsules.forms(id).catch(() => new Map())) : null;
+    // costumes (Pikachu, Cadoizo) : les exemplaires sans costume forment la « forme » normale ; les costumes ne se vendent pas
+    const skins = !!(FL && FL[1].skin);
+    let skinN = 0, skinSh = 0;
+    if (skins && forms) {
+      for (const f of forms.values()) { skinN += f.n; skinSh += f.shiny; }
+      if (d.n > skinN) forms.set('normal', { n: d.n - skinN, shiny: d.shiny - skinSh });
+    }
     let form = forms && forms.size ? FL.find((f) => forms.has(f.key)).key : null;
     if (form) { const c = forms.get(form); sh = c.n === c.shiny; }
     const st = App.capsules.state, shop = !!(got && st && st.shop);
@@ -112,8 +122,8 @@
     const evoHTML = fam.flat().length > 1 ? `<div class="sp-evo"><h3>Évolutions</h3><div class="evo-line">${fam.map((stage) => `<div class="evo-stage">${stage.map(famCell).join('')}</div>`).join('<span class="evo-arrow" aria-hidden="true">›</span>')}</div></div>` : '';
     const shinyHTML = `<div class="sp-evo"><h3>Version chromatique</h3><div class="evo-line">${evoCell(id, c0.shiny > 0, true, -1)}
       <p class="small muted" style="margin:0;align-self:center">${c0.shiny ? `Tu l’as attrapé en chromatique${c0.shiny > 1 ? ` ${c0.shiny} fois` : ''} ✦` : 'Pas encore attrapé en chromatique (1 % de chance à chaque capsule, 3 % avec une grande capsule).'}</p></div></div>`;
-    const formsHTML = forms ? `<div class="sp-evo"><h3>Les ${FL.length} formes <span class="muted small">${forms.size}/${FL.length}</span></h3>
-      <p class="small muted" style="margin:0 0 8px">Chaque ${esc(P().name(id))} attrapé est une forme que tu n’as pas encore.</p>
+    const formsHTML = forms ? `<div class="sp-evo"><h3>${skins ? 'Les costumes' : `Les ${FL.length} formes`} <span class="muted small">${forms.size}/${FL.length}</span></h3>
+      <p class="small muted" style="margin:0 0 8px">${skins ? 'Les costumes s’obtiennent dans la capsule de la semaine, pendant les événements (20 % de chances). Ils ne se vendent pas.' : `Chaque ${esc(P().name(id))} attrapé est une forme que tu n’as pas encore.`}</p>
       <div class="form-grid ${id === 201 ? 'unown' : ''}">${FL.map((f) => { const c = forms.get(f.key); return `<button class="evo-cell form-cell ${c ? 'got' : 'miss'}" data-form="${f.key}" style="--tc:${f.color}" title="${esc(P().fullName(id, f.key))}${c ? '' : ' (pas encore attrapé)'}">
         <span class="evo-img"><img src="${P().img(id, false, f.key)}" alt="" loading="lazy">${c && c.shiny ? '<span class="evo-sh">✦</span>' : ''}</span><span class="evo-n">${esc(f.name)}</span></button>`; }).join('')}</div></div>` : '';
     const body = App.util.openModal(`<div class="sp-modal">
@@ -149,7 +159,7 @@
     if (!got) return;
     const drawSell = async () => {
       const box = body.querySelector('#sp-sell'); if (!box) return;
-      const have = sh ? counts(d).shiny : counts(d).normal, p = App.capsules.price(id, sh);
+      const have = (sh ? counts(d).shiny - skinSh : counts(d).normal - (skinN - skinSh)), p = App.capsules.price(id, sh); // sans les costumes
       box.innerHTML = have > 0 ? `<div class="small muted">${sh ? 'Chromatique' : 'Normal'} : ${have} exemplaire${have > 1 ? 's' : ''} · se vend <b>${pts(p)}</b></div>
         <div class="row" style="gap:8px;margin-top:6px"><button class="btn sm" data-sell="1">${App.icons.icon('coin', 14)} Vendre 1 (+${p})</button>
         ${have > 2 ? `<button class="btn sm ghost" data-sell="${have - 1}">Vendre ${have - 1}, en garder 1 (+${p * (have - 1)})</button>` : ''}</div>`
@@ -199,7 +209,7 @@
     ov.innerHTML = `<div class="cap-ov-bg"></div><div class="cap-flash"></div>
       <div class="cap-scene">
         <div class="cap-rays"></div><div class="cap-halo"></div><div class="cap-burst"></div>
-        <div class="cap-ball">${capsuleSVG('', kind === 'grande' ? 150 : 132, kind === 'grande')}</div>
+        <div class="cap-ball">${capsuleSVG('', kind === 'grande' ? 150 : 132, kind === 'grande', kind === 'week' ? App.capsuleThemes.current() : null)}</div>
         <div class="cap-mon"><img alt=""></div>
         <div class="cap-sparkles"></div>
       </div>
@@ -268,13 +278,13 @@
     ov.classList.add('co-reveal');
     const isNew = fm ? r.form_count === 1 : r.count === 1;
     const nForms = fm && !demo ? (await App.capsules.forms(r.species).catch(() => new Map())).size : 0;
-    const left = demo ? 0 : kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
-    const shop = !demo && r.coins !== undefined, p = shop ? App.capsules.price(r.species, r.shiny) : 0;
+    const left = demo || kind === 'week' ? 0 : kind === 'grande' ? r.big : r.stock + (r.bonus || 0);
+    const shop = !demo && r.coins !== undefined && !(F && F.skin), p = shop ? App.capsules.price(r.species, r.shiny) : 0;
     ov.querySelector('.cap-text').innerHTML = `
-      ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : lg && lg.title ? `<div class="cap-banner lg-title">${esc(lg.title)}</div>` : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
+      ${god ? '<div class="cap-banner god-banner" id="god-banner">???</div>' : F && F.skin ? `<div class="cap-banner skin-banner" style="--tc:${F.color}">Costume ${esc(F.name)} !</div>` : lg && lg.title ? `<div class="cap-banner lg-title">${esc(lg.title)}</div>` : t >= 5 ? `<div class="cap-banner">${esc(T.name)} !</div>` : ''}
       <div class="cap-name">${esc(P().name(r.species))}</div>
-      <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">${esc(formLabel(r.species, F))}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${demo && demo.souvenir ? '<span class="dup-pill">Souvenir</span>' : isNew ? `<span class="new-pill">${F ? 'Nouvelle forme !' : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
-      ${nForms ? `<div class="small cap-forms">Formes de ${esc(P().name(r.species))} : <b>${nForms}/${P().formsOf(r.species).length}</b></div>` : ''}
+      <div class="row cap-tags">${tierPill(t, !god)}${F ? `<span class="tier-pill" style="--tc:${F.color}">${esc(formLabel(r.species, F))}</span>` : ''}${r.shiny ? '<span class="shiny-pill">✦ Chromatique !</span>' : ''}${demo && demo.souvenir ? '<span class="dup-pill">Souvenir</span>' : isNew ? `<span class="new-pill">${F ? (F.skin ? 'Nouveau costume !' : 'Nouvelle forme !') : 'Nouveau !'}</span>` : `<span class="dup-pill">×${F ? r.form_count : r.count}</span>`}</div>
+      ${nForms ? `<div class="small cap-forms">${F && F.skin ? 'Costumes' : 'Formes'} de ${esc(P().name(r.species))} : <b>${nForms}/${P().formsOf(r.species).length - (F && F.skin ? 1 : 0)}</b></div>` : ''}
       <div class="muted small">${P().num(r.species)} · ${esc(P().region(r.species))}</div>
       <div class="small cap-tap">Touche ${esc(P().name(r.species))} ${left > 0 ? 'pour ouvrir la suivante' : 'pour revenir à tes capsules'}</div>
       <div class="row cap-btns">
@@ -387,7 +397,7 @@
         </section>`;
 
       const $ = (s) => el.querySelector(s);
-      let dex = new Map(), formCount = {}; // nombre de formes attrapées (Arceus, Zarbi)
+      let dex = new Map(), formCount = {}, formMaps = {}; // formes attrapées (Arceus, Zarbi, costumes de Pikachu et Cadoizo)
 
       const drawStatus = () => {
         const s = App.capsules.state;
@@ -411,6 +421,28 @@
 
       // ---------- Boutique : éclats (la monnaie), achats, vente des doublons ----------
       const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
+      // capsule de la semaine (supabase-v24.sql) : change le jeudi à 20 h ; 50 éclats (type ou région) ou 75 (événement + costume)
+      const hasSkin = (id, f) => !!(formMaps[id] && formMaps[id].get(f));
+      const themeItem = (s) => {
+        const th = App.capsuleThemes.current();
+        if (!th) return '';
+        const ok = s.coins >= th.price, got = th.ids.filter((i) => dex.has(i)).length;
+        const skins = th.skins ? th.skins.filter(([i, f]) => hasSkin(i, f)).length : 0;
+        return `<div class="shop-item theme ${th.event ? 'event' : ''} ${ok ? 'can' : ''}" style="--th:${th.stops[1]};--th2:${th.stops[2]}"><div class="shop-art">${capsuleSVG('', 46, false, th)}</div>
+          <div class="shop-txt"><b>${esc(th.name)}</b><span>${esc(th.desc)}. Jusqu’au ${esc(App.capsuleThemes.until(th.ends))} · chromatique 2 %.</span>
+            <button type="button" class="link small" data-theme-list>${got} / ${th.ids.length} Pokémon attrapés${th.skins ? ` · costume${th.skins.length > 1 ? 's' : ''} ${skins}/${th.skins.length}` : ''}</button></div>
+          <button class="btn sm ${ok ? 'theme-btn' : ''}" data-theme-open ${ok ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${th.price}</button></div>`;
+      };
+      // les Pokémon possibles dans la capsule de la semaine (grisés s'ils manquent), costumes en premier
+      const skinCell = (i, f) => { const F = P().formInfo(i, f), got = hasSkin(i, f);
+        return `<span class="evo-cell form-cell ${got ? 'got' : 'miss'}" style="--tc:${F.color}"><span class="evo-img"><img src="${P().img(i, false, f)}" alt="" loading="lazy"></span><span class="evo-n">${esc(P().name(i))} ✦</span></span>`; };
+      const themeList = () => {
+        const th = App.capsuleThemes.current();
+        if (!th) return;
+        App.util.openModal(`<h2>${esc(th.name)}</h2><p class="small muted">${esc(th.desc)} : ${th.ids.length} Pokémon possibles, jusqu’au ${esc(App.capsuleThemes.until(th.ends))}.</p>
+          ${th.skins ? `<h3 style="margin:8px 0">Costume${th.skins.length > 1 ? 's' : ''} de l’événement (20 %)</h3><div class="form-grid">${th.skins.map(([i, f]) => skinCell(i, f)).join('')}</div><h3 style="margin:12px 0 8px">Les Pokémon</h3>` : ''}
+          <div class="form-grid">${th.ids.map((i) => evoCell(i, dex.has(i), false, -1)).join('')}</div>`);
+      };
       const drawShop = () => {
         const box = $('#cp-shop'), s = App.capsules.state;
         if (!box) return;
@@ -424,6 +456,7 @@
               <button class="btn sm ${s.coins >= P1 ? 'primary' : ''}" data-buy="capsule" ${s.coins >= P1 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P1}</button></div>
             <div class="shop-item gold ${s.coins >= P2 ? 'can' : ''}"><div class="shop-art">${capsuleSVG('', 46, true)}</div><div class="shop-txt"><b>Grande capsule</b><span>Au moins rare, 1 chance sur 5 d’un légendaire ou d’un fabuleux, chromatique 3 %.</span></div>
               <button class="btn sm ${s.coins >= P2 ? 'gold-btn' : ''}" data-buy="grande" ${s.coins >= P2 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P2}</button></div>
+            ${themeItem(s)}
             <div class="shop-item"><div class="shop-art coin-art">${App.icons.icon('coin', 34)}</div><div class="shop-txt"><b>Vendre mes doublons</b><span>${d.n ? `${d.n} Pokémon en double → <b>+${pts(d.gain)}</b>. Tu gardes un exemplaire de chaque, et tous tes chromatiques.` : 'Aucun doublon pour l’instant (tu gardes toujours un exemplaire de chaque).'}</span></div>
               <button class="btn sm" data-dupes ${d.n ? '' : 'disabled'}>Vendre${d.n ? ` (+${d.gain})` : ''}</button></div>
           </div>
@@ -468,7 +501,14 @@
         dex = await App.capsules.dex({ fresh }).catch(() => new Map());
         formCount = {};
         await App.capsules.forms(0, { fresh }).catch(() => null);
-        for (const id of [P().GOD, 201]) if (dex.has(id)) formCount[id] = (await App.capsules.forms(id).catch(() => new Map())).size;
+        formMaps = {};
+        for (const id of [P().GOD, 201, 25, 225]) {
+          if (!dex.has(id)) continue;
+          const m = formMaps[id] = await App.capsules.forms(id).catch(() => new Map());
+          // costumes : la forme normale compte aussi si on a un exemplaire sans costume
+          const skinN = [...m.values()].reduce((s, f) => s + f.n, 0);
+          formCount[id] = m.size + (P().formsOf(id)[1].skin && dex.get(id).n > skinN ? 1 : 0);
+        }
         if (!alive()) return; drawCount(); drawGrid(); drawShop(); };
 
       el.addEventListener('click', (e) => {
@@ -478,6 +518,8 @@
         if (sp) return speciesModal(+sp.dataset.sp, dex, () => refreshDex(false));
         if (e.target.closest('#cp-open')) openLoop(() => { drawStatus(); refreshDex(false); });
         if (e.target.closest('#cp-open-big')) openLoop(() => { drawStatus(); refreshDex(false); }, 'grande');
+        if (e.target.closest('[data-theme-open]')) openLoop(() => { drawStatus(); refreshDex(false); drawShop(); }, 'week');
+        if (e.target.closest('[data-theme-list]')) return themeList();
         const buy = e.target.closest('[data-buy]');
         if (buy) {
           buy.disabled = true;
