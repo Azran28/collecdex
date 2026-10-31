@@ -772,7 +772,8 @@ Object.assign(App.views.scan, {
         // (la certification en arrière-plan continue : elle garde ses propres cartes)
         // v3.57 : aussi depuis la liste détaillée (« pareil » : après la validation, le scan suivant)
         S.newAfterSave = false;
-        if (burst) { X.resetBurst(); if (S.rUsedCam) el.querySelector('#r-start').click(); } // (rafale : la caméra repart si on s'en servait)
+        // (v3.86 : la dernière carte prise est gardée en mémoire : encore dans la main, elle n'est pas reprise en double au redémarrage)
+        if (burst) { const keep = S.rLast; X.resetBurst(); if (S.rUsedCam) { S.rLast = keep; S.rArmed = false; S.rDiff = 0; el.querySelector('#r-start').click(); } } // (rafale : la caméra repart si on s'en servait)
         else el.querySelector('#b-reset').click();
         window.scrollTo(0, 0);
       }
@@ -794,6 +795,7 @@ Object.assign(App.views.scan, {
         if (X.wantCert()) App.certify.prepare('rafale');
         S.rPrev = null; S.rStable = 0; S.rSeen = 0; X.rStrip(); // (v3.82 : la bande des cartes déjà prises revient à la reprise)
         S.rTrk = null;
+        if (S.rTimer) clearInterval(S.rTimer); // (v3.86 : jamais deux battements en même temps si la rafale est relancée deux fois)
         S.rTimer = setInterval(X.rTick, 100);
         el.classList.add('r-shooting'); // (v3.83, Arnaud : pendant les photos, pas de liste sous la caméra ni de page qui défile ; la lecture continue en fond, visible dans la bande .r-strip)
         el.querySelector('#r-start').classList.add('hidden'); el.querySelector('#r-files-btn').classList.add('hidden');

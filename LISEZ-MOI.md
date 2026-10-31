@@ -276,6 +276,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Plus besoin de tenir la carte parfaitement immobile : une main qui tremble un peu suffit, et une carte qui bouge encore est prise au bout d’environ 1 s.
 - **Les cartes sont lues pendant que tu continues** : en bas de l’image, une bande montre les dernières cartes prises, avec leur vrai visuel et leur nom dès qu’elles sont reconnues (✓ sûre, ? à vérifier), et le compte « 5/6 sûres ». À la pause, il reste donc très peu à attendre.
 - Pour la carte suivante, change franchement de carte (ou retire-la du cadre) : la même carte n’est pas reprise deux fois.
+- **v3.86** : le téléphone ne vibre plus sans fin après « Enregistrer ». Il vibre une fois par photo vraiment prise. Si la caméra ne répond plus, la rafale s’arrête avec un message : touche « Reprendre la rafale ». La carte encore dans ta main après l’enregistrement n’est plus reprise en double.
 - **v3.85** : tu peux passer **vite** d’une carte à l’autre (poser la suivante par-dessus) : plus besoin de sortir la carte du cadre.
 - **v3.83** : le bouton s’appelle maintenant **« ■ Terminer »** (au lieu de « Pause ») : il arrête la caméra et ouvre l’analyse. Pendant les photos, plus de liste sous la caméra ni de page qui défile : tout se passe dans la bande en bas de l’image.
 
