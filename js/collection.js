@@ -165,9 +165,9 @@ App.col = (() => {
     task.done();
     emit('*');
   }
-  /** Met à jour en arrière-plan les prix de plus de 24 h */
+  /** Met à jour en arrière-plan les prix de plus de 24 h (prix introuvable : réessayé au bout de 3 h) */
   function refreshStalePrices() {
-    const stale = all().filter((it) => !it.price || Date.now() - (it.price.t || 0) > 24 * 3600 * 1000).map((it) => it.key);
+    const stale = all().filter((it) => !it.price || Date.now() - (it.price.t || 0) > (it.price.value ? 24 : 3) * 3600 * 1000).map((it) => it.key);
     if (stale.length) refreshPrices(stale, 'Prix de ta collection');
   }
 

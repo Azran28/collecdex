@@ -221,17 +221,53 @@
     return null;
   }
   // ---------- Prix (optcgapi : marché TCGplayer, cartes anglaises, en dollars) ----------
-  const priceList = (setId) => cached(`op1:prices:${setId}`, DAY, async () => {
+  const priceList = (setId) => cached(`op2:prices:${setId}`, DAY, async () => {
     const path = setId === 'PROMO' ? '/allPromos/' : /^ST-/.test(setId) ? `/decks/${setId}/` : setId === 'AUTRES' ? null : `/sets/${setId}/`;
     if (!path) return {};
     const rows = await getJSON(PRICES + path, 2).catch(() => []);
     const m = {};
     for (const r of Array.isArray(rows) ? rows : []) {
       const k = r.card_image_id || r.card_set_id, v = r.market_price || r.inventory_price;
-      if (k && v > 0) m[k] = { v, t: r.date_scraped || '' };
+      if (k && v > 0) m[k] = { v, t: r.date_scraped || '', base: r.card_set_id || String(k).replace(/_[pr]\d+$/i, '') };
     }
+    // une liste vide (site des prix indisponible) n'est pas gardée un jour : on réessaiera
+    if (!Object.keys(m).length) throw new Error('Prix One Piece indisponibles');
     return m;
   });
+  // série sans prix : pas redemandée pendant 10 min (sinon une requête par carte)
+  const noPrice = new Map();
+  async function prices(setId) {
+    if (Date.now() - (noPrice.get(setId) || 0) < 10 * 60 * 1000) return {};
+    return priceList(setId).catch(() => { noPrice.set(setId, Date.now()); return {}; });
+  }
+  /**
+   * Prix d'une carte. optcgapi ne numérote pas toujours les réimpressions comme nos données
+   * (« OP02-001_p1 » ici, « OP02-001_p2 » ou « OP02-001 » chez eux) et range certaines cartes dans leur série d'origine.
+   */
+  async function findPrice(id, setId) {
+    const base = id.replace(/_[pr]\d+$/i, ''), alt = base !== id;
+    const pr = id.replace(/_p(\d+)$/, '_pr$1'); // les promos s'écrivent « _pr1 » chez optcgapi
+    const pick = (m) => {
+      if (m[id] || m[pr]) return m[id] || m[pr];
+      // dans la série de la carte : la seule ligne de ce code, ou la normale pour une carte sans suffixe
+      const same = Object.keys(m).filter((k) => m[k].base === base);
+      if (!alt && m[base]) return m[base];
+      if (same.length === 1 && (alt || same[0] === base)) return m[same[0]];
+      return null;
+    };
+    const own = pick(await prices(setId));
+    if (own) return own;
+    // série d'origine du code (OP05-… → OP-05, ST01-… → ST-01, P-… → PROMO)
+    const pre = (base.match(/^([A-Z]+\d+)-/) || [])[1];
+    const homes = base.startsWith('P-') ? ['PROMO'] : pre ? (await sets()).map((s) => s.id).filter((s) => s !== setId && s.replace(/-/g, '').includes(pre)) : [];
+    for (const h of homes) {
+      const m = await prices(h);
+      // réimpression au même dessin (« _r1 ») : le prix de la carte d'origine
+      const p = m[id] || m[pr] || ((!alt || /_r\d+$/.test(id)) && m[base]);
+      if (p) return p;
+    }
+    return null;
+  }
   async function getCard(id, { fresh = false } = {}) {
     id = String(id);
     await sets();
@@ -247,8 +283,7 @@
       const r = raw.find((x) => x && x.id === id); if (!r) throw new Error('Carte inconnue : ' + id);
       c = normCard(r, set, L);
     }
-    const prices = await priceList(set.id).catch(() => ({}));
-    const p = prices[id];
+    const p = await findPrice(id, set.id);
     return {
       ...c,
       set: { id: set.id, name: set.name, logo: '', symbol: '', releaseDate: '', cardCount: { total: set.total, official: set.official }, serie: set.group },
