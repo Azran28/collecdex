@@ -272,6 +272,12 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Chromatique 2 %. Les costumes se rangent dans la fiche de Pikachu (« Les costumes ») et peuvent servir d'avatar ; **ils ne se vendent pas**.
 - **À faire une fois dans Supabase** : coller tout `supabase/sql/supabase-v24.sql` → *Run*. Sans lui, l'article n'apparaît pas.
 
+## Rafale plus facile (v3.82)
+- Plus besoin de tenir la carte parfaitement immobile : une main qui tremble un peu suffit, et une carte qui bouge encore est prise au bout d’environ 1 s.
+- **Les cartes sont lues pendant que tu continues** : en bas de l’image, une bande montre les dernières cartes prises, avec leur vrai visuel et leur nom dès qu’elles sont reconnues (✓ sûre, ? à vérifier), et le compte « 5/6 sûres ». À la pause, il reste donc très peu à attendre.
+- Pour la carte suivante, change franchement de carte (ou retire-la du cadre) : la même carte n’est pas reprise deux fois.
+- **v3.83** : le bouton s’appelle maintenant **« ■ Terminer »** (au lieu de « Pause ») : il arrête la caméra et ouvre l’analyse. Pendant les photos, plus de liste sous la caméra ni de page qui défile : tout se passe dans la bande en bas de l’image.
+
 ## Apparitions des grands légendaires et souvenirs (v3.76)
 - 12 Pokémon ont maintenant leur propre apparition, **impossible à passer la première fois** (on peut la passer ensuite) : le tirage ne change pas.
   - **Rayquaza** (~7 s, le plus spectaculaire après Arceus, bannière « Seigneur des cieux ») : un orage noir, deux yeux furieux s'ouvrent dans les nuages, l'écran vire au rouge, il charge une sphère d'énergie qui aspire tout, puis un rayon pulvérise la capsule.

@@ -12,6 +12,25 @@
 .r-live { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 3; max-width: calc(100% - 20px); padding: 6px 12px; border-radius: 999px; background: rgba(10,11,22,.78); color: #fff; font-size: .82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; display: flex; align-items: center; gap: 6px; }
 .r-live.go { background: rgba(124,92,255,.9); }
 .r-live.ok { background: rgba(26,150,98,.92); }
+/* v3.82 : bande des cartes déjà prises en bas de l'image, lues pendant la rafale (visuel officiel + nom dès qu'elles sont trouvées) */
+.r-strip { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3; display: flex; align-items: flex-end; gap: 6px; padding: 6px; border-radius: 12px; background: rgba(10,11,22,.72); pointer-events: none; overflow: hidden; }
+.r-sum { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 40px; align-self: stretch; color: #fff; font-weight: 800; font-size: .95rem; line-height: 1.1; }
+.r-sum small { font-size: .62rem; font-weight: 700; color: #aab0d3; }
+.r-th { position: relative; flex: 0 0 auto; width: 48px; display: flex; flex-direction: column; gap: 2px; }
+.r-th img { display: block; width: 48px; aspect-ratio: 63/88; object-fit: cover; border-radius: 4px; box-shadow: 0 0 0 1.5px rgba(255,255,255,.18); }
+.r-th.st-attente img, .r-th.st-lecture img { filter: grayscale(.6) brightness(.6); }
+.r-th.st-sure img { box-shadow: 0 0 0 2px var(--ok); }
+.r-th.st-verifier img { box-shadow: 0 0 0 2px #ffb84d; }
+.r-th small { display: block; max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .58rem; font-weight: 700; color: #fff; text-align: center; }
+.r-th .spinner { position: absolute; left: 50%; top: 22px; width: 16px; height: 16px; margin: 0 0 0 -8px; border-width: 2px; }
+.r-th b { position: absolute; right: -3px; top: -3px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: .62rem; }
+.r-th b.ok { background: var(--ok); color: #063; }
+.r-th b.q { background: #ffb84d; color: #4a2b00; }
+.r-th b.no { background: #ff6b6b; color: #fff; }
+/* v3.83 : pendant les photos de la rafale, rien sous la caméra (la lecture continue en fond, visible dans la bande) ; bouton Terminer */
+.r-shooting #b-results, .r-shooting #b-status { display: none; }
+.scan-view:has(.r-strip) .scan-guide::after { content: none; } /* (la bande des cartes prend sa place) */
+.r-stop svg { fill: currentColor; }
 /* v3.38 : conseils de prise de vue (seulement si un vrai problème dure) — rafale (.r-live.warn), carte seule (.shot-tip), après la photo (.shot-warn) */
 .r-live.warn, .shot-tip { background: rgba(196,120,0,.94); color: #fff; white-space: normal; text-align: center; border-radius: 14px; }
 .shot-tip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 5; width: max-content; max-width: calc(100% - 24px); padding: 6px 12px; font-size: .82rem; font-weight: 700; line-height: 1.3; pointer-events: none; }

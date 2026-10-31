@@ -124,7 +124,7 @@ Object.assign(App.views.scan, {
           <div id="r-hint" class="r-hint hidden"></div>
           <div class="row action-dock scan-dock" style="margin-top:14px" id="r-actions">
             <button class="btn primary" id="r-start">${App.icons.icon('camera', 16)} Démarrer la rafale</button>
-            <button class="btn hidden" id="r-pause">Pause</button>
+            <button class="btn r-stop hidden" id="r-pause">${App.icons.icon('stop', 16)} Terminer</button>
             <label class="btn" id="r-files-btn">Choisir des photos<input type="file" accept="image/*" multiple id="r-files" hidden></label>
           </div>
           <div hidden>${pageCtl}${pageBtns}</div>
@@ -779,7 +779,7 @@ Object.assign(App.views.scan, {
     });
 
     // Scanner — rafale (caméra ouverte, cartes prises toutes seules) : voir scanBatchParts.burst
-    Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, resultsEl, setStatus, sv, urls, view }));
+    Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, el, esc, resultsEl, setStatus, sv, urls, view }));
     // v3.62 : classeur feuilleté (essai, comptes testeurs) : voir scanBatchParts.flip
     const { flipStop } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, view });
     { const rb = X.resetBurst; X.resetBurst = (...a) => { labLeftover(); return rb(...a); }; } // (v3.61 : rafale remise à zéro → cartes non enregistrées au labo)
@@ -792,9 +792,10 @@ Object.assign(App.views.scan, {
         App.sfx.unlock();
         view.insertAdjacentHTML('beforeend', `<div class="r-live">${X.wantCert() ? 'Monte une carte dans le cadre, <b>dos</b> visible' : 'Présente une carte dans le cadre'}</div>`);
         if (X.wantCert()) App.certify.prepare('rafale');
-        S.rPrev = null; S.rStable = 0;
+        S.rPrev = null; S.rStable = 0; S.rSeen = 0; X.rStrip(); // (v3.82 : la bande des cartes déjà prises revient à la reprise)
         S.rTrk = null;
         S.rTimer = setInterval(X.rTick, 100);
+        el.classList.add('r-shooting'); // (v3.83, Arnaud : pendant les photos, pas de liste sous la caméra ni de page qui défile ; la lecture continue en fond, visible dans la bande .r-strip)
         el.querySelector('#r-start').classList.add('hidden'); el.querySelector('#r-files-btn').classList.add('hidden');
         el.querySelector('#r-pause').classList.remove('hidden');
         window.scrollTo({ top: Math.max(0, view.getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });

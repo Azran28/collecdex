@@ -1,6 +1,6 @@
 /* Scanner — rafale (caméra ouverte, cartes prises toutes seules) — morceau de la fonction de scan-batch.js (découpage automatique v3.06 ; état partagé : X.S). */
 App.scanBatchParts = App.scanBatchParts || {};
-App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, resultsEl, setStatus, sv, urls, view }) => {
+App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, el, esc, resultsEl, setStatus, sv, urls, view }) => {
   const { S } = X;
     // ---------- Rafale : la caméra reste ouverte, chaque carte immobile est prise toute seule ----------
     S.rTimer = null; S.rBusy = false; S.rPrev = null; S.rStable = 0; S.rLast = null; S.rQueue = Promise.resolve(); S.rPending = 0;
@@ -28,7 +28,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       const F = rGrab(); if (!F) return;
       let mean = 0; for (const v of F) mean += v; mean /= F.length;
       let sd = 0; for (const v of F) sd += (v - mean) ** 2; sd = Math.sqrt(sd / F.length);
-      const diff = S.rPrev ? mad(F, S.rPrev) : 99; S.rPrev = F;
+      const hadPrev = !!S.rPrev, diff = hadPrev ? mad(F, S.rPrev) : 99; S.rPrev = F;
       if (wantCert()) {
         // v3.58 : paquet face cachée tenu SOUS le cadre — on monte la carte du dessus (dos vu), on la retourne, on la tient
         // immobile → prise et certifiée toute seule (sans lampe), on la pose. Paquet dans le cadre : au labo, 63 % certifiées
@@ -46,14 +46,29 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       // v3.38 : pièce vraiment trop sombre (1 s de suite) : dit à la place de « Présente une carte »
       S.rDark = mean < 40 ? (S.rDark || 0) + 1 : 0;
       if (S.rDark >= 10) { S.rStable = 0; rHint(App.views.scan.TIPS.sombre, 'warn'); return; }
-      if (sd < 16) { S.rStable = 0; rHint('Présente une carte dans le cadre'); return; }
-      if (diff > 4 + sd * 0.08) { S.rStable = 0; S.rWait = 0; rHint('Tiens la carte immobile…'); return; }
-      if (++S.rStable < 4) { rHint('Ne bouge plus…', 'go'); return; }
-      if (S.rLast && sameCard(S.rLast, F)) { rHint(`Carte ${S.cells.length} prise ✓ — passe à la suivante`, 'ok'); return; }
-      // v3.38 (point 4) : carte immobile mais image floue ou reflet → on attend que ça s'arrange (mise au point, carte inclinée),
-      // 1,5 s au plus, puis elle est prise quand même ; le conseil n'apparaît qu'après 0,5 s d'attente
+      if (sd < 16) { S.rStable = 0; S.rSeen = 0; S.rArmed = true; rHint('Présente une carte dans le cadre'); return; }
+      // v3.82 (Arnaud : « trop dur de ne pas bouger, il faut que ce soit bien plus permissif ») : avant, 4 images de suite
+      // presque identiques (écart < 4 + 0,08 σ) ; maintenant une main qui tremble suffit (écart < 10 + 0,12 σ, 3 images = 0,3 s),
+      // et une nouvelle carte présente depuis 0,8 s est prise même si elle bouge (1,8 s : prise quoi qu'il arrive).
+      // La photo garde la plus nette des images qui suivent (cam.shot) : le léger flou d'un geste ne gêne pas la lecture.
+      // après une photo, il faut un vrai changement (cadre vide, ou geste franc : carte changée) avant la suivante : sans ça, une
+      // même carte tenue d'une main qui tremble était parfois reprise (2 doublons sur 21 au banc de la fausse caméra)
+      if (hadPrev && diff > 30 + sd * 0.3) S.rArmed = true; // (pas juste après la photo : rPrev vient d'être remis à zéro)
+      // « même carte » (comparaison grossière : toutes les cartes d'une licence ont la même mise en page) crue seulement sur 3 images
+      // de suite : une seule image « pareille » remettait l'attente à zéro → cartes ratées quand la main tremble fort
+      const same = !!S.rLast && sameCard(S.rLast, F); S.rSame = same ? (S.rSame || 0) + 1 : 0;
+      if (window.__rLog) window.__rLog.push([Math.round(performance.now()), Math.round(sd), Math.round(diff), S.rArmed ? 1 : 0, same ? 1 : 0, S.rSeen || 0]); // (labo : journal de la rafale)
+      if (S.rLast && (!S.rArmed || S.rSame >= 3)) { S.rStable = 0; S.rSeen = 0; rHint(`Carte ${S.cells.length} prise ✓ — passe à la suivante`, 'ok'); return; }
+      S.rSeen = (S.rSeen || 0) + 1;
+      const calm = diff < 10 + sd * 0.12, slow = diff < 28 + sd * 0.3;
+      S.rStable = calm ? S.rStable + 1 : 0;
+      const ready = S.rStable >= 3 || (S.rSeen >= 8 && slow) || S.rSeen >= 18;
+      if (!ready) { S.rWait = 0; rHint(calm ? 'Je prends la photo…' : 'Tiens la carte dans le cadre…', 'go'); return; }
+      // v3.38 (point 4) : image floue ou reflet → on attend un peu que ça s'arrange (mise au point, carte inclinée),
+      // 0,8 s au plus (avant : 1,5 s), puis elle est prise quand même ; le conseil n'apparaît qu'après 0,5 s d'attente
       const pb = App.views.scan.problem(App.views.scan.quality(cam.video, cam.region(0)), 0.55);
-      if (pb && pb !== 'sombre' && (S.rWait = (S.rWait || 0) + 1) < 15) { if (S.rWait >= 5) rHint(App.views.scan.TIPS[pb], 'warn'); return; }
+      if (pb && pb !== 'sombre' && (S.rWait = (S.rWait || 0) + 1) < 8) { if (S.rWait >= 5) rHint(App.views.scan.TIPS[pb], 'warn'); return; }
+      S.rSeen = 0;
       S.rWait = 0;
       rCapture(F, false);
     }
@@ -92,7 +107,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
           App.certify.prepare('rafale'); // défi de la carte suivante (le même tant qu'il lui reste des usages)
         } else if (wantCert()) live = { passed: false, reasons: ['carte montrée sans retourner le dos d’abord'] };
         if (!b) return;
-        S.rLast = F;
+        S.rLast = F; S.rArmed = false;
         const img = await createImageBitmap(b);
         // v2.92 : photo = cadre jaune + 15 % de marge ; recadrée au ras de la carte seulement si ses bords sont sûrs, sinon
         // la photo entière (marge comprise : rien de coupé)
@@ -105,23 +120,41 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       } catch (e) { console.warn(e); }
       finally { S.rPrev = null; S.rBusy = false; }
     }
+    /**
+     * v3.82 (Arnaud : « rechercher les cartes en même temps qu'on prend les photos ») : la lecture tournait déjà pendant la
+     * rafale, mais on ne la voyait pas (la caméra prend l'écran). Bande posée en bas de l'image : les dernières cartes prises,
+     * avec le visuel officiel et le nom dès qu'elles sont trouvées (rond qui tourne = en lecture, ✓ sûre, ? à vérifier).
+     */
+    function rStrip() {
+      if (!cam.on || !S.cells.length) return;
+      let s = view.querySelector('.r-strip');
+      if (!s) { s = document.createElement('div'); s.className = 'r-strip'; s.setAttribute('aria-live', 'polite'); view.appendChild(s); }
+      const ok = S.cells.filter((c) => c.state === 'sure').length;
+      const th = (c) => {
+        const x = c.cands.find((y) => y.id === c.choice), done = ['sure', 'verifier'].includes(c.state) && x;
+        const mark = ['attente', 'lecture'].includes(c.state) ? '<i class="spinner"></i>' : c.state === 'sure' ? '<b class="ok">✓</b>' : c.state === 'verifier' ? '<b class="q">?</b>' : '<b class="no">✕</b>';
+        return `<span class="r-th st-${c.state}"><img src="${done ? esc(ad.img.card(x, 'low')) : c.url}" alt="">${mark}<small>${done ? esc(x.name) : c.state === 'lecture' ? 'Lecture…' : c.state === 'attente' ? 'En attente' : 'À revoir'}</small></span>`;
+      };
+      s.innerHTML = `<span class="r-sum">${ok}/${S.cells.length}<small>sûres</small></span>${S.cells.slice(-5).map(th).join('')}`;
+    }
     function addBurstCell(blob, auto, live, orig = null) { // orig : photo d'origine (One Piece : relue autrement si besoin)
       if (!S.cells.length) resultsEl.innerHTML = '';
       const cell = { i: S.cells.length, blob, url: URL.createObjectURL(blob), auto, box: null, state: 'attente', cands: [], choice: '', info: null, mode: null, live, orig };
       urls.push(cell.url); S.cells.push(cell); if (S.prog) S.prog.total = S.cells.length;
-      S.rPending++; S.running = true; X.drawResults();
+      S.rPending++; S.running = true; X.drawResults(); rStrip();
       S.rQueue = S.rQueue.then(async () => {
         if (S.stopped || !alive()) return;
-        cell.state = 'lecture'; S.prog = { step: 'Lecture des cartes', done: cell.i, total: S.cells.length }; X.drawResults();
+        cell.state = 'lecture'; S.prog = { step: 'Lecture des cartes', done: cell.i, total: S.cells.length }; X.drawResults(); rStrip();
         try { await X.recogOne(cell, el.querySelector('#b-set').value, () => {}); } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
         if (['sure', 'verifier'].includes(cell.state)) cell.found = Date.now();
         if (--S.rPending <= 0) { S.rPending = 0; S.running = false; S.prog = null; }
-        if (alive()) X.drawResults();
+        if (alive()) { X.drawResults(); rStrip(); }
         if (!S.running && sv.open && sv.mode === 'scan') X.svAfterScan(); // écran d'analyse ouvert : cartes douteuses, puis récapitulatif
       });
     }
     function rStop() {
       if (S.rTimer) { clearInterval(S.rTimer); S.rTimer = null; }
+      el.classList.remove('r-shooting');
       cam.stop();
       if (burst) {
         view.innerHTML = App.views.scan.empty('rafale');
@@ -136,5 +169,5 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, 
       resultsEl.innerHTML = App.views.scan.guide('rafale'); setStatus('');
     }
 
-  return { addBurstCell, rStop, rTick, resetBurst, wantCert };
+  return { addBurstCell, rStop, rStrip, rTick, resetBurst, wantCert };
 };
