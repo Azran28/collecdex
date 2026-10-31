@@ -1,7 +1,7 @@
 # Tests automatiques, puis mise en ligne seulement s'ils sont tous réussis.
 # (GitHub › Settings › Pages › Source doit être « GitHub Actions ».)
 # Chaque matin, le site est aussi remis en ligne tel quel (sans refaire les tests : le code n'a pas changé)
-# pour rafraîchir les prix Riftbound, Lorcana, Yu-Gi-Oh!, Final Fantasy, Star Wars Unlimited et Dragon Ball (data/rb-prix.json, data/lc-prix.json, data/yg-prix.json, data/ff-prix.json, data/sw-prix.json, data/db-prix.json, préparés par outils/ci/prix-*.mjs).
+# pour rafraîchir les prix Pokémon (promos anciennes), Riftbound, Lorcana, Yu-Gi-Oh!, Final Fantasy, Star Wars Unlimited et Dragon Ball (data/pk-prix.json, data/rb-prix.json, data/lc-prix.json, data/yg-prix.json, data/ff-prix.json, data/sw-prix.json, data/db-prix.json, préparés par outils/ci/prix-*.mjs).
 name: Tests et mise en ligne
 
 on:
@@ -58,6 +58,8 @@ jobs:
           rsync -a --exclude '.git' --exclude '.github' --exclude '.claude' --exclude '_site' \
             --exclude 'CLAUDE.md' --exclude 'docs' --exclude 'outils' --exclude 'supabase' \
             --exclude 'LISEZ-MOI.md' --exclude 'README.md' --exclude 'Lancer CollecDex.bat' ./ _site/
+      - name: Prix Pokémon de secours du jour (promos anciennes, TCGplayer)
+        run: node outils/ci/prix-pokemon.mjs _site/data/pk-prix.json
       - name: Prix Riftbound du jour (TCGplayer)
         run: node outils/ci/prix-riftbound.mjs _site/data/rb-prix.json
       - name: Prix Lorcana du jour (TCGplayer)

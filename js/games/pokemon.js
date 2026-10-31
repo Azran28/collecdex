@@ -265,7 +265,34 @@
       return c;
     });
     await ensureVersions([sid]).catch(() => {});
-    return fixVersions(c, sid, c && c.pricing && c.pricing.cardmarket);
+    return fixVersions(await withSpare(c, sid), sid, c && c.pricing && c.pricing.cardmarket);
+  }
+  // ---------- Prix de secours (cartes sans prix chez TCGdex : promos noires anciennes, Étoiles ☆…) ----------
+  // data/pk-prix.json = { m: date, p: { 'basep-14': [normal, brillant] } } (TCGplayer, $), préparé par le robot
+  // (outils/ci/prix-pokemon.mjs) ; pas de fichier (PC d'Arnaud) → celui du site en ligne
+  const numKey = (n) => { const m = String(n || '').trim().split('/')[0].toUpperCase().match(/^([A-Z]*)0*(\d+)([A-Z]?)$/); return m ? `${m[1]}${m[2]}${m[3]}` : null; };
+  let spareP = null;
+  const spare = () => spareP || (spareP = (async () => {
+    const hit = await App.db.get('cache', 'pk1:prix').catch(() => null);
+    const full = hit && hit.v && hit.v.p && Object.keys(hit.v.p).length;
+    if (hit && Date.now() - hit.t < (full ? DAY / 2 : 15 * 60 * 1000)) return hit.v;
+    for (const u of ['data/pk-prix.json', 'https://azran28.github.io/collecdex/data/pk-prix.json']) {
+      const r = await fetch(u, { cache: 'no-cache' }).catch(() => null);
+      const v = r && r.ok ? await r.json().catch(() => null) : null;
+      if (v && v.p && Object.keys(v.p).length) { await App.db.set('cache', 'pk1:prix', { t: Date.now(), v }).catch(() => {}); return v; }
+    }
+    if (full) return hit.v;
+    await App.db.set('cache', 'pk1:prix', { t: Date.now(), v: { m: '', p: {} } }).catch(() => {});
+    return { m: '', p: {} };
+  })().finally(() => setTimeout(() => { spareP = null; }, 60000)));
+  async function withSpare(c, sid) {
+    if (!c || HS.isSet(sid) || price(c)) return c;
+    const P = await spare().catch(() => ({ p: {} })), p = (P.p || {})[`${sid}-${numKey(c.localId)}`];
+    if (!p) return c;
+    const tp = { updated: P.m || '' };
+    if (p[0]) tp.normal = { marketPrice: p[0] };
+    if (p[1]) tp.holofoil = { marketPrice: p[1] };
+    return { ...c, pricing: { ...(c.pricing || {}), tcgplayer: tp } };
   }
   /** Scanner : versions corrigées d'une carte proposée (les recherches par nom ne téléchargent pas la rareté de chaque série) */
   async function withVersions(c) {
