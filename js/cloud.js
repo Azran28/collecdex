@@ -162,12 +162,33 @@ App.cloud = (() => {
   const markProfile = () => { if (!enabled) return; pend.profile = true; schedule(); };
   const pendingCount = () => Object.keys(pend.items).length + Object.keys(pend.dels).length + Object.keys(pend.photos).length + Object.keys(pend.photoDels).length + (pend.profile ? 1 : 0);
 
+  /*
+   * Photo refusée par le serveur (supabase-v17.sql) : pourquoi ? (Arnaud, 31 oct. : « place du compte pleine ? » affiché
+   * alors que le compte ne l'est pas.) Photo d'une carte certifiée = la photo certifiée est déjà en ligne et reste
+   * celle de la carte → rien à dire. Sinon : plafond du compte, ou photo trop lourde. null = rien à signaler.
+   */
+  const REFUSED = {
+    full: 'Ton compte en ligne est plein (5 000 photos ou 100 Mo) : les nouvelles photos restent seulement sur cet appareil. Tes cartes, elles, sont bien enregistrées.',
+    big: 'Une photo est trop lourde pour ton compte en ligne : elle reste seulement sur cet appareil. La carte, elle, est bien enregistrée.',
+  };
+  async function refusal(id, error) {
+    if (!/row-level/i.test(error.message)) return 'big';
+    if (App.certify && App.certify.photoCertified(id)) return null;
+    try {
+      const locked = await sb.rpc('photo_locked', { p_name: photoPath(id) });
+      if (locked.data === true) return null;
+      const quota = await sb.rpc('photo_quota_ok');
+      return quota.data === false ? 'full' : null;
+    } catch (e) { return null; }
+  }
+
   async function flush() {
     if (!user || flushing) return;
     if (!sb && (!(await waitReady()) || !user || flushing)) return;
     if (!pendingCount()) { if (state !== 'ok') setState('ok'); return; }
     flushing = true;
     setState('envoi');
+    const told = {};
     try {
       const me = uid();
       // 1) photos
@@ -181,7 +202,9 @@ App.cloud = (() => {
           // refus définitif du serveur (photo certifiée figée, plafond du compte, photo trop lourde) : on ne bloque pas la synchro
           if (error && /row-level security|maximum allowed size|too large|413/i.test(String(error.message) + ' ' + (error.statusCode || ''))) {
             console.warn('photo refusée par le serveur', id, error.message);
-            if (!/row-level/i.test(error.message) || !App.certify.photoCertified(id)) App.util.toast('Une photo n’a pas pu être gardée dans ton compte (place du compte pleine ?)', 5000);
+            const why = await refusal(id, error);
+            // v3.88 : message seulement quand la photo manque vraiment en ligne, une fois par envoi
+            if (why && !told[why]) { told[why] = 1; App.util.toast(REFUSED[why], 7000); }
           } else if (error) throw error;
         }
         delete pend.photos[id]; savePend(); emit();
