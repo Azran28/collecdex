@@ -56,8 +56,11 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       if (hadPrev && diff > 30 + sd * 0.3) S.rArmed = true; // (pas juste après la photo : rPrev vient d'être remis à zéro)
       // « même carte » (comparaison grossière : toutes les cartes d'une licence ont la même mise en page) crue seulement sur 3 images
       // de suite : une seule image « pareille » remettait l'attente à zéro → cartes ratées quand la main tremble fort
-      const same = !!S.rLast && sameCard(S.rLast, F); S.rSame = same ? (S.rSame || 0) + 1 : 0;
-      if (window.__rLog) window.__rLog.push([Math.round(performance.now()), Math.round(sd), Math.round(diff), S.rArmed ? 1 : 0, same ? 1 : 0, S.rSeen || 0]); // (labo : journal de la rafale)
+      const same = !!S.rLast && sameCard(S.rLast, F); S.rSame = same ? (S.rSame || 0) + 1 : 0; S.rDiff = same ? 0 : (S.rDiff || 0) + 1;
+      // v3.84 (Arnaud : en passant vite d'une carte à l'autre, « déjà prise » → il fallait la sortir du cadre) : un changement rapide
+      // entre deux cartes d'une même série ne fait qu'un écart de ~25 (seuil 44) ; une autre carte vue 5 images de suite (0,5 s) réarme
+      if (S.rDiff >= 5) S.rArmed = true;
+      if (window.__rLog) window.__rLog.push([Math.round(performance.now()), Math.round(sd), Math.round(diff), S.rArmed ? 1 : 0, same ? 1 : 0, S.rSeen || 0, S.rLast ? Math.round(mad(F, S.rLast)) : -1]); // (labo : journal de la rafale)
       if (S.rLast && (!S.rArmed || S.rSame >= 3)) { S.rStable = 0; S.rSeen = 0; rHint(`Carte ${S.cells.length} prise ✓ — passe à la suivante`, 'ok'); return; }
       S.rSeen = (S.rSeen || 0) + 1;
       const calm = diff < 10 + sd * 0.12, slow = diff < 28 + sd * 0.3;
@@ -92,7 +95,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
           App.certify.prepare('rafale'); // défi de la carte suivante (le même tant qu'il lui reste des usages)
         } else if (wantCert()) live = { passed: false, reasons: ['carte montrée sans retourner le dos d’abord'] };
         if (!b) return;
-        S.rLast = F; S.rArmed = false;
+        S.rLast = F; S.rArmed = false; S.rDiff = 0;
         const img = await createImageBitmap(b);
         // v2.92 : photo = cadre jaune + 15 % de marge ; recadrée au ras de la carte seulement si ses bords sont sûrs, sinon
         // la photo entière (marge comprise : rien de coupé)
