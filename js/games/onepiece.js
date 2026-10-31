@@ -32,10 +32,10 @@
     })();
     return inflight[key];
   }
-  async function getJSON(url, tries = 3) {
+  async function getJSON(url, tries = 3, ms = 0) {
     let err;
     for (let i = 0; i < tries; i++) {
-      try { const r = await fetch(url); if (r.ok) return r.json(); if (r.status === 404) throw new Error('introuvable : ' + url); err = new Error('HTTP ' + r.status); }
+      try { const r = await fetch(url, ms ? { signal: AbortSignal.timeout(ms) } : undefined); if (r.ok) return r.json(); if (r.status === 404) throw new Error('introuvable : ' + url); err = new Error('HTTP ' + r.status); }
       catch (e) { err = e; if (/introuvable/.test(e.message)) throw e; }
       await new Promise((res) => setTimeout(res, 300 * (i + 1)));
     }
@@ -224,7 +224,7 @@
   const priceList = (setId) => cached(`op2:prices:${setId}`, DAY, async () => {
     const path = setId === 'PROMO' ? '/allPromos/' : /^ST-/.test(setId) ? `/decks/${setId}/` : setId === 'AUTRES' ? null : `/sets/${setId}/`;
     if (!path) return {};
-    const rows = await getJSON(PRICES + path, 2).catch(() => []);
+    const rows = await getJSON(PRICES + path, 2, 8000).catch(() => []);
     const m = {};
     for (const r of Array.isArray(rows) ? rows : []) {
       const k = r.card_image_id || r.card_set_id, v = r.market_price || r.inventory_price;
@@ -260,8 +260,8 @@
     // série d'origine du code (OP05-… → OP-05, ST01-… → ST-01, P-… → PROMO)
     const pre = (base.match(/^([A-Z]+\d+)-/) || [])[1];
     const homes = base.startsWith('P-') ? ['PROMO'] : pre ? (await sets()).map((s) => s.id).filter((s) => s !== setId && s.replace(/-/g, '').includes(pre)) : [];
-    for (const h of homes) {
-      const m = await prices(h);
+    // (listes demandées ensemble : une liste lente ne bloque pas les autres)
+    for (const m of await Promise.all(homes.map(prices))) {
       // réimpression au même dessin (« _r1 ») : le prix de la carte d'origine
       const p = m[id] || m[pr] || ((!alt || /_r\d+$/.test(id)) && m[base]);
       if (p) return p;

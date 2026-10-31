@@ -277,7 +277,7 @@
     const full = hit && hit.v && hit.v.p && Object.keys(hit.v.p).length;
     if (hit && Date.now() - hit.t < (full ? DAY / 2 : 15 * 60 * 1000)) return hit.v;
     for (const u of ['data/pk-prix.json', 'https://azran28.github.io/collecdex/data/pk-prix.json']) {
-      const r = await fetch(u, { cache: 'no-cache' }).catch(() => null);
+      const r = await fetch(u, { cache: 'no-cache', signal: AbortSignal.timeout(10000) }).catch(() => null);
       const v = r && r.ok ? await r.json().catch(() => null) : null;
       if (v && v.p && Object.keys(v.p).length) { await App.db.set('cache', 'pk1:prix', { t: Date.now(), v }).catch(() => {}); return v; }
     }
