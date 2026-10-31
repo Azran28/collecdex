@@ -86,7 +86,7 @@ App.pageTurn = (() => {
   // v3.94 : image « entre deux » qui ne s'explique ni par un fondu ni par un glissement. Réglé sur les 25 gestes d'Arnaud (pages
   // tournées vite : 0,45–1,48) et le banc (glissements, page par-dessus, main devant l'écran : 0,28–0,77) : à 0,6, 10 de ses
   // 14 pages rapides passent, et 7 tricheries sur 48 (15 % ; 25 % à 0,5)
-  const FAST_T = 0.6;
+  const FAST_T = 0.6, SLOW_T = 0.95; // (SLOW_T : geste lent, v3.95)
   /** Jugement d'une vidéo : la page a-t-elle vraiment tourné ? → { pass, why, ev } */
   // still : seuil d'immobilité (le suivi en direct donne le sien, mesuré sur la page immobile ; sinon tiré du film)
   function judge(frames, { tau = 0.1, need = 1, still: stillT = null, fast = true, fastT = FAST_T } = {}) { // réglage choisi au banc : 1 image nette suffit
@@ -121,6 +121,10 @@ App.pageTurn = (() => {
       // les deux (alt = écart à la meilleure de ces explications). Un diaporama qui change d'un coup n'a aucune image « entre deux ».
       const blur = scores.filter((s) => s.alt >= fastT);
       if (fast && mid.length <= 5 && blur.length) return { pass: true, ev: { ...ev, fast: 1 } };
+      // v3.95 (Arnaud : « j'ai beau essayer je n'ai jamais réussi ») : geste LENT, main devant, page vue en partie (axe des
+      // anneaux hors de l'image) : la feuille qui pivote ne se reconnaît pas, mais une image du geste est très loin de tout
+      // fondu ou glissement (≥ SLOW_T). Banc : tricheries lentes ≤ 0,91 ; ses vrais gestes lents 1,08–1,81.
+      if (fast && scores.some((s) => s.alt >= SLOW_T)) return { pass: true, ev: { ...ev, slow: 1 } };
       return { pass: false, why: 'la page n’a pas tourné comme une vraie page', ev };
     }
     return { pass: true, ev };
