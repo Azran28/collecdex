@@ -27,18 +27,23 @@ export async function build(getJSON) {
   for (const g of groups) {
     if (!/^[A-Z]{2,4}$/.test(g.abbreviation || '')) continue;
     const [prods, prices] = await Promise.all([getJSON(`${BASE}/${g.groupId}/products`), getJSON(`${BASE}/${g.groupId}/prices`)]);
-    const idOfProduct = new Map();
+    const idOfProduct = new Map(), twoSided = new Map();
     for (const p of prods.results || []) {
       const num = ((p.extendedData || []).find((x) => x.name === 'Number') || {}).value;
       const id = idOf(g.abbreviation, num);
       if (id) idOfProduct.set(p.productId, id);
+      // jeton recto verso « T07 // T05 » : son prix vaut pour chaque face (si la face n'est pas vendue seule)
+      else if (/\/\//.test(num || '')) twoSided.set(p.productId, String(num).split('//').map((x) => idOf(g.abbreviation, x.trim())).filter(Boolean));
     }
+    const sides = {};
     for (const r of prices.results || []) {
       const id = idOfProduct.get(r.productId), v = r.marketPrice || r.midPrice || null;
-      if (!id || !(v > 0)) continue;
-      const k = /foil/i.test(r.subTypeName || '') ? 1 : 0;
-      (out[id] = out[id] || [null, null])[k] = Math.round(v * 100) / 100;
+      if (!(v > 0)) continue;
+      const k = /foil/i.test(r.subTypeName || '') ? 1 : 0, x = Math.round(v * 100) / 100;
+      if (id) (out[id] = out[id] || [null, null])[k] = x;
+      else for (const s of twoSided.get(r.productId) || []) { const c = sides[s] = sides[s] || [null, null]; c[k] = c[k] == null ? x : Math.min(c[k], x); }
     }
+    for (const s of Object.keys(sides)) if (!out[s]) out[s] = sides[s];
   }
   return { m: new Date().toISOString().slice(0, 10), p: out };
 }
