@@ -779,7 +779,7 @@ Object.assign(App.views.scan, {
     });
 
     // Scanner — rafale (caméra ouverte, cartes prises toutes seules) : voir scanBatchParts.burst
-    Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, alive, burst, cam, certOn, el, resultsEl, setStatus, sv, urls, view }));
+    Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, el, esc, resultsEl, setStatus, sv, urls, view }));
     // v3.62 : classeur feuilleté (essai, comptes testeurs) : voir scanBatchParts.flip
     const { flipStop } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, view });
     { const rb = X.resetBurst; X.resetBurst = (...a) => { labLeftover(); return rb(...a); }; } // (v3.61 : rafale remise à zéro → cartes non enregistrées au labo)
@@ -792,7 +792,7 @@ Object.assign(App.views.scan, {
         App.sfx.unlock();
         view.insertAdjacentHTML('beforeend', `<div class="r-live">${X.wantCert() ? 'Monte une carte dans le cadre, <b>dos</b> visible' : 'Présente une carte dans le cadre'}</div>`);
         if (X.wantCert()) App.certify.prepare('rafale');
-        S.rPrev = null; S.rStable = 0;
+        S.rPrev = null; S.rStable = 0; S.rSeen = 0; X.rStrip(); // (v3.82 : la bande des cartes déjà prises revient à la reprise)
         S.rTrk = null;
         S.rTimer = setInterval(X.rTick, 100);
         el.querySelector('#r-start').classList.add('hidden'); el.querySelector('#r-files-btn').classList.add('hidden');
