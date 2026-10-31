@@ -12,16 +12,23 @@ App.pageTurn = (() => {
   const GW = 48, GH = 64;
   const mad = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length; };
   /** Écart moyen en tolérant un décalage d'un point (téléphone tenu à la main) */
-  function madShift(a, b) {
+  function madShift(a, b, R = 1) {
     let best = 1e9;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
       let s = 0, n = 0;
-      for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) { s += Math.abs(a[y * GW + x] - b[(y + dy) * GW + x + dx]); n++; }
+      for (let y = R; y < GH - R; y++) for (let x = R; x < GW - R; x++) { s += Math.abs(a[y * GW + x] - b[(y + dy) * GW + x + dx]); n++; }
       best = Math.min(best, s / n);
     }
     return best;
   }
   const avg = (fs) => { const o = new Float32Array(fs[0].length); for (const f of fs) for (let i = 0; i < o.length; i++) o[i] += f[i] / fs.length; return o; };
+  /** Même page, même si le téléphone a un peu bougé ou zoomé ? (v3.94) */
+  function samePage(A, B) {
+    const w = GW / 8, h = GH / 8, low = (g) => { const o = new Float32Array(w * h); for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) o[(y >> 3) * w + (x >> 3)] += g[y * GW + x] / 64; return o; };
+    const a = low(A), b = low(B); let best = 1e9;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { let s = 0, n = 0; for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { s += Math.abs(a[y * w + x] - b[(y + dy) * w + x + dx]); n++; } best = Math.min(best, s / n); }
+    return best < 8;
+  }
   /**
    * Écart entre F et une page prédite colonne par colonne : spec[x] = [image, colonne source, agrandissement vertical,
    * morceau] (null = rien ne l'explique). Lumière ajustée par morceau (gain : la feuille levée est dans l'ombre).
@@ -76,9 +83,13 @@ App.pageTurn = (() => {
     }
     return best;
   }
+  // v3.94 : image « entre deux » qui ne s'explique ni par un fondu ni par un glissement. Réglé sur les 25 gestes d'Arnaud (pages
+  // tournées vite : 0,45–1,48) et le banc (glissements, page par-dessus, main devant l'écran : 0,28–0,77) : à 0,6, 10 de ses
+  // 14 pages rapides passent, et 7 tricheries sur 48 (15 % ; 25 % à 0,5)
+  const FAST_T = 0.6;
   /** Jugement d'une vidéo : la page a-t-elle vraiment tourné ? → { pass, why, ev } */
   // still : seuil d'immobilité (le suivi en direct donne le sien, mesuré sur la page immobile ; sinon tiré du film)
-  function judge(frames, { tau = 0.1, need = 1, still: stillT = null } = {}) { // réglage choisi au banc : 1 image nette suffit
+  function judge(frames, { tau = 0.1, need = 1, still: stillT = null, fast = true, fastT = FAST_T } = {}) { // réglage choisi au banc : 1 image nette suffit
     const d = frames.map((f, i) => (i ? madShift(f.g, frames[i - 1].g) : 0)).slice(1); // (mains qui tremblent : ±1 point toléré)
     const med = [...d].sort((a, b) => a - b)[d.length >> 1] || 1, still = stillT || 2.5 * med + 1;
     const isStill = (i) => i > 0 && d[i - 1] < still;
@@ -88,19 +99,30 @@ App.pageTurn = (() => {
     if (frames.length - b < 3) return { pass: false, why: 'page pas tenue immobile après le geste' };
     const O = avg(frames.slice(Math.max(0, a - 3), a).map((f) => f.g)), N = avg(frames.slice(b + 1, b + 4).map((f) => f.g));
     const eON = mad(O, N);
-    if (eON < 10) return { pass: false, why: 'même page avant et après', ev: { eON } };
+    // v3.94 (Arnaud, 31 oct. : « je ne comprends pas à partir de l'étape 2 ») : la même page un peu décalée (téléphone bougé)
+    // passait pour un geste puis était refusée → pages comparées en tout petit (6 × 8, décalage d’un point toléré) : sur ses
+    // 25 gestes, téléphone bougé 4–5, vraie page tournée ≥ 10
+    if (eON < 10 || samePage(O, N)) return { pass: false, why: 'même page avant et après', ev: { eON } };
     const mid = frames.slice(a, b + 1);
-    if (mid.length < 2) return { pass: false, why: 'page changée d’un coup', ev: { eON, n: mid.length } };
+    if (mid.length < 1 || (!fast && mid.length < 2)) return { pass: false, why: 'page changée d’un coup', ev: { eON, n: mid.length } };
     const scores = [];
     for (const f of mid) {
       const e0 = mad(f.g, O), e1 = mad(f.g, N); if (Math.min(e0, e1) < 0.3 * eON) continue; // presque l'ancienne ou la nouvelle : rien à dire
-      const x = explain(f.g, O, N); scores.push({ s: (x.alt - x.sq) / eON, fam: x.fam, e: x.e, sq: x.sq / eON });
+      const x = explain(f.g, O, N); scores.push({ s: (x.alt - x.sq) / eON, fam: x.fam, e: x.e, sq: x.sq / eON, alt: x.alt / eON });
     }
     const good = scores.filter((s) => s.s >= tau && s.sq < 0.55);
     const fams = {}; good.forEach((s) => { fams[s.fam] = (fams[s.fam] || 0) + 1; });
     const fam = Object.entries(fams).sort((x, y) => y[1] - x[1])[0];
-    const ev = { ss: scores.map((s) => [Math.round(s.s * 100) / 100, s.fam, Math.round(s.sq * 100) / 100]), eON: Math.round(eON), n: mid.length, inf: scores.length, good: good.length, best: scores.length ? Math.round(Math.max(...scores.map((s) => s.s)) * 100) / 100 : null, fam: fam && fam[0] };
-    if (!fam || fam[1] < need) return { pass: false, why: 'la page n’a pas tourné comme une vraie page', ev };
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const ev = { ss: scores.map((s) => [r2(s.s), s.fam, r2(s.sq), r2(s.alt)]), eON: Math.round(eON), n: mid.length, inf: scores.length, good: good.length, best: scores.length ? r2(Math.max(...scores.map((s) => s.s))) : null, fam: fam && fam[0] };
+    if (!fam || fam[1] < need) {
+      // v3.94 : page tournée VITE (geste naturel ≈ 0,2 s = 1 à 4 images floues à ~11 images/s : on ne voit pas la feuille
+      // pivoter) → acceptée si une image du geste n'est ni l'ancienne ni la nouvelle page, ni un fondu ou un glissement entre
+      // les deux (alt = écart à la meilleure de ces explications). Un diaporama qui change d'un coup n'a aucune image « entre deux ».
+      const blur = scores.filter((s) => s.alt >= fastT);
+      if (fast && mid.length <= 5 && blur.length) return { pass: true, ev: { ...ev, fast: 1 } };
+      return { pass: false, why: 'la page n’a pas tourné comme une vraie page', ev };
+    }
     return { pass: true, ev };
   }
 
@@ -136,8 +158,9 @@ App.pageTurn = (() => {
         if (st === 'page') { if (!isStill) { st = 'geste'; moveAt = buf.length - 1; } return null; }
         if (still < 4) return null; // geste : on attend que la nouvelle page soit immobile
         const frames = buf.slice(Math.max(0, moveAt - 5));
-        const res = judge(frames, { still: thr() });
         buf = buf.slice(-4); st = 'page'; moveAt = -1;
+        if (samePage(frames[0].g, frames[frames.length - 1].g)) return null; // (v3.94 : téléphone bougé, rien n'a tourné : on n'en dit rien)
+        const res = judge(frames, { still: thr() });
         if (res.why === 'même page avant et après') return null;
         return { frames, res };
       },
