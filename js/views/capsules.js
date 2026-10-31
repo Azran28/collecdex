@@ -217,6 +217,9 @@
       <div class="cap-hint small">Touche pour passer</div>`;
     document.body.appendChild(ov);
     document.body.classList.add('cap-lock');
+    // capsule de la semaine : fond aux couleurs du thème, et ses symboles s'envolent à l'éclatement
+    const wk = kind === 'week' ? App.capsuleThemes.current() : null;
+    if (wk) { ov.classList.add('co-week'); ov.style.setProperty('--wk1', wk.stops[1]); ov.style.setProperty('--wk2', wk.stops[2]); }
     let skip = false, locked = false; // locked : l'apparition d'Arceus ne se passe pas
     ov.addEventListener('click', (e) => { if (!locked && !e.target.closest('button')) skip = true; });
     const wait = async (ms) => { const end = Date.now() + ms; while (!skip && Date.now() < end) await sleep(40); };
@@ -244,7 +247,8 @@
       App.sfx.open(t, r.shiny);
       if (r.shiny) ov.classList.add('co-shiny');
       const parts = [0, 0, 8, 14, 22, 32, 40, 40][t];
-      ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('');
+      ov.querySelector('.cap-burst').innerHTML = Array.from({ length: parts }, (_, i) => `<i style="--a:${(360 / parts) * i + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${4 + Math.random() * 6}px;--dl:${Math.random() * 120}ms"></i>`).join('')
+        + (wk ? Array.from({ length: 9 }, (_, i) => `<b class="wk-ic" style="--a:${i * 40 + Math.random() * 20}deg;--d:${120 + Math.random() * 70}px;--rt:${Math.round(Math.random() * 120 - 60)}deg;--dl:${Math.round(Math.random() * 150)}ms">${wk.icon}</b>`).join('') : '');
       sparkles();
     };
     const lg = !god && App.capsuleLegend.get(r.species, r.shiny);
@@ -422,14 +426,26 @@
       // ---------- Boutique : éclats (la monnaie), achats, vente des doublons ----------
       const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
       // capsule de la semaine (supabase-v24.sql) : change le jeudi à 20 h ; 50 éclats (type ou région) ou 75 (événement + costume)
-      // texte court (Arnaud) : le thème et « jusqu'à jeudi 20 h », placée avant la grande capsule
+      // texte court (Arnaud) : le thème et « jusqu'à jeudi 20 h », placée avant la grande capsule ; petit « i » discret → liste
       const themeItem = (s) => {
         const th = App.capsuleThemes.current();
         if (!th) return '';
         const ok = s.coins >= th.price;
         return `<div class="shop-item theme ${th.event ? 'event' : ''} ${ok ? 'can' : ''}" style="--th:${th.stops[1]};--th2:${th.stops[2]}"><div class="shop-art">${capsuleSVG('', 46, false, th)}</div>
-          <div class="shop-txt"><b>${esc(th.name)}</b><span>${esc(th.short)} · jusqu’à jeudi 20 h.</span></div>
+          <div class="shop-txt"><b>${esc(th.name)} <button type="button" class="info-btn" data-theme-list title="Voir les Pokémon possibles" aria-label="Voir les Pokémon possibles">i</button></b><span>${esc(th.short)} · jusqu’à jeudi 20 h.</span></div>
           <button class="btn sm ${ok ? 'theme-btn' : ''}" data-theme-open ${ok ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${th.price}</button></div>`;
+      };
+      // les Pokémon possibles dans la capsule de la semaine (grisés s'ils manquent), costumes en premier
+      const hasSkin = (id, f) => !!(formMaps[id] && formMaps[id].get(f));
+      const skinCell = (i, f) => { const F = P().formInfo(i, f), got = hasSkin(i, f);
+        return `<span class="evo-cell form-cell ${got ? 'got' : 'miss'}" style="--tc:${F.color}"><span class="evo-img"><img src="${P().img(i, false, f)}" alt="" loading="lazy"></span><span class="evo-n">${esc(P().name(i))} ✦</span></span>`; };
+      const themeList = () => {
+        const th = App.capsuleThemes.current();
+        if (!th) return;
+        const got = th.ids.filter((i) => dex.has(i)).length;
+        App.util.openModal(`<h2>${esc(th.name)}</h2><p class="small muted">${esc(th.desc)}. ${got} / ${th.ids.length} attrapés · jusqu’au ${esc(App.capsuleThemes.until(th.ends))} · chromatique 2 %.</p>
+          ${th.skins ? `<h3 style="margin:8px 0">Costume${th.skins.length > 1 ? 's' : ''} de l’événement (20 %)</h3><div class="form-grid">${th.skins.map(([i, f]) => skinCell(i, f)).join('')}</div><h3 style="margin:12px 0 8px">Les Pokémon</h3>` : ''}
+          <div class="form-grid">${th.ids.map((i) => evoCell(i, dex.has(i), false, -1)).join('')}</div>`);
       };
       const drawShop = () => {
         const box = $('#cp-shop'), s = App.capsules.state;
@@ -506,6 +522,7 @@
         if (sp) return speciesModal(+sp.dataset.sp, dex, () => refreshDex(false));
         if (e.target.closest('#cp-open')) openLoop(() => { drawStatus(); refreshDex(false); });
         if (e.target.closest('#cp-open-big')) openLoop(() => { drawStatus(); refreshDex(false); }, 'grande');
+        if (e.target.closest('[data-theme-list]')) return themeList();
         if (e.target.closest('[data-theme-open]')) openLoop(() => { drawStatus(); refreshDex(false); drawShop(); }, 'week');
         const buy = e.target.closest('[data-buy]');
         if (buy) {

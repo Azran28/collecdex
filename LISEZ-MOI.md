@@ -268,7 +268,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Dans la **boutique**, une **capsule de la semaine**, achetée et ouverte tout de suite. Elle **change chaque jeudi à 20 h**.
 - **Semaines d'événement (75 éclats)** : les Pokémon du thème, et **20 % de chances d'avoir Pikachu costumé** (Cadoizo aussi à Noël). Halloween (Spectre et Ténèbres, chapeau de sorcière), Noël sur 2 semaines (Glace, bonnet), Nouvel An (Feu et Électrik, chapeau de fête), Saint-Valentin (Fée, couronne de cœurs), Saint-Patrick (Plante, chapeau de farfadet), Pâques (Normal, oreilles de lapin), Été autour du 14 juillet (Eau, lunettes de soleil).
 - **Les autres semaines (50 éclats)** : un type (Feu, Eau, Plante…) ou une région (Kanto, Johto…), à tour de rôle.
-- Dans la boutique, elle est juste avant la grande capsule.
+- Dans la boutique, elle est juste avant la grande capsule ; le petit « i » à côté de son nom montre les Pokémon possibles. À l'ouverture, le fond prend la couleur du thème et ses symboles s'envolent (🎃, ❄️…).
 - Chromatique 2 %. Les costumes se rangent dans la fiche de Pikachu (« Les costumes ») et peuvent servir d'avatar ; **ils ne se vendent pas**.
 - **À faire une fois dans Supabase** : coller tout `supabase/sql/supabase-v24.sql` → *Run*. Sans lui, l'article n'apparaît pas.
 
