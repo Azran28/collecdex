@@ -57,6 +57,8 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 
 - **v3.86** (vibration sans fin après « Enregistrer ») : `rCapture` → son + `vibrate` seulement après une photo obtenue (`ok`) ; échec (`!b` ou erreur) → `S.rLast = F`, désarmé, `S.rFails` ; 3 échecs → `rStop()` + message dans `#b-status`. Fin de `#b-add` en rafale : `S.rLast` gardé à la relance de la caméra (la carte encore en main pas reprise). `#r-start` : ancien `S.rTimer` arrêté avant d'en créer un. Banc : `HTMLCanvasElement.prototype.toBlob` qui rend `null` = caméra en panne ; `navigator.vibrate` compté.
 - **v3.85** : réarmement aussi par `S.rDiff` ≥ 5 (images de suite où `sameCard` dit « autre carte », remis à 0 à chaque photo) : un changement rapide entre 2 cartes d'une même série ne fait qu'un écart image à image de ~25 (seuil 30 + 0,3 σ ≈ 44) → avant, « déjà prise » jusqu'à sortir la carte du cadre. `__rLog` : 7ᵉ colonne = écart avec la dernière carte prise (même carte qui tremble 9–13, autre carte de la série 13–25 : trop proches pour servir de seuil).
+- **v3.88** : `fitScreen` : `.r-shooting` dans la page (classe posée sur `.sc-body`, pas sur `el`) → la liste et les messages cachés ne comptent plus (Arnaud : « la zone de capture change de taille » : avant, le cadre passait de la taille ajustée à sa taille de départ dès la 1re carte prise ou à chaque consigne).
+
 - **v3.83** : `#r-pause` = « ■ Terminer » (icône `stop`, `.r-stop`), même action (`rStop` + `burstReview`). Caméra de rafale ouverte → `el.classList` `r-shooting` (retiré par `rStop`) : `#b-results` / `#b-status` cachés (lecture en fond, `.r-strip`), page sans défilement sur téléphone ; `.scan-guide::after` (« touche pour la netteté ») masqué si `.r-strip`.
 
 ## Mise en page téléphone
