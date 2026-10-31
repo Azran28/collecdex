@@ -57,7 +57,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       // « même carte » (comparaison grossière : toutes les cartes d'une licence ont la même mise en page) crue seulement sur 3 images
       // de suite : une seule image « pareille » remettait l'attente à zéro → cartes ratées quand la main tremble fort
       const same = !!S.rLast && sameCard(S.rLast, F); S.rSame = same ? (S.rSame || 0) + 1 : 0; S.rDiff = same ? 0 : (S.rDiff || 0) + 1;
-      // v3.84 (Arnaud : en passant vite d'une carte à l'autre, « déjà prise » → il fallait la sortir du cadre) : un changement rapide
+      // v3.85 (Arnaud : en passant vite d'une carte à l'autre, « déjà prise » → il fallait la sortir du cadre) : un changement rapide
       // entre deux cartes d'une même série ne fait qu'un écart de ~25 (seuil 44) ; une autre carte vue 5 images de suite (0,5 s) réarme
       if (S.rDiff >= 5) S.rArmed = true;
       if (window.__rLog) window.__rLog.push([Math.round(performance.now()), Math.round(sd), Math.round(diff), S.rArmed ? 1 : 0, same ? 1 : 0, S.rSeen || 0, S.rLast ? Math.round(mad(F, S.rLast)) : -1]); // (labo : journal de la rafale)
@@ -75,6 +75,20 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       S.rWait = 0;
       rCapture(F, false);
     }
+    /**
+     * v3.84 : chaque carte certifiée (ou refusée) part au labo (comptes testeurs seulement, App.scanShare) : les petites
+     * images grises du geste en mosaïque (8 par rangée, 24 × 33) + les mesures, pour régler le jugement sur de vrais gestes
+     */
+    async function rLabo(live, fr) {
+      try {
+        if (!App.scanShare || !fr.length || !(await App.scanShare.isTester())) return;
+        const W = 24, H = 33, C = 8, c = Object.assign(document.createElement('canvas'), { width: C * W, height: Math.ceil(fr.length / C) * H });
+        const g = c.getContext('2d'), img = g.createImageData(W, H);
+        fr.forEach((f, k) => { for (let i = 0; i < f.g.length; i++) { img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = f.g[i]; img.data[i * 4 + 3] = 255; } g.putImageData(img, (k % C) * W, Math.floor(k / C) * H); });
+        const blob = await new Promise((res) => c.toBlob(res, 'image/png')), t0 = fr[0].t, sc = (live && live.scores) || {};
+        App.scanShare.scan({ game: S.game, mode: 'rafale', kind: 'rafale-cert', extra: { rafale: { passed: !!(live && live.passed), reasons: ((live && live.reasons) || []).map((x) => String(x).slice(0, 300)), flip: sc.flip || null, screen: sc.screen, b: fr.map((f) => Math.round(f.b * 100) / 100), ts: fr.map((f) => Math.round(f.t - t0)) } } }, blob);
+      } catch (e) { console.warn('rafale → labo', e); }
+    }
     async function rCapture(F, flipped) {
       S.rBusy = true; S.rStable = 0;
       rHint(`📸 Carte ${S.cells.length + 1} !`, 'ok');
@@ -91,6 +105,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
         let live = null;
         if (proofP) {
           live = await proofP;
+          rLabo(live, S.rTrk._debug.frames.slice(-48));
           S.rTrk.reset(); // (seulement après la preuve : elle relit les images du geste)
           App.certify.prepare('rafale'); // défi de la carte suivante (le même tant qu'il lui reste des usages)
         } else if (wantCert()) live = { passed: false, reasons: ['carte montrée sans retourner le dos d’abord'] };

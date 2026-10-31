@@ -32,6 +32,7 @@
       axis: o.axis || (r() < 0.25 ? 'h' : 'v'), a: o.offAxis ? (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.4) : (r() - 0.5) * 0.4,
       off: { dx: (r() - 0.5) * 18, dy: (r() - 0.5) * 14 }, react: o.quick ? lerp([120, 260], r()) : lerp([250, 700], r()),
       L: lerp([300, 550], r()), dir: r() < 0.7 ? 1 : -1, start: null, capT: null, leaveAt: null,
+      DX: lerp(o.DX || [700, 1300], r()), DC: lerp([300, 800], r()), down: r() < 0.5, // sortie du cadre (v3.84) : durée, vers le bas ou le côté
     }));
     cards[0].start = 600;
     const sc = { cards, k: 0, done: false };
@@ -42,7 +43,7 @@
         if (sc.k + 1 >= cards.length) { sc.done = true; return { k: sc.k, ph: 'fin', c }; }
         const s = c.leaveAt + c.L; sc.k++; c = cards[sc.k]; c.start = s;
       }
-      const f0 = c.start + (o.below ? ENTER : 0) + c.pause, f1 = f0 + (o.slide ? 450 : c.D);
+      const f0 = c.start + (o.below ? ENTER : 0) + c.pause, f1 = f0 + (o.slide ? 450 : o.exit ? c.DX : o.cut ? c.DC : c.D);
       if (c.leaveAt == null && t > f1 + 4500) c.leaveAt = t; // jamais prise : le dresseur passe à la suivante
       if (t < f0) return { k: sc.k, ph: 'pause', c, f0, f1 };
       if (t < f1) return { k: sc.k, ph: 'flip', c, f0, f1 };
@@ -62,12 +63,24 @@
       const p = { ...p0, axis: c.axis, a: c.a };
       let th = Math.PI;
       if (s.ph === 'pause') { th = 0; p.cy += (1 - ease((t - c.start) / ENTER)) * VH * 0.72; } // la carte monte, dos visible
+      if (s.ph === 'flip' && o.cut) return; // triche : le dos disparaît d'un coup, rien, puis la face d'un coup
+      if (s.ph === 'flip' && o.exit) {
+        // v3.84 : la carte sort du cadre (vers le bas ou le côté), est retournée dehors, puis revient face visible
+        // (outFlip : on la voit commencer à pivoter en sortant ; slideOnly : triche, aucune rotation, un dos puis une face qui glissent)
+        const x = (t - s.f0) / c.DX, z = x < 0.35 ? ease(x / 0.35) : x < 0.65 ? 1 : 1 - ease((x - 0.65) / 0.35);
+        th = x < 0.35 ? (o.outFlip ? Math.PI * 0.3 * ease(x / 0.35) : 0) : x < 0.65 ? Math.PI * ease((x - 0.35) / 0.3) : Math.PI;
+        if (o.slideOnly) th = x < 0.5 ? 0 : Math.PI;
+        if (c.down) p.cy += z * VH * 0.95; else p.cx += z * VW * 1.15 * c.dir;
+        p.cx += c.off.dx * Math.min(1, x * 2); p.cy += c.off.dy * Math.min(1, x * 2);
+        drawCard(g, env.back, c.face, { ...p, th }); drawThumb(g, p, env.skin);
+        return;
+      }
       if (s.ph === 'flip' && !o.slide && !o.facesOnly) {
         const x = (t - s.f0) / c.D; th = Math.PI * ease(x);
         const lift = Math.sin(x * Math.PI) * 0.05; p.w *= 1 + lift; p.h *= 1 + lift; p.cy -= lift * 60;
       }
       // tournée autour d'un bord, la carte finit à côté : la main la ramène dans le cadre (comme labo-certif › flipScene)
-      if (s.ph !== 'pause' && !o.slide && !o.facesOnly) {
+      if (s.ph !== 'pause' && !o.slide && !o.facesOnly && !o.exit && !o.cut) {
         const back = c.a * (c.axis === 'v' ? p.w : p.h) / 2 * (ease((t - s.f0) / c.D) + ease((t - s.f1) / 500));
         if (c.axis === 'v') p.cx -= back; else p.cy -= back;
       }
@@ -80,7 +93,8 @@
       drawThumb(g, p, env.skin);
     };
     env.blurAt = (t) => {
-      const s = sc.at(t); if (s.ph !== 'flip' || o.slide || o.facesOnly) return s.ph === 'leave' ? 3 : 0;
+      const s = sc.at(t); if (s.ph !== 'flip' || o.slide || o.facesOnly || o.cut) return s.ph === 'leave' ? 3 : 0;
+      if (o.exit) return 2.5;
       const w = Math.PI * Math.abs(ease((t + 8 - s.f0) / s.c.D) - ease((t - 8 - s.f0) / s.c.D)) / 16;
       return Math.min(9, (w * env.P.w / 2) * env.expo / 3.5);
     };
@@ -113,7 +127,7 @@
     const capture = (F, flipped, s) => {
       let passed = false, why = flipped ? '' : 'dos pas vu';
       if (flipped) {
-        const j = T.judgeE(trk._debug.frames, GW, GH); if (o.keep) o.keep.push({ k: s.k, frames: trk._debug.frames.slice(), j });
+        const j = T.judgeE(trk._debug.frames, GW, GH, { exit: !o.noExit }); if (o.keep) o.keep.push({ k: s.k, frames: trk._debug.frames.slice(), j });
         const side = 256, scr = T.screenScore(grayFrom(vcan, REG.sx + (REG.sw - side) / 2, REG.sy + (REG.sh - side) / 2, side, side, side, side, CACHE), side);
         const recent = trk._debug.frames.slice(-15).map((x) => x.g), frozen = T.frozenPairs(recent) >= Math.ceil((recent.length - 1) * 0.8);
         passed = j.passed && scr.peak < 40 && !frozen; why = j.passed ? (frozen ? 'figée' : scr.peak >= 40 ? 'écran' : '') : j.why;
@@ -160,8 +174,14 @@
     { id: 'reflet', ok: true, name: 'Reflets (holo, pochette)', o: { glare: true } },
     { id: 'lentcam', ok: true, name: 'Téléphone lent (7 images/s)', o: { slowCam: true } },
     { id: 'doublon', ok: true, name: 'Doublons : la même carte deux fois de suite', o: { twins: true } },
+    { id: 'sortie', ok: true, name: 'Carte sortie du cadre pour la retourner (v3.84)', o: { exit: true } },
+    { id: 'sortie2', ok: true, name: 'Sortie du cadre, retournée en sortant', o: { exit: true, outFlip: true } },
+    { id: 'sortievite', ok: true, name: 'Sortie du cadre, geste rapide (0,5–0,7 s)', o: { exit: true, DX: [500, 700] } },
+    { id: 'sortielent', ok: true, name: 'Sortie du cadre, téléphone lent et mains qui tremblent', o: { exit: true, slowCam: true, shake: 6 } },
     { id: 'faces', ok: false, cap: true, name: 'Sans paquet : faces montrées directement (prises sans badge)', o: { facesOnly: true } },
     { id: 'glisse', ok: false, cap: true, name: 'Triche : un dos montré, puis une face glissée à sa place (sans retourner)', o: { slide: true } },
+    { id: 'coupe', ok: false, cap: true, name: 'Triche : le dos disparaît d’un coup, puis la face apparaît d’un coup', o: { cut: true } },
+    { id: 'diapo', ok: false, cap: true, name: 'Triche (limite connue) : un dos qui sort en glissant, une face qui entre en glissant', o: { exit: true, slideOnly: true } },
   ];
 
   // deux façons de tenir le paquet : juste sous le cadre (la carte monte, dos visible) ou dans le cadre (derrière la carte)

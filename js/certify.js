@@ -165,6 +165,26 @@ App.certify = (() => {
     return best;
   }
 
+  /**
+   * La même image, mais DÉCALÉE d'au moins `min` (fraction du cadre) et en partie hors du cadre ? (rafale, v3.84 : carte qui
+   * sort du cadre pour être retournée, puis y revient). Ressemblance mesurée seulement sur la partie commune (≥ 35 %).
+   */
+  function shiftCorr(A, B, w, h, min = 0.15) {
+    let best = -1;
+    const mx = Math.round(w * 0.65), my = Math.round(h * 0.65);
+    for (let dy = -my; dy <= my; dy++) for (let dx = -mx; dx <= mx; dx++) {
+      if (Math.abs(dx) < w * min && Math.abs(dy) < h * min) continue;
+      const x0 = Math.max(0, dx), x1 = Math.min(w, w + dx), y0 = Math.max(0, dy), y1 = Math.min(h, h + dy);
+      if ((x1 - x0) * (y1 - y0) < w * h * 0.35) continue;
+      let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0, n = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const a = A[y * w + x], b = B[(y - dy) * w + x - dx]; sa += a; sb += b; saa += a * a; sbb += b * b; sab += a * b; n++; }
+      const va = saa - sa * sa / n, vb = sbb - sb * sb / n;
+      if (va < n * 100 || vb < n * 100) continue; // assez de détails des deux côtés (pas la table unie)
+      best = Math.max(best, (sab - sa * sb / n) / Math.sqrt(va * vb));
+    }
+    return best;
+  }
+
   // Seuils (à affiner avec les vraies captures : les mesures sont enregistrées avec chaque certification)
   const SCREEN_PEAK = 40;
   const BACK_T = 0.55, FRONT_T = 0.5; // dos : 0,71 à 0,95 mesurés ; faces jusqu'à 0,49
@@ -211,7 +231,7 @@ App.certify = (() => {
    * ses deux bords, le dos ou la face « écrasé(e) » plutôt qu'un morceau coupé. Un fondu, une image qui glisse
    * ou une main passée devant un écran ne donnent jamais ça. Images grises 48×66 (f.d).
    */
-  const DW = 48, DH = 66, SIL_T = 1.8, SQ_T = 0.03;
+  const DW = 48, DH = 66, SIL_T = 1.8, SQ_T = 0.03, EXIT_T = 0.6;
   const sdOf = (G) => { let m = 0; for (const v of G) m += v; m /= G.length; let s = 0; for (const v of G) s += (v - m) ** 2; return Math.sqrt(s / G.length); };
   const madOf = (A, B) => { let d = 0; for (let i = 0; i < A.length; i++) d += Math.abs(A[i] - B[i]); return d / A.length; };
   /** Les deux bords les plus nets (un dans chaque moitié) le long d'un axe : largeur w, milieu m (fractions), netteté */
@@ -254,7 +274,7 @@ App.certify = (() => {
     if (va < n * 25 || vb < n * 25) return -1;
     return (sab - sa * sb / n) / Math.sqrt(va * vb);
   }
-  function judgeE(frames, w = 24, h = 33) {
+  function judgeE(frames, w = 24, h = 33, { exit = false } = {}) { // exit : rafale, carte sortie du cadre pour être retournée (v3.84)
     let lb = -1;
     for (let i = frames.length - 1; i > 0; i--) if (frames[i].b >= BACK_T && frames[i - 1].b >= BACK_T) { lb = i; break; }
     if (lb < 0) return { passed: false, why: 'le dos de la carte n’a pas été vu' };
@@ -328,6 +348,19 @@ App.certify = (() => {
       chainMs = frames[i].t - frames[lb].t;
       cont = flat >= 0 && i <= flat + 1; // la chaîne remonte jusqu'à la carte à plat juste après le geste
       ev.chain = Math.round(chainMs / 100) / 10;
+    }
+    // v3.84 (rafale, Arnaud : « pour la retourner je suis forcé de la sortir du cadre ») : sans carte vue de biais, on
+    // accepte un dos qui SORT du cadre en glissant (on le voit décalé), puis une face qui y REVIENT en glissant. Une image
+    // remplacée d'un coup ou une face glissée par-dessus le dos (qui, lui, ne bouge pas) ne donnent pas les deux.
+    if (exit && sil < SIL_T && sq < SQ_T && gap >= 1) {
+      // modèles du dos : les 2 images les plus « dos » juste avant (le dos immobile, pas déjà en train de sortir)
+      const bk = frames.slice(Math.max(0, lb - 10), lb + 1).sort((x, y) => y.b - x.b).slice(0, 2).map((f) => f.g);
+      const fEnd = Math.min(frames.length - 1, lb + 1 + (fF < 0 ? states.length : fF) + 6);
+      let out = -1, inn = -1, outAt = -1;
+      for (let i = Math.max(1, lb - 6); i <= Math.min(frames.length - 2, lb + 12) && out < EXIT_T; i++) for (const B of bk) { const c = shiftCorr(frames[i].g, B, w, h); if (c > out) { out = c; outAt = i; } }
+      for (let i = Math.max(lb + 1, outAt + 1); i < fEnd && inn < EXIT_T; i++) inn = Math.max(inn, shiftCorr(frames[i].g, face, w, h));
+      ev.out = r2(out); ev.in = r2(inn);
+      if (out >= EXIT_T && inn >= EXIT_T) { ev.sortie = 1; sil = SIL_T; }
     }
     const base = { gap, states: states.slice(0, 60), lb, ev, cont };
     if (sil < SIL_T && sq < SQ_T) return { passed: false, why: 'retournement pas reconnu (la carte doit être vue de biais pendant le geste)', ...base };
@@ -654,7 +687,7 @@ App.certify = (() => {
       if (!ch) return { passed: false, reasons: [available() ? 'serveur de certification injoignable' : 'connecte-toi pour certifier'] };
       if (ch.challenge !== 'retourne') return { passed: false, reasons: ['serveur de certification pas à jour (supabase-v7.sql)'] };
       grab(); // la dernière image = ce que montre la photo
-      const j = judgeE(frames, GW, GH);
+      const j = judgeE(frames, GW, GH, { exit: kind === 'rafale' });
       // lampe : la carte a-t-elle renvoyé la lumière au rythme du code ? (au dos en carte seule, à la face en rafale)
       let flash = null, flashTrace = null, lampNote = null, lampFit = null;
       if (lamp.state === 'play') flash = { used: true, ok: false, why: auto ? 'photo prise pendant le clignotement de la lampe' : 'retourne la carte seulement quand la lampe a fini de clignoter' };
@@ -790,6 +823,6 @@ App.certify = (() => {
   return {
     available, prepare, tracker, livePage, pageOnly, HINTS, lampChart, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
-    _test: { motion, judgeFlip, judgeE, flashFit, flashOk, silhouette, corr, frozenPairs, screenScore, dhash },
+    _test: { motion, judgeFlip, judgeE, shiftCorr, flashFit, flashOk, silhouette, corr, frozenPairs, screenScore, dhash },
   };
 })();
