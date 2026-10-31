@@ -64,9 +64,18 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       if (hadPrev && diff > 30 + sd * 0.3) S.rArmed = true; // (pas juste après la photo : rPrev vient d'être remis à zéro)
       // « même carte » (comparaison grossière : toutes les cartes d'une licence ont la même mise en page) crue seulement sur 3 images
       // de suite : une seule image « pareille » remettait l'attente à zéro → cartes ratées quand la main tremble fort
-      const same = !!S.rLast && sameCard(S.rLast, F); S.rSame = same ? (S.rSame || 0) + 1 : 0;
-      if (window.__rLog) window.__rLog.push([Math.round(performance.now()), Math.round(sd), Math.round(diff), S.rArmed ? 1 : 0, same ? 1 : 0, S.rSeen || 0]); // (labo : journal de la rafale)
-      if (S.rLast && (!S.rArmed || S.rSame >= 3)) { S.rStable = 0; S.rSeen = 0; if (wantCert()) rHint(`Carte ${S.cells.length} ${S.rLastLive && S.rLastLive.passed ? 'certifiée' : 'sans badge'} — pose-la, puis le <b>dos</b> de la suivante`, S.rLastLive && S.rLastLive.passed ? 'ok' : 'warn'); else rHint(`Carte ${S.cells.length} prise ✓ — passe à la suivante`, 'ok'); return; }
+      const same = !!S.rLast && sameCard(S.rLast, F); S.rSame = same ? (S.rSame || 0) + 1 : 0; S.rDiff = same ? 0 : (S.rDiff || 0) + 1;
+      // v3.85 (Arnaud : en passant vite d'une carte à l'autre, « déjà prise » → il fallait la sortir du cadre) : un changement rapide
+      // entre deux cartes d'une même série ne fait qu'un écart de ~25 (seuil 44) ; une autre carte vue 5 images de suite (0,5 s) réarme
+      if (S.rDiff >= 5) S.rArmed = true;
+      if (window.__rLog) window.__rLog.push([Math.round(performance.now()), Math.round(sd), Math.round(diff), S.rArmed ? 1 : 0, same ? 1 : 0, S.rSeen || 0, S.rLast ? Math.round(mad(F, S.rLast)) : -1]); // (labo : journal de la rafale)
+      if (S.rLast && (!S.rArmed || S.rSame >= 3)) {
+        S.rStable = 0; S.rSeen = 0;
+        if (S.rFails) rHint('Photo ratée — change de carte ou bouge-la un peu', 'warn');
+        else if (wantCert() && S.cells.length) rHint(`Carte ${S.cells.length} ${S.rLastLive && S.rLastLive.passed ? 'certifiée' : 'sans badge'} — pose-la, puis le <b>dos</b> de la suivante`, S.rLastLive && S.rLastLive.passed ? 'ok' : 'warn');
+        else rHint(S.cells.length ? `Carte ${S.cells.length} prise ✓ — passe à la suivante` : 'Carte déjà enregistrée ✓ — passe à la suivante', 'ok');
+        return;
+      }
       // v3.87 : face montrée sans son dos alors que « Certifier » est choisi → 2 s pour remontrer le dos (avertissement orange après 0,6 s),
       // puis la carte est prise quand même, sans badge
       if (wantCert()) {
@@ -106,7 +115,11 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       S.rBusy = true; S.rStable = 0;
       rHint(`📸 Carte ${S.cells.length + 1} !`, 'ok');
       view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
-      App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ }
+      // v3.86 (Arnaud : « après avoir enregistré, le téléphone vibrait sans fin ») : une photo ratée (caméra qui ne répond plus,
+      // image vide) relançait une prise au battement suivant, et chacune vibrait → son et vibration seulement si la photo est
+      // vraiment prise ; un échec compte comme « carte prise » (pas de nouvelle tentative sans changer de carte) et 3 échecs
+      // de suite arrêtent la rafale avec un message
+      let ok = false;
       try {
         // v3.38 (point 4 de « Qualité photos ») : comme en carte seule, la vraie photo du capteur quand le téléphone la donne,
         // sinon l'image vidéo la plus nette des 0,4 s qui suivent ; la vraie photo n'est plus essayée si elle n'a pas marché
@@ -123,7 +136,9 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
           App.certify.prepare('rafale'); // défi de la carte suivante (le même tant qu'il lui reste des usages)
         } else if (wantCert()) live = { passed: false, reasons: ['carte montrée sans retourner le dos d’abord'] };
         if (!b) return;
-        S.rLast = F; S.rArmed = false;
+        ok = true; S.rFails = 0;
+        App.sfx.click(); try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* */ }
+        S.rLast = F; S.rArmed = false; S.rDiff = 0;
         const img = await createImageBitmap(b);
         // v2.92 : photo = cadre jaune + 15 % de marge ; recadrée au ras de la carte seulement si ses bords sont sûrs, sinon
         // la photo entière (marge comprise : rien de coupé)
@@ -135,7 +150,14 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
         S.rLastLive = live;
         if (live) rHint(live.passed ? `${App.icons.icon('shield', 13)} Carte ${S.cells.length} certifiée !` : `Carte ${S.cells.length} sans badge (${flipped ? 'retournement pas reconnu' : 'dos pas vu'})`, live.passed ? 'ok' : 'warn');
       } catch (e) { console.warn(e); }
-      finally { S.rPrev = null; S.rBusy = false; S.rNoBackT = 0; }
+      finally {
+        S.rPrev = null; S.rBusy = false; S.rNoBackT = 0;
+        if (!ok) {
+          S.rLast = F; S.rArmed = false; S.rDiff = 0; S.rFails = (S.rFails || 0) + 1;
+          if (S.rFails >= 3) { S.rFails = 0; rStop(); setStatus('<b>La caméra ne répond plus.</b><br><span class="small muted">Touche « Reprendre la rafale » pour la relancer.</span>'); }
+          else rHint('Photo ratée — change de carte ou bouge-la un peu', 'warn');
+        }
+      }
     }
     /**
      * v3.82 (Arnaud : « rechercher les cartes en même temps qu'on prend les photos ») : la lecture tournait déjà pendant la
