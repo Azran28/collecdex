@@ -23,23 +23,9 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
     const rHint = (html, cls = '') => { const h = view.querySelector('.r-live'); if (h) { h.className = `r-live ${cls}`; h.innerHTML = html; } };
     /**
      * v3.88 (Arnaud : « un moyen visuel mieux que celui actuel pour indiquer si les étapes sont réussies et ce qu'il faut faire ») :
-     * en « Certifier », 3 pastilles en haut de la caméra (Dos → Retourne → Immobile) : faite = verte ✓, en cours = blanche qui
-     * pulse, à venir = grise ; cur = étape en cours (1…3, 4 = carte certifiée), mood '' | 'warn' (orange : pas de badge).
-     * Le cadre change aussi de couleur (data-rstate : jaune du site pendant les étapes, vert = certifiée, orange).
+     * en « Certifier », pastilles Dos → Retourne → Immobile et cadre coloré (App.views.scan.stepPills)
      */
-    function rStep(cur, mood = '') {
-      let s = view.querySelector('.r-steps');
-      if (!cur) { if (s) s.remove(); delete view.dataset.rstate; return; }
-      if (!s) { s = document.createElement('div'); s.className = 'r-steps'; s.setAttribute('aria-hidden', 'true'); view.appendChild(s); }
-      const key = `${cur}|${mood}`; if (s.dataset.k === key) return;
-      s.dataset.k = key;
-      const lab = ['Dos', 'Retourne', 'Immobile'];
-      s.innerHTML = lab.map((t, i) => {
-        const k = i + 1, st = k < cur ? 'done' : k === cur ? (mood === 'warn' ? 'warn' : 'now') : 'todo';
-        return `${i ? '<i class="rs-line"></i>' : ''}<span class="rs rs-${st}"><b>${st === 'done' ? '✓' : st === 'warn' ? '!' : k}</b>${t}</span>`;
-      }).join('');
-      view.dataset.rstate = mood === 'warn' ? 'warn' : cur >= 4 ? 'ok' : 'wait'; // v3.90 (Arnaud : « le violet je sais pas à quoi il correspond ») : cadre jaune du site, vert = certifiée, orange = pas de badge
-    }
+    const rStep = (cur, mood = '') => App.views.scan.stepPills(view, ['Dos', 'Retourne', 'Immobile'], cur, mood);
     S.rTrk = null; // certification « dos d'abord » (si « Certifier » est choisi)
     const wantCert = () => RAFALE_CERT && certOn && App.views.scan.certWanted('rafale');
     function rTick() {

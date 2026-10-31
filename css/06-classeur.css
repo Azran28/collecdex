@@ -414,3 +414,11 @@ button.sv-th { border: 0; padding: 0; font: inherit; color: inherit; cursor: poi
 .scan-view[data-rstate] .scan-guide { transition: border-color .2s, border-width .2s; }
 .scan-view[data-rstate="ok"] .scan-guide { border: 4px solid var(--ok); }
 .scan-view[data-rstate="warn"] .scan-guide { border: 4px solid #ff9f1a; }
+/* v3.91 : classeur feuilleté (essai) — même DA : sans cadre jaune (la page remplit l'image), c'est le bord de l'image qui devient vert / orange */
+.scan-view[data-rstate="ok"]:not(:has(.scan-guide))::after, .scan-view[data-rstate="warn"]:not(:has(.scan-guide))::after { content: ""; position: absolute; inset: 0; z-index: 2; border: 4px solid var(--ok); border-radius: inherit; pointer-events: none; }
+.scan-view[data-rstate="warn"]:not(:has(.scan-guide))::after { border-color: #ff9f1a; }
+.flip-strip { align-items: center; }
+.flip-dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.flip-dots b { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .72rem; }
+.flip-dots b.ok { background: var(--ok); color: #063; }
+.flip-dots b.no { background: #ff6b6b; color: #fff; }

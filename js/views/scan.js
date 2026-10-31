@@ -49,6 +49,24 @@ App.views.scan = {
     </div>`;
   },
 
+  /**
+   * Étapes de certification en 3 pastilles en haut de la caméra (rafale v3.88, classeur feuilleté v3.91) : faite = verte ✓,
+   * en cours = blanche qui pulse, à venir = grise ; cur = étape en cours (1…3, 4 = réussi), mood '' | 'warn' (orange : raté).
+   * Le cadre change aussi de couleur (data-rstate) : jaune du site pendant les étapes, vert = réussi, orange = raté ; cur 0 = tout retirer.
+   */
+  stepPills(view, labels, cur, mood = '') {
+    let s = view.querySelector('.r-steps');
+    if (!cur) { if (s) s.remove(); delete view.dataset.rstate; return; }
+    if (!s) { s = document.createElement('div'); s.className = 'r-steps'; s.setAttribute('aria-hidden', 'true'); view.appendChild(s); }
+    const key = `${cur}|${mood}`; if (s.dataset.k === key) return;
+    s.dataset.k = key;
+    s.innerHTML = labels.map((t, i) => {
+      const k = i + 1, st = k < cur ? 'done' : k === cur ? (mood === 'warn' ? 'warn' : 'now') : 'todo';
+      return `${i ? '<i class="rs-line"></i>' : ''}<span class="rs rs-${st}"><b>${st === 'done' ? '✓' : st === 'warn' ? '!' : k}</b>${t}</span>`;
+    }).join('');
+    view.dataset.rstate = mood === 'warn' ? 'warn' : cur >= 4 ? 'ok' : 'wait'; // v3.90 (Arnaud : « le violet je sais pas à quoi il correspond ») : cadre jaune du site, vert = réussi, orange = raté
+  },
+
   /** Les 3 gestes de la certification, dans le cadre vide (à la place de « Appuie sur… ») */
   certSteps(mode = 'carte') {
     const steps = mode === 'rafale'
