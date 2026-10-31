@@ -422,26 +422,14 @@
       // ---------- Boutique : éclats (la monnaie), achats, vente des doublons ----------
       const pts = (n) => `${n} éclat${n > 1 ? 's' : ''}`;
       // capsule de la semaine (supabase-v24.sql) : change le jeudi à 20 h ; 50 éclats (type ou région) ou 75 (événement + costume)
-      const hasSkin = (id, f) => !!(formMaps[id] && formMaps[id].get(f));
+      // texte court (Arnaud) : le thème et « jusqu'à jeudi 20 h », placée avant la grande capsule
       const themeItem = (s) => {
         const th = App.capsuleThemes.current();
         if (!th) return '';
-        const ok = s.coins >= th.price, got = th.ids.filter((i) => dex.has(i)).length;
-        const skins = th.skins ? th.skins.filter(([i, f]) => hasSkin(i, f)).length : 0;
+        const ok = s.coins >= th.price;
         return `<div class="shop-item theme ${th.event ? 'event' : ''} ${ok ? 'can' : ''}" style="--th:${th.stops[1]};--th2:${th.stops[2]}"><div class="shop-art">${capsuleSVG('', 46, false, th)}</div>
-          <div class="shop-txt"><b>${esc(th.name)}</b><span>${esc(th.desc)}. Jusqu’au ${esc(App.capsuleThemes.until(th.ends))} · chromatique 2 %.</span>
-            <button type="button" class="link small" data-theme-list>${got} / ${th.ids.length} Pokémon attrapés${th.skins ? ` · costume${th.skins.length > 1 ? 's' : ''} ${skins}/${th.skins.length}` : ''}</button></div>
+          <div class="shop-txt"><b>${esc(th.name)}</b><span>${esc(th.short)} · jusqu’à jeudi 20 h.</span></div>
           <button class="btn sm ${ok ? 'theme-btn' : ''}" data-theme-open ${ok ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${th.price}</button></div>`;
-      };
-      // les Pokémon possibles dans la capsule de la semaine (grisés s'ils manquent), costumes en premier
-      const skinCell = (i, f) => { const F = P().formInfo(i, f), got = hasSkin(i, f);
-        return `<span class="evo-cell form-cell ${got ? 'got' : 'miss'}" style="--tc:${F.color}"><span class="evo-img"><img src="${P().img(i, false, f)}" alt="" loading="lazy"></span><span class="evo-n">${esc(P().name(i))} ✦</span></span>`; };
-      const themeList = () => {
-        const th = App.capsuleThemes.current();
-        if (!th) return;
-        App.util.openModal(`<h2>${esc(th.name)}</h2><p class="small muted">${esc(th.desc)} : ${th.ids.length} Pokémon possibles, jusqu’au ${esc(App.capsuleThemes.until(th.ends))}.</p>
-          ${th.skins ? `<h3 style="margin:8px 0">Costume${th.skins.length > 1 ? 's' : ''} de l’événement (20 %)</h3><div class="form-grid">${th.skins.map(([i, f]) => skinCell(i, f)).join('')}</div><h3 style="margin:12px 0 8px">Les Pokémon</h3>` : ''}
-          <div class="form-grid">${th.ids.map((i) => evoCell(i, dex.has(i), false, -1)).join('')}</div>`);
       };
       const drawShop = () => {
         const box = $('#cp-shop'), s = App.capsules.state;
@@ -454,9 +442,9 @@
           <div class="shop-grid">
             <div class="shop-item ${s.coins >= P1 ? 'can' : ''}"><div class="shop-art">${capsuleSVG('', 46)}</div><div class="shop-txt"><b>Capsule</b><span>La même que celle de chaque heure, en plus de ta réserve.</span></div>
               <button class="btn sm ${s.coins >= P1 ? 'primary' : ''}" data-buy="capsule" ${s.coins >= P1 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P1}</button></div>
+            ${themeItem(s)}
             <div class="shop-item gold ${s.coins >= P2 ? 'can' : ''}"><div class="shop-art">${capsuleSVG('', 46, true)}</div><div class="shop-txt"><b>Grande capsule</b><span>Au moins rare, 1 chance sur 5 d’un légendaire ou d’un fabuleux, chromatique 3 %.</span></div>
               <button class="btn sm ${s.coins >= P2 ? 'gold-btn' : ''}" data-buy="grande" ${s.coins >= P2 ? '' : 'disabled'}>${App.icons.icon('coin', 14)} ${P2}</button></div>
-            ${themeItem(s)}
             <div class="shop-item"><div class="shop-art coin-art">${App.icons.icon('coin', 34)}</div><div class="shop-txt"><b>Vendre mes doublons</b><span>${d.n ? `${d.n} Pokémon en double → <b>+${pts(d.gain)}</b>. Tu gardes un exemplaire de chaque, et tous tes chromatiques.` : 'Aucun doublon pour l’instant (tu gardes toujours un exemplaire de chaque).'}</span></div>
               <button class="btn sm" data-dupes ${d.n ? '' : 'disabled'}>Vendre${d.n ? ` (+${d.gain})` : ''}</button></div>
           </div>
@@ -519,7 +507,6 @@
         if (e.target.closest('#cp-open')) openLoop(() => { drawStatus(); refreshDex(false); });
         if (e.target.closest('#cp-open-big')) openLoop(() => { drawStatus(); refreshDex(false); }, 'grande');
         if (e.target.closest('[data-theme-open]')) openLoop(() => { drawStatus(); refreshDex(false); drawShop(); }, 'week');
-        if (e.target.closest('[data-theme-list]')) return themeList();
         const buy = e.target.closest('[data-buy]');
         if (buy) {
           buy.disabled = true;

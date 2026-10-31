@@ -47,7 +47,7 @@ App.capsuleThemes = (() => {
     easter: '16,17,18,19,20,21,22,39,40,52,53,83,84,85,108,113,115,128,132,133,137,143,161,162,163,164,174,190,203,206,216,217,233,234,235,241,242,263,264,276,277,287,288,289,293,294,295,298,300,301,327,333,335,351,352,396,397,398,399,400,424,427,428,431,432,440,441,446,463,474,486,504,505,506,507,508,519,520,521,531,572,573,585,586,626,627,628,648,659,660,661,667,668,676,694,695,731,732,733,734,735,759,760,765,772,773,775,780,819,820,831,832,862,876,899,901,915,916,924,925,928,929,930,931,944,945,967,981,982,1024',
     summer: '7,8,9,54,55,60,61,62,72,73,79,80,86,87,90,91,98,99,116,117,118,119,120,121,129,130,131,134,138,139,140,141,158,159,160,170,171,183,184,186,194,195,199,211,222,223,224,226,230,245,258,259,260,270,271,272,278,279,283,318,319,320,321,339,340,341,342,349,350,363,364,365,366,367,368,369,370,382,393,394,395,400,418,419,422,423,456,457,458,484,489,490,501,502,503,515,516,535,536,537,550,564,565,580,581,592,593,594,647,656,657,658,688,689,690,692,693,721,728,729,730,746,747,748,751,752,767,768,771,779,788,816,817,818,833,834,845,846,847,882,883,902,912,913,914,960,961,963,964,976,977,978,991,1009',
   };
-  for (const [key, name, icon, color] of TYPES) THEMES[key] = { key, name: `Capsule ${name}`, desc: `Rien que des Pokémon ${name}`, icon, stops: stops(color), ids: list(POOLS[key]) };
+  for (const [key, name, icon, color] of TYPES) THEMES[key] = { key, name: `Capsule ${name}`, desc: `Rien que des Pokémon ${name}`, short: `Pokémon ${name}`, icon, stops: stops(color), ids: list(POOLS[key]) };
 
   // les 9 régions (d'après le numéro du Pokédex, sans Arceus)
   const REGIONS = [['Kanto', '#e53935'], ['Johto', '#c9a227'], ['Hoenn', '#2e9e5b'], ['Sinnoh', '#3d6fd1'], ['Unys', '#555b6e'],
@@ -56,7 +56,7 @@ App.capsuleThemes = (() => {
   REGIONS.forEach(([name, color], i) => {
     const ids = [];
     for (let n = i ? ENDS[i - 1] + 1 : 1; n <= ENDS[i]; n++) if (n !== 493) ids.push(n);
-    THEMES[`region-${i + 1}`] = { key: `region-${i + 1}`, name: `Capsule ${name}`, desc: `Rien que des Pokémon de ${name}`, icon: '🗺️', stops: stops(color), ids };
+    THEMES[`region-${i + 1}`] = { key: `region-${i + 1}`, name: `Capsule ${name}`, desc: `Rien que des Pokémon de ${name}`, short: `Pokémon de ${name}`, icon: '🗺️', stops: stops(color), ids };
   });
 
   // les 7 événements (75 éclats, avec un costume)
@@ -70,7 +70,7 @@ App.capsuleThemes = (() => {
     ['summer', 'Capsule de l’été', 'Pokémon Eau', '🏖️', ['#fff8d6', '#ffe066', '#34b5f0', '#1a5fa8'], 'Pikachu en lunettes de soleil'],
   ];
   for (const [key, name, what, icon, st, skinName] of EVENTS) {
-    THEMES[key] = { key, name, desc: `${what}, et 20 % de chances d’avoir ${skinName}`, icon, stops: st, ids: list(POOLS[key]), event: true,
+    THEMES[key] = { key, name, desc: `${what}, et 20 % de chances d’avoir ${skinName}`, short: `${what} + ${key === 'xmas' ? 'Pikachu ou Cadoizo costumé' : 'Pikachu costumé'}`, icon, stops: st, ids: list(POOLS[key]), event: true,
       skins: key === 'xmas' ? [[25, key], [225, key]] : [[25, key]] };
   }
 
