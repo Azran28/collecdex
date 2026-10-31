@@ -27,6 +27,10 @@
 .r-th b.ok { background: var(--ok); color: #063; }
 .r-th b.q { background: #ffb84d; color: #4a2b00; }
 .r-th b.no { background: #ff6b6b; color: #fff; }
+/* v3.83 : pendant les photos de la rafale, rien sous la caméra (la lecture continue en fond, visible dans la bande) ; bouton Terminer */
+.r-shooting #b-results, .r-shooting #b-status { display: none; }
+.scan-view:has(.r-strip) .scan-guide::after { content: none; } /* (la bande des cartes prend sa place) */
+.r-stop svg { fill: currentColor; }
 /* v3.38 : conseils de prise de vue (seulement si un vrai problème dure) — rafale (.r-live.warn), carte seule (.shot-tip), après la photo (.shot-warn) */
 .r-live.warn, .shot-tip { background: rgba(196,120,0,.94); color: #fff; white-space: normal; text-align: center; border-radius: 14px; }
 .shot-tip { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 5; width: max-content; max-width: calc(100% - 24px); padding: 6px 12px; font-size: .82rem; font-weight: 700; line-height: 1.3; pointer-events: none; }

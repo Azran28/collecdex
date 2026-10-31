@@ -276,6 +276,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - Plus besoin de tenir la carte parfaitement immobile : une main qui tremble un peu suffit, et une carte qui bouge encore est prise au bout d’environ 1 s.
 - **Les cartes sont lues pendant que tu continues** : en bas de l’image, une bande montre les dernières cartes prises, avec leur vrai visuel et leur nom dès qu’elles sont reconnues (✓ sûre, ? à vérifier), et le compte « 5/6 sûres ». À la pause, il reste donc très peu à attendre.
 - Pour la carte suivante, change franchement de carte (ou retire-la du cadre) : la même carte n’est pas reprise deux fois.
+- **v3.83** : le bouton s’appelle maintenant **« ■ Terminer »** (au lieu de « Pause ») : il arrête la caméra et ouvre l’analyse. Pendant les photos, plus de liste sous la caméra ni de page qui défile : tout se passe dans la bande en bas de l’image.
 
 ## Apparitions des grands légendaires et souvenirs (v3.76)
 - 12 Pokémon ont maintenant leur propre apparition, **impossible à passer la première fois** (on peut la passer ensuite) : le tirage ne change pas.

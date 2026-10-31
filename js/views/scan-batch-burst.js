@@ -139,6 +139,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
     }
     function rStop() {
       if (S.rTimer) { clearInterval(S.rTimer); S.rTimer = null; }
+      el.classList.remove('r-shooting');
       cam.stop();
       if (burst) {
         view.innerHTML = App.views.scan.empty('rafale');
