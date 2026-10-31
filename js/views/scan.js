@@ -339,6 +339,9 @@ App.views.scan = {
     const idleView = () => {
       const v = el.querySelector('.scan-view');
       if (!v || !v.querySelector('.scan-empty, video, .sc-scanwrap')) return null; // (v3.35 : aussi la carte pendant sa recherche)
+      // v3.88 (Arnaud : « la zone de capture change de taille ») : caméra de rafale ouverte, la liste et les messages sont cachés
+      // (.r-shooting) → ils ne comptent pas (sinon, dès la 1re carte prise, le cadre reprenait sa taille de départ)
+      if (el.matches('.r-shooting') || el.querySelector('.r-shooting')) return v;
       const st = el.querySelector('#sc-status, #b-status'), res = el.querySelector('#sc-results, #b-results');
       if (st && st.children.length) return null; // message, attente…
       if (res && [...res.children].some((c) => !c.matches('.pc-block'))) return null; // (l'encadré « Certifier ? » ne compte pas)

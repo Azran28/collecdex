@@ -21,6 +21,25 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       try { const m = App.certify._test.motion(A, B, GW, GH); return m.rel < 0.62 && m.fit < 0.78; } catch (e) { return false; }
     }
     const rHint = (html, cls = '') => { const h = view.querySelector('.r-live'); if (h) { h.className = `r-live ${cls}`; h.innerHTML = html; } };
+    /**
+     * v3.88 (Arnaud : « un moyen visuel mieux que celui actuel pour indiquer si les étapes sont réussies et ce qu'il faut faire ») :
+     * en « Certifier », 3 pastilles en haut de la caméra (Dos → Retourne → Immobile) : faite = verte ✓, en cours = blanche qui
+     * pulse, à venir = grise ; cur = étape en cours (1…3, 4 = carte certifiée), mood '' | 'warn' (orange : pas de badge).
+     * Le cadre change aussi de couleur (data-rstate : jaune = attente, violet = dos vu / retournée, vert = certifiée, orange).
+     */
+    function rStep(cur, mood = '') {
+      let s = view.querySelector('.r-steps');
+      if (!cur) { if (s) s.remove(); delete view.dataset.rstate; return; }
+      if (!s) { s = document.createElement('div'); s.className = 'r-steps'; s.setAttribute('aria-hidden', 'true'); view.appendChild(s); }
+      const key = `${cur}|${mood}`; if (s.dataset.k === key) return;
+      s.dataset.k = key;
+      const lab = ['Dos', 'Retourne', 'Immobile'];
+      s.innerHTML = lab.map((t, i) => {
+        const k = i + 1, st = k < cur ? 'done' : k === cur ? (mood === 'warn' ? 'warn' : 'now') : 'todo';
+        return `${i ? '<i class="rs-line"></i>' : ''}<span class="rs rs-${st}"><b>${st === 'done' ? '✓' : st === 'warn' ? '!' : k}</b>${t}</span>`;
+      }).join('');
+      view.dataset.rstate = mood === 'warn' ? 'warn' : cur >= 4 ? 'ok' : cur >= 2 ? 'go' : 'wait';
+    }
     S.rTrk = null; // certification « dos d'abord » (si « Certifier » est choisi)
     const wantCert = () => RAFALE_CERT && certOn && App.views.scan.certWanted('rafale');
     function rTick() {
@@ -29,6 +48,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       let mean = 0; for (const v of F) mean += v; mean /= F.length;
       let sd = 0; for (const v of F) sd += (v - mean) ** 2; sd = Math.sqrt(sd / F.length);
       const hadPrev = !!S.rPrev, diff = hadPrev ? mad(F, S.rPrev) : 99; S.rPrev = F;
+      if (!wantCert()) rStep(0);
       if (wantCert()) {
         // v3.58 : paquet face cachée tenu SOUS le cadre — on monte la carte du dessus (dos vu), on la retourne, on la tient
         // immobile → prise et certifiée toute seule (sans lampe), on la pose. Paquet dans le cadre : au labo, 63 % certifiées
@@ -40,13 +60,14 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
         // l'étape restent affichés pendant toute la rafale
         if (ph !== 'attente') S.rNoBackT = 0;
         if (ph === 'pret') { S.rStable = 0; rCapture(F, true); return; }
-        if (ph === 'dos') { S.rStable = 0; rHint(`Carte ${n} : dos vu ✓ — <b>retourne</b>-la`, 'go'); return; }
-        if (ph === 'retourne') { S.rStable = 0; rHint(`Carte ${n} : tiens-la immobile…`, 'go'); return; }
+        if (ph === 'dos') { S.rStable = 0; rStep(2); rHint(`Carte ${n} : dos vu ✓ — <b>retourne</b>-la`, 'go'); return; }
+        if (ph === 'retourne') { S.rStable = 0; rStep(3); rHint(`Carte ${n} : tiens-la immobile…`, 'go'); return; }
         // dos pas vu : une carte montrée face visible est prise quand même, sans badge (suite ci-dessous)
-        if (sd < 16) { S.rStable = 0; S.rNoBackT = 0; S.rSeen = 0; S.rArmed = true; rHint(`Carte ${n} : montre d’abord son <b>dos</b>`); return; }
+        if (sd < 16) { S.rStable = 0; S.rNoBackT = 0; S.rSeen = 0; S.rArmed = true; rStep(1); rHint(`Carte ${n} : montre d’abord son <b>dos</b>`); return; }
         if (S.rLast && sameCard(S.rLast, F)) {
           S.rStable = 0;
           const ok = S.rLastLive && S.rLastLive.passed;
+          rStep(ok ? 4 : 1, ok ? '' : 'warn');
           rHint(ok ? `${App.icons.icon('shield', 13)} Carte ${n - 1} certifiée — pose-la, puis le <b>dos</b> de la suivante` : `Carte ${n - 1} sans badge — pour la suivante, montre d’abord son <b>dos</b>`, ok ? 'ok' : 'warn');
           return;
         }
@@ -72,7 +93,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       if (S.rLast && (!S.rArmed || S.rSame >= 3)) {
         S.rStable = 0; S.rSeen = 0;
         if (S.rFails) rHint('Photo ratée — change de carte ou bouge-la un peu', 'warn');
-        else if (wantCert() && S.cells.length) rHint(`Carte ${S.cells.length} ${S.rLastLive && S.rLastLive.passed ? 'certifiée' : 'sans badge'} — pose-la, puis le <b>dos</b> de la suivante`, S.rLastLive && S.rLastLive.passed ? 'ok' : 'warn');
+        else if (wantCert() && S.cells.length) rStep(S.rLastLive && S.rLastLive.passed ? 4 : 1, S.rLastLive && S.rLastLive.passed ? '' : 'warn'), rHint(`Carte ${S.cells.length} ${S.rLastLive && S.rLastLive.passed ? 'certifiée' : 'sans badge'} — pose-la, puis le <b>dos</b> de la suivante`, S.rLastLive && S.rLastLive.passed ? 'ok' : 'warn');
         else rHint(S.cells.length ? `Carte ${S.cells.length} prise ✓ — passe à la suivante` : 'Carte déjà enregistrée ✓ — passe à la suivante', 'ok');
         return;
       }
@@ -81,8 +102,8 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
       if (wantCert()) {
         const now = Date.now(); if (!S.rNoBackT) S.rNoBackT = now;
         // (les 0,6 premières secondes, simple consigne : pendant un vrai geste, la carte qui monte n’est pas encore vue comme un dos)
-        if (now - S.rNoBackT < 600) { S.rStable = 0; S.rSeen = 0; rHint(`Carte ${S.cells.length + 1} : montre d’abord son <b>dos</b>`); return; }
-        if (now - S.rNoBackT < 2000) { S.rStable = 0; S.rSeen = 0; rHint('Pas de badge sans le dos : montre d’abord le <b>dos</b> de la carte', 'warn'); return; }
+        if (now - S.rNoBackT < 600) { S.rStable = 0; S.rSeen = 0; rStep(1); rHint(`Carte ${S.cells.length + 1} : montre d’abord son <b>dos</b>`); return; }
+        if (now - S.rNoBackT < 2000) { S.rStable = 0; S.rSeen = 0; rStep(1, 'warn'); rHint('Pas de badge sans le dos : montre d’abord le <b>dos</b> de la carte', 'warn'); return; }
       }
       S.rSeen = (S.rSeen || 0) + 1;
       const calm = diff < 10 + sd * 0.12, slow = diff < 28 + sd * 0.3;
@@ -148,6 +169,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
         const blob = cut ? await new Promise((res) => cut.canvas.toBlob(res, 'image/jpeg', 0.9)) : b;
         addBurstCell(blob, !!cut, live);
         S.rLastLive = live;
+        if (live) rStep(live.passed ? 4 : 1, live.passed ? '' : 'warn');
         if (live) rHint(live.passed ? `${App.icons.icon('shield', 13)} Carte ${S.cells.length} certifiée !` : `Carte ${S.cells.length} sans badge (${flipped ? 'retournement pas reconnu' : 'dos pas vu'})`, live.passed ? 'ok' : 'warn');
       } catch (e) { console.warn(e); }
       finally {
@@ -196,7 +218,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
     }
     function rStop() {
       if (S.rTimer) { clearInterval(S.rTimer); S.rTimer = null; }
-      el.classList.remove('r-shooting');
+      el.classList.remove('r-shooting'); rStep(0);
       cam.stop();
       if (burst) {
         view.innerHTML = App.views.scan.empty('rafale');

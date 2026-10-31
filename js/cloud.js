@@ -203,7 +203,7 @@ App.cloud = (() => {
           if (error && /row-level security|maximum allowed size|too large|413/i.test(String(error.message) + ' ' + (error.statusCode || ''))) {
             console.warn('photo refusée par le serveur', id, error.message);
             const why = await refusal(id, error);
-            // v3.88 : message seulement quand la photo manque vraiment en ligne, une fois par envoi
+            // v3.89 : message seulement quand la photo manque vraiment en ligne, une fois par envoi
             if (why && !told[why]) { told[why] = 1; App.util.toast(REFUSED[why], 7000); }
           } else if (error) throw error;
         }
