@@ -52,7 +52,7 @@ App.views.scan = {
   /** Les 3 gestes de la certification, dans le cadre vide (à la place de « Appuie sur… ») */
   certSteps(mode = 'carte') {
     const steps = mode === 'rafale'
-      ? ['Paquet <b>face cachée</b>, tenu <b>sous</b> le cadre', 'Monte une carte (<b>dos</b> visible), <b>retourne</b>-la', 'Tiens-la immobile : prise toute seule. La <b>suivante</b> !']
+      ? ['Paquet <b>face cachée</b>, tenu <b>sous</b> le cadre', 'Monte une carte (<b>dos</b> visible), <b>retourne</b>-la : elle peut sortir du cadre', 'Tiens-la immobile : prise toute seule. La <b>suivante</b> !']
       : ['Touche <b>Caméra</b>, montre d’abord le <b>dos</b>', 'La lampe clignote : garde-le <b>immobile</b>', '<b>Retourne</b> la carte, prends la photo'];
     return `<ol class="se-steps">${steps.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join('')}</ol>`;
   },

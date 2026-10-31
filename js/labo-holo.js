@@ -290,7 +290,7 @@
       const rows = await App.cloud.labo.list();
       const out = [];
       for (const [k, r] of rows.entries()) {
-        if (r.data && (r.data.kind === 'page' || r.data.kind === 'feuillete')) continue; // (photo entière d'une page de classeur, v3.61, ou geste « feuilleté », v3.62 : pas une carte à juger)
+        if (r.data && (r.data.kind === 'page' || r.data.kind === 'feuillete' || r.data.kind === 'rafale-cert')) continue; // (photo entière d'une page de classeur, v3.61, ou geste « feuilleté », v3.62 : pas une carte à juger)
         setStatus(`Mes scans : photo ${k + 1} / ${rows.length}`);
         const key = 'labo-scan:' + r.id;
         let blob = await App.db.get('cache', key).catch(() => null);

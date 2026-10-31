@@ -955,3 +955,14 @@ test('page tournée : glissement et changement d’un coup refusés', async (App
   const w = T.watcher(); let ev = null; for (const f of swipe) ev = w.push(f) || ev;
   ok(ev && ev.res && ev.res.pass === false, 'le suivi en direct voit le geste et le refuse');
 });
+
+// v3.84 : rafale — une carte qui sort du cadre en glissant se retrouve décalée ; une autre image ou la même sans décalage ne compte pas
+test('rafale : dos qui sort du cadre reconnu décalé', async (App) => {
+  await App.need('scan');
+  const C = App.certify && App.certify._test; ok(C && C.shiftCorr, 'certify._test.shiftCorr manquant');
+  const w = 24, h = 33, img = (seed) => { let a = seed; const rnd = () => ((a = (a * 1103515245 + 12345) % 2147483648) / 2147483648); const g = new Float32Array(w * h), blk = []; for (let i = 0; i < 60; i++) blk.push(40 + rnd() * 180); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) g[y * w + x] = blk[(Math.floor(y / 4) * 6 + Math.floor(x / 4)) % 60] + rnd() * 4; return g; };
+  const B = img(3), other = img(11), moved = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) moved[y * w + x] = x >= 8 ? B[y * w + x - 8] : 90; // le dos a glissé d'un tiers vers la droite
+  ok(C.shiftCorr(moved, B, w, h) >= 0.6, 'dos décalé pas reconnu');
+  ok(C.shiftCorr(other, B, w, h) < 0.6, 'une autre image passe pour le dos décalé');
+});
