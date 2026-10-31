@@ -47,6 +47,7 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('wankul'), 'Wankul');
   ok(App.games.get('starwars'), 'Star Wars Unlimited');
   ok(App.games.get('dragonball'), 'Dragon Ball Super');
+  ok(App.games.get('cyberpunk'), 'Cyberpunk');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
 });
 
@@ -136,6 +137,7 @@ test('combat : niveaux de l’ordinateur', (App) => {
   eq(App.battle.levels('wankul').length, 5, 'niveaux Wankul');
   eq(App.battle.levels('starwars').length, 5, 'niveaux Star Wars');
   eq(App.battle.levels('dragonball').length, 5, 'niveaux Dragon Ball');
+  eq(App.battle.levels('cyberpunk').length, 5, 'niveaux Cyberpunk');
 });
 
 // ---------- Combat en ligne : les deux téléphones doivent tirer les mêmes nombres ----------
@@ -199,7 +201,7 @@ test('badges : liste et collection vide', (App) => {
 const checkIndex = async (name) => {
   const meta = await (await fetch(`data/${name}.json`, { cache: 'no-store' })).json();
   const bin = await (await fetch(`data/${name}.bin`, { cache: 'no-store' })).arrayBuffer();
-  ok(meta.n > (name === 'wk-index' ? 900 : 1000) && meta.d > 0, 'en-tête'); // (Wankul : 958 cartes)
+  ok(meta.n > ({ 'wk-index': 900, 'cp-index': 500 }[name] || 1000) && meta.d > 0, 'en-tête'); // (Wankul : 958 cartes ; Cyberpunk : 589)
   eq(meta.ids.length, meta.n, 'nombre d’identifiants');
   eq(new Set(meta.ids).size, meta.n, 'identifiants en double');
   // Pf, Pa (1280 × d float32) + échelles (n × 2 float32) + empreintes (n × 2d int8)
@@ -524,7 +526,7 @@ test('lecture : outils communs (forme de carte, nom lu, code corrigé par le nom
   eq(T.bestName(['TADASHl HAMADA', '6-155'], nm).k, 'tadashi hamada', 'nom mal lu retrouvé');
   const fx = await T.codeFix(['6-155'], new Set(['155']), async (ids) => ids.map((id) => ({ id, localId: '155' })), (x) => x.localId);
   ok(fx && fx[0].id === '6-155' && fx[0].codeFix, 'carte de ce nom au même numéro');
-  for (const g of ['onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul', 'starwars', 'dragonball']) ok(typeof App.games.get(g).recognize === 'function', `lecture ${g}`);
+  for (const g of ['onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul', 'starwars', 'dragonball', 'cyberpunk']) ok(typeof App.games.get(g).recognize === 'function', `lecture ${g}`);
 });
 
 // ---------- Wankul (v3.48) : cartes en français, visuels du site, codes imprimés, dos, combattant, cartes de pioche, import ----------
@@ -728,6 +730,69 @@ test('Import : lignes Dragon Ball Super (Collectr, Cardmarket)', async (App) => 
   const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
   eq([m1.status, m1.card.id], ['ok', 'bt22-083'], 'par le code');
   eq([m2.status, m2.card.id], ['ok', 'bt22-009_spr'], 'version Special Rare');
+});
+// ---------- Cyberpunk (v3.96) : cartes en français, visuels du site, codes imprimés, combattant, cartes de pioche, import ----------
+test('index Cyberpunk (data/cp-index) cohérent', async () => {
+  const m = await checkIndex('cp-index');
+  ok(m.ids.includes('wnc-010') && m.ids.includes('wncb-010') && m.ids.includes('hei-001') && m.ids.includes('wnc-144'), 'Jônin de Japantown (wnc-010), Bêta (wncb-010), deck (hei-001), iconique (wnc-144)');
+});
+test('Cyberpunk : cartes en français (data/cp-cartes.json), visuels du site', async (App) => {
+  const A = App.games.get('cyberpunk'), sets = await A.listSets();
+  ok(sets.length >= 15, `${sets.length} séries`);
+  const s = await A.getSet('wnc');
+  eq([s.name, s.cardCount.official], ['Welcome to Night City', 141]);
+  const c = await A.getCard('wnc-010');
+  eq([c.name, c.nameEn, c.code, c.rarity, c.category, c.cost, c.power, c.color], ['Jônin de Japantown', 'Japantown Jonin', 'MS01 - WNC · 010', 'c', 'Unité', 2, 0, 'r']);
+  ok(/^PLAY Donnez \+2 Power/.test(c.text), 'texte de la carte en français');
+  ok(/\/data\/cp-img\/wnc-010\.webp$/.test(A.img.card(c)), 'visuel rangé dans le site (adresse complète)');
+  const r = await fetch(A.img.card(c)); ok(r.ok && /webp/.test(r.headers.get('content-type') || ''), 'visuel lisible');
+  const b = await A.getCard('wncb-010');
+  eq([b.code, b.serieId, b.variants], ['MS01 - WNC · B010', 'cp-beta', { normal: true }], 'version Bêta : carte à part');
+  const v = await A.getCard('wnc-005a');
+  eq([v.name, v.variants, A.isOfficial('144', s), A.isOfficial('010', s)], ['V : Gosse des Rues', { holo: true }, false, true], 'Rare brillante ; iconiques en plus de la série');
+});
+test('Cyberpunk : code imprimé lu même mal reconnu', async (App) => {
+  const A = App.games.get('cyberpunk'); await A.listSets();
+  const c = (t) => A.codesIn(t).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  eq(c('MS01 - WNC [A] 010')[0], 'wnc|010', '« MS01 - WNC [A] » + « 010 »');
+  eq(c('MSO1 - WNC [A] BO10')[0], 'wncb|010', 'Bêta « B010 », lettres lues à la place des chiffres');
+  eq(c('SDO1 - HEI TAI 001')[0], 'hei|001', 'deck de démarrage');
+  eq(c('NCBO1-WNC 005')[0], 'ncb1|005', 'promo de tournoi');
+  eq(c('MS01 - WNC [A] 005A')[0], 'wnc|005a', 'version « 005a »');
+  eq(c('Pikachu 025/165'), [], 'numéro Pokémon');
+  eq(c('OP09-004 SR'), [], 'code One Piece');
+  eq(c('Donnez +2 Power à une Unité alliée ce tour-ci. © 2026 CD PROJEKT S.A. 010'), [], 'pas de code sans le code de la série');
+});
+test('Cyberpunk : Unité → combattant, cartes de pioche', async (App) => {
+  await App.need('match');
+  const f = App.battle.fighterCP({ id: 'x', name: 'Jackie Welles', kind: 'u', category: 'Unité', power: 8, cost: 6, color: 'y', eddies: false, text: 'BLOCKER' });
+  eq([f.hp, f.type, f.attacks.length, f.attacks[1].base, f.attacks[1].cost], [140, 'lightning', 2, 70, 3]);
+  ok(App.battle.canFight({ kind: 'l', category: 'Légende', power: 6, eddies: true }, 'cyberpunk') && !App.battle.canFight({ kind: 'p', category: 'Programme', eddies: false }, 'cyberpunk') && !App.battle.canFight({ kind: 'l', category: 'Légende', eddies: true }, 'cyberpunk'), 'Unités et Légendes avec un Power combattent, pas les Programmes');
+  const fx = (text, cat = 'Programme') => App.battleCards.effectOf({ id: 'y', name: 'z', category: cat, kind: cat === 'Programme' ? 'p' : 'g', eddies: false, text }).key;
+  eq([fx('Éliminez une Unité rivale de Power 4 ou moins.'), fx('{Quick} Donnez à une Unité équipée +3 Power ce tour-ci.'), fx('Épuisez une Unité rivale de coût 4 ou moins.'),
+    fx('{Quick} Donnez à une Unité rivale -1 Power ce tour-ci. Piochez 1.'), fx('Regardez les 3 cartes du dessus de votre deck.'), fx('(Équipez à une Unité alliée.)', 'Équipement')],
+  ['power', 'power', 'shield', 'strip', 'charge', 'toolHp']);
+  eq(App.battleCards.eddCard().fx.key, 'energy', 'eddies dessinés');
+  const A = App.games.get('cyberpunk');
+  for (const lv of App.battle.levels('cyberpunk')) for (const id of lv.pool) ok(await A.getCard(id).then((c) => App.battle.canFight(c, 'cyberpunk'), () => false), `adversaire ${id}`);
+  for (const id of App.battleCards.aiBag(5, 'grass', 'cyberpunk').filter((x) => x !== 'EDD')) ok(await A.getCard(id).then((c) => !App.battle.canFight(c, 'cyberpunk') && /^(Équipement|Programme)$/.test(c.category), () => false), `carte de pioche ${id}`);
+});
+test('Capturer « Toutes » : une carte Cyberpunk reconnue sur son texte', async (App) => {
+  await App.need('reco', 'scan'); await App.games.get('cyberpunk').listSets();
+  const S = App.views.scan, R = App.recognizer, keep = R.readZones;
+  const guess = async (txt) => { R.readZones = async (b, zones) => zones.map((z, i) => (i ? '' : txt)); try { return await S.detectGame(null); } finally { R.readZones = keep; } };
+  eq(await guess('02 UNIT x2 JÔNIN DE JAPANTOWN TYGER CLAWS PLAY Donnez +2 Power à une Unité alliée ce tour-ci. (Les Unités de Power 0 ne volent pas de Gig.) ILLUST. Michał Dziekan ™ © 2026 CD PROJEKT S.A.'), 'cyberpunk');
+  eq(App.recognizerParts.parse({ top: '', bottom: '', full: 'LEGEND CALL GO SOLO © 2026 CD PROJEKT S.A. WEIRDCO' }).otherGame, true, 'mode Pokémon : « pas une carte Pokémon »');
+});
+test('Import : lignes Cyberpunk (Collectr, TCGplayer)', async (App) => {
+  await App.need('import');
+  const I = App.importer;
+  const rows = [['Product Name', 'Category', 'Set', 'Card Number', 'Quantity'], ['Japantown Jonin', 'Cyberpunk TCG', 'Welcome to Night City - Retail', '010', '1'], ['V - Streetkid (a)', 'Cyberpunk TCG', 'Welcome to Night City - Beta', 'B005a', '2'], ['Pikachu', 'Pokemon', 'Base Set', '58/102', '1']];
+  const det = I.detect(rows), list = I.rowsOf ? I.rowsOf(rows, det) : null;
+  ok(list && list.length === 3 && list[0].game === 'cyberpunk' && list[1].game === 'cyberpunk' && list[2].game !== 'cyberpunk', 'lignes reconnues comme Cyberpunk');
+  const m1 = await I.match(list[0]), m2 = await I.match(list[1]);
+  eq([m1.status, m1.card.id], ['ok', 'wnc-010'], 'par la série et le numéro');
+  eq([m2.status, m2.card.id], ['ok', 'wncb-005a'], 'version Bêta');
 });
 // ---------- Riftbound : code imprimé lu sur la photo, combattant ----------
 test('Riftbound : code imprimé lu même mal reconnu', (App) => {

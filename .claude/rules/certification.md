@@ -42,3 +42,4 @@ Fausses vidéos 360×480 (cartes de `_tests-scanner`, dos = photo 04), vrais ges
 - **Wankul (v3.48)** : dos bleu au logo blanc, mesure dédiée `recognizer-image › wkBackScore` (voir `wankul.md`), ajoutée à `certify.js › backOf`.
 - **Star Wars Unlimited (v3.67)** : dos pas encore reconnu (aucune photo du dos) ; le classeur lit les cases quand même. À faire avec une photo d’Arnaud (en main et en pochette).
 - **Dragon Ball Super (v3.68)** : dos pas encore reconnu (aucune photo du dos) ; le classeur lit les cases quand même.
+- **Cyberpunk (v3.96)** : dos pas encore mesuré (pas de photo) : `backScoreOf(…, 'cyberpunk')` retombe sur le modèle Pokémon, le classeur lit les cases quand même.

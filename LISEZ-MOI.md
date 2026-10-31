@@ -203,6 +203,16 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Pas encore** : la **certification** (il me faut une photo du **dos** d’une carte Dragon Ball, en main et dans une pochette) et **Fusion World**.
 - **Nouvelles séries** : la liste des cartes se met à jour toute seule chaque lundi (robot de GitHub).
 
+## Cyberpunk TCG (v3.96)
+- **Explorer** : choisis **Cyberpunk TCG** en haut. **589 cartes**, **en français** (la base officielle du jeu) : l’extension **Welcome to Night City** (140 cartes + 31 versions **iconiques**, illustrations alternatives), les 2 decks de démarrage (**The Heist**, **Embracing Power**), les cartes bonus des displays, l’avant-première, les promos de tournoi (Night City Brawl, Showdown, Edgerunner Open), les promos d’arbitre et les decks de démo. L’**édition Bêta** du Kickstarter (cartes anglaises, numéro « B010 ») est rangée à part : c’est une carte différente de la version vendue en boutique.
+- **Une seule version par carte** : les Communes et Peu communes sont normales, les Rares et au-dessus sont brillantes (comme dans les boosters).
+- **Capturer** : choisis **Cyberpunk TCG** (ou « Toutes les licences », ou même le mode Pokémon). Le code est écrit **à la verticale le long du bord gauche** (« MS01 - WNC [A] ») et le numéro dans le **petit onglet jaune** du coin en bas à gauche : garde ce coin bien visible et net. Le nom de la carte et son illustration sont vérifiés aussi. Sur les images officielles, 6 cartes sur 6 sont reconnues avec certitude en 1 s environ ; **à vérifier avec tes photos**.
+- **Prix** : marché américain **TCGplayer**, converti en euros, mis à jour chaque jour (le jeu vient de sortir : certaines cartes, surtout les iconiques, n’ont pas encore de prix).
+- **Importer** : un fichier avec la colonne jeu « Cyberpunk TCG » ou une série comme « Welcome to Night City - Retail » est reconnu ; « Beta » dans la série (ou un numéro « B005a ») choisit l’édition Bêta.
+- **Combat** : Unités et Légendes, dans les rues de Night City ; énergie = **eddies** (€$). **Badges** : 4 badges Cyberpunk secrets.
+- **Pas encore** : la **certification** (il me faut une photo du **dos** d’une carte, en main et dans une pochette) et les réglages du scanner sur tes vraies photos (carte seule, page de classeur).
+- **Nouvelles séries** : la liste des cartes et leurs visuels se mettent à jour tout seuls chaque lundi (robot de GitHub).
+
 ## Toutes les licences lisent pareil (v3.49)
 - Ce qui a été inventé pour Final Fantasy et Wankul sert maintenant aussi à **One Piece, Riftbound, Lorcana et Yu-Gi-Oh!** : un cadrage de travers (cartes sombres ou brillantes) est refusé ; si le détourage rate, l'appli cherche la carte dans la photo ; le nom est lu par le lecteur précis (One Piece, Lorcana, Yu-Gi-Oh!) ; sur une page, une carte mal recadrée est remise à sa place ; en Lorcana les dos sont ignorés tout de suite.
 - **Sur tes photos** (32 photos des 4 licences, avant / après) : rien n'a reculé, 8 cartes de plus sont « sûres », 2 fausses réponses ont disparu (Riftbound), et les pages vont **2 à 10 fois plus vite** (One Piece : 3 min 20 → 17 s).

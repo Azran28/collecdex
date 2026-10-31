@@ -11,7 +11,7 @@
   const gameOf = (it) => (it && it.game) || 'pokemon';
   const adOf = (it) => ad(gameOf(it)) || ad();
   // v2.99 : chaque licence a ses combats (decks, adversaires, salons en ligne) ; on choisit d'abord la licence
-  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul', 'starwars', 'dragonball'];
+  const FIGHT_GAMES = ['pokemon', 'onepiece', 'riftbound', 'lorcana', 'yugioh', 'finalfantasy', 'wankul', 'starwars', 'dragonball', 'cyberpunk'];
   const TEAMS = 3, BAG_MAX = App.battleCards.DECK_MAX; // pioche du mode Avancé : 10 cartes (v2.80)
   const RM = () => FAST || window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -62,6 +62,11 @@
       bagKinds: 'Extra / Énergie', bagName: 'Deck', bagTitle: 'Ton deck', search: 'Rechercher un guerrier…', place: 'Sur l’arène du Tenkaichi Budokai',
       tag: 'Combats sur l’arène du Tenkaichi Budokai', foeTag: 'Des apprentis aux Dieux de la destruction',
     },
+    cyberpunk: {
+      name: 'Cyberpunk TCG', icon: 'chip', myTurn: 'À toi de jouer, choom !', champion: 'Tu es une Légende de Night City !', back: 'img/combat/dos-cyberpunk.svg',
+      bagKinds: 'Gear / Programme / Eddies', bagName: 'Deck', bagTitle: 'Ton deck', search: 'Rechercher une unité…', place: 'Dans les rues de Night City',
+      tag: 'Combats dans les rues de Night City', foeTag: 'Des gamins des rues aux Légendes de Night City',
+    },
   };
   const lic = (game) => LIC[game] || LIC.pokemon;
   // icônes du sac (Pokémon : sac à dos) et du coffre (One Piece : coffre au trésor)
@@ -79,6 +84,8 @@
     starwars: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2.5" fill="#141a33" stroke="#05060c" stroke-width="1.8"/><circle cx="16" cy="16" r="5.5" fill="none" stroke="#ffd21f" stroke-width="2"/><path d="M16 7.5v3M16 21.5v3M9.5 16h-1.5M24 16h-1.5" stroke="#ffd21f" stroke-width="1.6" stroke-linecap="round"/></svg>',
     // Dragon Ball : boîte de deck orange, boule de cristal à étoile
     dragonball: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2.5" fill="#1d3f9a" stroke="#0a1640" stroke-width="1.8"/><circle cx="16" cy="16" r="6.5" fill="#ff9d1c" stroke="#7a3a00" stroke-width="1.5"/><path d="m16 12.4 1 2.2 2.4.3-1.8 1.6.5 2.4-2.1-1.2-2.1 1.2.5-2.4-1.8-1.6 2.4-.3z" fill="#e3262b"/><circle cx="13.6" cy="13.6" r="1.3" fill="#fff" opacity=".7"/></svg>',
+    // Cyberpunk : boîte de deck noire, puce jaune néon
+    cyberpunk: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2" fill="#0d0f1a" stroke="#ff003c" stroke-width="1.8"/><rect x="11.5" y="11.5" width="9" height="9" rx="1" fill="#fcee0a" stroke="#05060c" stroke-width="1.2"/><path d="M14 11.5V9M18 11.5V9M14 23v-2.5M18 23v-2.5M11.5 14H9M11.5 18H9M23 14h-2.5M23 18h-2.5" stroke="#00e5ff" stroke-width="1.4" stroke-linecap="round"/></svg>',
     // Wankul : boîte de deck bleue, gemme dorée (comme celles imprimées sur les cartes)
     wankul: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="3" fill="#2a49b8" stroke="#0d1a52" stroke-width="1.8"/><path d="M16 9.5 21.5 14 16 23 10.5 14z" fill="#f5b82e" stroke="#7a4a08" stroke-width="1.3" stroke-linejoin="round"/><path d="M10.5 14h11M16 9.5 14 14l2 9 2-9z" fill="none" stroke="#ffe39a" stroke-width=".9"/></svg>',
     riftbound: '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><path d="M7 5h17a2 2 0 0 1 2 2v20H9a2 2 0 0 1-2-2z" fill="#1d3f7a" stroke="#0b1530" stroke-width="1.8"/><path d="M7 25a2 2 0 0 1 2-2h17" fill="none" stroke="#c8a24a" stroke-width="1.8"/><path d="M16.5 8.5 21 14l-4.5 5.5L12 14z" fill="#5fe3ef" stroke="#0b1530" stroke-width="1.3"/><path d="M16.5 11v6" stroke="#0b1530" stroke-width="1.2"/></svg>',
@@ -86,7 +93,11 @@
   /** Vocabulaire de la licence : en One Piece, on parle de personnages et de DON!! (pas de Pokémon ni d'énergie) ;
    *  en Riftbound, d'unités (l'énergie existe aussi dans ce jeu, elle garde son nom ; « de son type » = de son domaine) ;
    *  en Lorcana, de personnages et d'encre (« de son type » = de son encre) */
-  const say = (game, s) => (game === 'starwars' ? String(s)
+  const say = (game, s) => (game === 'cyberpunk' ? String(s)
+    .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'les eddies').replace(/d’énergie/g, 'd’eddies')
+    .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 unités').replace(/Pokémon/g, 'unité')
+    .replace(/(\d+) [ÉéE]nergies\b/g, '$1 eddies').replace(/1 [ÉéE]nergie\b/g, '1 eddie').replace(/[ÉéE]nergies?/g, 'eddies')
+    : game === 'starwars' ? String(s)
     .replace(/ \(\+1 si l’énergie est de son type\)/g, '').replace(/l’énergie/g, 'la ressource').replace(/d’énergie/g, 'de ressource')
     .replace(/\b(les|des|tes|ses|vos|nos|aux|\d+) Pokémon\b/g, '$1 unités').replace(/Pokémon/g, 'unité')
     .replace(/(\d+) [ÉéE]nergies\b/g, '$1 ressources').replace(/[ÉéE]nergies?/g, 'ressource')
@@ -173,7 +184,7 @@
     const out = [];
     const ok = game === 'onepiece' ? (c) => /^(Événement|Lieu|Event|Stage)$/i.test(c)
       : game === 'riftbound' ? (c) => /^(Sort|Équipement|Rune|Champ de bataille)$/i.test(c)
-        : game === 'lorcana' ? (c) => /^(Action|Objet|Lieu)$/i.test(c) : game === 'yugioh' ? (c) => /^Carte (Magie|Piège)$/i.test(c) : game === 'finalfantasy' ? (c) => /^(Invocation|Soutien|Cristal|Monstre)$/i.test(c) : game === 'wankul' ? (c) => /^Terrain$/i.test(c) : game === 'starwars' ? (c) => /^(Événement|Amélioration)$/i.test(c) : game === 'dragonball' ? (c) => /^Extra$/i.test(c) : (c) => !/pok/i.test(c);
+        : game === 'lorcana' ? (c) => /^(Action|Objet|Lieu)$/i.test(c) : game === 'yugioh' ? (c) => /^Carte (Magie|Piège)$/i.test(c) : game === 'finalfantasy' ? (c) => /^(Invocation|Soutien|Cristal|Monstre)$/i.test(c) : game === 'wankul' ? (c) => /^Terrain$/i.test(c) : game === 'starwars' ? (c) => /^(Événement|Amélioration)$/i.test(c) : game === 'dragonball' ? (c) => /^Extra$/i.test(c) : game === 'cyberpunk' ? (c) => /^(Équipement|Programme)$/i.test(c) : (c) => !/pok/i.test(c);
     await App.util.pool(Object.keys(bySet), 4, async (sid) => {
       const set = await ad(game).getSet(sid).catch(() => null);
       const cat = new Map((set ? set.cards : []).map((c) => [c.id, c.category]));
@@ -195,7 +206,7 @@
       for (const it of bySet[k]) {
         const c = cat.get(it.id);
         if (op) { // (liste One Piece / Riftbound : catégorie seulement ; PV et type viennent de la fiche, en arrière-plan)
-          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : game === 'lorcana' ? /^Personnage$/i : game === 'yugioh' ? /^Monstre/i : game === 'finalfantasy' ? /^(Avant|Monstre)$/i : game === 'wankul' ? /^Personnage$/i : game === 'starwars' ? /^(Unité|Leader)$/i : game === 'dragonball' ? /^(Combat|Leader)$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
+          if (c && c.category && !(game === 'riftbound' ? /^Unité$/i : game === 'lorcana' ? /^Personnage$/i : game === 'yugioh' ? /^Monstre/i : game === 'finalfantasy' ? /^(Avant|Monstre)$/i : game === 'wankul' ? /^Personnage$/i : game === 'starwars' ? /^(Unité|Leader)$/i : game === 'dragonball' ? /^(Combat|Leader)$/i : game === 'cyberpunk' ? /^(Unité|Légende)$/i : /^(Personnage|Leader)$/i).test(c.category)) continue;
           out.push(Object.assign(Object.create(it), { _hp: null, _type: null }));
           continue;
         }
@@ -220,8 +231,8 @@
   }
   /** One Piece : les cartes DON!! ne se capturent pas → 3 DON!! s'ajoutent à ma pioche (dans la limite de 10 cartes) ;
    *  Lorcana : pas de carte d'énergie → 3 encres, de la même façon ; Final Fantasy : 3 Cristaux ; Wankul : 3 Gemmes ; Star Wars : 3 Ressources ; Dragon Ball : 3 Énergies */
-  const withDon = (bag, game) => (!['onepiece', 'lorcana', 'finalfantasy', 'wankul', 'starwars', 'dragonball'].includes(game) || !bag.length ? bag
-    : [...bag, ...Array.from({ length: Math.max(0, Math.min(3, BAG_MAX - bag.length)) }, () => (game === 'lorcana' ? App.battleCards.inkCard() : game === 'finalfantasy' ? App.battleCards.crystalCard() : game === 'wankul' ? App.battleCards.gemCard() : game === 'starwars' ? App.battleCards.resCard() : game === 'dragonball' ? App.battleCards.eneCard() : App.battleCards.donCard()))]);
+  const withDon = (bag, game) => (!['onepiece', 'lorcana', 'finalfantasy', 'wankul', 'starwars', 'dragonball', 'cyberpunk'].includes(game) || !bag.length ? bag
+    : [...bag, ...Array.from({ length: Math.max(0, Math.min(3, BAG_MAX - bag.length)) }, () => (game === 'lorcana' ? App.battleCards.inkCard() : game === 'finalfantasy' ? App.battleCards.crystalCard() : game === 'wankul' ? App.battleCards.gemCard() : game === 'starwars' ? App.battleCards.resCard() : game === 'dragonball' ? App.battleCards.eneCard() : game === 'cyberpunk' ? App.battleCards.eddCard() : App.battleCards.donCard()))]);
   /** Mes combattants (complétés par des cartes de prêt de la licence) */
   async function myFighters(items, game) {
     const fs = (await Promise.all(items.map((it) => fromItem(it).catch(() => null)))).filter(Boolean);
@@ -248,9 +259,10 @@
   // Star Wars : l'affinité de la carte tient lieu de type
   const SW_NAMES = { metal: 'Vigilance', grass: 'Commandement', fire: 'Agressivité', lightning: 'Ruse', psychic: 'Héroïsme', darkness: 'Infamie', colorless: 'Sans affinité' };
   // Dragon Ball : la couleur de la carte tient lieu de type
+  const CP_NAMES = { fire: 'Rouge', water: 'Bleu', grass: 'Vert', lightning: 'Jaune', colorless: 'Sans couleur' };
   const DB_NAMES = { fire: 'Rouge', water: 'Bleu', grass: 'Vert', lightning: 'Jaune', darkness: 'Noir', colorless: 'Blanc' };
-  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : game === 'lorcana' ? Object.values(B().LC_INK) : game === 'yugioh' ? Object.values(B().YG_ATTR) : game === 'finalfantasy' ? Object.values(B().FF_ELEM) : game === 'wankul' ? Object.values(B().WK_EFF) : game === 'starwars' ? Object.values(B().SW_ASPECT) : game === 'dragonball' ? Object.values(B().DB_COLOR) : Object.keys(B().TYPE_INFO));
-  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : game === 'lorcana' ? LC_NAMES[t] || '?' : game === 'yugioh' ? YG_NAMES[t] || '?' : game === 'finalfantasy' ? FF_NAMES[t] || '?' : game === 'wankul' ? WK_NAMES[t] || '?' : game === 'starwars' ? SW_NAMES[t] || '?' : game === 'dragonball' ? DB_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
+  const typesOf = (game) => (game === 'onepiece' ? Object.values(B().OP_COLOR) : game === 'riftbound' ? Object.values(B().RB_DOMAIN) : game === 'lorcana' ? Object.values(B().LC_INK) : game === 'yugioh' ? Object.values(B().YG_ATTR) : game === 'finalfantasy' ? Object.values(B().FF_ELEM) : game === 'wankul' ? Object.values(B().WK_EFF) : game === 'starwars' ? Object.values(B().SW_ASPECT) : game === 'dragonball' ? Object.values(B().DB_COLOR) : game === 'cyberpunk' ? Object.values(B().CP_COLOR) : Object.keys(B().TYPE_INFO));
+  const typeName = (t, game) => (game === 'onepiece' ? OP_NAMES[t] || '?' : game === 'riftbound' ? RB_NAMES[t] || '?' : game === 'lorcana' ? LC_NAMES[t] || '?' : game === 'yugioh' ? YG_NAMES[t] || '?' : game === 'finalfantasy' ? FF_NAMES[t] || '?' : game === 'wankul' ? WK_NAMES[t] || '?' : game === 'starwars' ? SW_NAMES[t] || '?' : game === 'dragonball' ? DB_NAMES[t] || '?' : game === 'cyberpunk' ? CP_NAMES[t] || '?' : (B().TYPE_INFO[t] || ['?'])[0]);
   const typeChip = (t, game) => `<span class="bt-type" style="--tc:${typeColor(t)}">${esc(typeName(t, game))}</span>`;
   const pips = (n) => `<span class="bt-pips" title="${n} énergie${n > 1 ? 's' : ''}">${Array.from({ length: Math.min(n, 8) }, () => '<i></i>').join('')}${n > 8 ? `<b>+${n - 8}</b>` : ''}</span>`;
   const costPips = (n) => (n ? Array.from({ length: n }, () => '<i></i>').join('') : '<small>0</small>');

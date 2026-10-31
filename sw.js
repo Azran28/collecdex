@@ -110,8 +110,8 @@ self.addEventListener('fetch', (e) => {
       })());
       return;
     }
-    // visuels Wankul rangés dans le site (data/wk-img/, v3.48) : comme les autres visuels de cartes (copie gardée d'abord, nombre limité)
-    if (/\/data\/wk-img\/[a-z0-9-]+\.webp$/.test(u.pathname)) {
+    // visuels Wankul et Cyberpunk rangés dans le site (data/wk-img/, v3.48 ; data/cp-img/, v3.96) : comme les autres visuels de cartes (copie gardée d’abord, nombre limité)
+    if (/\/data\/(wk|cp)-img\/[a-z0-9-]+\.webp$/.test(u.pathname)) {
       e.respondWith((async () => {
         const c = await caches.open(IMAGES);
         const hit = await c.match(req.url);

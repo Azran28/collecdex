@@ -1,0 +1,46 @@
+/* ===== v3.96 : Cyberpunk — même combat, habillage des cartes Cyberpunk (encadrés noirs à bord rouge néon, texte jaune, eddies €$), décor : rue de Night City la nuit ===== */
+.bt-lic-tile.g-cyberpunk { background-image: linear-gradient(100deg, rgba(5,6,12,.94) 15%, rgba(5,6,12,.5) 60%, rgba(5,6,12,.2)), url(../img/combat/rue-cyberpunk.svg); background-position: center 40%; }
+.g-cyberpunk .bt-lic-ic, .bt-hero.g-cyberpunk .bt-hero-ic { background: linear-gradient(135deg, #fcee0a, #ffd400 45%, #ff003c); color: #0a0d1c; box-shadow: 0 0 0 2px #05060c inset, 0 6px 18px rgba(255,0,60,.35); }
+.g-cyberpunk .bt-lic-t b { color: #fcee0a; letter-spacing: 1.5px; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,0,60,.6), 0 2px 10px rgba(0,0,0,.7); }
+.bt-page.g-cyberpunk { --acc: #ff003c; --acc2: #fcee0a; }
+.bt-hero.g-cyberpunk { background-image: linear-gradient(100deg, rgba(5,6,12,.92) 25%, rgba(5,6,12,.35)), url(../img/combat/rue-cyberpunk.svg); background-position: center 35%; }
+.bt-page.g-cyberpunk .bt-hero-t h1 { color: #fcee0a; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 0 12px rgba(255,0,60,.6), 0 2px 10px rgba(0,0,0,.7); }
+.bt-ov.g-cyberpunk::before, .bt-ov.g-cyberpunk::after { display: none; }
+.bt-ov.g-cyberpunk > .bt-bg { background-image: linear-gradient(180deg, rgba(5,6,12,.5), rgba(5,6,12,.05) 22%, rgba(5,6,12,.05) 55%, rgba(5,6,12,.75) 92%), url(../img/combat/rue-cyberpunk.svg); }
+.bt-ov.g-cyberpunk.boss > .bt-bg { filter: brightness(.6) saturate(1.4) hue-rotate(-30deg); }
+/* mouvement léger : les néons grésillent doucement */
+.bt-ov.g-cyberpunk > .bt-bg::after { background: radial-gradient(ellipse 240px 160px at 40% 40%, rgba(255,0,60,.18), transparent 70%); animation: btStream 4s ease-in-out infinite alternate; }
+.bt-ov.g-cyberpunk .bt-top { text-shadow: 0 1px 4px rgba(0,0,0,.7); }
+.bt-ov.g-cyberpunk .bt-lic { background: linear-gradient(135deg, #fcee0a, #ffd400 45%, #ff003c); color: #0a0d1c; box-shadow: 0 0 0 2px #05060c inset; }
+.bt-ov.g-cyberpunk .bt-lvl { padding: 3px 10px; border-radius: 4px; background: rgba(5,6,12,.7); }
+/* panneaux façon encadré de texte des cartes : noir, bord rouge néon, coins coupés */
+.bt-ov.g-cyberpunk .bt-info { background: #0d0f1a; color: #f2f2f7; border: 2px solid #ff003c; border-radius: 2px; box-shadow: 0 0 18px rgba(255,0,60,.35), 0 10px 24px rgba(0,0,0,.5); }
+.bt-ov.g-cyberpunk .bt-name b { text-transform: uppercase; letter-spacing: .4px; font-weight: 900; color: #fcee0a; }
+.bt-ov.g-cyberpunk .bt-stats { color: #a9adc4; }
+.bt-ov.g-cyberpunk .bt-stats b { color: #f2f2f7; }
+.bt-ov.g-cyberpunk .bt-hp { background: #2a2235; border: 1px solid #ff003c; }
+.bt-ov.g-cyberpunk .bt-loan { background: #ff003c; color: #fff; }
+.bt-ov.g-cyberpunk .bt-tag { background: #2a2235; color: #fcee0a; }
+.bt-ov.g-cyberpunk .bt-tag.sh { background: #0f3640; color: #9ef3ff; }
+.bt-ov.g-cyberpunk .bt-tag.pw { background: #45101d; color: #ffb3c2; }
+/* énergie = eddies (petits losanges jaunes) */
+.bt-ov.g-cyberpunk .bt-pips i { border-radius: 2px; transform: rotate(45deg) scale(.85); background: linear-gradient(135deg, #fff6a0, #fcee0a 55%, #c9b800); }
+.bt-ov.g-cyberpunk .bt-pips b { color: #fcee0a; }
+.bt-ov.g-cyberpunk .bt-cost i { background: #fcee0a; }
+.bt-ov.g-cyberpunk .bt-log { background: rgba(13,15,26,.96); color: #f2f2f7; border: 2px solid #ff003c; border-radius: 2px; }
+.bt-ov.g-cyberpunk .bt-log .bt-eff { color: #00e5ff; }
+.bt-ov.g-cyberpunk .bt-banner.me { background: linear-gradient(135deg, #fff6a0, #fcee0a 55%, #e0cf00); color: #05060c; border: 2px solid #ff003c; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 10px 30px rgba(252,238,10,.3); }
+.bt-ov.g-cyberpunk .bt-banner.foe { background: #ff003c; border-color: #05060c; }
+.bt-ov.g-cyberpunk .bt-end.win .bt-end-box { border-color: #fcee0a; box-shadow: 0 0 40px rgba(252,238,10,.4); }
+.bt-ov.g-cyberpunk .bt-played div { border-color: rgba(255,0,60,.7); }
+.bt-ov.g-cyberpunk .bt-played small { color: #fcee0a; }
+/* deck (pioche du mode Avancé) */
+.bt-ov.g-cyberpunk .bt-bagbtn { background: #0d0f1a; border: 2px solid #ff003c; color: #f2f2f7; }
+.bt-ov.g-cyberpunk .bt-bagbtn .bt-bagic { background: #1d1a2c; }
+.bt-ov.g-cyberpunk .bt-bagbtn small { color: #a9adc4; }
+.bt-ov.g-cyberpunk .bt-sheet-box { background: #0d0f1a; border: 2px solid #ff003c; color: #f2f2f7; box-shadow: inset 0 0 0 4px #1d1a2c, 0 20px 60px rgba(0,0,0,.6); }
+.bt-ov.g-cyberpunk .bt-sheet-h b { color: #fcee0a; text-transform: uppercase; letter-spacing: .6px; }
+.bt-ov.g-cyberpunk .bt-sheet-h .bt-bagic { background: #1d1a2c; }
+.bt-ov.g-cyberpunk .bt-sc { background: rgba(255,0,60,.08); }
+.bt-ov.g-cyberpunk .bt-sc em { color: #00e5ff; }
+.bt-ov.g-cyberpunk .bt-sc.ok { border-color: #fcee0a; box-shadow: 0 0 16px rgba(252,238,10,.35); }

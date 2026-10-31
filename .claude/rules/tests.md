@@ -24,3 +24,4 @@ paths:
 - Wankul (v3.48) : `outils/ci/wankul-cartes.mjs` dans `index.yml` (liste + visuels `data/wk-img/`, convertis par Chromium) ; pas de prix (`noPrices`). `checkIndex` accepte 958 cartes pour `wk-index`.
 - Star Wars Unlimited (v3.67) : `outils/ci/starwars-cartes.mjs` dans `index.yml` (~15 min : 103 pages de la base officielle), `prix-starwars.mjs` dans `site.yml`. 209 tests en local.
 - Dragon Ball Super (v3.68) : `outils/ci/dragonball-cartes.mjs` dans `index.yml` (~1 min : 76 pages du site Bandai + TCGplayer), `prix-dragonball.mjs` dans `site.yml`. 230 tests en local.
+- Cyberpunk (v3.96) : `outils/ci/cyberpunk-cartes.mjs` dans `index.yml` (~1 min + visuels nouveaux), `prix-cyberpunk.mjs` dans `site.yml`. `checkIndex` accepte 589 cartes pour `cp-index`. 252 tests en local. **Panneau du navigateur caché** : la page de test a une largeur nulle → tous les tests « téléphone » échouent (« déborde de 305 px ») ; fixer d'abord `resize_window` 1200 × 800 sur l'onglet.

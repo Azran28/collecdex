@@ -10,6 +10,7 @@
 .g-wankul { --li-bg: linear-gradient(135deg, #ffe9a6, #f5b82e 50%, #b8700c); --li-fg: #16287a; --li-sh: 0 0 0 2px #0d1a52 inset, 0 6px 18px rgba(245,184,46,.4); }
 .g-starwars { --li-bg: linear-gradient(135deg, #fff3a6, #ffd21f 50%, #b8860b); --li-fg: #0a0d1c; --li-sh: 0 0 0 2px #05060c inset, 0 6px 18px rgba(255,210,31,.35); }
 .g-dragonball { --li-bg: linear-gradient(135deg, #ffe7a3, #ff9d1c 50%, #c55a00); --li-fg: #0a0d1c; --li-sh: 0 0 0 2px #05060c inset, 0 6px 18px rgba(255,157,28,.35); }
+.g-cyberpunk { --li-bg: linear-gradient(135deg, #fcee0a, #ffd400 45%, #ff003c); --li-fg: #0a0d1c; --li-sh: 0 0 0 2px #05060c inset, 0 6px 18px rgba(255,0,60,.35); }
 .game-tile .gicon, .lic-ic { background: var(--li-bg, var(--g, #2a2f52)); color: var(--li-fg, #fff); box-shadow: var(--li-sh, 0 6px 16px rgba(0,0,0,.35)); }
 /* un léger reflet en haut, comme une pièce (toutes les icônes) */
 .game-tile .gicon, .lic-ic, .bt-lic-ic, .bt-hero-ic { position: relative; overflow: hidden; }

@@ -250,8 +250,31 @@ App.battleCards = (() => {
     return mk('heal', 30);
   }
 
-  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy / Wankul / Star Wars / Dragon Ball */
+  /**
+   * Effet simplifié d'une carte Cyberpunk (v3.96 : Gear, Programme) d'après son texte français : Eddies → +1 énergie ; « éliminez /
+   * archivez une Unité » → gros coup ; « +N Power » → N × 10 dégâts en plus ; « −N Power » à une Unité rivale → énergie adverse en
+   * moins ; « épuisez » / « ne peut pas attaquer » / BLOCKER → protection ; piocher / regarder → +1 énergie ; Gigs → Stade ;
+   * Gear sans effet reconnu → +20 PV max.
+   */
+  const isCpCard = (card) => !!card && ((typeof card.eddies === 'boolean' && (card.kind === 'g' || card.kind === 'p')) || card.kind === 'edd') && /^(equipement|programme|eddies)$/.test(norm(card.category));
+  function effectOfCP(card) {
+    const text = norm(card.text || '').replace(/[–−]/g, '-'), cat = norm(card.category);
+    const mk = (key, n, extra = {}) => { const [short, desc] = LABEL[key](n); return { key, n, short, desc, ...extra }; };
+    let m;
+    if (cat === 'eddies') return mk('energy', 1);
+    if (/(eliminez|archivez) (?:une|toutes les) unites?(?! alliee)/.test(text)) return mk('power', 40);
+    if ((m = text.match(/\+(\d+) power/))) return mk('power', Math.min(40, Math.max(10, +m[1] * 10)));
+    if (/unite rivale -\d+ power|-\d+ power a toutes les unites rivales/.test(text)) return mk('strip', 1);
+    if (/epuisez (?:une|toutes les) unites? rivales?|ne peut pas attaquer|\bblocker\b/.test(text)) return mk('shield', 30);
+    if (/piochez|regardez les \d cartes|jetez \d/.test(text)) return mk('charge');
+    if (/\bgigs?\b/.test(text)) return mk('stadium', 10);
+    if (cat === 'equipement') return mk('toolHp', 20);
+    return mk('heal', 30);
+  }
+
+  /** Effet simplifié d'une carte Dresseur / Énergie (fiche TCGdex), ou d'une carte One Piece / Riftbound / Lorcana / Yu-Gi-Oh! / Final Fantasy / Wankul / Star Wars / Dragon Ball / Cyberpunk */
   function effectOf(card) {
+    if (isCpCard(card)) return effectOfCP(card);
     if (isDbCard(card)) return effectOfDB(card);
     if (isSwCard(card)) return effectOfSW(card);
     if (isWkCard(card)) return effectOfWK(card);
@@ -306,6 +329,7 @@ App.battleCards = (() => {
     if (/^data\/wk-img\/[a-z0-9-]+\.webp$/.test(card.image || '')) return card.image; // Wankul : petite copie du visuel, rangée dans le site
     if (/^https:\/\/cdn\.starwarsunlimited\.com\//.test(card.image || '')) return App.games.get('starwars').img.card(card, 'high'); // Star Wars : visuel officiel (couché : tourné par le relais)
     if (/^https:\/\/www\.dbs-cardgame\.com\//.test(card.image || '')) return App.games.get('dragonball').img.card(card); // Dragon Ball : visuel officiel relayé
+    if (/^data\/cp-img\/[a-z0-9-]+\.webp$/.test(card.image || '')) return card.image; // Cyberpunk : petite copie du visuel, rangée dans le site
     if (/^https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+_in_1000x1000\.jpg$/.test(card.image || '')) return card.image.replace('_in_1000x1000', '_400w'); // (promo Final Fantasy)
     if (card.image) return `${card.image}/high.webp`;
     const m = String((card.set && (card.set.symbol || card.set.logo)) || '').match(/assets\.tcgdex\.net\/[a-z-]+\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/(?:logo|symbol)/);
@@ -313,7 +337,7 @@ App.battleCards = (() => {
   }
   /** Carte du sac prête pour le combat (img peut être ta photo ; imgOff = visuel officiel, envoyé à l'adversaire) */
   function bagCard(card, extra = {}) {
-    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$|^encre$|^cristal$|^gemme$|^ressource$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
+    return { uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, img: offImg(card), imgOff: offImg(card), energy: /energ|^don|^rune$|^encre$|^cristal$|^gemme$|^ressource$|^eddies$/.test(norm(card.category)), fx: effectOf(card), used: false, ...extra };
   }
   // carte DON!! One Piece : absente des listes de Bandai, on la dessine (img/combat/don.svg)
   const DON_IMG = 'img/combat/don.svg';
@@ -332,8 +356,11 @@ App.battleCards = (() => {
   // Énergie Dragon Ball Super (v3.68) : pas de carte d'énergie dans ce jeu (n'importe quelle carte posée sert d'énergie) → on la dessine
   const ENE_IMG = 'img/combat/energie-dragonball.svg';
   const eneCard = (extra = {}) => bagCard({ id: 'ENE', name: 'Énergie', category: 'Énergie', kind: 'ene', image: '' }, { img: ENE_IMG, imgOff: ENE_IMG, ...extra });
-  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana, « GEM » = gemme Wankul, « RES » = ressource Star Wars, « ENE » = énergie Dragon Ball */
-  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra)) : id === 'GEM' ? Promise.resolve(gemCard(extra)) : id === 'RES' ? Promise.resolve(resCard(extra)) : id === 'ENE' ? Promise.resolve(eneCard(extra))
+  // Eddies Cyberpunk (v3.96) : la monnaie du jeu (€$) n'est pas une carte → on la dessine
+  const EDD_IMG = 'img/combat/eddies-cyberpunk.svg';
+  const eddCard = (extra = {}) => bagCard({ id: 'EDD', name: 'Eddies', category: 'Eddies', kind: 'edd', image: '' }, { img: EDD_IMG, imgOff: EDD_IMG, ...extra });
+  /** Cartes du sac à partir de leurs numéros (ordinateur, prêt) ; « DON » = carte DON!!, « INK » = encre Lorcana, « GEM » = gemme Wankul, « RES » = ressource Star Wars, « ENE » = énergie Dragon Ball, « EDD » = eddies Cyberpunk */
+  const loadBag = (ids, game, extra = {}) => Promise.all(ids.map((id) => (id === 'DON' ? Promise.resolve(donCard(extra)) : id === 'INK' ? Promise.resolve(inkCard(extra)) : id === 'GEM' ? Promise.resolve(gemCard(extra)) : id === 'RES' ? Promise.resolve(resCard(extra)) : id === 'ENE' ? Promise.resolve(eneCard(extra)) : id === 'EDD' ? Promise.resolve(eddCard(extra))
     : App.games.get(game || 'pokemon').getCard(id).then((c) => bagCard(c, extra)).catch(() => null)))).then((l) => l.filter(Boolean));
 
   const B = () => App.battle;
@@ -488,8 +515,20 @@ App.battleCards = (() => {
     [[db(7), 1], [db(86), 1], [db(60), 2], [db(111), 1], [db(80), 1], [db(131), 1]],
     [[db(7), 2], [db(86), 1], [db(113), 1], [db(111), 1], [db(60), 1], [db(131), 1], [db(80), 1]],
   ];
+  // Cyberpunk (Programmes et Gears de Welcome to Night City) : Surmenage Synaptique (+Power : dégâts en plus), Lames Mantis (Gear :
+  // +PV), Surveillance Corpo (épuiser : protection), Trois Bouches, un Désir (regarder : +1 énergie), Pleins Gaz (−1 Power :
+  // énergie adverse en moins), Bonnie et Clyde / Les Rues en Roue Libre (éliminer : gros coup), Cyberpsychose (+3 Power), puis des Eddies
+  const cp = (n) => `wnc-${String(n).padStart(3, '0')}`;
+  const AI_BAGS_CP = [
+    [[cp(102), 2]],
+    [[cp(102), 2], [cp(25), 1]],
+    [[cp(102), 2], [cp(25), 1], [cp(97), 1], [cp(137), 1]],
+    [[cp(29), 1], [cp(132), 1], [cp(102), 2], [cp(97), 1], [cp(67), 1], [cp(137), 1]],
+    [[cp(29), 2], [cp(105), 1], [cp(25), 1], [cp(97), 1], [cp(102), 1], [cp(137), 1], [cp(67), 1]],
+  ];
   const many = (list) => list.flatMap(([id, n]) => Array(n).fill(id));
-  const aiBag = (level, type, game) => (game === 'dragonball' ? [...many(AI_BAGS_DB[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('ENE')]
+  const aiBag = (level, type, game) => (game === 'cyberpunk' ? [...many(AI_BAGS_CP[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('EDD')]
+    : game === 'dragonball' ? [...many(AI_BAGS_DB[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('ENE')]
     : game === 'starwars' ? [...many(AI_BAGS_SW[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('RES')]
     : game === 'wankul' ? [...many(AI_BAGS_WK[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('GEM')]
     : game === 'finalfantasy' ? [...many(AI_BAGS_FF[level - 1]), ...Array(AI_ENERGY[level - 1]).fill('c-001')]
@@ -506,8 +545,10 @@ App.battleCards = (() => {
   //  Yu-Gi-Oh! : 2 Médicament Rouge, Charge Intrépide, Épées de Révélation de la Lumière, Le Livre de la Lune, 3 Pot de Cupidité ;
   //  Final Fantasy : 2 Ifrit, Golem, Titan, Léviathan, 3 Cristaux ; Wankul : 2 Valheim, Moria, Fnaf, Agrou, 3 Gemmes ;
   //  Star Wars : 2 Réparation, Avantage Tactique, Instant de Quiétude, Guet-Apens, 3 Ressources ;
-  //  Dragon Ball : 2 Météore gigantesque de Destruction, Eau sacrée, Palais de Mamie Voyante, Élimination de Nuisance, 3 Énergies)
-  const loanBag = (type, game) => (game === 'dragonball' ? [...many([[db(60), 2], [db(111), 1], [db(113), 1], [db(131), 1]]), 'ENE', 'ENE', 'ENE']
+  //  Dragon Ball : 2 Météore gigantesque de Destruction, Eau sacrée, Palais de Mamie Voyante, Élimination de Nuisance, 3 Énergies ;
+  //  Cyberpunk : 2 Surmenage Synaptique, Lames Mantis, Surveillance Corpo, Trois Bouches, un Désir, 3 Eddies)
+  const loanBag = (type, game) => (game === 'cyberpunk' ? [...many([[cp(102), 2], [cp(25), 1], [cp(97), 1], [cp(137), 1]]), 'EDD', 'EDD', 'EDD']
+    : game === 'dragonball' ? [...many([[db(60), 2], [db(111), 1], [db(113), 1], [db(131), 1]]), 'ENE', 'ENE', 'ENE']
     : game === 'starwars' ?[...many([[sw(74), 2], [sw(124), 1], [sw(73), 1], [sw(222), 1]]), 'RES', 'RES', 'RES']
     : game === 'wankul' ? [...many([[wk(19), 2], [wk(17), 1], [wk(12), 1], [wk(26), 1]]), 'GEM', 'GEM', 'GEM']
     : game === 'finalfantasy' ? [...many([[ff(4), 2], [ff(106), 1], [ff(110), 1], [ff(178), 1]]), 'c-001', 'c-001', 'c-001']
@@ -527,5 +568,5 @@ App.battleCards = (() => {
     return { key, n, short, desc, ...(eType ? { eType } : {}) };
   }
 
-  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, isWkCard, isSwCard, isDbCard, bagCard, donCard, inkCard, crystalCard, gemCard, resCard, eneCard, loadBag, DON_IMG, INK_IMG, GEM_IMG, RES_IMG, ENE_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
+  return { effectOf, isOpCard, isRbCard, isLcCard, isYgCard, isFfCard, isWkCard, isSwCard, isDbCard, isCpCard, bagCard, donCard, inkCard, crystalCard, gemCard, resCard, eneCard, eddCard, loadBag, DON_IMG, INK_IMG, GEM_IMG, RES_IMG, ENE_IMG, EDD_IMG, offImg, playable, aiCard, aiBag, loanBag, norm, fxOf, DECK_MAX, HAND_START, DRAW_EVERY, HAND_MAX };
 })();

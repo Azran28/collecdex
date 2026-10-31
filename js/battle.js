@@ -199,10 +199,28 @@ App.battle = (() => {
       type: DB_COLOR[(card.colors || [])[0]] || 'colorless', weak: [], res: [], attacks, energy: leader ? 1 : 0, ko: false, ...extra,
     };
   }
-  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy ; unités et leaders Star Wars ; cartes de Combat et Leaders Dragon Ball) */
-  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : game === 'wankul' ? isWkFighter(card) : game === 'starwars' ? isSwFighter(card) : game === 'dragonball' ? isDbFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
+  /**
+   * Combattant Cyberpunk (v3.96, même moteur, adapté légèrement) : les Unités et les Légendes qui ont un Power combattent.
+   * PV = 40 + Power × 12 (0 → 40, 8 → 140, 15 → 220) ; type = couleur (Rouge → Feu, Bleu → Eau, Vert → Plante, Jaune → Électrik) ;
+   * attaque = 10 + Power × 8, coût selon le coût en €$ (1 à 3) ; BLOCKER = « Garde » (1 énergie, moitié des dégâts) ;
+   * Légende = commence avec 1 énergie (Go Solo : elle peut attaquer tout de suite).
+   */
+  const CP_COLOR = { r: 'fire', b: 'water', g: 'grass', y: 'lightning' };
+  const isCpFighter = (card) => (card.kind === 'u' || card.kind === 'l') && typeof card.eddies === 'boolean' && card.power != null;
+  function fighterCP(card, extra = {}) {
+    const pw = Math.max(0, Math.min(15, +card.power || 0)), cost = +card.cost || 0, blocker = /\bBLOCKER\b/.test(String(card.text || '')), legend = card.kind === 'l';
+    const hp = Math.min(240, Math.max(40, r10(40 + pw * 12)));
+    const attacks = [{ name: 'Attaque', cost: Math.min(3, 1 + Math.floor(cost / 3)), base: Math.max(10, r10(10 + pw * 8)), mode: '', noDamage: false, text: '' }];
+    if (blocker) attacks.unshift({ name: 'Garde', cost: 1, base: Math.max(10, r10((10 + pw * 8) / 2)), mode: '', noDamage: false, text: 'Blocker' });
+    return {
+      uid: Math.random().toString(36).slice(2, 9), id: card.id, name: card.name, hp, maxHp: hp, game: 'cyberpunk',
+      type: CP_COLOR[card.color] || 'colorless', weak: [], res: [], attacks, energy: legend ? 1 : 0, ko: false, ...extra,
+    };
+  }
+  /** La carte peut-elle combattre dans sa licence ? (Pokémon avec des PV ; personnages One Piece ; unités Riftbound ; personnages Lorcana ; monstres Yu-Gi-Oh! ; Avants Final Fantasy ; unités et leaders Star Wars ; cartes de Combat et Leaders Dragon Ball ; Unités et Légendes Cyberpunk) */
+  const canFight = (card, game) => (game === 'onepiece' ? isOpFighter(card) : game === 'riftbound' ? isRbFighter(card) : game === 'lorcana' ? isLcFighter(card) : game === 'yugioh' ? isYgFighter(card) : game === 'finalfantasy' ? isFfFighter(card) : game === 'wankul' ? isWkFighter(card) : game === 'starwars' ? isSwFighter(card) : game === 'dragonball' ? isDbFighter(card) : game === 'cyberpunk' ? isCpFighter(card) : /pok/i.test(card.category || 'Pokémon') && !!card.hp);
   /** Combattant de n'importe quelle licence */
-  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : game === 'wankul' ? fighterWK(card, extra) : game === 'starwars' ? fighterSW(card, extra) : game === 'dragonball' ? fighterDB(card, extra) : fighter(card, extra));
+  const fighterOf = (card, game, extra = {}) => (game === 'onepiece' ? fighterOP(card, extra) : game === 'riftbound' ? fighterRB(card, extra) : game === 'lorcana' ? fighterLC(card, extra) : game === 'yugioh' ? fighterYG(card, extra) : game === 'finalfantasy' ? fighterFF(card, extra) : game === 'wankul' ? fighterWK(card, extra) : game === 'starwars' ? fighterSW(card, extra) : game === 'dragonball' ? fighterDB(card, extra) : game === 'cyberpunk' ? fighterCP(card, extra) : fighter(card, extra));
 
   /** Dégâts d'une attaque (avec le hasard des pièces si besoin) */
   function damage(att, from, to, rand = Math.random) {
@@ -357,11 +375,20 @@ App.battle = (() => {
     { n: 4, name: 'Guerrier légendaire', desc: 'Les Super Rares · une énergie d’avance', pool: bt22(21, 51, 58, 67, 88, 123, 127, 135, 43, 27), bonus: 1, strong: true, color: '#ff8a3d' },
     { n: 5, name: 'Dieu de la destruction', desc: 'Gogeta, Broly, Cumber et les Secret Rares · sors tes meilleures cartes', pool: bt22(140, 139, 137, 132, 9, 66, 133, 51), bonus: 1, color: '#ffc83d' },
   ];
+  // Équipes de l'ordinateur Cyberpunk (v3.96 ; Unités et Légendes de Welcome to Night City, data/cp-cartes.json)
+  const wnc = (...n) => n.map((x) => `wnc-${String(x).padStart(3, '0')}`);
+  const LEVELS_CP = [
+    { n: 1, name: 'Gamin des rues', desc: 'Petites Unités de Welcome to Night City · il joue un peu au hasard', pool: wnc(76, 115, 43, 78, 122, 13, 19, 49, 91, 45, 114, 58), bonus: 0, color: '#3ddc97' },
+    { n: 2, name: 'Ganger', desc: 'Gangs de Night City · il attaque toujours au plus fort', pool: wnc(17, 21, 77, 82, 55, 112, 125, 87, 121, 51, 127, 92), bonus: 0, color: '#34a0ff' },
+    { n: 3, name: 'Mercenaire', desc: 'Fixers et mercenaires · il connaît tes points faibles', pool: wnc(12, 14, 44, 57, 6, 86, 124, 8, 20, 9, 16, 126), bonus: 0, color: '#a78bfa' },
+    { n: 4, name: 'Solo', desc: 'MaxTac, Trauma Team et les Épiques · une énergie d’avance', pool: wnc(18, 50, 56, 52, 80, 11, 47, 48, 83, 15, 42, 88), bonus: 1, strong: true, color: '#ff8a3d' },
+    { n: 5, name: 'Légende de Night City', desc: 'Adam Smasher, Saul Bright et les Légendes · sors tes meilleures cartes', pool: wnc(41, 89, 7, 123, 22, 1, 73, 40), bonus: 1, color: '#ffc83d' },
+  ];
   /** Niveaux de l'ordinateur pour une licence */
-  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : game === 'wankul' ? LEVELS_WK : game === 'starwars' ? LEVELS_SW : game === 'dragonball' ? LEVELS_DB : LEVELS);
+  const levels = (game) => (game === 'onepiece' ? LEVELS_OP : game === 'riftbound' ? LEVELS_RB : game === 'lorcana' ? LEVELS_LC : game === 'yugioh' ? LEVELS_YG : game === 'finalfantasy' ? LEVELS_FF : game === 'wankul' ? LEVELS_WK : game === 'starwars' ? LEVELS_SW : game === 'dragonball' ? LEVELS_DB : game === 'cyberpunk' ? LEVELS_CP : LEVELS);
 
   /** Puissance d'un combattant (pour que le Maître prenne ses meilleurs Pokémon) */
   const power = (f) => f.hp + 1.5 * Math.max(...f.attacks.map((a) => a.base));
 
-  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterWK, fighterSW, fighterDB, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, isWkFighter, isSwFighter, isDbFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, WK_EFF, SW_ASPECT, DB_COLOR, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, LEVELS_WK, LEVELS_SW, LEVELS_DB, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
+  return { power, fighter, fighterOP, fighterRB, fighterLC, fighterYG, fighterFF, fighterWK, fighterSW, fighterDB, fighterCP, fighterOf, canFight, isOpFighter, isRbFighter, isLcFighter, isYgFighter, isFfFighter, isWkFighter, isSwFighter, isDbFighter, isCpFighter, OP_COLOR, RB_DOMAIN, LC_INK, YG_ATTR, FF_ELEM, WK_EFF, SW_ASPECT, DB_COLOR, CP_COLOR, LEVELS_RB, LEVELS_LC, LEVELS_YG, LEVELS_FF, LEVELS_WK, LEVELS_SW, LEVELS_DB, LEVELS_CP, damage, expected, aiMove, aiReplace, bestAttack, active, alive, bench, typeKey, TYPE_INFO, LEVELS, LEVELS_OP, levels };
 })();

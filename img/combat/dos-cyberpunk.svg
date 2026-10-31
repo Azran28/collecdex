@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Dos de carte Cyberpunk (carte cachée en combat Avancé), dessiné pour CollecDex : fond noir, cadre rouge néon, puce jaune au centre -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".45" r=".8"><stop offset="0" stop-color="#2a0f3d"/><stop offset=".6" stop-color="#120a22"/><stop offset="1" stop-color="#05060c"/></radialGradient>
+  </defs>
+  <rect width="630" height="880" rx="28" fill="#05060c"/>
+  <rect x="24" y="24" width="582" height="832" rx="10" fill="url(#f)" stroke="#ff003c" stroke-width="6"/>
+  <path d="M24 120 120 24M510 856 606 760" stroke="#ff003c" stroke-width="6"/>
+  <g stroke="#00e5ff" stroke-width="5" opacity=".5" fill="none">
+    <path d="M315 300V110H180M315 580V770H450M215 440H70V260M415 440H560V620"/>
+    <circle cx="180" cy="110" r="10"/><circle cx="450" cy="770" r="10"/><circle cx="70" cy="260" r="10"/><circle cx="560" cy="620" r="10"/>
+  </g>
+  <g transform="translate(315 440)">
+    <rect x="-100" y="-100" width="200" height="200" rx="14" fill="#fcee0a" stroke="#05060c" stroke-width="8"/>
+    <rect x="-60" y="-60" width="120" height="120" rx="6" fill="#05060c"/>
+    <path d="M-30 -20h60M-30 0h40M-30 20h60" stroke="#fcee0a" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>

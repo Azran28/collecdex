@@ -24,6 +24,8 @@ App.badges = (() => {
   const swNames = (ctx) => ctx.items.filter((i) => i.game === 'starwars').map((i) => N(String(i.snap.name).replace(/\s*\([^)]*\)$/, '').split(',')[0]));
   // Dragon Ball Super : titres des cartes possédées (« Son Goku SS3, Prémonitions… (SPR) » → « son goku ss3 »)
   const dbNames = (ctx) => ctx.items.filter((i) => i.game === 'dragonball').map((i) => N(String(i.snap.name).replace(/\s*\([^)]*\)$/, '').split(',')[0]));
+  // Cyberpunk : nom avant le sous-titre (« Johnny Silverhand : Rock'n'Rebelle » → « johnny silverhand »)
+  const cpNames = (ctx) => ctx.items.filter((i) => i.game === 'cyberpunk').map((i) => N(String(i.snap.name).split(' : ')[0]));
   const hasDb = (x, who) => dbNames(x).some((n) => n === who || n.startsWith(who + ' '));
   const L = [
     // Taille de la collection
@@ -107,6 +109,11 @@ App.badges = (() => {
     ['db-fusion', 'Fusion !', 'Gogeta et Vegetto', 'dball', 2, (x) => ['gogeta', 'vegetto'].every((n) => hasDb(x, n))],
     ['db-mechants', 'Les grands méchants', 'Freezer, Cell, Boo et Janemba', 'crown', 3, (x) => ['freezer', 'cell', 'boo', 'janemba'].every((n) => hasDb(x, n))],
     ['db-divin', 'Rareté divine', 'Une carte God Rare ou Secret Rare', 'sparkles', 3, (x) => x.items.some((i) => i.game === 'dragonball' && /^(gdr|scr)$/.test(i.snap.rarity || ''))],
+    // Cyberpunk (v3.96 : mêmes idées — un duo culte, une bande, les méchants, une version rare)
+    ['cp-samourai', 'Samouraï', 'Johnny Silverhand et V', 'chip', 1, (x) => ['johnny silverhand', 'v'].every((n) => cpNames(x).includes(n))],
+    ['cp-edgerunners', 'Les Edgerunners de V', 'Jackie Welles, Judy Álvarez, Panam Palmer, Viktor Vektor et T-Bug', 'chip', 2, (x) => ['jackie welles', 'judy alvarez', 'panam palmer', 'viktor vektor', 't-bug'].every((n) => cpNames(x).includes(n))],
+    ['cp-arasaka', 'Arasaka Corporation', 'Adam Smasher, Yorinobu Arasaka, Hanako Arasaka et Goro Takemura', 'crown', 3, (x) => ['adam smasher', 'yorinobu arasaka', 'hanako arasaka', 'goro takemura'].every((n) => cpNames(x).includes(n))],
+    ['cp-iconique', 'Iconique', '3 cartes iconiques (illustrations alternatives)', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'cyberpunk' && /^(il|io|is)$/.test(i.snap.rarity || '')).length >= 3],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
   const setsCache = {}; // séries de chaque licence

@@ -14,3 +14,4 @@ Seule exception à « ajout par photo » : cartes sans photo, non certifiées (`
 - **Wankul (v3.48)** : catégorie « Wankul » ou série « Wankul … » (une série « Origins » seule reste Riftbound, sauf catégorie Wankul : `rbSet` l’exclut) → `matchWK` (saison + numéro « C#55 », sinon nom). Voir `wankul.md`.
 - **Star Wars Unlimited (v3.67)** : catégorie « Star Wars… » ou série `SW_SETS` (anglais / français) → `matchSW` (série + numéro « 031/252 » / « 297 », sinon nom ; Hyperspace / Showcase / Prestige et « Foil » lus dans le nom). Voir `starwars.md`.
 - **Dragon Ball Super (v3.68)** : catégorie « Dragon Ball… » ou code « BT22-083 » (avant One Piece) → `matchDB` (code + version SPR / GDR, sinon nom) ; Fusion World ignoré. Voir `dragonball.md`.
+- **Cyberpunk (v3.96)** : catégorie « Cyberpunk… » ou série `CP_SETS` (noms TCGplayer) → `matchCP` (série + numéro « 010 », « B005a » = Bêta, sinon nom FR ou EN). Voir `cyberpunk.md`.

@@ -22,7 +22,7 @@ App.views.set = {
         ${pricesDone ? `${miss.length ? `<span>${App.icons.icon('target', 14)} Finir la série : <b>≈ ${euro(missCost)}</b> <span class="muted">(${miss.length} carte${miss.length > 1 ? 's' : ''})</span></span>` : ''}
           <span>${App.icons.icon('coins', 14)} Série complète : <b>≈ ${euro(fullCost)}</b></span>${unknown ? `<span class="muted small">${unknown} carte${unknown > 1 ? 's' : ''} sans prix</span>` : ''}`
           : `<span class="muted">${App.icons.icon('coins', 14)} Estimation du coût de la série… (prix en cours de chargement)</span>`}
-        <a href="${booster}" target="_blank" rel="noopener" class="small">Prix des boosters et displays sur Cardmarket ↗</a>
+        <a href="${booster}" target="_blank" rel="noopener" class="small">${esc(ad.boosterLabel || 'Prix des boosters et displays sur Cardmarket')} ↗</a>
       </div>`;
     };
     const state = { own: query.f || 'toutes', rarities: new Set(), sort: 'num', q: '' };

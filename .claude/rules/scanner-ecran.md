@@ -109,6 +109,7 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 - **Wankul (v3.48)** : dos sûr en classeur (`scan-batch-list › recogOne`, comme Pokémon et Final Fantasy) ; terrains couchés lus en tournant la case (`wankul.js › turned`) ; `HINTS.wankul`. Voir `wankul.md`.
 - **v3.49** : `scan-batch-realign › refitSure` pour toutes les licences sauf Pokémon (One Piece donne maintenant `ctxQuad`) ; dos sûr en classeur : Pokémon, Final Fantasy, Wankul, **Lorcana** (One Piece, Riftbound, Yu-Gi-Oh! : lus quand même, mesuré). Voir `reconnaissance.md` › Outils communs.
 - **Star Wars Unlimited (v3.67)** : `HINTS.starwars`, `CODE_ZONE.starwars` (bas droite), `textScores.starwars` ; leaders et bases couchés lus en tournant la case ; pas de dos sûr (dos inconnu). Voir `starwars.md`.
+- **Cyberpunk (v3.96)** : `HINTS.cyberpunk`, `CODE_ZONE.cyberpunk` (bas gauche : code vertical + onglet du numéro), `textScores.cyberpunk` ; code lu en tournant la carte vers la gauche, numéro en tournant le coin de −50°. Voir `cyberpunk.md`.
 - **Dragon Ball Super (v3.68)** : `HINTS.dragonball`, `CODE_ZONE.dragonball` (bas droite), `textScores.dragonball` ; Extra Z couchées lues en tournant la photo (`turned`). Voir `dragonball.md`.
 
 ## v3.51 : codes à comparer (Arnaud : « impossible de choisir la bonne parmi celles proposées » en Yu-Gi-Oh!)

@@ -139,7 +139,7 @@ App.views.scan = {
    */
   codeOf(game, c) { const ad = App.games.get(game); return (ad && ad.printedCode ? ad.printedCode(c) : '') || c.localId || ''; },
   /** endroit du code imprimé sur la carte recadrée (x0, y0, x1, y1), un peu plus large que les bandes lues */
-  CODE_ZONE: { yugioh: [0.45, 0.66, 1, 0.85], onepiece: [0.55, 0.915, 0.99, 0.995], riftbound: [0, 0.915, 0.55, 1], lorcana: [0, 0.925, 0.5, 1], finalfantasy: [0.15, 0.905, 0.85, 1], wankul: [0.4, 0.91, 1, 1], starwars: [0.5, 0.925, 1, 1], dragonball: [0.55, 0.94, 1, 1] },
+  CODE_ZONE: { yugioh: [0.45, 0.66, 1, 0.85], onepiece: [0.55, 0.915, 0.99, 0.995], riftbound: [0, 0.915, 0.55, 1], lorcana: [0, 0.925, 0.5, 1], finalfantasy: [0.15, 0.905, 0.85, 1], wankul: [0.4, 0.91, 1, 1], starwars: [0.5, 0.925, 1, 1], dragonball: [0.55, 0.94, 1, 1], cyberpunk: [0, 0.78, 0.2, 1] },
   /** zoom sur le code de ta carte → adresse d'image (data:), '' si la licence n'a pas de code à cet endroit */
   async codeZoom(game, src) {
     const z = this.CODE_ZONE[game];
@@ -261,8 +261,11 @@ App.views.scan = {
   },
   /** Points de chaque licence d'après un texte lu sur une carte (codes imprimés ×2, mots typiques) */
   textScores(T) {
-    const rb = App.games.get('riftbound'), lc = App.games.get('lorcana'), yg = App.games.get('yugioh'), ff = App.games.get('finalfantasy'), wk = App.games.get('wankul'), sw = App.games.get('starwars'), db = App.games.get('dragonball');
+    const rb = App.games.get('riftbound'), lc = App.games.get('lorcana'), yg = App.games.get('yugioh'), ff = App.games.get('finalfantasy'), wk = App.games.get('wankul'), sw = App.games.get('starwars'), db = App.games.get('dragonball'), cp = App.games.get('cyberpunk');
     return {
+      // Cyberpunk (v3.96) : code vertical « MS01 - WNC [A] » en bas à gauche, « © 2026 CD PROJEKT S.A. », WEIRDCO, ILLUST., genres imprimés
+      // en anglais (LEGEND, UNIT, GEAR, PROGRAM), mots-clés CALL / PLAY / GO SOLO / BLOCKER, Gigs, Power, Eddies
+      cyberpunk: (cp && cp.codesIn && cp.codesIn(T).some(([, w]) => w >= 0.9) ? 3 : 0) + [/cd\s*proj[ec]kt/i, /weirdco/i, /\billust\s*\./i, /\bgo\s*solo\b/i, /\bgigs?\b/i, /night\s*city|cyberpunk/i, /\bGEAR\b|\bPROGRAM\b/, /unit[ée]s?\s+(alli[ée]e|rivale)|l[ée]gende\s+(alli[ée]e|rivale)/i, /\bpower\b.{0,30}\bunit[ée]|\bunit[ée]s?\s+de\s+power\b/i, /€\$|\beddies\b|\bstreet\s*cred\b/i, /\b(MS|SD|NCB|NCS|EOR|PRR)\s*[0O][1-9I]\s*-\s*(WNC|HEI|EBP)\b/i].filter((r) => r.test(T)).length,
       // Dragon Ball Super (v3.68) : code « BT22-083 R » en bas à droite, « ©B.S./S., T.A. BANDAI MADE IN JAPAN FR », PUISSANCE, Origine / Ère, Combat Z, Éveil, Activation : Principale, mots-clés
       dragonball: (db && db.codesIn && db.codesIn(T).some(([, w]) => w >= 0.85) ? 3 : 0) + [/dragon\s*ball/i, /B\s*\.?\s*S\s*\.?\s*[/,.]?\s*S?\s*\.?\s*,?\s*T\s*\.?\s*A\b/, /\bpuissance\b|\bpower\b/i, /\bcombat\s*z\b|\bextra\s*z\b|\bleader\s*z\b|\bunisson\b/i, /\b[ée]veil\b|activation\s*:\s*(principale|combat)/i, /\b(d[ée]flexion|barri[èe]re|r[ée]plique|bloqueur|double\s+frappe|triple\s+frappe|surpuissance|r[ée]cup[ée]ration)\b/i, /\b(saiyan|terrien|namek|son\s+go(ku|han|ten)|vegeta|freezer|cell\b|boo\b)/i, /\bdeck\s+z\b|\bzone\s+de\s+combat\b|\bdispersion\b/i].filter((r) => r.test(T)).length,
       // Star Wars Unlimited (v3.67) : code « SOR • FR • 038/252 » en bas à droite, « ©LFL ©FFG », Unité terrestre / spatiale, leader, base, traits

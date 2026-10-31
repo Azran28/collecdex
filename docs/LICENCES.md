@@ -100,7 +100,7 @@ On les collectionne aussi en « X / Y », et leurs bases de fans sont très comp
 ## 5. Nouveaux ou à venir
 | Licence | Note |
 |---|---|
-| TCG Cyberpunk 🔜 | Annoncé pour 2026 ; Arnaud en aura bientôt. Voir les sources quand il sera sorti |
+| TCG Cyberpunk ✅ | **Fait en v3.96** (base officielle Netdeck en français, prix TCGplayer catégorie 92, visuels gardés dans le site) |
 | Palworld TCG | Annoncé (à vérifier) |
 | Echoes of Astra, Origins TCG, Neuroscape | Cités par la presse comme sorties 2026, non confirmés |
 | Nouvelles licences d'Union Arena | Nikke, Chained Soldier, Kagurabachi… (dans Union Arena, pas des jeux à part) |

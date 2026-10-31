@@ -247,6 +247,8 @@ App.importer = (() => {
   const LC_SETS = /^(the first chapter|premier chapitre|rise of the floodborn|l.ascension des floodborn|into the inklands|les terres d.encres|ursula.s return|le retour d.ursula|shimmering skies|ciel scintillant|azurite sea|la mer azurite|archazia.s island|l.[iî]le d.archazia|(the )?reign of jafar|le r[èe]gne de jafar|fabled|fabuleux|whispers in the well|lueurs dans les profondeurs|winterspell|givresort|wilds unknown|contr[ée]es inconnues|attack of the vine!?|invasion [ée]pineuse ?!?|hyperia city|into the inkdark|entrez en encresombre|illumineer.s quest.*|qu[êe]te des illumineurs.*|lorcana.*|disney lorcana.*)$/i;
   // Star Wars Unlimited (v3.67) : séries (noms anglais et français)
   const SW_SETS = /^(star\s*wars\s*:?\s*unlimited.*|spark of rebellion|[ée]tincelle de r[ée]bellion|shadows of the galaxy|ombres de la galaxie|twilight of the republic|cr[ée]puscule de la r[ée]publique|jump to lightspeed|passage en vitesse lumi[èe]re|legends of the force|l[ée]gendes de la force|secrets of power|secrets du pouvoir|a lawless time|sans foi ni loi|ashes of the empire|cendres de l.empire|homeworlds|mondes natals)(\s*:.*)?$/i;
+  // Cyberpunk TCG (v3.96) : séries (noms TCGplayer / Cardmarket)
+  const CP_SETS = /^(cyberpunk\b.*|welcome to night city.*|night city (brawl|showdown).*|edgerunner open.*|(the heist|embracing power)\b.*(starter|deck).*|box toppers?\s*-\s*(retail|beta)|pre-?release (beta|retail).*|set 1 promos)$/i;
   const SEALED = /\b(booster|display|elite trainer|etb|coffret|box|bundle|tin|pokebox|blister|deck|theme deck|starter|collection box|pack|sleeve|binder|classeur|portfolio|playmat)\b/i;
 
   /** Lignes du fichier → lignes à importer ({ name, setName, num, qty, lang, cond, ver, skip }) */
@@ -283,6 +285,20 @@ App.importer = (() => {
         row.name = rawName.replace(/\s*[([][^)\]]*[)\]]/g, '').replace(/\s*[-–]?\s*\b(BT|TB|DB|SD|XD|EB|EX)\d{1,2}-\d{2,3}\S*\s*$/i, '').trim() || row.name;
         if (/fusion ?world/.test(cat) || /\bFB\d{2}-\d{3}\b/i.test(`${get(r, 'number')} ${rawName}`)) row.skip = 'Fusion World (pas encore pris en charge)';
         else if (!dbCode && !num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
+        else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
+        out.push(row);
+        return;
+      }
+      // Cyberpunk TCG (v3.96) : jeu indiqué (« Cyberpunk TCG ») ou série (« Welcome to Night City - Retail », « The Heist - Beta Starter Deck »,
+      // « Night City Brawl Season 1 »…) ; numéro « 010 », « 005a », Bêta « B010 » ; rareté entre parenthèses dans le nom (« (Epic) »)
+      const cpSet = String(get(r, 'set') || '').trim();
+      if (/cyberpunk/.test(cat) || (CP_SETS.test(cpSet) && !/pok|one ?piece|riftbound|lorcana|yu ?-?gi|final|wankul|star ?wars|dragon ?ball/.test(cat))) {
+        row.game = 'cyberpunk';
+        row.setName = cpSet.replace(/^cyberpunk\s*(tcg)?\s*[-:–]?\s*/i, '');
+        const n = String(get(r, 'number') || '').trim().match(/^([Bβ])?\s*0*(\d{1,3}[ab]?)$/i);
+        if (n) { row.num = { n: n[2].toLowerCase(), t: null }; if (n[1] && !/b[eê]ta/i.test(row.setName)) row.setName += ' Beta'; }
+        row.name = rawName.replace(/\s*[([][^)\]]*[)\]]/g, '').replace(/\s+[-–—]\s+/, ' ').replace(/\s*:\s*/, ' ').trim() || row.name;
+        if (!n && !num && SEALED.test(rawName)) row.skip = 'produit scellé, pas une carte';
         else if (m.qty != null && row.qty <= 0) row.skip = 'quantité 0';
         out.push(row);
         return;
@@ -611,8 +627,28 @@ App.importer = (() => {
     return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'code de la carte non indiqué' : 'le nom ne correspond pas tout à fait au code' };
   }
 
+  /** Ligne Cyberpunk : série + numéro (« 010 », « 005a » ; Bêta d'après la série), sinon le nom (français ou anglais) et la série */
+  async function matchCP(row) {
+    const cp = App.games.get('cyberpunk');
+    const q = norm(row.name);
+    const wrap = (c) => ({ card: { ...c, game: 'cyberpunk' }, set: { id: c.set.id, name: c.set.name, symbol: '', logo: '', official: c.set.cardCount.official, group: c.set.serie } });
+    const sets = row.setName ? await cp.setIdsByName(row.setName) : [];
+    let list = [];
+    if (row.num) for (const s of sets) list.push(...(await cp.byCode(s, row.num.n)));
+    const byCode = list.length > 0;
+    const ok = (c) => nameScore(q, c.name, c.nameEn, c.baseName) >= 0.75 || nameScore(q, c.baseName, c.nameEn.split(' — ')[0], c.baseName) >= 0.85;
+    if (!list.length && q.length >= 2) list = (await cp.search({ name: row.name })).filter(ok);
+    if (!list.length && q.length >= 2) list = (await cp.search({ name: row.name.split(' ')[0] })).filter(ok);
+    if (!list.length) return { status: 'introuvable', why: row.setName && !sets.length ? `série « ${row.setName} » inconnue` : 'carte introuvable' };
+    if (sets.length) { const inSet = new Set(sets); list = [...list.filter((c) => inSet.has(c.setId)), ...list.filter((c) => !inSet.has(c.setId))]; }
+    const okName = !q || nameScore(q, list[0].name, list[0].nameEn, list[0].baseName) >= 0.5 || nameScore(q, list[0].nameEn, list[0].nameEn, list[0].baseName) >= 0.5;
+    const status = byCode ? (okName ? 'ok' : 'verif') : list.length === 1 ? 'verif' : 'choix';
+    return { status, ...wrap(list[0]), cands: list.slice(1, 12).map(wrap), why: status === 'ok' ? '' : !byCode ? 'série ou numéro de la carte non indiqué' : 'le nom ne correspond pas tout à fait au numéro' };
+  }
+
   /** Une ligne → { status: 'ok'|'verif'|'choix'|'introuvable', card, set, cands } */
   async function match(row) {
+    if (row.game === 'cyberpunk') return matchCP(row);
     if (row.game === 'dragonball') return matchDB(row);
     if (row.game === 'starwars') return matchSW(row);
     if (row.game === 'wankul') return matchWK(row);

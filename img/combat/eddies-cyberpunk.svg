@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 880">
+  <!-- Carte « Eddies » (dessinée pour les combats Cyberpunk de CollecDex : la monnaie du jeu, €$, n'est pas une carte) -->
+  <defs>
+    <radialGradient id="f" cx=".5" cy=".42" r=".8"><stop offset="0" stop-color="#3a1550"/><stop offset=".6" stop-color="#160b28"/><stop offset="1" stop-color="#05060c"/></radialGradient>
+  </defs>
+  <rect width="630" height="880" rx="30" fill="#05060c"/>
+  <rect x="18" y="18" width="594" height="844" rx="14" fill="url(#f)" stroke="#fcee0a" stroke-width="6"/>
+  <g stroke="#ff003c" stroke-width="5" opacity=".45"><path d="M18 200H612M18 620H612"/></g>
+  <g transform="translate(315 400)">
+    <rect x="-190" y="-130" width="380" height="260" rx="22" fill="#05060c" stroke="#ff003c" stroke-width="12"/>
+    <text x="0" y="62" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="180" fill="#ff003c">€$</text>
+  </g>
+  <rect x="120" y="680" width="390" height="90" rx="10" fill="#fcee0a"/>
+  <text x="315" y="742" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="58" fill="#05060c">EDDIES</text>
+</svg>

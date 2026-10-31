@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice">
+  <!-- Décor des combats Cyberpunk, dessiné pour CollecDex : rue de Night City la nuit, tours, enseignes au néon, sol mouillé -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07081a"/><stop offset=".6" stop-color="#2a0f3d"/><stop offset="1" stop-color="#5a1240"/></linearGradient>
+    <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1028"/><stop offset="1" stop-color="#05060c"/></linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#sky)"/>
+  <!-- tours au loin -->
+  <g fill="#120c24">
+    <rect x="40" y="120" width="120" height="330"/><rect x="190" y="60" width="90" height="390"/><rect x="300" y="160" width="140" height="290"/>
+    <rect x="760" y="80" width="110" height="370"/><rect x="890" y="140" width="150" height="310"/><rect x="1060" y="40" width="110" height="410"/>
+    <path d="M540 450V30l60-20 60 20v420Z"/>
+  </g>
+  <g fill="#fcee0a" opacity=".55">
+    <rect x="60" y="150" width="8" height="5"/><rect x="90" y="190" width="8" height="5"/><rect x="120" y="240" width="8" height="5"/><rect x="210" y="100" width="8" height="5"/><rect x="250" y="160" width="8" height="5"/>
+    <rect x="330" y="200" width="8" height="5"/><rect x="380" y="260" width="8" height="5"/><rect x="780" y="120" width="8" height="5"/><rect x="830" y="200" width="8" height="5"/>
+    <rect x="920" y="180" width="8" height="5"/><rect x="990" y="240" width="8" height="5"/><rect x="1090" y="90" width="8" height="5"/><rect x="1130" y="170" width="8" height="5"/>
+    <rect x="570" y="80" width="8" height="5"/><rect x="610" y="140" width="8" height="5"/><rect x="590" y="220" width="8" height="5"/>
+  </g>
+  <!-- enseignes au néon -->
+  <g fill="none" stroke-width="7" stroke-linecap="round">
+    <rect x="455" y="190" width="70" height="140" rx="6" stroke="#ff003c"/>
+    <path d="M470 220h40M470 260h40M470 300h40" stroke="#ff003c"/>
+    <rect x="680" y="240" width="60" height="110" rx="6" stroke="#00e5ff"/>
+    <circle cx="710" cy="295" r="18" stroke="#00e5ff"/>
+    <path d="M160 300h70" stroke="#fcee0a"/>
+    <path d="M960 330h90" stroke="#ff4fd8"/>
+  </g>
+  <!-- sol mouillé, reflets -->
+  <path d="M0 450H1200V700H0Z" fill="url(#gr)"/>
+  <g stroke-width="6" opacity=".35" stroke-linecap="round">
+    <path d="M490 480v120" stroke="#ff003c"/><path d="M710 470v90" stroke="#00e5ff"/><path d="M195 470v60" stroke="#fcee0a"/><path d="M1005 480v70" stroke="#ff4fd8"/>
+  </g>
+  <path d="M0 450H1200" stroke="#ff003c" stroke-width="4" opacity=".7"/>
+  <g stroke="#2a1f45" stroke-width="3"><path d="M600 450 200 700M600 450 1000 700M600 450V700"/></g>
+</svg>

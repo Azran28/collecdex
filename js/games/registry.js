@@ -22,6 +22,7 @@ App.games = (() => {
     { id: 'wankul', name: 'Wankul', icon: 'wankil', status: 'actif', desc: 'Le jeu de Laink et Terracid : toutes les saisons et hors-séries.' },
     { id: 'starwars', name: 'Star Wars Unlimited', icon: 'saber', status: 'actif', desc: 'Toutes les extensions, Hyperspace, Showcase et promos, en français.' },
     { id: 'dragonball', name: 'Dragon Ball Super', icon: 'dball', status: 'actif', desc: 'Le Card Game « Masters » : toutes les séries, decks et promos, en français.' },
+    { id: 'cyberpunk', name: 'Cyberpunk TCG', icon: 'chip', status: 'actif', desc: 'Welcome to Night City, decks, promos et Bêta, en français.' },
     { id: 'magic', name: 'Magic: The Gathering', icon: 'sparkles', status: 'bientôt', desc: 'Toutes les extensions, prix inclus.' },
     { id: 'autres', name: 'Et au-delà…', icon: 'box', status: 'plus tard', desc: 'Figurines, Funko Pop, pièces, jeux vidéo…' },
   ];
