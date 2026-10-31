@@ -612,11 +612,11 @@ App.certify = (() => {
     const GW = 24, GH = 33, SW = 72, SH = 100;
     const cv = Object.assign(document.createElement('canvas'), { width: SW, height: SH });
     const cg = cv.getContext('2d', { willReadFrequently: true });
-    let frames = [], phase = 'attente', lastBack = 0, stable = 0, stillT = 0, prev = null, sinceBack = 99;
+    let frames = [], phase = 'attente', lastBack = 0, stable = 0, stillT = 0, faceT = 0, prev = null, sinceBack = 99;
     // lampe : carte seule → le code est joué pendant qu'on montre le dos ; rafale → pendant que la face est tenue
     // immobile, juste avant la photo automatique. lamp : { state: 'idle' | 'play' | 'done', code }
     let torch, lamp = { state: 'idle', code: null };
-    const reset = () => { frames = []; phase = 'attente'; stable = 0; prev = null; sinceBack = 99; lamp = { state: 'idle', code: null }; };
+    const reset = () => { frames = []; phase = 'attente'; stable = 0; faceT = 0; prev = null; sinceBack = 99; lamp = { state: 'idle', code: null }; };
     // la lampe joue son code, puis 0,65 s de plus : la caméra montre l'image avec un retard (jusqu'à 0,6 s)
     const lampBusy = (now) => lamp.state === 'play' || (lamp.state === 'done' && now - lamp.code.end < 1100);
     function startLamp() {
@@ -661,7 +661,7 @@ App.certify = (() => {
       const n = frames.length;
       if (b >= BACK_T) {
         if (n > 1 && frames[n - 2].b >= BACK_T) { phase = 'dos'; lastBack = now; if (!auto) startLamp(); }
-        stable = 0;
+        stable = 0; faceT = 0;
         return !auto && lampBusy(now) ? 'lampe' : phase;
       }
       if (phase === 'attente') return phase;
@@ -675,9 +675,14 @@ App.certify = (() => {
         // v3.58 : ~0,45 s de calme (et 3 images), plus « 6 images de suite » : à 5–7 images/s (téléphone d'Arnaud ~5,6),
         // la main bouge un peu d'une image à l'autre et la carte n'était jamais prise (labo : 40 % de cartes oubliées) ;
         // une image un peu bougée (moins de 2 × le seuil) ne remet pas le compte à zéro
-        const thr = 4 + sd * 0.08, still = sd >= 16 && diff < thr;
+        // v3.90 (Arnaud : « comme pour la version non certifiée, rends l'immobilisation plus souple ») : mêmes règles que la
+        // rafale sans badge (scan-batch-burst › rTick, v3.82) — main qui tremble = calme (écart < 10 + 0,12 σ, 3 images, 0,45 s),
+        // face présente depuis 0,8 s et pas de grand geste, ou depuis 1,8 s quoi qu'il arrive
+        const thr = 10 + sd * 0.12, still = sd >= 16 && diff < thr;
+        if (sd < 16) faceT = 0; else if (!faceT) faceT = now;
         if (still) { if (!stable) stillT = now; stable++; } else if (!(sd >= 16 && diff < thr * 2)) stable = 0;
-        if (stable >= 3 && now - stillT >= 450) { if (startLamp()) return 'lampe'; phase = 'pret'; }
+        const held = faceT ? now - faceT : 0;
+        if ((stable >= 3 && now - stillT >= 450) || (held >= 800 && diff < 28 + sd * 0.3) || held >= 1800) { if (startLamp()) return 'lampe'; phase = 'pret'; }
       }
       return phase;
     }
