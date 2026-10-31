@@ -954,6 +954,11 @@ test('page tournée : glissement et changement d’un coup refusés', async (App
   eq(T.judge(swipe).pass, false, 'pages qui glissent');
   const w = T.watcher(); let ev = null; for (const f of swipe) ev = w.push(f) || ev;
   ok(ev && ev.res && ev.res.pass === false, 'le suivi en direct voit le geste et le refuse');
+  // v3.94 : la même page, juste décalée (téléphone bougé), n'est pas un geste
+  const sh = new Float32Array(O.length); for (let y = 0; y < T.GH; y++) for (let x = 0; x < T.GW; x++) sh[y * T.GW + x] = O[y * T.GW + Math.min(T.GW - 1, x + 8)];
+  const wob = [...still(O, 6, 0), { t: 540, g: sh.map((v, i) => (v + O[i]) / 2) }, ...still(sh, 6, 630)];
+  const w2 = T.watcher(); let ev2 = null; for (const f of wob) ev2 = w2.push(f) || ev2;
+  eq(ev2, null, 'téléphone bougé pris pour une page tournée');
 });
 
 // v3.84 : rafale — une carte qui sort du cadre en glissant se retrouve décalée ; une autre image ou la même sans décalage ne compte pas
