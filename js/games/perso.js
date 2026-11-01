@@ -159,13 +159,17 @@
     lines.forEach((t, i) => { const n = nameish(t, licWords, min); if (!n) return; const k = norm(n); const c = seen.get(k) || { n, k: 0, i }; c.k++; if (n.length > c.n.length) c.n = n; seen.set(k, c); });
     return [...seen.values()].sort((a, b) => b.k - a.k || b.n.length - a.n.length || a.i - b.i)[0]?.n || '';
   }
+  /** Licence perso d'après un texte lu (mots typiques HINTS, sinon un nom de licence de `lics` écrit dessus), sinon '' */
+  function licIn(text, lics = []) {
+    const T = ' ' + norm(text).replace(/[^a-z0-9]+/g, ' ') + ' ';
+    const hint = Object.keys(HINTS).find((l) => HINTS[l].test(T));
+    return hint || lics.find((l) => { const k = norm(l).split(/[\s:(]/)[0]; return k.length >= 4 && !STOP.has(k) && T.includes(` ${k} `); }) || '';
+  }
   function guess({ flat = [], turned = [], tess = '' } = {}, { lics = [] } = {}) {
     const all = [...flat, ...turned, ...String(tess).split('\n')].map((t) => String(t || '').trim()).filter(Boolean);
     const out = { num: '', name: '', total: 0, lic: '' };
     // licence : mots typiques (HINTS), sinon un nom de licence connue écrit sur la carte
-    const T = ' ' + norm(all.join(' ')).replace(/[^a-z0-9]+/g, ' ') + ' ';
-    const hint = Object.keys(HINTS).find((l) => HINTS[l].test(T));
-    out.lic = hint || lics.find((l) => { const k = norm(l).split(/[\s:(]/)[0]; return k.length >= 4 && !STOP.has(k) && T.includes(` ${k} `); }) || '';
+    out.lic = licIn(all.join(' '), lics);
     const licWords = new Set(norm(out.lic + ' jackie chan chat wwe slam attax dreamworks carrefour topps').split(/[^a-z0-9]+/).filter((w) => w.length > 2));
     // numéro : code imprimé, sinon « 12/150 » (donne aussi le total), sinon « 18 Nom DP 300 » (cartes Digimon numérotées)
     for (const re of CODE_RES) { const t = all.find((x) => re.test(x)); if (t) { out.num = t.match(re)[1]; break; } }
@@ -195,7 +199,7 @@
   }
 
   App.games.register(GAME, {
-    guess, ownedByNum, setByPrefix,
+    guess, licIn, ownedByNum, setByPrefix,
     id: GAME,
     name: 'Collections perso',
     ownOnly: true,      // la série ne montre que tes cartes (pas les manquantes)

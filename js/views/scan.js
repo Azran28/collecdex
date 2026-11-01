@@ -266,10 +266,21 @@ App.views.scan = {
    * v3.71 : points de chaque licence d'après le texte lu par PaddleOCR (lecteur des numéros, ~1 s, bien meilleur que Tesseract
    * sur les petits codes) dans 4 bandes qui couvrent le titre, le code et le bas de la carte. Sert à repérer une mauvaise licence.
    */
-  async licenceScores(blob) {
-    if (!App.cardTools) return {};
+  async licenceScores(blob) { return (await App.views.scan.licenceRead(blob)).scores; },
+  /** Même lecture → { scores, text } (v4.11 : le texte sert aussi à reconnaître une licence des collections perso) */
+  async licenceRead(blob) {
+    if (!App.cardTools) return { scores: {}, text: '' };
     const T = await App.cardTools.readBands(blob, [], [[0, 0.17, 0, 1], [0.66, 0.8, 0, 1], [0.78, 0.9, 0, 1], [0.88, 1, 0, 1]]).catch(() => []);
-    return T.length ? App.views.scan.textScores(T.join('\n')) : {};
+    const text = T.join('\n');
+    return { scores: T.length ? App.views.scan.textScores(text) : {}, text };
+  },
+  /**
+   * v4.11 (Arnaud : « si on scanne une carte d'une mauvaise licence, que ça le comprenne et renvoie vers la bonne ») :
+   * licence de base nettement reconnue dans des points `sc` (≥ 3 points, 2 de plus que la suivante et que `cur`), sinon ''.
+   */
+  clearLicence(sc, cur = '') {
+    const [top, next] = Object.entries(sc || {}).filter(([k]) => App.games.get(k) && k !== 'perso').sort((x, y) => y[1] - x[1]);
+    return top && top[0] !== cur && top[1] >= 3 && top[1] >= (next ? next[1] : 0) + 2 && top[1] >= ((sc || {})[cur] || 0) + 2 ? top[0] : '';
   },
   /** Points de chaque licence d'après un texte lu sur une carte (codes imprimés ×2, mots typiques) */
   textScores(T) {
