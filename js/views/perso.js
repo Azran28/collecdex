@@ -163,10 +163,15 @@ App.views.persoAdd = {
       if (!alive() || cur !== c) return;
       c.state = 'done';
       if (g) {
+        // v4.13 : « 80/216 » sans licence écrite → une de tes séries perso de 216 cartes, si tu en as une (sinon celle connue par défaut)
+        const byTotal = g.total && App.col.all().filter((x) => x.game === 'perso' && x.perso && +x.perso.total === g.total).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))[0];
+        if (byTotal && (!g.lic || ad.guess({ flat: [`1/${g.total}`] }).lic === g.lic)) { g.lic = byTotal.perso.lic; g.set = byTotal.snap.setName === 'Sans série' ? '' : byTotal.snap.setName; }
         const pre = ad.setByPrefix(g.num, g.lic || st.lic);
         // licence écrite sur la carte (« Slam Attax », « Akiyoshi Hongo »…) ≠ celle de la carte d'avant → on y passe (et on le dit)
-        if (st.lic && g.lic && App.util.norm(g.lic) !== App.util.norm(st.lic)) { setWhere(g.lic, (pre && pre.lic === g.lic && pre.set) || lastSet(g.lic)); c.moved = true; }
-        else if (!st.lic && (g.lic || pre)) setWhere(g.lic || pre.lic, pre && (!g.lic || pre.lic === g.lic) ? pre.set : '');
+        // (v4.13 : les mots lus peuvent aussi donner la série : « DreamWorks » → Cartes de supermarché · DreamWorks (Carrefour))
+        if (st.lic && g.lic && App.util.norm(g.lic) !== App.util.norm(st.lic)) { setWhere(g.lic, g.set || (pre && pre.lic === g.lic && pre.set) || lastSet(g.lic)); c.moved = true; }
+        else if (!st.lic && (g.lic || pre)) setWhere(g.lic || pre.lic, g.set || (pre && (!g.lic || pre.lic === g.lic) ? pre.set : ''));
+        else if (g.set && g.lic && App.util.norm(g.set) !== App.util.norm(st.set)) setWhere(st.lic, g.set);
         else if (pre && pre.lic === st.lic && !st.set) setWhere(st.lic, pre.set);
         const had = ad.ownedByNum(g.num, st.lic);
         c.num = g.num || ''; c.total = g.total || 0;
@@ -224,8 +229,7 @@ App.views.persoAdd = {
     // v4.11 : photo venue de Capturer (« On dirait une carte Digimon › Ajouter à ma collection perso ») → lue ici
     const hand = App.photoHandoff;
     if (hand && hand.to === 'perso' && hand.blob) { App.photoHandoff = null; if (mode === 'page') setMode('carte'); onFile(hand.blob); }
-    // Capturer › « Autre licence » (?photo=1) : l'appareil photo s'ouvre tout de suite sur téléphone
-    else if (q.photo && touch) try { $('#pa-cam').click(); } catch (e) { /* */ }
+    // (v4.13, Arnaud : Capturer › « Autre licence » n'ouvre plus l'appareil photo tout seul : on arrive sur la page, on choisit)
   },
 
   /** Ajoute une carte perso (ou +1 exemplaire) → { had, setId } ; sa photo devient son visuel */
@@ -265,6 +269,9 @@ App.views.persoAdd = {
     let g = ad.guess({ flat, turned }, { lics });
     // v4.07 : carte photographiée à l'envers, ou nom écrit dans l'autre sens → les deux autres sens
     if (!g.name) { turned = [...turned, ...(await lines(rot(3)))]; flat = [...flat, ...(await lines(rot(2)))]; g = ad.guess({ flat, turned }, { lics }); }
+    // v4.13 : nom trouvé mais pas la licence (« DEFENCE » écrit à la verticale dans l'autre sens, cartes WWE en largeur) → l'autre quart de tour,
+    // seulement pour la licence (le nom déjà lu est gardé)
+    else if (!g.lic) { const g2 = ad.guess({ flat, turned: [...turned, ...(await lines(rot(3)))] }, { lics }); if (g2.lic) g = { ...g, lic: g2.lic, set: g2.set }; }
     if (!g.name) {
       const w = await P.getWorker(), r = await w.recognize(blob).catch(() => null);
       g = ad.guess({ flat, turned, tess: (r && r.data && r.data.text) || '' }, { lics });

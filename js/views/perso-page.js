@@ -15,11 +15,24 @@ App.views.persoPage = {
     await App.need('reco', 'scan');
     const R = App.recognizer, [cols, rows] = ctx.fmt === '2x2' ? [2, 2] : [3, 3];
     const img = await createImageBitmap(file);
-    let quads = null;
-    try {
-      const r = ctx.fmt === '2x2' ? await R.detectLoose(img, cols, rows) : await R.detectCards(img, cols, rows);
-      if (r && r.found >= Math.ceil(cols * rows * 0.5)) quads = r.cells.map((c) => c.quad);
-    } catch (e) { console.warn('cartes', e); }
+    let quads = null, src = img, turned = false;
+    const detect = (im) => Promise.resolve().then(() => (ctx.fmt === '2x2' ? R.detectLoose(im, cols, rows) : R.detectCards(im, cols, rows))).catch((e) => { console.warn('cartes', e); return null; });
+    const enough = (r) => r && r.found >= Math.ceil(cols * rows * 0.5);
+    const r = await detect(img);
+    if (enough(r)) quads = r.cells.map((c) => c.quad);
+    // v4.13 (page WWE d'Arnaud : cartes match / Pay Per View en largeur, photo en largeur) : page aussi cherchée tournée d'un quart de tour ;
+    // nettement mieux (note × 1,5) → cartes prises là, remises en largeur, dans l'ordre de la page (mesuré : 105 contre 44)
+    if (img.width > img.height && live()) {
+      const c = document.createElement('canvas'); c.width = img.height; c.height = img.width;
+      const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(Math.PI / 2); x.drawImage(img, -img.width / 2, -img.height / 2);
+      const rimg = await createImageBitmap(c), r2 = await detect(rimg);
+      if (enough(r2) && (!quads || (r2.score || 0) > 1.5 * ((r && r.score) || 0))) {
+        // (point (u, v) de la photo tournée = (v, 1 − u) sur la photo : rangées de haut en bas, puis de gauche à droite)
+        const at = (q) => { const u = q.reduce((t, p) => t + p[0], 0) / 4, v = q.reduce((t, p) => t + p[1], 0) / 4; return { x: v, y: 1 - u }; };
+        quads = r2.cells.map((c) => c.quad).sort((p, q) => { const A = at(p), B = at(q); return (Math.round(A.y * rows - 0.5) - Math.round(B.y * rows - 0.5)) || (A.x - B.x); });
+        src = rimg; turned = true;
+      }
+    }
     if (!quads) {
       let g = null; try { g = R.detectGrid(img, cols, rows); } catch (e) { /* */ }
       quads = g && g.cells && g.cells.length === cols * rows ? g.cells.map((c) => c.quad) : null;
@@ -34,7 +47,8 @@ App.views.persoPage = {
     const cards = [];
     for (const q of quads) {
       try {
-        const cv = App.views.scan.warpTo(img, q);
+        let cv = App.views.scan.warpTo(src, q);
+        if (turned) { const t = document.createElement('canvas'); t.width = cv.height; t.height = cv.width; const x = t.getContext('2d'); x.translate(t.width / 2, t.height / 2); x.rotate(-Math.PI / 2); x.drawImage(cv, -cv.width / 2, -cv.height / 2); cv = t; }
         const blob = await new Promise((res) => cv.toBlob(res, 'image/webp', 0.9));
         if (blob && !(await R.looksEmpty(blob).catch(() => false))) cards.push({ blob, url: URL.createObjectURL(blob), on: true, num: '', name: '', state: 'wait' });
       } catch (e) { console.warn(e); }
@@ -96,6 +110,7 @@ App.views.persoPage = {
       c.state = 'done';
       if (g) {
         if (g.lic) ctx.fillLic(g.lic);
+        if (g.set && g.lic === ctx.shared().lic) ctx.fillSet(g.set);
         const lic = ctx.shared().lic, had = ad.ownedByNum(g.num, lic);
         if (!c.num) c.num = g.num || '';
         if (!c.name) c.name = (had && had.snap.name) || g.name || '';

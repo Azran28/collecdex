@@ -95,11 +95,14 @@ test('collections perso : numéro, nom et licence lus sur la carte', (App) => {
   ok(!ad.guess({ flat: ['025/165'] }).name && ad.guess({ flat: ['025/165'] }).total === 165, '« 025/165 » : numéro et total');
   // v4.07 : autres licences d'Arnaud (Jackie Chan, WWE Slam Attax, DreamWorks de Carrefour)
   g = ad.guess({ flat: ['101', 'DEFENCE', 'ATTACK'], turned: ['JOHN CENA'] }, { lics });
-  eq(g.name, 'John Cena');
+  ok(g.name === 'John Cena' && g.lic === 'WWE Slam Attax', 'John Cena, WWE reconnue par « DEFENCE » (v4.13) : ' + JSON.stringify(g));
   g = ad.guess({ flat: ['Marty', '80/216', '80/216'] }, { lics });
   ok(g.name === 'Marty' && g.num === '80' && g.total === 216, 'Marty 80/216 : ' + JSON.stringify(g));
+  ok(g.lic === 'Cartes de supermarché' && g.set === 'DreamWorks (Carrefour)', '« /216 » seul = DreamWorks de Carrefour (v4.13) : ' + JSON.stringify(g));
+  g = ad.guess({ flat: ['TLC MATCH', 'PAY PER VIEW'] }, { lics });
+  ok(g.lic === 'WWE Slam Attax' && g.name === 'Tlc Match', 'carte match WWE, « Pay Per View » n’est pas un nom (v4.13) : ' + JSON.stringify(g));
   g = ad.guess({ flat: ['&©2010 DreamWorks Animation L.L.C.', '89/216', 'Force', 'Humour'] }, { lics });
-  ok(g.lic === 'DreamWorks (Carrefour)' && !g.name, 'copyright ≠ nom : ' + JSON.stringify(g));
+  ok(g.lic === 'Cartes de supermarché' && g.set === 'DreamWorks (Carrefour)' && !g.name, 'copyright ≠ nom ; DreamWorks = cartes de supermarché (v4.13) : ' + JSON.stringify(g));
   g = ad.guess({ flat: ['Jd-52', 'ATOMISEUR', 'EFFECT: Si vous perdez le duel, déconnectez'] }, { lics });
   ok(g.num === 'Jd-52' && !g.name, 'carte à règles : pas de nom pris sur la carte droite : ' + JSON.stringify(g));
   g = ad.guess({ turned: ['JACKIE', 'CHAT', 'CHI', 'CHANCE', 'TECHNIQUE', 'SAGESSE', 'FORCE'] }, { lics });

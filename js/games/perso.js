@@ -132,14 +132,22 @@
     /\b([A-Z]{2,5}\d{0,3}-[A-Z]{0,2}\d{2,3}[A-Z]?)\b/,                 // autres codes « ABC-123 », « OP09-004 »
   ];
   // mots qui ne sont jamais le nom d'une carte : niveaux, genres, caractéristiques (Digimon, Jackie Chan, WWE, DreamWorks…)
-  const WORDS = /^(digimon|niveau|option|puissance|action|effect|edition|[eé]dition|1[eè]re|ere|disciple|champion|ultime|m[eé]ga|virus|donn[ée]e|vaccin|d[ée]fen[cs]e|attack|attaque|points?|force|sagesse|technique|chance|chi|humour|gentillesse|intelligence|vitesse|cartes?|animation|skg|les|des|de|la|le|du|et|aventures|trading|card|game|pv|hp|atk|def|rights?|reserved|limited|ltd|inc|europe|all|tous|droits|r[ée]serv[ée]s|licen[cs]e[ds]?|by)$/i;
+  const WORDS = /^(digimon|niveau|option|puissance|action|effect|edition|[eé]dition|1[eè]re|ere|disciple|champion|ultime|m[eé]ga|virus|donn[ée]e|vaccin|d[ée]fen[cs]e|attack|attaque|points?|force|sagesse|technique|chance|chi|humour|gentillesse|intelligence|vitesse|cartes?|animation|skg|les|des|de|la|le|du|et|aventures|trading|card|game|pv|hp|atk|def|rights?|reserved|limited|ltd|inc|europe|all|tous|droits|r[ée]serv[ée]s|licen[cs]e[ds]?|by|pay|per|view|limited|edition|champion)$/i;
   // mots imprimés qui désignent une licence même sans son nom (« © Akiyoshi Hongo • Toei Animation » = Digimon) — v4.07 : photos d'Arnaud
   const HINTS = {
     Digimon: / digimon | akiyoshi | hongo | digi oeuf | digivolution /,
     'Les Aventures de Jackie Chan': / jackie chan | aventures de jackie | jackie chat /,
-    'WWE Slam Attax': / slam attax | wwe | topps /,
-    'DreamWorks (Carrefour)': / dreamworks | carrefour | animation skg /,
+    // (v4.13 : sur les photos d'Arnaud le lecteur ne voit ni « WWE » ni « Slam Attax » (logos dessinés), mais toujours « DEFENCE » / « ATTACK »
+    // en anglais britannique, que n'imprime aucune autre licence : 10 cartes sur 10)
+    // (cartes match / événement sans caractéristiques : « TLC MATCH », « PAY PER VIEW », « ROYAL RUMBLE »…)
+    'WWE Slam Attax': / slam attax | wwe | topps | defence | smackdown | ecw | pay per view | royal rumble | extreme rules | hell in a cell | (tlc|casket|ladder|steel cage|cage|tables|i quit|last man standing) match | slammy | wrestlemania | summerslam | survivor series /,
+    // (v4.13, Arnaud : les DreamWorks de Carrefour sont des « cartes de supermarché » → licence commune, série à part)
+    'Cartes de supermarché': / dreamworks | carrefour | animation skg /,
   };
+  // série donnée par les mêmes mots (licence qui regroupe plusieurs collections)
+  const HINT_SET = { 'Cartes de supermarché': 'DreamWorks (Carrefour)' };
+  // total imprimé « n/216 » propre à une collection (seulement pour les cartes perso, pas pour dire au scanner qu'une carte est perso)
+  const TOTALS = { 216: ['Cartes de supermarché', 'DreamWorks (Carrefour)'] };
   const STOP = new Set(['cartes', 'carte', 'jeu', 'jeux', 'collection']);
   // mot générique mal lu (« Gontillesse », « Intolligence » sur les DreamWorks, v4.08) : à une ou deux lettres près
   const LONG = ['puissance', 'edition', 'disciple', 'champion', 'defense', 'defence', 'attack', 'attaque', 'sagesse', 'technique', 'chance', 'humour', 'gentillesse', 'intelligence', 'vitesse', 'animation', 'aventures', 'digimon', 'niveau'];
@@ -167,15 +175,18 @@
   }
   function guess({ flat = [], turned = [], tess = '' } = {}, { lics = [] } = {}) {
     const all = [...flat, ...turned, ...String(tess).split('\n')].map((t) => String(t || '').trim()).filter(Boolean);
-    const out = { num: '', name: '', total: 0, lic: '' };
-    // licence : mots typiques (HINTS), sinon un nom de licence connue écrit sur la carte
+    const out = { num: '', name: '', total: 0, lic: '', set: '' };
+    // licence : mots typiques (HINTS), sinon un nom de licence connue écrit sur la carte ; série si ces mots la donnent
     out.lic = licIn(all.join(' '), lics);
+    out.set = HINT_SET[out.lic] && HINTS[out.lic].test(' ' + norm(all.join(' ')).replace(/[^a-z0-9]+/g, ' ') + ' ') ? HINT_SET[out.lic] : '';
     const licWords = new Set(norm(out.lic + ' jackie chan chat wwe slam attax dreamworks carrefour topps').split(/[^a-z0-9]+/).filter((w) => w.length > 2));
     // numéro : code imprimé, sinon « 12/150 » (donne aussi le total), sinon « 18 Nom DP 300 » (cartes Digimon numérotées)
     for (const re of CODE_RES) { const t = all.find((x) => re.test(x)); if (t) { out.num = t.match(re)[1]; break; } }
     const dp = all.map((t) => t.match(/(?:^|[^\d])(\d{1,3})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ&'’. -]{2,38}?)\s+DP\s*\d/)).find(Boolean);
     if (!out.num) { const f = all.map((t) => t.match(/(?:^|[^\d])(\d{1,3})\s*\/\s*(\d{1,3})(?!\d)/)).find(Boolean); if (f && +f[1] <= +f[2] + 50) { out.num = f[1]; out.total = +f[2]; } }
     if (!out.num && dp) out.num = dp[1];
+    // v4.13 : rien d'écrit sur la licence mais un total connu (« 80/216 » = DreamWorks de Carrefour : souvent seuls le nom et le numéro se lisent)
+    if (!out.lic && TOTALS[out.total]) [out.lic, out.set] = TOTALS[out.total];
     // nom : écrit à la verticale d'abord (Digimon 1999, Jackie Chan, WWE), sinon celui de la ligne « DP », sinon le plus vu sur la carte droite
     // (carte droite seulement sans phrases de règles : sinon « Atomiseur », « Action : Utilisez… » ; 4 lettres au moins : « Gar », « Han » = morceaux)
     const rules = flat.some((t) => String(t).trim().split(/\s+/).length >= 5);
