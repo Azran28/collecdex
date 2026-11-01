@@ -255,6 +255,12 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - La petite icône de la licence (celle du Combat) apparaît aussi dans les pastilles d’Explorer sur ordinateur, dans le cadre de Capturer et dans « Licence reconnue ». Dans un combat, le bouton pour changer de licence s’appelle « Changer », comme ailleurs.
 - On parle partout de « licence » (plus de « jeu ») ; l’export Excel donne le bon nom de rareté pour chaque licence (avant : les noms Pokémon).
 
+
+## Mauvaise licence repérée au scan (v4.06)
+- **Classeur** : si tu as choisi une licence et que la page en contient une autre, CollecDex le repère pendant la lecture des premières cartes (≈ 10–15 s) et te demande « **Des cartes Yu-Gi-Oh! ?** » → **Passer en Yu-Gi-Oh!** (toute la page est lue dans la bonne licence, les premières cartes sont relues) ou **Rester**. Si les cartes de la page sont bien de ta licence, rien n'est demandé.
+- **Rafale** : même question si les premières cartes ne sont pas reconnues et viennent d'une autre licence.
+- **Une carte** : la carte est lue directement dans la bonne licence (« On dirait une carte Yu-Gi-Oh! : je la lis en Yu-Gi-Oh! »), en quelques secondes au lieu de plus d'une minute sans résultat.
+- Ça marche en lisant le texte de la carte (code, mots typiques) : sur une photo floue ou très petite, il peut ne rien remarquer.
 ## Arceus, le « Dieu » des capsules (v3.71)
 - **Arceus** n'est plus un Fabuleux : il a sa propre rareté, **« Dieu »**, gardée secrète. Tant qu'on ne l'a pas attrapé, le site écrit **« ??? »** (filtre du Pokédex, fiche d'Arceus) ; elle n'apparaît pas dans les « Chances d'obtention ».
 - C'est le Pokémon le plus rare : **0,1 %** à chaque capsule (normale ou grande). Il se revend **500 éclats** (×5 s'il est chromatique).
