@@ -530,6 +530,16 @@ Object.assign(App.views.scan, {
       if (!blob) return; // recadrage vide (image pas encore affichée)
       const tok = ++scanTok; logId = null; recoCands = []; recoFrom = null; pendingPick = false;
       const on = () => live(tok);
+      // v3.71 : licence choisie à la main → vérifiée en parallèle dès le début (PaddleOCR, ~1 s) ; carte nettement d'une autre
+      // licence → la lecture repart tout de suite dans la bonne (une carte lue dans la mauvaise licence peut prendre plus d'une minute)
+      if (!auto) App.views.scan.licenceScores(blob).then((sc) => {
+        const [top, next] = Object.entries(sc).filter(([k]) => App.games.get(k)).sort((x, y) => y[1] - x[1]);
+        if (!top || top[0] === game || top[1] < 3 || top[1] < (next ? next[1] : 0) + 2 || top[1] < (sc[game] || 0) + 2 || !on()) return;
+        const name = App.games.info(top[0]).name;
+        switchGame(top[0]);
+        App.util.toast(`On dirait une carte ${name} : je la lis en ${name}`, 3500);
+        analyse(blob, poor);
+      }).catch(() => {});
       cardBlob = blob;
       if (cardURL) URL.revokeObjectURL(cardURL);
       cardURL = URL.createObjectURL(blob);
@@ -670,11 +680,30 @@ Object.assign(App.views.scan, {
             }
           }
         }
+        // v3.71 (Arnaud : « si on se trompe de licence, repère-le et préviens ») : licence choisie à la main mais rien de trouvé →
+        // la licence de la carte est cherchée (texte, puis image) ; une autre → la carte y est relue (et on le dit), sinon on prévient
+        let suspect = '';
+        const got = (t) => !!(t && (t.confident || t.numOk || (t.orb || 0) >= 25));
+        if (!auto && !switched && !got(cands[0]) && !(info && info.don) && on()) {
+          st('Bonne licence ?');
+          const sc = await App.views.scan.licenceScores(blob).catch(() => ({}));
+          const [top, next] = Object.entries(sc).filter(([k]) => App.games.get(k)).sort((x, y) => y[1] - x[1]);
+          const g = top && top[1] >= 2 && top[1] >= (next ? next[1] : 0) + 2 ? top[0] : await App.views.scan.detectGame(blob, st).catch(() => '');
+          const A = g && g !== game && App.games.get(g);
+          if (A && on()) {
+            const r = A.recognize ? await A.recognize(blob, st, { original: pageBlob, context: ctx }).catch(() => null) : null;
+            if (r && (got(r.cands[0]) || r.info.don)) {
+              switchGame(g); ({ info, cands } = r); summary = info.read; switched = g;
+              if (info.crop) setCard(info.crop);
+            } else suspect = g;
+          }
+        }
         if (auto && (autoSure || switched || (cands[0] && cands[0].confident))) App.views.scan.showAutoGame(el, game);
         if (!on()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         const warn = cands[0] && cands[0].confident ? '' : poorHtml(poor); // (carte sûre malgré tout : plus rien à dire)
         setStatus((switched ? `<span class="small">${App.ui.licIc(switched, 11, 'lic-ic-xs')} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b>${auto ? '' : ` : passage en ${esc(App.games.info(switched).name)}`}.</span>`
+          : suspect ? `<span class="small">${App.ui.licIc(suspect, 11, 'lic-ic-xs')} <b>On dirait une carte ${esc(App.games.info(suspect).name)}</b>, pas ${esc(ad.name)}. <a href="#/scan?jeu=${esc(suspect)}">Scanner en ${esc(App.games.info(suspect).name)}</a></span>`
           : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre licence ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '') + warn);
         donCard = !!info.don;
         await display(cands, summary);

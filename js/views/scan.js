@@ -262,6 +262,15 @@ App.views.scan = {
     const [best, second] = Object.entries(score).sort((a, b) => b[1] - a[1]);
     return best[1] >= 2 && best[1] >= second[1] + 2 ? best[0] : '';
   },
+  /**
+   * v3.71 : points de chaque licence d'après le texte lu par PaddleOCR (lecteur des numéros, ~1 s, bien meilleur que Tesseract
+   * sur les petits codes) dans 4 bandes qui couvrent le titre, le code et le bas de la carte. Sert à repérer une mauvaise licence.
+   */
+  async licenceScores(blob) {
+    if (!App.cardTools) return {};
+    const T = await App.cardTools.readBands(blob, [], [[0, 0.17, 0, 1], [0.66, 0.8, 0, 1], [0.78, 0.9, 0, 1], [0.88, 1, 0, 1]]).catch(() => []);
+    return T.length ? App.views.scan.textScores(T.join('\n')) : {};
+  },
   /** Points de chaque licence d'après un texte lu sur une carte (codes imprimés ×2, mots typiques) */
   textScores(T) {
     const rb = App.games.get('riftbound'), lc = App.games.get('lorcana'), yg = App.games.get('yugioh'), ff = App.games.get('finalfantasy'), wk = App.games.get('wankul'), sw = App.games.get('starwars'), db = App.games.get('dragonball'), cp = App.games.get('cyberpunk');
@@ -278,7 +287,7 @@ App.views.scan = {
       // Final Fantasy (v3.43) : code « 16-006C » en bas au milieu, « © SQUARE ENIX » et « CHARACTER DESIGN » en bas, Avant / Soutien, Break Zone, EX BURST
       finalfantasy: (ff && ff.codesIn && ff.codesIn(T).some(([, w]) => w >= 0.9) ? 2 : 0) + [/square\s*enix/i, /character\s+design|tetsuya|nomura/i, /break\s*zone/i, /ex\s*burst/i, /\b1\s+avant\b|\bavants?\s+(que|contr[ôo]l)|\bsoutien\b|\bforward\b|\bbackup\b/i, /\bdull/i, /final\s*fantasy/i, /infligez|choisissez\s+1\s+avant/i].filter((r) => r.test(T)).length,
       // Yu-Gi-Oh! (v3.26) : code « RGBT-FR007 » sous l'illustration, passcode et « ©1996 KAZUKI TAKAHASHI » en bas, ATK/DEF, [TYPE/EFFET]
-      yugioh: (yg && yg.codesIn && yg.codesIn(T).some(([c, w]) => w >= 0.9 && !/^#/.test(c)) ? 2 : 0) + [/konami/i, /kazuki|takahashi/i, /\bATK\s*[/|]/i, /\bDEF\s*[/|]/i, /carte\s+(magie|pi[eè]ge)|(spell|trap)\s+card/i, /\b(1re|1ère|1st)\s+[ée]dition/i, /\/\s*effe[ct]t?\s*\]|\[\s*[A-ZÉ-]+\s*\/\s*effe/i, /invoqu|summon/i].filter((r) => r.test(T)).length,
+      yugioh: (yg && yg.codesIn && yg.codesIn(T).some(([c, w]) => w >= 0.9 && !/^#/.test(c)) ? 2 : 0) + [/konami/i, /kazuki|takahashi/i, /\bATK\s*[/|]/i, /\bDEF\s*[/|]/i, /carte\s+(magie|pi[eè]ge)|(spell|trap)\s+card/i, /\b(1re|1ère|1st)\s+[ée]dition/i, /\/\s*effe[ct]t?\s*\]|\[\s*[A-ZÉ-]+\s*\/\s*effe/i, /invoqu|summon/i, /\b(draw|standby|main|battle|end)\s*phase\b/i, /cimeti[eè]re|graveyard/i, /[ée]dition\s*limit[ée]e|limited\s*edition/i, /\b[A-Z0-9]{3,4}\s*-\s*(FR|EN|DE|IT|SP)[A-Z0-9]{3}\b/].filter((r) => r.test(T)).length,
       // Lorcana (v3.21) : code « 25/204 • FR • 1 » en bas à gauche, « Disney Lorcana ©Disney » en bas à droite, Storyborn / Floodborn…
       lorcana: (lc && lc.codesIn && lc.codesIn(T).some(([, w]) => w >= 0.9) ? 2 : 0) + [/lorcana/i, /disney/i, /ravensburger/i, /\b(storyborn|floodborn|dreamborn)\b/i, /[ée]clats?\s+de\s+lore|\blore\b/i, /\b(chanson|song)\b/i, /\bm[ée]lomane\b|\bsinger\b/i, /\bd[ée]fi\b|\bchallenger\b/i].filter((r) => r.test(T)).length,
       riftbound: (rb && rb.codesIn && rb.codesIn(T).length ? 2 : 0) + [/\bRG[Il1]\b/, /\bUNIT[ÉE](?![A-Za-zÀ-ÿ])/, /\bL[ÉE]GENDE\b/, /\bRUNE\b/, /CHAMP\s+DE\s+BATAILLE|BATTLEFIELD/i, /comp[ée]tence|canalis/i, /\bSORT\b|\bSPELL\b/, /\bUNIT\b/].filter((r) => r.test(T)).length,

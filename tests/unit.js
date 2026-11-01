@@ -353,6 +353,9 @@ test('Yu-Gi-Oh! : cartes et séries (data/yg-cartes.json)', async (App) => {
   eq(App.views.scan.codeOf('yugioh', c), 'RGBT-007', 'code affiché');
   eq(A.printedCode({ code: 'LOB-E001' }), 'LOB-001', 'ancienne carte européenne (LOB-F001 / LOB-E001)');
   eq(App.views.scan.codeOf('onepiece', { localId: 'OP09-004' }), 'OP09-004', 'autres licences : leur numéro');
+  // v3.71 : licence repérée sur le texte lu (mauvaise licence choisie) — lignes réellement lues par PaddleOCR sur une carte de classeur
+  const sc = App.views.scan.textScores('ANHE\n-\nRGBT-FRPPI\nDurant votre Draw Phase, si cette carte est dans votre\nCimetière, vous pouvez ajouter');
+  ok(sc.yugioh >= 3 && sc.yugioh >= Math.max(...Object.entries(sc).filter(([k]) => k !== 'yugioh').map(([, v]) => v)) + 2, `Yu-Gi-Oh! nettement devant : ${JSON.stringify(sc)}`);
 });
 test('Yu-Gi-Oh! : code imprimé lu même mal reconnu', async (App) => {
   const A = App.games.get('yugioh'); await A.listSets();
