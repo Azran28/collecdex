@@ -11,6 +11,9 @@ App.views.persoAdd = {
     const { esc } = App.util, I = App.icons.icon, ad = App.games.get('perso');
     const known = ad.known();
     const q = params.query;
+    // licence et série de la dernière carte ajoutée (sans ?lic= : ouverte depuis Capturer)
+    let last = {}; try { last = JSON.parse(localStorage.getItem('persoLast') || '{}') || {}; } catch (e) { /* */ }
+    if (!q.lic && last.lic && known.has(last.lic)) { q.lic = last.lic; q.serie = q.serie || last.serie || ''; }
     let photo = null; // carte recadrée (Blob)
     let found = null; // carte retrouvée dans une base (Digimon) : visuel officiel
 
@@ -27,6 +30,7 @@ App.views.persoAdd = {
           <label class="btn primary">${I('camera', 16)} Prendre la photo<input type="file" accept="image/*" capture="environment" id="pa-cam" hidden></label>
           <label class="btn">Choisir une photo<input type="file" accept="image/*" id="pa-file" hidden></label>
         </div>
+        <div class="small pa-read" id="pa-read" hidden></div>
         <form class="pa-form panel" id="pa-form" autocomplete="off">
           <label>Licence<input type="text" id="pa-lic" list="pa-lics" required maxlength="40" placeholder="ex. Digimon" value="${esc(q.lic || '')}"></label>
           <datalist id="pa-lics">${lics.map((l) => `<option value="${esc(l)}">`).join('')}</datalist>
@@ -92,8 +96,34 @@ App.views.persoAdd = {
       photo = blob;
       box.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="Ta carte">`;
       ready();
-      if (!$('#pa-lic').value.trim()) $('#pa-lic').focus(); else if (!$('#pa-name').value.trim()) $('#pa-num').focus();
+      readPhoto(blob);
     };
+
+    // v4.05 : la carte est lue (numéro, nom, licence) et les cases vides sont pré-remplies ; tout reste modifiable
+    const status = (html) => { const s = $('#pa-read'); s.hidden = !html; s.innerHTML = html || ''; };
+    const fill = (sel, v) => { if (v && !$(sel).value.trim()) { $(sel).value = v; $(sel).classList.add('pa-auto'); } };
+    const readPhoto = async (blob) => {
+      const mine = photo;
+      status(`<span class="pa-spin"></span> Je lis la carte…`);
+      let g = null;
+      try { g = await App.views.persoAdd.read(blob, [...known.keys(), ...App.views.persoAdd.SUGGEST]); } catch (e) { console.warn(e); }
+      if (!alive() || photo !== mine) return;
+      if (!g || !(g.num || g.name || g.lic)) { status(`Je n’ai rien pu lire : écris le nom et le numéro.`); $('#pa-name').focus(); return; }
+      const pre = ad.setByPrefix(g.num, g.lic);
+      fill('#pa-lic', g.lic || (pre && pre.lic));
+      const lic = $('#pa-lic').value.trim();
+      const had = ad.ownedByNum(g.num, lic);
+      fill('#pa-num', g.num);
+      if (had) { fill('#pa-name', had.snap.name); fill('#pa-set', had.snap.setName); fill('#pa-rar', had.snap.rarity); }
+      fill('#pa-name', g.name);
+      fill('#pa-set', pre && (!lic || pre.lic === lic) ? pre.set : '');
+      if (g.total) fill('#pa-total', String(g.total));
+      fillSets(); ready();
+      status(`${I('check', 13)} Lu sur la carte : <b>${esc([g.num, g.name].filter(Boolean).join(' · ') || g.lic)}</b>${had ? ' — <b>déjà dans ton Dex</b> (un exemplaire de plus)' : ''}. Vérifie et corrige si besoin.`);
+      if (g.num) $('#pa-num').dispatchEvent(new Event('change')); // Digimon récent : la carte retrouvée par son code
+      if (!$('#pa-name').value.trim()) $('#pa-name').focus();
+    };
+    for (const f of ['#pa-lic', '#pa-set', '#pa-num', '#pa-name', '#pa-rar', '#pa-total']) $(f).addEventListener('input', () => $(f).classList.remove('pa-auto'));
     $('#pa-cam').addEventListener('change', (e) => takePhoto(e.target.files[0]));
     $('#pa-file').addEventListener('change', (e) => takePhoto(e.target.files[0]));
 
@@ -121,6 +151,8 @@ App.views.persoAdd = {
         $('#pa-found').hidden = true;
         $('#pa-done').innerHTML = `<div class="panel pa-ok">${I('check', 16)} <b>${esc(name)}</b> est dans ta collection perso. <a href="#/jeu/perso/serie/${encodeURIComponent(setId)}">Voir la série ›</a></div>`;
         known.has(lic) ? known.get(lic).add(setName) : known.set(lic, new Set([setName]));
+        try { localStorage.setItem('persoLast', JSON.stringify({ lic, serie: setName === 'Sans série' ? '' : setName })); } catch (e2) { /* */ }
+        status('');
       } catch (err) {
         console.error(err);
         App.util.toast('La carte n’a pas pu être ajoutée');
@@ -129,6 +161,28 @@ App.views.persoAdd = {
     });
 
     $('#pa-propose').addEventListener('click', (e) => { e.preventDefault(); App.views.persoAdd.propose(photo); });
+  },
+
+  /**
+   * Lecture d'une carte perso (v4.05) → { num, name, total, lic } : PaddleOCR sur des bandes de toute la carte, droite puis
+   * tournée d'un quart de tour (noms écrits à la verticale) ; Tesseract en secours si aucun nom (« 18 Garurumon DP 300 »).
+   */
+  async read(blob, lics) {
+    await App.need('reco', 'scan');
+    const P = App.recognizerParts, O = P.codeOcr, ad = App.games.get('perso');
+    const img = await createImageBitmap(blob);
+    const turn = document.createElement('canvas');
+    turn.width = img.height; turn.height = img.width;
+    const x = turn.getContext('2d'); x.translate(turn.width / 2, turn.height / 2); x.rotate(Math.PI / 2); x.drawImage(img, -img.width / 2, -img.height / 2);
+    const zones = []; for (let y = 0; y < 0.9; y += 0.08) zones.push([y, Math.min(1, y + 0.16), 0, 1]);
+    const lines = (rd) => (rd ? rd.texts.filter((t, i) => rd.confs[i] > 0.85) : []);
+    const flat = lines(await O.read(img, [], { zones })), turned = lines(await O.read(turn, [], { zones }));
+    let g = ad.guess({ flat, turned }, { lics });
+    if (!g.name) {
+      const w = await P.getWorker(), r = await w.recognize(blob).catch(() => null);
+      g = ad.guess({ flat, turned, tess: (r && r.data && r.data.text) || '' }, { lics });
+    }
+    return g;
   },
 
   /** « Proposer une licence » : nom du jeu (+ photo de la carte s'il y en a une) envoyés à collecdex.app@gmail.com */

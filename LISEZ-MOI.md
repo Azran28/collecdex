@@ -215,7 +215,7 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 
 ## Collections perso (v4.03)
 - **Pour toutes les cartes hors des 10 licences** (Digimon, Magic, cartes de supermarché…). Capturer › tuile **« Autre licence »**, ou Explorer › « Collections perso » › « Ajouter une carte ».
-- Prends la carte en photo (elle est recadrée toute seule et devient son visuel), puis écris la licence, la série, le numéro, le nom (et la rareté si tu veux). La carte suivante garde la même licence et la même série.
+- Prends la carte en photo : elle est recadrée toute seule et devient son visuel, puis **elle est lue** (v4.05) — le numéro, le nom et la licence se remplissent tout seuls quand ils sont lisibles (cases au bord violet : vérifie-les). Complète ce qui manque. La carte suivante garde la même licence et la même série ; une carte déjà dans ton Dex est reconnue par son numéro.
 - Tu ne vois **que tes cartes** : pas de cartes manquantes, pas de combats, pas de prix, pas de certification. Si tu indiques combien de cartes compte la série (« Cartes dans la série »), elle affiche « 3/40 » puis « Complète ! ».
 - Digimon récent (codes « BT1-010 ») : le nom, la série et le visuel se remplissent tout seuls. Tes Digimon de 1999 (« Bo-113 », « Jd-53 ») : à écrire à la main.
 - **Proposer une licence** (en bas d'Explorer › Collections perso) : envoie le nom du jeu par e-mail à collecdex.app@gmail.com.
