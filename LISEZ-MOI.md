@@ -504,3 +504,10 @@ Utilise toujours le même navigateur et le lanceur `.bat` : si tu ouvres `index.
 - Dans cette version : **pas de capsules** (ni onglet, ni pastille, ni avatar Pokémon) et **pas de bouton « Installer l'appli »**. Tout le reste est identique.
 - **Le site et l'appli que tu as installée depuis le site gardent tout**, capsules comprises, et le bouton « Installer » reste sur le site (il n'a aucun effet sur le Play Store).
 - Pour voir la version Play Store sur ton PC : ouvre `https://azran28.github.io/collecdex/?app=play` ; pour revenir à la normale : `?app=web` (ou ferme l'onglet).
+
+## Encore plus « appli » sur le téléphone (v3.97)
+- **Titre de la page en haut** : sur une page intérieure (une série, une carte, Paramètres…), la flèche retour est suivie du nom de la page, qui apparaît dans la barre du haut quand tu descends.
+- **Les pages glissent** : par la droite quand tu avances, par la gauche quand tu reviens.
+- **Retour au même endroit** : « retour » te ramène là où tu étais dans la liste, plus tout en haut.
+- **Toucher l'onglet déjà ouvert** (barre du bas) remonte en haut de la page.
+- **Appui long** : plus de sélection de texte ni de menu « ouvrir le lien / enregistrer l'image » (les champs où l'on écrit marchent comme avant). Rien ne change sur ordinateur.

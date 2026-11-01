@@ -39,6 +39,31 @@ App.views = App.views || {};
     location.hash = up ? up.getAttribute('href') : '#/';
   });
 
+  // Ressenti d'appli (v3.97, téléphone ; styles dans css/15-appli.css)
+  // - on revient à la même position quand on fait « retour » (positions gardées par page de l'historique)
+  // - toucher l'onglet déjà ouvert = remonter en haut
+  // - ombre sous la barre du haut dès qu'on a défilé, titre de la page dans la barre quand le grand titre sort de l'écran
+  try { history.scrollRestoration = 'manual'; } catch (e) { /* */ }
+  const scrollMem = new Map();
+  let pageKey = null;
+  document.getElementById('mainnav').addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (a && a.getAttribute('href') === (location.hash || '#/')) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  });
+  const onScroll = () => document.body.classList.toggle('scrolled', window.scrollY > 4);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  let titleObs = null;
+  function pageTitle(el) {
+    const bar = document.querySelector('.topbar'), t = document.getElementById('nav-title');
+    if (titleObs) { titleObs.disconnect(); titleObs = null; }
+    const h = el.querySelector('h1');
+    t.textContent = h ? h.textContent.replace(/\s+/g, ' ').trim() : '';
+    bar.classList.toggle('show-title', !h); // pas de grand titre : le titre reste vide, rien à cacher
+    if (!h || !('IntersectionObserver' in window)) { bar.classList.toggle('show-title', !!h); return; }
+    titleObs = new IntersectionObserver(([en]) => bar.classList.toggle('show-title', !en.isIntersecting && en.boundingClientRect.top < 80), { rootMargin: '-60px 0px 0px 0px' });
+    titleObs.observe(h);
+  }
+
   async function route() {
     const path = (location.hash || '#/').slice(1).split('?')[0];
     const query = Object.fromEntries(new URLSearchParams((location.hash.split('?')[1]) || ''));
@@ -59,7 +84,12 @@ App.views = App.views || {};
     // téléphone : flèche « retour » en haut sur les pages qui ne sont pas des onglets de la barre du bas
     const st = history.state || {};
     if (typeof st.d !== 'number') history.replaceState({ ...st, d: lastDepth + (renderId ? 1 : 0) }, '');
+    const goingBack = renderId > 0 && history.state.d < lastDepth;
+    const anim = !renderId ? '' : goingBack ? 'pg-back' : (TABS.includes(view) && !query.ecran) ? 'pg-tab' : 'pg-fwd';
     lastDepth = history.state.d;
+    if (pageKey) scrollMem.set(pageKey, window.scrollY);
+    pageKey = history.state.d + '|' + location.hash;
+    const backTo = goingBack ? scrollMem.get(pageKey) : 0;
     document.getElementById('nav-back').hidden = TABS.includes(view) && !query.ecran && !(view === 'scan' && query.jeu); // sous-écran d'un onglet (Combat › Contre l'ordinateur) : flèche retour
     document.body.dataset.view = view;
     // conteneur neuf à chaque page, pour repartir sans les écouteurs de la page précédente
@@ -73,6 +103,17 @@ App.views = App.views || {};
       if (LAZY[view]) { await App.need(...LAZY[view]); if (id !== renderId) return; }
       const c = await App.views[view].render(el, params, () => id === renderId);
       if (id === renderId) cleanup = c || null; else if (typeof c === 'function') c();
+      if (id === renderId) {
+        if (backTo) window.scrollTo(0, backTo);
+        pageTitle(el); onScroll();
+        // glissement de la page (pas pour Capturer ni Combat : écrans plein écran) ; retiré au plus tard après 0,4 s
+        if (anim && view !== 'scan' && view !== 'match') {
+          el.classList.add(anim);
+          const off = () => el.classList.remove(anim);
+          el.addEventListener('animationend', (ev) => { if (ev.target === el) off(); });
+          setTimeout(off, 400);
+        }
+      }
     } catch (e) {
       console.error(e);
       if (id === renderId) el.innerHTML = App.ui.errorBox(e);

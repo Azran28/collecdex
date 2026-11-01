@@ -1,0 +1,38 @@
+/* =====================================================================
+   RESSENTI D'APPLI (v3.97) — téléphone seulement, le PC ne change pas.
+   Titre de la page dans la barre du haut (il apparaît quand le grand titre
+   sort de l'écran), ombre sous la barre quand on a défilé, glissement entre
+   les pages, pas de sélection de texte ni de menu « ouvrir le lien » à l'appui long.
+   Classes posées par js/app.js : .pg-fwd / .pg-back / .pg-tab sur #app,
+   body.scrolled, .topbar.show-title.
+   ===================================================================== */
+.nav-title { display: none; }
+@media (max-width: 760px) {
+  /* comme une appli : on ne sélectionne pas les textes de l'interface (sauf les champs) */
+  body { -webkit-user-select: none; user-select: none; }
+  input, textarea, select, [contenteditable], .selectable, code, pre { -webkit-user-select: text; user-select: text; }
+  a, img { -webkit-touch-callout: none; }
+  img { -webkit-user-drag: none; }
+
+  /* barre du haut : sur une page « interne », flèche + titre de la page à la place du logo */
+  .topbar { transition: box-shadow .2s, border-color .2s; }
+  body.scrolled .topbar { box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+  .nav-back:not([hidden]) ~ .brand { display: none; }
+  .nav-back:not([hidden]) ~ .nav-title { display: block; flex: 1 1 auto; min-width: 0; margin: 0; font-family: var(--display); font-size: 1.05rem; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transform: translateY(6px); transition: opacity .18s, transform .18s; }
+  .topbar.show-title .nav-title { opacity: 1; transform: none; }
+  /* sur une page interne, la pastille du compte n'affiche que l'avatar (place pour le titre) */
+  .nav-back:not([hidden]) ~ .topactions .acc-chip .acc-lbl { display: none; }
+  .nav-back:not([hidden]) ~ .topactions .acc-chip { padding: 3px !important; }
+
+  /* glissement entre les pages : vers la gauche en avançant, vers la droite en revenant, léger entre onglets */
+  .app.pg-fwd { animation: pgFwd .24s cubic-bezier(.2,.8,.25,1); }
+  .app.pg-back { animation: pgBack .24s cubic-bezier(.2,.8,.25,1); }
+  .app.pg-tab { animation: pgTab .2s ease-out; }
+  @keyframes pgFwd { from { transform: translateX(28px); } }
+  @keyframes pgBack { from { transform: translateX(-28px); } }
+  @keyframes pgTab { from { transform: translateY(8px); } }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  .app.pg-fwd, .app.pg-back, .app.pg-tab { animation: none; }
+}
