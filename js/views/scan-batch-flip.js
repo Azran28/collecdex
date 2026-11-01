@@ -1,6 +1,6 @@
 /*
- * Scanner — classeur « feuilleté » (ESSAI, v3.62, Arnaud : « certifier le classeur, mais sans que ce soit long »).
- * Seulement pour les comptes testeurs (App.scanShare.isTester) : bouton « Feuilleter (essai) » en Classeur. La caméra reste
+ * Scanner — classeur certifié « en rafale » (v3.62 essai « Feuilleter » ; v4.12 pour tous ; v4.14 « Certifier », Arnaud).
+ * Tuile « Certifier » en Classeur → bouton « Certifier en rafale » (sinon Caméra + Choisir une photo). La caméra reste
  * allumée, on tourne les pages devant elle ; chaque page tournée est jugée par App.pageTurn (js/page-turn.js : la page
  * a-t-elle pivoté autour des anneaux comme une vraie page ?) et le résultat s'affiche tout de suite, avec la durée du geste.
  * Rien n'est lu ni certifié pendant l'essai. Chaque geste part au labo (petites images grises en mosaïque + mesures,
@@ -15,15 +15,32 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   S.flipTimer = null; S.flipLog = []; S.flipping = false; S.flipPages = []; S.flipQueue = [];
   const mot = T.motion(); // (v4.02 : capteurs du téléphone, pour ne pas prendre un téléphone bougé pour une page tournée)
   const btn = el.querySelector('#b-flip');
-  if (!burst && btn && T) btn.classList.remove('hidden'); // (v4.12 : pour tout le monde ; avant, seulement les comptes testeurs)
   const sec = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
   const hint = (html, cls = '') => { const h = view.querySelector('.r-live'); if (h) { h.className = `r-live ${cls}`; h.innerHTML = html; } };
   const step = (cur, mood = '') => App.views.scan.stepPills(view, ['Page', 'Tourne', 'Lâche'], cur, mood);
+  /**
+   * v4.14 (Arnaud : « change Feuilleter par Certifier, refais la DA des boutons, précise que la certif classeur est en rafale ») :
+   * tuiles « Certifier / Juste la photo » au-dessus du cadre, comme en carte seule et en rafale (`certClasseur`) ;
+   * Certifier = un seul bouton « Certifier en rafale » (pages tournées l'une après l'autre), Juste la photo = Caméra + Choisir une photo.
+   */
+  const certMode = () => !burst && !!T && App.views.scan.certWanted('classeur');
   const showButtons = (flipping) => {
-    ['#b-native', '#b-flip'].forEach((s) => { const b = el.querySelector(s); if (b) b.classList.toggle('hidden', flipping); });
-    const f2 = el.querySelector('#b-file2'); if (f2) f2.closest('label').classList.toggle('hidden', flipping);
-    el.querySelector('#b-flip-stop').classList.toggle('hidden', !flipping);
+    const c = certMode();
+    const set = (s, hide) => { const b = el.querySelector(s); if (b) b.classList.toggle('hidden', hide); };
+    set('#b-native', flipping || c); set('#b-flip', flipping || !c);
+    const f2 = el.querySelector('#b-file2'); if (f2) f2.closest('label').classList.toggle('hidden', flipping || c);
+    set('#b-flip-stop', !flipping);
   };
+  if (!burst) {
+    showButtons(false);
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('.cp-opt'); if (!b || S.flipping) return;
+      App.settings.certClasseur = b.dataset.cert === '1'; App.col.saveSettings().catch(() => {});
+      el.querySelectorAll('.cp-opt').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+      if (view.querySelector('.scan-empty')) view.innerHTML = App.views.scan.empty('classeur', dims());
+      showButtons(false);
+    });
+  }
   // v3.64 (Arnaud : « pas clair ») : un conseil simple à la place de chaque raison technique ; v3.91 : et l'étape ratée (pastille orange)
   const ADVICE = {
     'page pas tenue immobile après le geste': [3, 'Après avoir tourné, <b>lâche la page</b> et ne bouge plus 1 seconde'],
@@ -35,7 +52,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   let fpsNow = 0;
   /** Sous la caméra : une phrase, et l'avertissement si la caméra donne trop peu d'images */
   function drawLog() {
-    setStatus(`<div class="panel flip-log"><b>${I('shield', 14)} Feuilleter le classeur</b>
+    setStatus(`<div class="panel flip-log"><b>${I('shield', 14)} Certifier le classeur : pages en rafale</b>
       <div class="small muted" style="margin-top:4px">Suis les pastilles sur la caméra : chaque page est photographiée, puis toutes sont lues à la fin. Une page bien tournée donne le badge « certifiée ».</div>
       ${fpsNow && fpsNow < 8 ? `<div class="small" style="margin-top:6px;color:#c47800">Ta caméra donne peu d’images (${fpsNow.toFixed(1).replace('.', ',')} par seconde) : tourne plus lentement.</div>` : ''}</div>`);
   }
@@ -74,11 +91,11 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
    */
   function flipNext() {
     const p = S.flipQueue.shift();
-    if (!p) { if (S.flipCur) App.util.toast(`Feuilletage terminé : ${S.flipCur.of} page${S.flipCur.of > 1 ? 's lues' : ' lue'}`); S.flipCur = null; return false; }
+    if (!p) { if (S.flipCur) App.util.toast(`Certification terminée : ${S.flipCur.of} page${S.flipCur.of > 1 ? 's lues' : ' lue'}`); S.flipCur = null; return false; }
     S.flipCur = { i: p.i, of: p.of };
     startGrid(p.blob, p.cert || null); // (page tournée reconnue et vérifiée → les cartes bien reconnues seront certifiées, v4.00)
     const box = el.querySelector('#b-certline');
-    if (box) box.insertAdjacentHTML('afterbegin', `<div class="panel flip-page" style="margin-bottom:8px"><b>Feuilletage : page ${p.i} sur ${p.of}</b> <span class="small muted">— ${p.cert && p.cert.passed ? 'vérifiée en direct' : p.cert ? `pas de badge : ${App.util.esc(p.cert.reasons[0] || '')}` : !App.certify.available() ? 'connecte-toi pour le badge' : 'aucun geste reconnu autour de cette page : pas de badge'}${S.flipQueue.length ? ` · ensuite ${S.flipQueue.length} page${S.flipQueue.length > 1 ? 's' : ''}` : ''}</span></div>`);
+    if (box) box.insertAdjacentHTML('afterbegin', `<div class="panel flip-page" style="margin-bottom:8px"><b>Certification : page ${p.i} sur ${p.of}</b> <span class="small muted">— ${p.cert && p.cert.passed ? 'vérifiée en direct' : p.cert ? `pas de badge : ${App.util.esc(p.cert.reasons[0] || '')}` : !App.certify.available() ? 'connecte-toi pour le badge' : 'aucun geste reconnu autour de cette page : pas de badge'}${S.flipQueue.length ? ` · ensuite ${S.flipQueue.length} page${S.flipQueue.length > 1 ? 's' : ''}` : ''}</span></div>`);
     return true;
   }
   function flipStop() {
@@ -172,5 +189,5 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   }
   if (btn) btn.addEventListener('click', flipStart);
   el.querySelector('#b-flip-stop').addEventListener('click', flipStop);
-  return { flipStop, flipNext };
+  return { flipStop, flipNext, flipButtons: showButtons };
 };

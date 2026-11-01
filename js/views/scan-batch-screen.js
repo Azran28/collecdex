@@ -36,7 +36,7 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     /** Résultat de la certification de la page, rappelé dans l'écran d'analyse (sur téléphone il recouvre tout : avant, le message disparaissait) */
     function svCert() {
       // v4.00 (Arnaud : « indique le nombre de pages restantes ») : pages feuilletées lues l'une après l'autre
-      const fc = !burst && S.flipCur, flip = fc ? `<div class="small sv-flip" style="margin:6px 0"><b>Feuilletage : page ${fc.i} sur ${fc.of}</b>${fc.of > fc.i ? ` <span class="muted">· encore ${fc.of - fc.i} page${fc.of - fc.i > 1 ? 's' : ''} après celle-ci</span>` : ' <span class="muted">· dernière page</span>'}</div>` : '';
+      const fc = !burst && S.flipCur, flip = fc ? `<div class="small sv-flip" style="margin:6px 0"><b>Certification : page ${fc.i} sur ${fc.of}</b>${fc.of > fc.i ? ` <span class="muted">· encore ${fc.of - fc.i} page${fc.of - fc.i > 1 ? 's' : ''} après celle-ci</span>` : ' <span class="muted">· dernière page</span>'}</div>` : '';
       const pc = !burst && S.pageCert; if (!pc) return flip;
       return flip + (pc.passed ? `<div class="small cert-ok" style="margin:6px 0">${App.icons.icon('shield', 14)} Page certifiée en direct : les cartes bien reconnues seront certifiées</div>`
         : `<div class="small" style="margin:6px 0">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(pc.reasons.join(', '))}</div>`);

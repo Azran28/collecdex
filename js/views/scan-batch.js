@@ -162,7 +162,7 @@ Les relire en ${want} ?`,
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             ${certOn && !burst && PAGE_CERT ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
-            <button class="btn hidden" id="b-flip">${App.icons.icon('shield', 16)} Feuilleter</button>
+            <button class="btn primary cert-go hidden" id="b-flip">${App.icons.icon('shield', 16)} Certifier en rafale</button>
             <button class="btn hidden" id="b-flip-stop">Arrêter</button>
           </div>
           ${certOn && !burst && PAGE_CERT ? App.views.scan.certBlock('classeur', `<button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`) : ''}
@@ -190,7 +190,7 @@ Les relire en ${want} ?`,
           <div id="b-sv" class="sv hidden" role="dialog" aria-modal="true" aria-label="Analyse des cartes"></div>
         </div>
       </div>` : `
-      ${gamePick}<div class="batch-wrap">
+      ${gamePick}${App.views.scan.certPick('classeur')}<div class="batch-wrap">
         <div>
           <div class="sc-opts">${setBox('Série de la page')}${pageCtl}</div>
           <div class="scan-view batch-view" id="b-view">${App.views.scan.empty('classeur', FORMATS[S.fmt])}</div>
@@ -269,8 +269,8 @@ Les relire en ${want} ?`,
       const saved = ''; // (v3.12 : plus de choix de la série avant la photo ; « Série de la page » après la lecture reste)
       const sel = el.querySelector('#b-set'); if (sel) { App.views.scan.fillSetSelect(sel, sets, saved); sel.closest('.set-first').classList.toggle('chosen', !!sel.value); }
     }).catch(() => {});
-    const markFmt = () => el.querySelectorAll('.fp-opt').forEach((b) => { const on = b.dataset.fmt === S.fmt; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
-    el.querySelectorAll('.fp-opt').forEach((b) => b.addEventListener('click', () => {
+    const markFmt = () => el.querySelectorAll('.fp-opt[data-fmt]').forEach((b) => { const on = b.dataset.fmt === S.fmt; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+    el.querySelectorAll('.fp-opt[data-fmt]').forEach((b) => b.addEventListener('click', () => {
       const sel = el.querySelector('#b-fmt');
       if (sel.disabled || S.running || sel.value === b.dataset.fmt) return;
       sel.value = b.dataset.fmt; sel.dispatchEvent(new Event('change'));
@@ -338,6 +338,7 @@ Les relire en ${want} ?`,
       el.querySelector('#b-actions').classList.remove('hidden');
       view.innerHTML = App.views.scan.empty('classeur', dims());
       resultsEl.innerHTML = App.views.scan.guide('classeur');
+      if (X.flipButtons) X.flipButtons(false); // (v4.14 : Certifier choisi → seulement « Certifier en rafale »)
       if (X.flipNext) X.flipNext(); // (v3.99 : pages feuilletées en attente → la suivante est lue)
     });
 
@@ -846,8 +847,8 @@ Les relire en ${want} ?`,
     // Scanner — rafale (caméra ouverte, cartes prises toutes seules) : voir scanBatchParts.burst
     Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, el, esc, resultsEl, setStatus, sv, urls, view }));
     // v3.62 : classeur feuilleté (essai, comptes testeurs) : voir scanBatchParts.flip
-    const { flipStop, flipNext } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, startGrid, view });
-    X.flipNext = flipNext;
+    const { flipStop, flipNext, flipButtons } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, startGrid, view });
+    X.flipNext = flipNext; X.flipButtons = flipButtons;
     { const rb = X.resetBurst; X.resetBurst = (...a) => { labLeftover(); return rb(...a); }; } // (v3.61 : rafale remise à zéro → cartes non enregistrées au labo)
     if (burst) {
       el.querySelector('#r-start').addEventListener('click', async () => {

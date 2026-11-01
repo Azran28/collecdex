@@ -190,3 +190,6 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
 .ss .sc-mycode img { max-height: 110px; object-fit: contain; }
 .ss .linkbtn { align-self: center; }
 .ss-pair1 { grid-template-columns: minmax(0, min(60vw, 44vh)); }
+
+/* v4.14 : Classeur › « Certifier en rafale » — vert de la certification (tuile « Certifier »), sur toute la largeur */
+.btn.primary.cert-go { flex: 1 1 100%; background: #3ddc97; color: #0c0e19; border-color: transparent; box-shadow: 0 6px 18px rgba(61,220,151,.25); }
