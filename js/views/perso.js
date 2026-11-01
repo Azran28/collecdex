@@ -171,13 +171,18 @@ App.views.persoAdd = {
     await App.need('reco', 'scan');
     const P = App.recognizerParts, O = P.codeOcr, ad = App.games.get('perso');
     const img = await createImageBitmap(blob);
-    const turn = document.createElement('canvas');
-    turn.width = img.height; turn.height = img.width;
-    const x = turn.getContext('2d'); x.translate(turn.width / 2, turn.height / 2); x.rotate(Math.PI / 2); x.drawImage(img, -img.width / 2, -img.height / 2);
+    const rot = (q) => { // carte tournée de q quarts de tour vers la droite
+      const c = document.createElement('canvas'), side = q % 2;
+      c.width = side ? img.height : img.width; c.height = side ? img.width : img.height;
+      const x = c.getContext('2d'); x.translate(c.width / 2, c.height / 2); x.rotate(q * Math.PI / 2); x.drawImage(img, -img.width / 2, -img.height / 2);
+      return c;
+    };
     const zones = []; for (let y = 0; y < 0.9; y += 0.08) zones.push([y, Math.min(1, y + 0.16), 0, 1]);
-    const lines = (rd) => (rd ? rd.texts.filter((t, i) => rd.confs[i] > 0.85) : []);
-    const flat = lines(await O.read(img, [], { zones })), turned = lines(await O.read(turn, [], { zones }));
+    const lines = async (src) => { const rd = await O.read(src, [], { zones }); return rd ? rd.texts.filter((t, i) => rd.confs[i] > 0.85) : []; };
+    let flat = await lines(img), turned = await lines(rot(1));
     let g = ad.guess({ flat, turned }, { lics });
+    // v4.07 : carte photographiée à l'envers, ou nom écrit dans l'autre sens → les deux autres sens
+    if (!g.name) { turned = [...turned, ...(await lines(rot(3)))]; flat = [...flat, ...(await lines(rot(2)))]; g = ad.guess({ flat, turned }, { lics }); }
     if (!g.name) {
       const w = await P.getWorker(), r = await w.recognize(blob).catch(() => null);
       g = ad.guess({ flat, turned, tess: (r && r.data && r.data.text) || '' }, { lics });

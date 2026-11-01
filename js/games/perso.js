@@ -131,27 +131,49 @@
     /\b((?:BT|EX|ST|RB|LM|AD|P)\d{0,2}-\d{2,3})\b/i,                   // Digimon Card Game : « BT1-010 »
     /\b([A-Z]{2,5}\d{0,3}-[A-Z]{0,2}\d{2,3}[A-Z]?)\b/,                 // autres codes « ABC-123 », « OP09-004 »
   ];
-  const WORDS = /^(digimon|niveau|option|puissance|action|effect|edition|[eé]dition|1[eè]re|disciple|champion|ultime|m[eé]ga|virus|donn[ée]e|vaccin|d[ée]fense|points?)$/i;
-  // mots imprimés qui désignent une licence même sans son nom (« © Akiyoshi Hongo • Toei Animation » = Digimon)
-  const HINTS = { Digimon: / digimon | akiyoshi | hongo | digi oeuf | digivolution / };
+  // mots qui ne sont jamais le nom d'une carte : niveaux, genres, caractéristiques (Digimon, Jackie Chan, WWE, DreamWorks…)
+  const WORDS = /^(digimon|niveau|option|puissance|action|effect|edition|[eé]dition|1[eè]re|ere|disciple|champion|ultime|m[eé]ga|virus|donn[ée]e|vaccin|d[ée]fen[cs]e|attack|attaque|points?|force|sagesse|technique|chance|chi|humour|gentillesse|intelligence|vitesse|cartes?|animation|skg|les|des|de|la|le|du|et|aventures|trading|card|game|pv|hp|atk|def)$/i;
+  // mots imprimés qui désignent une licence même sans son nom (« © Akiyoshi Hongo • Toei Animation » = Digimon) — v4.07 : photos d'Arnaud
+  const HINTS = {
+    Digimon: / digimon | akiyoshi | hongo | digi oeuf | digivolution /,
+    'Les Aventures de Jackie Chan': / jackie chan | aventures de jackie | jackie chat /,
+    'WWE Slam Attax': / slam attax | wwe | topps /,
+    'DreamWorks (Carrefour)': / dreamworks | carrefour | animation skg /,
+  };
   const STOP = new Set(['cartes', 'carte', 'jeu', 'jeux', 'collection']);
+  const letters = (t) => (t.match(/\p{L}/gu) || []).length;
+  /** Lignes qui peuvent être un nom : surtout des lettres, pas que des mots génériques ni ceux de la licence */
+  function nameish(t, licWords, min = 3) {
+    t = String(t || '').replace(/[®™*]/g, '').replace(/\s+/g, ' ').trim();
+    // (pas de chiffres ni de © : copyright « ©2010 DreamWorks Animation L.L.C. » ; commence par une majuscule : pas un bout de phrase)
+    if (t.length < min || t.length > 40 || /[\d@©]/.test(t) || !/^\p{Lu}/u.test(t) || letters(t) < t.replace(/[\s'’&.-]/g, '').length * 0.85) return '';
+    const ws = norm(t).split(/[^a-z0-9]+/).filter(Boolean);
+    return ws.every((w) => WORDS.test(w) || licWords.has(w)) ? '' : t;
+  }
+  /** Le nom le plus vu (les bandes se chevauchent : une vraie ligne est souvent lue 2 fois), puis le plus long */
+  function bestName(lines, licWords, min = 3) {
+    const seen = new Map();
+    lines.forEach((t, i) => { const n = nameish(t, licWords, min); if (!n) return; const k = norm(n); const c = seen.get(k) || { n, k: 0, i }; c.k++; if (n.length > c.n.length) c.n = n; seen.set(k, c); });
+    return [...seen.values()].sort((a, b) => b.k - a.k || b.n.length - a.n.length || a.i - b.i)[0]?.n || '';
+  }
   function guess({ flat = [], turned = [], tess = '' } = {}, { lics = [] } = {}) {
     const all = [...flat, ...turned, ...String(tess).split('\n')].map((t) => String(t || '').trim()).filter(Boolean);
     const out = { num: '', name: '', total: 0, lic: '' };
-    // numéro : code imprimé, sinon « 12/150 », sinon « 18 Nom DP 300 » (cartes Digimon numérotées)
+    // licence : mots typiques (HINTS), sinon un nom de licence connue écrit sur la carte
+    const T = ' ' + norm(all.join(' ')).replace(/[^a-z0-9]+/g, ' ') + ' ';
+    const hint = Object.keys(HINTS).find((l) => HINTS[l].test(T));
+    out.lic = hint || lics.find((l) => { const k = norm(l).split(/[\s:(]/)[0]; return k.length >= 4 && !STOP.has(k) && T.includes(` ${k} `); }) || '';
+    const licWords = new Set(norm(out.lic + ' jackie chan chat wwe slam attax dreamworks carrefour topps').split(/[^a-z0-9]+/).filter((w) => w.length > 2));
+    // numéro : code imprimé, sinon « 12/150 » (donne aussi le total), sinon « 18 Nom DP 300 » (cartes Digimon numérotées)
     for (const re of CODE_RES) { const t = all.find((x) => re.test(x)); if (t) { out.num = t.match(re)[1]; break; } }
     const dp = all.map((t) => t.match(/(?:^|[^\d])(\d{1,3})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ&'’. -]{2,38}?)\s+DP\s*\d/)).find(Boolean);
     if (!out.num) { const f = all.map((t) => t.match(/(?:^|[^\d])(\d{1,3})\s*\/\s*(\d{1,3})(?!\d)/)).find(Boolean); if (f && +f[1] <= +f[2] + 50) { out.num = f[1]; out.total = +f[2]; } }
     if (!out.num && dp) out.num = dp[1];
-    // nom : écrit à la verticale (le plus long morceau de lettres), sinon celui de la ligne « DP »
-    const vert = turned.map((t) => String(t).trim()).filter((t) => t.length >= 4 && t.length <= 40 && (t.match(/[A-Za-zÀ-ÿ]/g) || []).length >= t.replace(/\s/g, '').length * 0.85 && !t.split(/\s+/).every((w) => WORDS.test(w)));
-    if (vert.length) out.name = vert.sort((a, b) => b.length - a.length)[0];
-    else if (dp) out.name = dp[2].trim();
+    // nom : écrit à la verticale d'abord (Digimon 1999, Jackie Chan, WWE), sinon celui de la ligne « DP », sinon le plus vu sur la carte droite
+    // (carte droite seulement sans phrases de règles : sinon « Atomiseur », « Action : Utilisez… » ; 4 lettres au moins : « Gar », « Han » = morceaux)
+    const rules = flat.some((t) => String(t).trim().split(/\s+/).length >= 5);
+    out.name = bestName(turned, licWords, 4) || (dp ? dp[2].trim() : '') || (rules ? '' : bestName(flat, licWords, 4));
     if (out.name && out.name === out.name.toUpperCase()) out.name = out.name.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (m) => m.toUpperCase());
-    // licence : un nom connu écrit sur la carte (« DIGIMON », « © 1999 BANDAI … Digimon »)
-    const T = ' ' + norm(all.join(' ')).replace(/[^a-z0-9]+/g, ' ') + ' ';
-    const hint = Object.keys(HINTS).find((l) => HINTS[l].test(T));
-    out.lic = hint || lics.find((l) => { const k = norm(l).split(/[\s:(]/)[0]; return k.length >= 4 && !STOP.has(k) && T.includes(` ${k} `); }) || '';
     return out;
   }
   /** Carte perso déjà dans le Dex avec ce numéro (même licence si elle est connue) */

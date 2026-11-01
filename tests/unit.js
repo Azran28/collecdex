@@ -81,6 +81,17 @@ test('collections perso : numéro, nom et licence lus sur la carte', (App) => {
   g = ad.guess({ flat: ['ATOMISEUR'], turned: ['DIGI-OEUF'] }, { lics });
   eq(g.name, 'Digi-Oeuf');
   ok(!ad.guess({ flat: ['025/165'] }).name && ad.guess({ flat: ['025/165'] }).total === 165, '« 025/165 » : numéro et total');
+  // v4.07 : autres licences d'Arnaud (Jackie Chan, WWE Slam Attax, DreamWorks de Carrefour)
+  g = ad.guess({ flat: ['101', 'DEFENCE', 'ATTACK'], turned: ['JOHN CENA'] }, { lics });
+  eq(g.name, 'John Cena');
+  g = ad.guess({ flat: ['Marty', '80/216', '80/216'] }, { lics });
+  ok(g.name === 'Marty' && g.num === '80' && g.total === 216, 'Marty 80/216 : ' + JSON.stringify(g));
+  g = ad.guess({ flat: ['&©2010 DreamWorks Animation L.L.C.', '89/216', 'Force', 'Humour'] }, { lics });
+  ok(g.lic === 'DreamWorks (Carrefour)' && !g.name, 'copyright ≠ nom : ' + JSON.stringify(g));
+  g = ad.guess({ flat: ['Jd-52', 'ATOMISEUR', 'EFFECT: Si vous perdez le duel, déconnectez'] }, { lics });
+  ok(g.num === 'Jd-52' && !g.name, 'carte à règles : pas de nom pris sur la carte droite : ' + JSON.stringify(g));
+  g = ad.guess({ turned: ['JACKIE', 'CHAT', 'CHI', 'CHANCE', 'TECHNIQUE', 'SAGESSE', 'FORCE'] }, { lics });
+  ok(g.lic === 'Les Aventures de Jackie Chan' && !g.name, 'Jackie Chan : ni « Chat » ni une caractéristique : ' + JSON.stringify(g));
 });
 
 // ---------- Outils ----------
