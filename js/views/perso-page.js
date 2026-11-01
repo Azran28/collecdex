@@ -2,7 +2,7 @@
  * Collections perso, page de classeur (v4.08, Arnaud : ses DreamWorks de Carrefour et WWE Slam Attax sont rangées en classeur).
  * Une photo de la page → chaque carte repérée (même détecteur que Capturer › Classeur : R.detectCards / detectLoose, sinon la grille),
  * lue l'une après l'autre (App.views.persoAdd.read), puis une liste à vérifier et « Ajouter les N cartes » d'un coup.
- * Licence, série et total = les cases communes du formulaire. Carte déjà dans le Dex (même numéro) : décochée.
+ * Licence, série et total = ceux de la page d'ajout (bouton en haut, ctx.pick). Carte déjà dans le Dex (même numéro) : décochée.
  */
 App.views.persoPage = {
   async run(file, ctx) {
@@ -65,8 +65,8 @@ App.views.persoPage = {
     };
     box.onclick = async (e) => {
       if (!e.target.closest('.pp-add')) return;
+      if (!ctx.shared().lic && !(await ctx.pick())) return;
       const { lic, setName, total } = ctx.shared();
-      if (!lic) { App.util.toast('Indique la licence (en dessous)'); document.getElementById('pa-lic').focus(); return; }
       const todo = cards.filter((c) => c.on);
       const nameless = todo.filter((c) => !c.name.trim() && !c.num.trim());
       if (nameless.length) { App.util.toast(`${nameless.length} carte${nameless.length > 1 ? 's' : ''} sans nom ni numéro : complète ou décoche`); return; }
@@ -81,7 +81,8 @@ App.views.persoPage = {
       }
       ctx.saved(lic, setName || 'Sans série');
       App.util.toast(`${n} carte${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} à ton Dex`);
-      box.innerHTML = `<div class="panel pa-ok">${I('check', 16)} <b>${n} carte${n > 1 ? 's' : ''}</b> dans ta collection perso. <a href="#/jeu/perso/serie/${encodeURIComponent(setId)}">Voir la série ›</a><br><span class="small muted">Page suivante : reprends une photo.</span></div>`;
+      box.innerHTML = `<div class="panel pa-ok">${I('check', 16)} <b>${n} carte${n > 1 ? 's' : ''}</b> dans ta collection perso. <a href="#/jeu/perso/serie/${encodeURIComponent(setId)}">Voir la série ›</a></div>
+        <label for="pa-cam" class="btn primary pp-add">${I('camera', 16)} Page suivante</label>`;
     };
     draw();
 
@@ -101,7 +102,7 @@ App.views.persoPage = {
         if (had) { c.had = true; c.on = false; }
         const pre = ad.setByPrefix(g.num, lic);
         if (pre && (!lic || pre.lic === lic)) ctx.fillSet(pre.set);
-        if (g.total) { const t = document.getElementById('pa-total'); if (t && !t.value) t.value = g.total; }
+        if (g.total) ctx.fillTotal(g.total);
       }
       // (garde ce que la personne est en train d'écrire : seule la ligne lue est redessinée si elle n'a pas le focus)
       if (!box.contains(document.activeElement)) draw();

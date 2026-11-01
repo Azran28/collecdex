@@ -116,7 +116,7 @@ Object.assign(App.views.scan, {
     // Certification « dos d'abord » : le dos, on retourne, on tient immobile → la photo se prend toute seule
     let trk = null, trkTimer = null;
     const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.r-live'); if (h) h.remove(); const pc = view.querySelector('.page-cert'); if (pc) pc.remove(); step(0); };
-    // v4.09 (Arnaud : « la même DA que la certif classeur et rafale ») : pastilles Dos → Retourne → Photo en haut de la caméra,
+    // v4.10 (Arnaud : « la même DA que la certif classeur et rafale ») : pastilles Dos → Retourne → Photo en haut de la caméra,
     // consigne dessous (.r-live), cadre jaune / orange (App.views.scan.stepPills, comme la rafale certifiée)
     const step = (cur, mood = '') => App.views.scan.stepPills(view, ['Dos', 'Retourne', 'Photo'], cur, mood);
     const LIVE = {
@@ -453,7 +453,7 @@ Object.assign(App.views.scan, {
           : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (tu as choisi « Juste la photo »). Choisis « Certifier » au-dessus de la photo pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
         const wasTarget = !!target, sureAdd = autoPicked; autoPicked = false;
-        // v4.09 (Arnaud : « que la certif carte seule s’enchaîne, c’est uniquement pour la rafale ») : capture certifiée → on reste
+        // v4.10 (Arnaud : « que la certif carte seule s’enchaîne, c’est uniquement pour la rafale ») : capture certifiée → on reste
         // sur le résultat (badge obtenu ou non), « Capturer la suivante » relance la caméra ; sans certification, reset direct (v3.63)
         const stay = wasTarget || !!myCert;
         const doneHtml = `<div class="sc-done">${mode === 'rien' || !cardURL ? '' : `<img src="${cardURL}" alt="">`}<div class="sc-done-t">${what}${sureAdd ? ' <span class="small muted">Reconnue avec certitude.</span>' : ''} <a class="small" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a>${verLine}${certLine}</div></div>`;
