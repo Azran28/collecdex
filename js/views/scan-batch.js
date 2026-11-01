@@ -317,6 +317,10 @@ Object.assign(App.views.scan, {
         ? `<span class="cert-ok">${App.icons.icon('shield', 16)} Capture en direct vérifiée</span> <span class="small muted">— les cartes bien reconnues seront certifiées.</span>`
         : `<span class="small">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(cert.reasons.join(', '))}. <span class="muted">Tu peux quand même ajouter les cartes, ou reprendre la photo.</span></span>`
       ) + (cert.flashTrace ? App.certify.lampChart(cert.flashTrace, cert.lampFit) : '')}</div>`;
+      // v4.02 (Arnaud : « que tous les scans de page s'enchaînent sans retourner sur la page de base ») : page feuilletée →
+      // l'écran d'analyse reste ouvert (« Préparation de la page… ») et la lecture part toute seule, sans compte à rebours
+      const chain = !burst && S.flipCur;
+      if (chain) { S.prog = null; X.svOpen('scan'); }
       const url = URL.createObjectURL(blob); urls.push(url);
       view.innerHTML = `<div class="crop-area"><img src="${url}" alt="Page de classeur"><div class="grid-box"></div></div>`;
       const img = view.querySelector('img');
@@ -354,6 +358,7 @@ Object.assign(App.views.scan, {
             if (done) found = ok = true;
           }
           S.byCards = !!(S.autoCells && S.autoCells[0] && S.autoCells[0].cards);
+          if (chain) { el.querySelector('#b-go').click(); return; } // (grille pas sûre : lue quand même ; une page sans carte est sautée)
           if (!ok) { el.querySelector('#b-go').classList.remove('hidden'); auto.classList.remove('hidden'); auto.innerHTML = `${App.icons.icon('layers', 14)} ${found ? 'Vérifie les cases (glisse la grille si besoin)' : 'Je n’ai pas trouvé la grille tout seul : place-la sur les pochettes'}, puis lance la reconnaissance.`; return; }
           let n = 3;
           auto.classList.remove('hidden');

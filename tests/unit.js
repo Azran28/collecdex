@@ -1026,6 +1026,20 @@ test('page tournée : glissement et changement d’un coup refusés', async (App
   eq(ev2, null, 'téléphone bougé pris pour une page tournée');
 });
 
+// v4.02 : capteurs du téléphone — page tournée (téléphone tenu, petits tremblements) ≠ téléphone baissé ou glissé
+test('feuilletage : téléphone bougé reconnu par ses capteurs', async (App) => {
+  await App.need('scan');
+  const T = App.pageTurn; ok(T && T.motion, 'App.pageTurn.motion manquant');
+  const run = (fn) => { const m = T.motion(); for (let i = 0; i <= 100; i++) { const t = i * 20, [w, g, a] = fn(t); m.push({ _t: t, interval: 20, rotationRate: { alpha: w, beta: 0, gamma: 0 }, accelerationIncludingGravity: { x: g[0], y: g[1], z: g[2] }, acceleration: { x: a, y: 0, z: 0 } }); } return m.moved(200, 1800); };
+  const hold = run((t) => [4 * Math.sin(t / 50), [0.3, 2, 9.6], 0.2 * Math.sin(t / 30)]);
+  eq(hold.moved, false, `téléphone tenu pris pour un téléphone bougé (${JSON.stringify(hold)})`);
+  const lower = run((t) => { const k = Math.min(1, Math.max(0, (t - 600) / 600)), th = k * 1.2; return [k > 0 && k < 1 ? 115 : 2, [0, 9.8 * Math.cos(th), 9.8 * Math.sin(th)], 0.5]; });
+  eq(lower.moved, true, 'téléphone baissé vers le sol pas vu');
+  const slide = run((t) => [3, [0.3, 2, 9.6], t > 700 && t < 1100 ? 4 : 0.2]);
+  eq(slide.moved, true, 'téléphone glissé vers l’autre page pas vu');
+  eq(T.motion().moved(0, 1000), null, 'sans capteur : on ne sait pas');
+});
+
 // v3.84 : rafale — une carte qui sort du cadre en glissant se retrouve décalée ; une autre image ou la même sans décalage ne compte pas
 test('rafale : dos qui sort du cadre reconnu décalé', async (App) => {
   await App.need('scan');

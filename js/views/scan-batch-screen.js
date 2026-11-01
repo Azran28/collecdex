@@ -200,7 +200,8 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
       // v4.00 : page feuilletée où aucune carte n'est trouvée (photo du sol en baissant le téléphone…) → page suivante
       if (!burst && S.flipCur && !S.cells.some((c) => ['sure', 'verifier'].includes(c.state))) {
         App.util.toast(`Page ${S.flipCur.i} : aucune carte trouvée sur la photo, je passe à la suite`);
-        svClose(); el.querySelector('#b-reset').click(); return;
+        if (!S.flipQueue.length) svClose(); // (v4.02 : sinon l'écran d'analyse reste ouvert pour la page suivante)
+        el.querySelector('#b-reset').click(); return;
       }
       const l = toCheck();
       if (l.length) svOpen('review', { list: l, idx: 0 }); else svOpen('recap');
@@ -260,7 +261,8 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     }
     /** Enregistrer les cartes retenues puis repartir sur un nouveau scan (v3.41 récapitulatif, v3.57 aussi après la vérification) */
     function saveAndNext() {
-      svClose();
+      // v4.02 : pages feuilletées en attente → l'écran d'analyse reste ouvert pendant l'enregistrement, puis lit la suivante
+      if (!burst && S.flipCur && S.flipQueue.length) { S.prog = null; sv.mode = 'scan'; drawSV(); } else svClose();
       const add = resultsEl.querySelector('#b-add');
       if (add && S.cells.some((c) => X.modeOf(c) !== 'rien')) { S.newAfterSave = true; add.click(); return; }
       // rien à enregistrer : directement le scan suivant

@@ -13,6 +13,7 @@ App.scanBatchParts = App.scanBatchParts || {};
 App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGrid, view }) => {
   const { S } = X, T = App.pageTurn, I = App.icons.icon;
   S.flipTimer = null; S.flipLog = []; S.flipping = false; S.flipPages = []; S.flipQueue = [];
+  const mot = T.motion(); // (v4.02 : capteurs du téléphone, pour ne pas prendre un téléphone bougé pour une page tournée)
   const btn = el.querySelector('#b-flip');
   if (!burst && btn && App.scanShare && T) App.scanShare.isTester().then((v) => { if (v && alive()) btn.classList.remove('hidden'); }).catch(() => {});
   const sec = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
@@ -61,7 +62,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   async function send(e, item) {
     try {
       const b = await mosaic(e.frames), t0 = e.frames[Math.max(0, e.frames.length - 48)].t;
-      App.scanShare.scan({ game: S.game, mode: 'classeur', kind: 'feuillete', extra: { feuillete: { pass: e.res.pass, why: e.res.why || '', ev: e.res.ev || null, ms: Math.round(item.ms), fps: Math.round(item.fps * 10) / 10, n: item.n, ts: e.frames.slice(-48).map((f) => Math.round(f.t - t0)) } } }, b);
+      App.scanShare.scan({ game: S.game, mode: 'classeur', kind: 'feuillete', extra: { feuillete: { pass: e.res.pass, why: e.res.why || '', ev: e.res.ev || null, ms: Math.round(item.ms), fps: Math.round(item.fps * 10) / 10, n: item.n, mot: e.mot || null, ts: e.frames.slice(-48).map((f) => Math.round(f.t - t0)) } } }, b);
     } catch (err) { console.warn('feuilleté → labo', err); }
   }
   /**
@@ -72,7 +73,8 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
    * soulevée), App.certify.flipPage.
    */
   function flipNext() {
-    const p = S.flipQueue.shift(); if (!p) { S.flipCur = null; return false; }
+    const p = S.flipQueue.shift();
+    if (!p) { if (S.flipCur) App.util.toast(`Feuilletage terminé : ${S.flipCur.of} page${S.flipCur.of > 1 ? 's lues' : ' lue'}`); S.flipCur = null; return false; }
     S.flipCur = { i: p.i, of: p.of };
     startGrid(p.blob, p.cert || null); // (page tournée reconnue et vérifiée → les cartes bien reconnues seront certifiées, v4.00)
     const box = el.querySelector('#b-certline');
@@ -83,12 +85,17 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
     if (S.flipTimer) { clearInterval(S.flipTimer); S.flipTimer = null; }
     if (!S.flipping) return;
     S.flipping = false;
-    step(0); cam.stop(); showButtons(false);
+    step(0); cam.stop(); showButtons(false); mot.stop();
     view.innerHTML = App.views.scan.empty('classeur', dims());
     const pages = S.flipPages; S.flipPages = [];
+    // v4.02 (Arnaud : « la dernière photo est toujours ratée ») : sans capteur de mouvement, une page photographiée juste
+    // avant l'appui sur « Terminer » est le plus souvent le sol (téléphone baissé pour toucher le bouton) → oubliée
+    const last = pages[pages.length - 1];
+    if (last && last.noSensor && performance.now() - last.at < 2500) pages.pop();
     if (pages.length && alive()) { S.flipQueue = pages.map((p, k) => ({ ...p, i: k + 1, of: pages.length })); flipNext(); }
   }
   async function flipStart() {
+    mot.start(); // (sur l'appui : l'iPhone demande l'autorisation)
     try { await cam.start({ light: true }); } catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${App.util.esc(e.message)}</span>`); return; }
     App.sfx.unlock(); showButtons(true); S.flipping = true;
     view.insertAdjacentHTML('beforeend', '<div class="r-live">Cadre <b>une page entière</b> et ne bouge plus</div>');
@@ -107,7 +114,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
         const b = await cam.photo();
         if (b && S.flipping) {
           const prev = S.flipPages[S.flipPages.length - 1];
-          S.flipPages.push({ blob: b, pass, cert }); drawStrip(); stopLabel();
+          S.flipPages.push({ blob: b, pass, cert, at: performance.now(), noSensor: !!(e && e.mot === null) }); drawStrip(); stopLabel();
           if (cert && prev && !prev.cert) prev.cert = await App.certify.flipPage(await createImageBitmap(prev.blob), e.frames, e.res, cols * rows).catch(() => null); // (la page soulevée)
           view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
         }
@@ -131,6 +138,15 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
         if (st === 'page' && was !== 'page') { lastPage = f.t; if (first) { first = false; shootPage(null); return; } } // (la 1re page, avant tout geste)
         if (holdUntil && (f.t < holdUntil && st !== 'geste')) return;
         if (holdUntil || st !== was) { holdUntil = 0; show(st); }
+        return;
+      }
+      // v4.02 : le téléphone a tourné, penché ou bougé pendant le « geste » → ce n'est pas une page tournée : ni photo, ni badge
+      e.mot = mot.moved(e.frames[0].t, f.t);
+      if (e.mot && e.mot.moved) {
+        step(2, 'warn'); hint('Le <b>téléphone</b> a bougé : tiens-le immobile, ne tourne que la page', 'warn');
+        try { if (navigator.vibrate) navigator.vibrate([20, 60, 20]); } catch (err) { /* */ }
+        holdUntil = f.t + 2200;
+        send({ ...e, res: { pass: false, why: 'téléphone bougé', ev: { ...(e.res.ev || {}), was: e.res.pass } } }, { n: 0, ms: f.t - e.frames[0].t, fps: 0 });
         return;
       }
       n++;
