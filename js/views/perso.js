@@ -41,11 +41,14 @@ App.views.persoAdd = {
     const $ = (s) => el.querySelector(s);
 
     const drawWhere = () => {
+      // v4.11 (Arnaud : « le choix de licence n'est pas assez évident ») : « Licence » écrit en toutes lettres, pastille « Changer »
       $('#pa-where').innerHTML = st.lic
-        ? `${I('box', 16)}<span><b>${esc(st.lic)}</b>${st.set ? ` · ${esc(st.set)}` : ''}</span><small>changer</small>`
-        : `${I('box', 16)}<span><b>Choisir la licence</b></span><small>Digimon, Magic…</small>`;
+        ? `${I('box', 18)}<span><small>Licence${st.set ? ' · série' : ''}</small><b>${esc(st.lic)}</b>${st.set ? ` · ${esc(st.set)}` : ''}</span><em>Changer</em>`
+        : `${I('box', 18)}<span><small>Licence</small><b>Pas encore choisie</b></span><em>Choisir</em>`;
       $('#pa-where').classList.toggle('none', !st.lic);
     };
+    // série de la dernière carte ajoutée dans cette licence ('' si aucune)
+    const lastSet = (lic) => { const it = App.col.all().filter((x) => x.game === 'perso' && App.util.norm((x.perso && x.perso.lic) || '') === App.util.norm(lic)).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))[0]; const s = it && it.snap.setName; return s && s !== 'Sans série' ? s : ''; };
     const setWhere = (lic, set) => { if (lic !== st.lic || set !== st.set) st.total = 0; st.lic = lic; st.set = set; drawWhere(); };
     // licence + série : une fenêtre avec des pastilles (licences déjà utilisées d'abord), ou un nom à écrire
     const pick = () => new Promise((done) => {
@@ -76,6 +79,12 @@ App.views.persoAdd = {
       draw();
     }).then((r) => { if (r) setWhere(r.lic, r.set); return r; });
     $('#pa-where').addEventListener('click', () => pick().then(() => { if (cur && cur.state === 'done') drawCard(); }));
+    $('#pa-stage').addEventListener('click', (e) => {
+      const l = e.target.closest('[data-lic]'), p = e.target.closest('[data-pick]'), b = e.target.closest('[data-base]');
+      if (l) { setWhere(l.dataset.lic, lastSet(l.dataset.lic)); if (cur) cur.moved = false; drawCard(); }
+      else if (p) pick().then(() => { if (cur && cur.state === 'done') { cur.moved = false; drawCard(); } });
+      else if (b && cur) { App.photoHandoff = { blob: cur.blob, to: 'scan' }; App.views.scan.remember(b.dataset.base); location.hash = `#/scan?jeu=${encodeURIComponent(b.dataset.base)}`; }
+    });
 
     // ----- étapes -----
     const drawEmpty = (next = false) => {
@@ -94,14 +103,20 @@ App.views.persoAdd = {
         : c.had ? `${I('check', 13)} Déjà dans ton Dex : un exemplaire de plus`
         : c.found ? `${I('check', 13)} Carte retrouvée`
         : c.name ? `${I('check', 13)} Lu sur la carte` : `Je n’ai pas pu lire le nom : touche-le pour l’écrire`;
+      const bn = c.base && App.games.info(c.base).name;
+      // licence dans le résultat : pastilles tout de suite si elle n'est pas choisie, sinon une ligne touchable
+      const licRow = !st.lic
+        ? `<div class="pa-ask"><b>C’est quelle licence ?</b><div class="chips">${lics().slice(0, 6).map((l) => `<button class="chip" type="button" data-lic="${esc(l)}">${esc(l)}</button>`).join('')}<button class="chip" type="button" data-pick>Autre…</button></div></div>`
+        : `<button class="pa-licrow" type="button" data-pick>${I('box', 13)}<span><b>${esc(st.lic)}</b> · ${st.set ? esc(st.set) : '<i>sans série</i>'}</span>${I('pencil', 12)}</button>${c.moved ? `<span class="pa-tag small todo">Licence lue sur la carte : passée en ${esc(st.lic)}</span>` : ''}`;
       $('#pa-stage').innerHTML = `
+        ${bn ? `<div class="pa-base panel">${App.ui.licIc(c.base, 16, 'lic-ic-xs')}<span><b>On dirait une carte ${esc(bn)} !</b> ${esc(bn)} est une licence complète de l’appli : elle y sera reconnue avec toute sa série.</span><button class="btn sm primary" type="button" data-base="${esc(c.base)}">Scanner en ${esc(bn)}</button></div>` : ''}
         <div class="pa-res panel">
           <div class="pa-res-img"><img src="${c.url}" alt="Ta carte"></div>
           <div class="pa-res-info">
             <span class="pa-tag small ${busy ? '' : c.name ? 'ok' : 'todo'}">${tag}</span>
             <label class="pa-edit"><input type="text" id="pa-name" class="pa-name" maxlength="80" value="${esc(c.name)}" placeholder="${busy ? '…' : 'Nom de la carte'}" ${busy ? 'disabled' : ''}>${I('pencil', 14)}</label>
             <label class="pa-edit pa-numl">n° <input type="text" id="pa-num" class="pa-num" maxlength="24" value="${esc(c.num)}" placeholder="—" ${busy ? 'disabled' : ''}></label>
-            <span class="small muted">${st.lic ? `${esc(st.lic)}${st.set ? ` · ${esc(st.set)}` : ''}` : 'Licence à choisir'}</span>
+            ${busy ? '' : licRow}
           </div>
         </div>
         <div class="row action-dock pa-acts">
@@ -138,13 +153,20 @@ App.views.persoAdd = {
       if (!alive() || cur !== c) return;
       c.url = URL.createObjectURL(c.blob);
       drawCard();
+      // v4.11 : carte d’une des licences de base (Pokémon, One Piece…) ? lu en même temps (~1 s) → « Scanner en Pokémon »
+      App.views.scan.licenceScores(c.blob).then((sc) => {
+        const g = App.views.scan.clearLicence(sc);
+        if (g && alive() && cur === c) { c.base = g; if (c.state === 'done') drawCard(); }
+      }).catch(() => {});
       let g = null;
       try { g = await App.views.persoAdd.read(c.blob, lics()); } catch (e) { console.warn(e); }
       if (!alive() || cur !== c) return;
       c.state = 'done';
       if (g) {
         const pre = ad.setByPrefix(g.num, g.lic || st.lic);
-        if (!st.lic && (g.lic || pre)) setWhere(g.lic || pre.lic, pre && (!g.lic || pre.lic === g.lic) ? pre.set : '');
+        // licence écrite sur la carte (« Slam Attax », « Akiyoshi Hongo »…) ≠ celle de la carte d'avant → on y passe (et on le dit)
+        if (st.lic && g.lic && App.util.norm(g.lic) !== App.util.norm(st.lic)) { setWhere(g.lic, (pre && pre.lic === g.lic && pre.set) || lastSet(g.lic)); c.moved = true; }
+        else if (!st.lic && (g.lic || pre)) setWhere(g.lic || pre.lic, pre && (!g.lic || pre.lic === g.lic) ? pre.set : '');
         else if (pre && pre.lic === st.lic && !st.set) setWhere(st.lic, pre.set);
         const had = ad.ownedByNum(g.num, st.lic);
         c.num = g.num || ''; c.total = g.total || 0;
@@ -199,8 +221,11 @@ App.views.persoAdd = {
 
     drawWhere();
     setMode(mode);
+    // v4.11 : photo venue de Capturer (« On dirait une carte Digimon › Ajouter à ma collection perso ») → lue ici
+    const hand = App.photoHandoff;
+    if (hand && hand.to === 'perso' && hand.blob) { App.photoHandoff = null; if (mode === 'page') setMode('carte'); onFile(hand.blob); }
     // Capturer › « Autre licence » (?photo=1) : l'appareil photo s'ouvre tout de suite sur téléphone
-    if (q.photo && touch) try { $('#pa-cam').click(); } catch (e) { /* */ }
+    else if (q.photo && touch) try { $('#pa-cam').click(); } catch (e) { /* */ }
   },
 
   /** Ajoute une carte perso (ou +1 exemplaire) → { had, setId } ; sa photo devient son visuel */

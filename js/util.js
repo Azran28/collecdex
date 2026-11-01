@@ -130,7 +130,7 @@ App.util = (() => {
     if (cb) cb();
   };
   /**
-   * « Proposer une amélioration » (v4.11, Arnaud : « un moyen de faire des propositions si les utilisateurs voient des
+   * « Proposer une amélioration » (v4.12, Arnaud : « un moyen de faire des propositions si les utilisateurs voient des
    * améliorations ») : sujet + idée envoyés à collecdex.app@gmail.com (e-mail prêt à partir, comme « Proposer une licence »).
    * Lien `[data-suggest="Sujet"]` n'importe où dans le site.
    */

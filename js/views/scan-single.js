@@ -237,6 +237,13 @@ Object.assign(App.views.scan, {
         if (!cam.on) { shot.classList.add('hidden'); camButtons(true); } // (caméra rouverte par « Réessayer » pendant la lecture : on la laisse)
       }
     }
+    // v4.11 : carte d’une collection perso → page d'ajout perso avec cette photo (écran plein écran du téléphone compris : dans `el`)
+    el.addEventListener('click', (e) => {
+      const p = e.target.closest('[data-perso]'); if (!p) return;
+      e.preventDefault();
+      App.photoHandoff = { blob: cardBlob || lastShot || null, to: 'perso' };
+      location.hash = `#/perso/ajouter${p.dataset.perso ? `?lic=${encodeURIComponent(p.dataset.perso)}` : ''}`;
+    });
     status.addEventListener('click', (e) => { if (e.target.closest('#sc-recrop') && lastShot) { const keep = cert; startCrop(lastShot, 0.92); cert = keep; } });
     // tuiles « Certifier / Juste la photo » (v3.16, retenu dans les réglages, synchronisé) ; le cadre vide montre les gestes ou non
     el.addEventListener('click', (e) => {
@@ -248,7 +255,7 @@ Object.assign(App.views.scan, {
     el.querySelector('#sc-file').addEventListener('change', (e) => { if (e.target.files[0]) { SS.close(); cam.stop(); cert = null; fromCam = false; startCrop(e.target.files[0]); } e.target.value = ''; });
 
     // Recadrage (cadre au format d'une carte, 63 × 88 mm)
-    let crop = null, autoCrop = false; // autoCrop : cadre placé tout seul sur une photo importée (validé d'office)
+    let crop = null, autoCrop = false, wholeNext = false; // autoCrop : cadre placé tout seul sur une photo importée (validé d'office)
     function startCrop(blob, initial = null) {
       results.innerHTML = guideC(); setStatus('');
       if (initial === null) cert = null;
@@ -294,6 +301,9 @@ Object.assign(App.views.scan, {
             }
           } catch (e) { console.warn(e); }
         }
+        // v4.11 : photo déjà recadrée venue d'une collection perso → la photo entière, sans étape « Valider le cadrage »
+        if (wholeNext && !found && !lp.page) { found = true; size = 1; cx = 0.5; cy = 0.5; }
+        wholeNext = false;
         crop = { img, url, box: view.querySelector('.crop-box'), cx, cy, size, warped };
         el.querySelector('#sc-size').value = Math.round(size * 100);
         placeBox();
@@ -541,19 +551,32 @@ Object.assign(App.views.scan, {
       }
       return null;
     }
+    /** v4.11 : « On dirait une carte Digimon » + bouton vers les collections perso (la photo suit) */
+    const persoMsg = (lic) => `<span class="small">${App.icons.icon('box', 14)} <b>On dirait une carte ${esc(lic)}</b> : elle n’est pas dans les licences de l’appli, mais tu peux la garder dans tes collections perso. <button class="btn sm primary" type="button" data-perso="${esc(lic)}">${App.icons.icon('plus', 14)} Ajouter à ma collection perso</button></span>`;
     async function analyse(blob, poor = '') { // poor : problème de la photo qui vient d'être prise (v3.38)
       if (!blob) return; // recadrage vide (image pas encore affichée)
       const tok = ++scanTok; logId = null; recoCands = []; recoFrom = null; pendingPick = false;
       const on = () => live(tok);
       // v3.71 : licence choisie à la main → vérifiée en parallèle dès le début (PaddleOCR, ~1 s) ; carte nettement d'une autre
       // licence → la lecture repart tout de suite dans la bonne (une carte lue dans la mauvaise licence peut prendre plus d'une minute)
-      if (!auto) App.views.scan.licenceScores(blob).then((sc) => {
-        const [top, next] = Object.entries(sc).filter(([k]) => App.games.get(k)).sort((x, y) => y[1] - x[1]);
-        if (!top || top[0] === game || top[1] < 3 || top[1] < (next ? next[1] : 0) + 2 || top[1] < (sc[game] || 0) + 2 || !on()) return;
-        const name = App.games.info(top[0]).name;
-        switchGame(top[0]);
-        App.util.toast(`On dirait une carte ${name} : je la lis en ${name}`, 3500);
-        analyse(blob, poor);
+      App.views.scan.licenceRead(blob).then(({ scores: sc, text }) => {
+        if (!on()) return;
+        const g2 = auto ? '' : App.views.scan.clearLicence(sc, game);
+        if (g2) {
+          const name = App.games.info(g2).name;
+          switchGame(g2);
+          App.util.toast(`On dirait une carte ${name} : je la lis en ${name}`, 3500);
+          analyse(blob, poor);
+          return;
+        }
+        // v4.11 : licence d’une collection perso écrite sur la carte (« Akiyoshi Hongo », « Slam Attax »…) et aucune licence de base
+        // → lecture arrêtée (elle essaierait toutes les licences pendant plus d'une minute) et « Ajouter à ma collection perso »
+        const P = App.games.get('perso'), pl = P && P.licIn(text, [...P.known().keys()]);
+        if (!pl || App.views.scan.clearLicence(sc) || (sc[game] || 0) >= 2) return;
+        scanTok++;
+        view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
+        setStatus(persoMsg(pl));
+        display([], '', false);
       }).catch(() => {});
       cardBlob = blob;
       if (cardURL) URL.revokeObjectURL(cardURL);
@@ -697,11 +720,12 @@ Object.assign(App.views.scan, {
         }
         // v3.71 (Arnaud : « si on se trompe de licence, repère-le et préviens ») : licence choisie à la main mais rien de trouvé →
         // la licence de la carte est cherchée (texte, puis image) ; une autre → la carte y est relue (et on le dit), sinon on prévient
-        let suspect = '';
+        let suspect = '', readTxt = null;
         const got = (t) => !!(t && (t.confident || t.numOk || (t.orb || 0) >= 25));
         if (!auto && !switched && !got(cands[0]) && !(info && info.don) && on()) {
           st('Bonne licence ?');
-          const sc = await App.views.scan.licenceScores(blob).catch(() => ({}));
+          const lr = await App.views.scan.licenceRead(blob).catch(() => ({ scores: {}, text: '' }));
+          const sc = lr.scores; readTxt = lr.text;
           const [top, next] = Object.entries(sc).filter(([k]) => App.games.get(k)).sort((x, y) => y[1] - x[1]);
           const g = top && top[1] >= 2 && top[1] >= (next ? next[1] : 0) + 2 ? top[0] : await App.views.scan.detectGame(blob, st).catch(() => '');
           const A = g && g !== game && App.games.get(g);
@@ -713,13 +737,23 @@ Object.assign(App.views.scan, {
             } else suspect = g;
           }
         }
+        // v4.11 : rien de reconnu dans les licences de base → licence d'une collection perso écrite sur la carte (« © Akiyoshi Hongo »
+        // = Digimon, « Slam Attax »…) ? → « Ajouter à ma collection perso » (la photo suit, App.photoHandoff)
+        let perso = '';
+        if (!switched && !suspect && !got(cands[0]) && !(info && info.don) && on()) {
+          const P = App.games.get('perso');
+          if (readTxt === null) readTxt = (await App.views.scan.licenceRead(blob).catch(() => ({ text: '' }))).text;
+          perso = (P && P.licIn(readTxt || '', [...P.known().keys()])) || '?';
+        }
         if (auto && (autoSure || switched || (cands[0] && cands[0].confident))) App.views.scan.showAutoGame(el, game);
         if (!on()) return;
         view.innerHTML = `<img src="${cardURL}" alt="Ta carte">`;
         const warn = cands[0] && cands[0].confident ? '' : poorHtml(poor); // (carte sûre malgré tout : plus rien à dire)
         setStatus((switched ? `<span class="small">${App.ui.licIc(switched, 11, 'lic-ic-xs')} <b>Carte ${esc(App.games.info(switched).name)} reconnue</b>${auto ? '' : ` : passage en ${esc(App.games.info(switched).name)}`}.</span>`
           : suspect ? `<span class="small">${App.ui.licIc(suspect, 11, 'lic-ic-xs')} <b>On dirait une carte ${esc(App.games.info(suspect).name)}</b>, pas ${esc(ad.name)}. <a href="#/scan?jeu=${esc(suspect)}">Scanner en ${esc(App.games.info(suspect).name)}</a></span>`
-          : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre licence ?). CollecDex reconnaît les cartes ${GAMES.map((g) => esc(g.name)).join(' et ')} pour l’instant : choisis la licence en haut de la page.</span>` : '') + warn);
+          : perso && perso !== '?' ? persoMsg(perso)
+          : info.otherGame ? `<span class="small">${App.icons.icon('layers', 14)} <b>Ça ne ressemble pas à une carte ${esc(ad.name)}</b> (autre licence ?). <a href="#" data-perso="">L’ajouter à tes collections perso</a></span>`
+          : perso ? `<span class="small muted">Carte d’une autre licence ? <a href="#" data-perso="">L’ajouter à tes collections perso</a></span>` : '') + warn);
         donCard = !!info.don;
         await display(cands, summary);
         // carte recadrée sur ses vrais bords en arrière-plan (texte sûr : on n'a pas attendu) — seulement si rien n'a changé entre-temps
@@ -772,6 +806,10 @@ Object.assign(App.views.scan, {
       } catch (e) { setStatus(''); App.util.toast(e.message); }
     });
     el.querySelector('#sc-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') el.querySelector('#sc-search').click(); });
+
+    // v4.11 : photo venue d'une collection perso (« On dirait une carte Pokémon ») → lue ici comme une photo choisie
+    const hand = App.photoHandoff;
+    if (hand && hand.to === 'scan' && hand.blob) { App.photoHandoff = null; cert = null; fromCam = false; wholeNext = true; setTimeout(() => startCrop(hand.blob), 0); }
 
     return () => { SS.stop(); if (stopTips) stopTips(); cam.stop(); if (cardURL) URL.revokeObjectURL(cardURL); };
   },

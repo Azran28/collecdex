@@ -15,7 +15,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   S.flipTimer = null; S.flipLog = []; S.flipping = false; S.flipPages = []; S.flipQueue = [];
   const mot = T.motion(); // (v4.02 : capteurs du téléphone, pour ne pas prendre un téléphone bougé pour une page tournée)
   const btn = el.querySelector('#b-flip');
-  if (!burst && btn && T) btn.classList.remove('hidden'); // (v4.11 : pour tout le monde ; avant, seulement les comptes testeurs)
+  if (!burst && btn && T) btn.classList.remove('hidden'); // (v4.12 : pour tout le monde ; avant, seulement les comptes testeurs)
   const sec = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
   const hint = (html, cls = '') => { const h = view.querySelector('.r-live'); if (h) { h.className = `r-live ${cls}`; h.innerHTML = html; } };
   const step = (cur, mood = '') => App.views.scan.stepPills(view, ['Page', 'Tourne', 'Lâche'], cur, mood);

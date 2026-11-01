@@ -1,5 +1,5 @@
 /*
- * Recherche dans toutes les cartes d'une licence (#/jeu/<licence>/recherche?q=Pikachu, v4.11, Arnaud : « ok la recherche par
+ * Recherche dans toutes les cartes d'une licence (#/jeu/<licence>/recherche?q=Pikachu, v4.12, Arnaud : « ok la recherche par
  * Pokémon / nom ») : toutes les cartes de ce nom, toutes séries confondues (le « Dex par Pokémon »), possédées et manquantes,
  * avec ta progression. S'appuie sur `ad.search({ name })` de chaque licence (celle du scanner). Entrée : Explorer › recherche.
  */

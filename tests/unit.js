@@ -69,6 +69,18 @@ test('collections perso : séries, progression, scanner à part', async (App) =>
 });
 
 // v4.05 : lecture d’une carte perso (lignes lues sur les photos d'Arnaud, Digimon 1999)
+test('mauvaise licence : licence de base nette, ou licence perso écrite sur la carte', async (App) => {
+  await App.need('scan');
+  const S = App.views.scan, P = App.games.get('perso');
+  ok(S.clearLicence({ pokemon: 4, onepiece: 1 }) === 'pokemon', 'Pokémon nettement devant → Pokémon');
+  ok(S.clearLicence({ pokemon: 4, onepiece: 1 }, 'pokemon') === '', 'déjà en Pokémon → rien');
+  ok(S.clearLicence({ pokemon: 3, onepiece: 2 }) === '', 'pas assez d’avance → rien');
+  ok(P.licIn('© Akiyoshi Hongo • Toei Animation') === 'Digimon', 'Akiyoshi Hongo → Digimon');
+  ok(P.licIn('Topps Slam Attax Mayhem') === 'WWE Slam Attax', 'Slam Attax → WWE');
+  ok(P.licIn('Ma super série Naruto', ['Naruto']) === 'Naruto', 'nom d’une licence perso déjà utilisée');
+  ok(P.licIn('PV 60 Faiblesse Résistance', ['Cartes de supermarché']) === '', 'carte Pokémon : aucune licence perso');
+});
+
 test('collections perso : numéro, nom et licence lus sur la carte', (App) => {
   const ad = App.games.get('perso'), lics = ['Digimon', 'Cartes de supermarché'];
   let g = ad.guess({ flat: ['Jd-53', 'OPTION', 'ATOMISEUR', 'placez une carte de votre jeu sur Déconnecté.'], turned: ['Attaque metallique'] }, { lics });
@@ -239,7 +251,7 @@ test('Pokédex : noms, raretés, évolutions', (App) => {
 
 // ---------- Badges ----------
 test('badges : liste et collection vide', (App) => {
-  ok(App.badges.total >= 30 && App.badges.total <= 55, '50 badges environ (v4.11)');
+  ok(App.badges.total >= 30 && App.badges.total <= 55, '50 badges environ (v4.12)');
   const u = App.badges.unlocked([], () => false);
   ok(Array.isArray(u) || u instanceof Set || typeof u === 'object', 'résultat');
 });

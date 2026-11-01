@@ -14,7 +14,18 @@
 .pa-top { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .pa-where { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line, rgba(255,255,255,.12)); background: var(--bg2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .pa-where span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pa-where small { color: var(--accent2); }
+.pa-where span small { display: block; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.pa-where em { font-style: normal; font-size: .82rem; font-weight: 700; padding: 5px 12px; border-radius: 99px; background: rgba(124,92,255,.18); color: var(--accent2); }
+.pa-where.none em { background: var(--accent2); color: #fff; }
+/* v4.11 : licence dans le résultat, carte d'une licence de base */
+.pa-ask { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; border: 1px solid var(--accent2); background: rgba(124,92,255,.08); }
+.pa-ask .chips { flex-wrap: wrap; gap: 6px; }
+.pa-licrow { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line, rgba(255,255,255,.12)); background: none; color: var(--muted); font: inherit; font-size: .85rem; text-align: left; cursor: pointer; }
+.pa-licrow span { flex: 1; min-width: 0; }
+.pa-licrow b { color: var(--text); }
+.pa-base { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; padding: 12px; border: 1px solid var(--accent2); font-size: .9rem; }
+.pa-base > span:not(.lic-ic) { flex: 1; min-width: 200px; }
+.pa-base > .lic-ic { flex: none; }
 .pa-where.none { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(124,92,255,.18); }
 .pa-shot { cursor: pointer; border: 2px dashed rgba(124,92,255,.45); background: rgba(124,92,255,.06); }
 .pa-shot.page { aspect-ratio: 4 / 3; }

@@ -2,7 +2,7 @@
  * Badges à débloquer (succès). Ils restent secrets tant qu'ils ne sont pas obtenus :
  * la vitrine n'affiche que ceux que tu as, et le nombre qu'il reste à découvrir.
  * Niveaux : 1 bronze, 2 argent, 3 or, 4 holo.
- * v4.11 (Arnaud : « adapte-les à ce qu'on a ajouté et limite-les à genre 50 ») : 50 badges — les plus marquants de chaque
+ * v4.12 (Arnaud : « adapte-les à ce qu'on a ajouté et limite-les à genre 50 ») : 50 badges — les plus marquants de chaque
  * thème, 2 par licence (3 pour Pokémon), et 4 pour les licences et les collections perso.
  */
 App.badges = (() => {
@@ -60,7 +60,7 @@ App.badges = (() => {
     // Doublons, favoris
     ['d10', 'Bien fourni', '10 doublons de côté', 'gift', 1, (x) => x.dup >= 10],
     ['f10', 'Coups de cœur', '10 cartes en favori', 'heart', 1, (x) => x.fav >= 10],
-    // Licences (v4.11)
+    // Licences (v4.12)
     ['l3', 'Multi-licences', 'Des cartes de 3 licences différentes', 'globe', 1, (x) => x.games >= 3],
     ['l5', 'Grand voyageur', 'Des cartes de 5 licences différentes', 'globe', 2, (x) => x.games >= 5],
     ['l10', 'Tous les univers', 'Des cartes des 10 licences', 'crown', 4, (x) => x.games >= 10],
