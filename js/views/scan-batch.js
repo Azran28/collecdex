@@ -25,6 +25,61 @@ Object.assign(App.views.scan, {
       if (burst) stale.forEach((c) => X.recogOne(c, '', () => {}).then(() => { if (alive()) X.drawResults(); }, () => {}));
       else S.reread = stale;
     }
+    /**
+     * v3.71 (Arnaud : « je scanne des pages de classeur sans avoir choisi la bonne licence, et ça ne marche pas du tout ») :
+     * licence choisie à la main, mais les premières cartes n'y sont pas reconnues → leur licence est cherchée (texte lu par PaddleOCR) ;
+     * 2 cartes d'une même autre licence → on prévient et on propose de changer (les cartes déjà lues sont relues).
+     * Une fois par page / rafale ; plus rien dès que 2 cartes sont trouvées dans la licence choisie.
+     */
+    async function checkLicence(cell) {
+      if (S.auto || S.lic.asked || S.stopped || !alive()) return;
+      if (['sure', 'verifier'].includes(cell.state)) { S.lic.good++; return; }
+      if (S.lic.good >= 2 || S.lic.tried >= 4 || !['inconnue', 'autre', 'erreur'].includes(cell.state)) return;
+      S.lic.tried++;
+      const sc = await App.views.scan.licenceScores(cell.blob).catch(() => ({}));
+      const [top, next] = Object.entries(sc).filter(([k]) => App.games.get(k)).sort((x, y) => y[1] - x[1]);
+      const g = top && top[1] >= 2 && top[1] >= (next ? next[1] : 0) + 1 ? top[0] : '';
+      if (!g || g === S.game || S.lic.asked) return;
+      S.lic.votes[g] = (S.lic.votes[g] || 0) + 1;
+      if (S.lic.votes[g] >= 2) await propose(g);
+    }
+    /**
+     * Classeur : dès le début de la page, en parallèle de la lecture (une carte d'une autre licence lue dans la mauvaise peut prendre
+     * plus d'une minute) : texte des 3 premières cartes lu par PaddleOCR (~1 s chacune), points de chaque licence cumulés.
+     */
+    async function preLicence() {
+      const sum = {};
+      let seen = 0;
+      for (const cell of S.cells) {
+        if (seen >= 3 || S.auto || S.lic.asked || S.lic.good >= 2 || S.stopped || !alive()) return;
+        if (await R.looksEmpty(cell.blob).catch(() => false)) continue;
+        seen++;
+        const sc = await App.views.scan.licenceScores(cell.blob).catch(() => ({}));
+        for (const [k, v] of Object.entries(sc)) sum[k] = (sum[k] || 0) + v;
+        const [best, second] = Object.entries(sum).filter(([k]) => App.games.get(k)).sort((x, y) => y[1] - x[1]);
+        // une autre licence nettement devant (≥ 3 points cumulés, 2 de plus que la suivante et que la licence choisie)
+        if (best && best[0] !== S.game && best[1] >= 3 && best[1] >= (second ? second[1] : 0) + 2 && best[1] >= (sum[S.game] || 0) + 2) return propose(best[0]);
+        if ((sum[S.game] || 0) >= 3) return; // (la licence choisie est la bonne)
+      }
+    }
+    /** Prévient : « Des cartes Yu-Gi-Oh! ? » → Passer en Yu-Gi-Oh! (relues) / Rester */
+    async function propose(g) {
+      if (S.lic.asked || S.auto || g === S.game || !App.games.get(g)) return;
+      S.lic.asked = true;
+      const want = App.games.info(g).name, cur = App.games.info(S.game).name;
+      const yes = await App.util.ask({ icon: 'swap', title: `Des cartes ${want} ?`,
+        text: `Tu scannes en ${cur}, mais ces cartes ressemblent à des cartes ${want} : elles ne seront pas reconnues en ${cur}.
+Les relire en ${want} ?`,
+        ok: `Passer en ${want}`, cancel: `Rester en ${cur}` });
+      if (!yes || !alive()) return;
+      App.views.scan.remember(g);
+      try { history.replaceState(history.state, '', location.hash.replace(/([?&])jeu=[^&]*/, '$1jeu=' + g)); } catch (e) { /* */ }
+      App.views.scan.curName = want; App.views.scan.curGame = g;
+      setGame(g);
+      App.util.toast(`${want} : les cartes sont relues`);
+    }
+    S.lic = { good: 0, tried: 0, votes: {}, asked: false };
+    X.checkLicence = checkLicence;
     /** Lit une carte, en « Toutes » tant que la licence n'est pas connue : licence devinée sur le texte, sinon chaque licence essayée */
     const readCard = async (blob, hint, st, orig = null, ctx = null, onCrop = null) => {
       if (!S.auto || S.gameSet) return readOne(blob, hint, st, orig, ctx, onCrop);
@@ -523,6 +578,7 @@ Object.assign(App.views.scan, {
       const hint = el.querySelector('#b-set').value;
       S.detected = null;
       if (S.auto && !burst) { S.gameSet = false; S.triedAll = false; S.reread = null; } // (« Toutes » : chaque page a sa licence)
+      if (!burst) S.lic = { good: 0, tried: 0, votes: {}, asked: false }; // (v3.71 : licence vérifiée à chaque page)
       S.cells = [];
       try {
         for (let i = 0; i < n; i++) {
@@ -545,6 +601,7 @@ Object.assign(App.views.scan, {
         return;
       }
       X.drawResults();
+      if (!S.auto) preLicence(); // (v3.71 : bonne licence ? vérifié en parallèle de la lecture, sans l'attendre)
       // « Toutes » (v3.11) : licence de la page votée sur ses premières cartes (texte lu, ~3 s par carte) avant la lecture —
       // sinon une carte difficile était lue dans chaque licence, puis encore une fois recadrée (plus d'une minute par carte)
       if (S.auto && !S.gameSet) {
@@ -602,6 +659,7 @@ Object.assign(App.views.scan, {
         } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
         if (['sure', 'verifier'].includes(cell.state)) cell.found = Date.now(); // petit éclat sur la carte trouvée
         X.drawResults();
+        await checkLicence(cell); // (v3.71 : mauvaise licence choisie ?)
       }
       // « Toutes » : les cartes lues avant que la licence soit reconnue sont relues dans la bonne licence
       for (const cell of S.reread || []) {

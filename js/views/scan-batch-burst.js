@@ -197,6 +197,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
         cell.state = 'lecture'; S.prog = { step: 'Lecture des cartes', done: cell.i, total: S.cells.length }; X.drawResults(); rStrip();
         try { await X.recogOne(cell, el.querySelector('#b-set').value, () => {}); } catch (e) { console.error(e); cell.state = 'erreur'; cell.error = e.message; }
         if (['sure', 'verifier'].includes(cell.state)) cell.found = Date.now();
+        X.checkLicence(cell); // (v3.71 : mauvaise licence choisie ? sans attendre : la rafale continue)
         if (--S.rPending <= 0) { S.rPending = 0; S.running = false; S.prog = null; }
         if (alive()) { X.drawResults(); rStrip(); }
         if (!S.running && sv.open && sv.mode === 'scan') X.svAfterScan(); // écran d'analyse ouvert : cartes douteuses, puis récapitulatif
@@ -215,7 +216,7 @@ App.scanBatchParts.burst = (X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, 
     }
     function resetBurst() {
       if (S.running) return;
-      rStop(); S.cells = []; S.rLast = null; S.detected = null;
+      rStop(); S.cells = []; S.rLast = null; S.detected = null; S.lic = { good: 0, tried: 0, votes: {}, asked: false };
       resultsEl.innerHTML = App.views.scan.guide('rafale'); setStatus('');
     }
 
