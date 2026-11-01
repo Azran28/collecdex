@@ -48,7 +48,24 @@ test('les jeux (licences) sont enregistrés', (App) => {
   ok(App.games.get('starwars'), 'Star Wars Unlimited');
   ok(App.games.get('dragonball'), 'Dragon Ball Super');
   ok(App.games.get('cyberpunk'), 'Cyberpunk');
+  ok(App.games.get('perso') && App.games.get('perso').ownOnly, 'Collections perso');
   ok(!App.games.get('inconnu'), 'un jeu inconnu ne doit pas exister');
+});
+
+// v4.02 : collections perso — seulement tes cartes, « complète » seulement si le nombre de cartes de la série est connu
+test('collections perso : séries, progression, scanner à part', async (App) => {
+  const ad = App.games.get('perso');
+  eq(ad.setIdOf('Digimon', 'Digi-Battle (1999)'), 'digimon--digi-battle-1999');
+  eq(ad.cardIdOf('Digimon', 'Digi-Battle (1999)', 'Jd-53', 'Atomiseur'), 'digimon--digi-battle-1999--jd-53');
+  const set = { id: 'digimon--digi-battle-1999' };
+  const it = (n, total) => ({ game: 'perso', setId: set.id, qty: 1, id: 'x' + n, snap: { localId: String(n) }, perso: { lic: 'Digimon', total } });
+  let p = App.col.progress('perso', set, [it(1, 0), it(2, 0)]);
+  ok(p.ownOnly && p.have === 2 && p.total === 0 && !p.complete, 'total inconnu : 2 cartes, pas complète');
+  ok(/2<span class="of"> cartes/.test(App.ui.countHTML(p)), '« 2 cartes » attendu');
+  p = App.col.progress('perso', set, [it(1, 2), it(2, 0)]);
+  ok(p.total === 2 && p.complete, 'total connu sur une carte : série complète');
+  ok(!App.views.scan || !App.views.scan.games || !App.views.scan.games().some((g) => g.id === 'perso'), 'les collections perso ne doivent pas passer par le scanner');
+  ok(/^data:image.svg/.test(ad.img.card({ name: 'Garurumon' })), 'carte sans visuel : dos dessiné');
 });
 
 // ---------- Outils ----------

@@ -140,7 +140,7 @@ App.col = (() => {
   }
   /** Image à afficher pour une entrée : ta photo si choisie, sinon l'image officielle */
   async function displayImage(it, adapter, q = 'low') {
-    if (it && it.displayPhoto && App.settings.preferPhotos) {
+    if (it && it.displayPhoto && (App.settings.preferPhotos || (adapter.photoFirst && !it.snap.image))) { // (collection perso sans visuel officiel : toujours ta photo)
       const u = await photoURL(it.displayPhoto);
       if (u) return { src: u, mine: true };
     }
@@ -214,6 +214,11 @@ App.col = (() => {
     const mode = App.settings.completion;
     const ownedItems = items ? items.filter((i) => i.game === game && i.setId === set.id && i.qty > 0) : inSet(game, set.id);
     const ad = App.games.get(game);
+    // collection perso (v4.02) : la série = tes cartes ; complète seulement si son nombre de cartes est connu (gardé sur ses cartes)
+    if (ad && ad.ownOnly) {
+      const have = ownedItems.length, total = Math.max(0, ...ownedItems.map((i) => (i.perso && i.perso.total) || 0));
+      return { have, total, missing: Math.max(0, total - have), pct: total ? App.util.pct(have, total) : 0, complete: total > 0 && have >= total, byRarity: null, ownOnly: true };
+    }
     const isOfficial = (localId) => { if (ad && ad.isOfficial) return ad.isOfficial(localId, set); const n = parseInt(localId, 10); return !isNaN(n) && String(n) === String(localId).replace(/^0+(?=\d)/, '') && n <= set.official; };
     let total, have, byRarity = null;
     if (set.cards && set.cards.length) {

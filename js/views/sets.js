@@ -12,11 +12,11 @@ App.views.sets = {
         <div class="set-title">${sym ? `<img loading="lazy" src="${esc(sym)}" alt="">` : ''}<b>${esc(s.name)}</b></div>
         <div class="set-meta">
           ${App.ui.countHTML(p)}
-          <span class="muted small">${p.pct.toLocaleString("fr-FR")} %</span>
+          ${p.ownOnly && !p.total ? '' : `<span class="muted small">${p.pct.toLocaleString("fr-FR")} %</span>`}
         </div>
-        ${App.ui.progressBar(p)}
+        ${p.ownOnly && !p.total ? '' : App.ui.progressBar(p)}
         ${p.byRarity ? App.ui.rarityRow(game, p.byRarity) : ''}
-        <div class="set-sub">${showBloc ? esc(s.group.name) + ' · ' : ''}${s.releaseDate ? s.releaseDate.slice(0, 4) : ''}${p.missing && p.have ? ` · ${p.missing} manquante${p.missing > 1 ? 's' : ''}` : ''}</div>
+        <div class="set-sub">${showBloc ? esc(s.group.name) + ' · ' : ''}${s.releaseDate ? s.releaseDate.slice(0, 4) : ''}${p.missing && p.have && !p.ownOnly ? ` · ${p.missing} manquante${p.missing > 1 ? 's' : ''}` : ''}</div>
       </a>`;
   },
 
@@ -42,12 +42,42 @@ App.views.sets = {
     if (on && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, on.offsetLeft - row.offsetLeft - (row.clientWidth - on.offsetWidth) / 2);
   },
 
+  /** Collections perso (v4.02) : tes séries rangées par licence, rien d'autre (pas de filtres ni de tri) */
+  renderPerso(el, game, sets, alive) {
+    const { esc } = App.util, I = App.icons.icon;
+    const draw = async () => {
+      const all = sets || await App.games.get(game).listSets();
+      sets = null;
+      if (!alive()) return;
+      const groups = new Map();
+      for (const s of all) { if (!groups.has(s.group.id)) groups.set(s.group.id, { g: s.group, list: [] }); groups.get(s.group.id).list.push(s); }
+      el.innerHTML = `
+        <div class="breadcrumb"><a href="#/">Accueil</a> › Collections perso</div>
+        ${App.views.sets.gamePick(game)}
+        <div class="row"><h1>Collections perso</h1><span class="spacer"></span><a class="btn sm primary" href="#/perso/ajouter">${I('camera', 14)} Ajouter une carte</a></div>
+        <p class="muted small" style="margin:-4px 0 14px">Tes cartes des licences hors des 10 de l’appli (Digimon, Magic…) : seulement celles que tu as, sans combats ni prix.</p>
+        ${all.length ? [...groups.values()].sort((a, b) => a.g.name.localeCompare(b.g.name, 'fr')).map(({ g, list }) => `
+          <section class="serie-block">
+            <div class="serie-head"><span class="era-dot"></span><h2 style="margin:0">${esc(g.name)}</h2><span class="muted small">${list.length} série${list.length > 1 ? 's' : ''}</span>
+              <span class="spacer"></span><a class="small" href="#/perso/ajouter?lic=${encodeURIComponent(g.name)}">+ Ajouter</a></div>
+            <div class="grid-auto">${list.sort((a, b) => b.sortKey.localeCompare(a.sortKey)).map((s) => App.views.sets.setCard(game, s, App.col.progress(game, s))).join('')}</div>
+          </section>`).join('')
+          : `<div class="empty panel">${I('box', 28)}<br><b>Aucune collection perso pour l’instant</b><br><span class="small muted">Photographie une carte d’une autre licence : elle aura sa licence et sa série, avec seulement tes cartes.</span><br><a class="btn primary" style="margin-top:12px" href="#/perso/ajouter">${I('camera', 16)} Ajouter une carte</a></div>`}
+        <p class="small muted" style="margin-top:18px">Une licence te manque ? <a href="#" id="s-propose">Proposer une licence</a></p>`;
+      App.views.sets.showPick(el);
+      el.querySelector('#s-propose').addEventListener('click', (e) => { e.preventDefault(); App.views.persoAdd.propose(); });
+    };
+    draw();
+    return App.col.on(App.util.debounce(() => { if (alive()) draw(); }, 200));
+  },
+
   async render(el, { game }, alive) {
     const { esc, norm, debounce } = App.util;
     const ad = App.games.get(game);
     if (!ad) { el.innerHTML = `<div class="empty panel">Ce jeu arrive bientôt !</div>`; return; }
     const sets = await ad.listSets();
     if (!alive()) return;
+    if (ad.ownOnly) return App.views.sets.renderPerso(el, game, sets, alive);
 
     const S = App.settings;
     const state = { q: '', filter: 'toutes', bloc: '', year: '', sort: S.setsSort || 'recentes', group: S.setsGroup !== false, hidePromo: !!S.setsHidePromo };

@@ -43,7 +43,8 @@ App.ui = (() => {
 
   const progressBar = (p) => `<div class="progress ${p.complete ? 'done' : ''}"><span style="width:${Math.min(100, p.pct)}%"></span></div>`;
 
-  const countHTML = (p) => `<span class="count">${p.have}<span class="of">/${p.total}</span></span>`;
+  const countHTML = (p) => (p.ownOnly && !p.total ? `<span class="count">${p.have}<span class="of"> carte${p.have > 1 ? 's' : ''}</span></span>` // collection perso, total inconnu
+    : `<span class="count">${p.have}<span class="of">/${p.total}</span></span>`);
 
   // « modifier » la version reconnue d'une carte : ouvre sa fiche
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-open-card]'); if (b) { e.preventDefault(); App.cardModal(b.dataset.game || 'pokemon', b.dataset.openCard); } });
@@ -69,7 +70,7 @@ App.ui = (() => {
         <div class="cimg">
           ${own && tier ? '<span class="t-shine"></span>' : ''}
           ${numOnly ? `<div class="numonly"><b>${esc(card.localId)}</b><span>${esc(card.name)}</span></div>`
-            : src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(card.name)}" data-alt="${esc(card.name)}" ${it && it.displayPhoto && App.settings.preferPhotos ? `data-photo="${esc(it.displayPhoto)}"` : ''}>` : `<span class="noimg">${esc(card.name)}</span>`}
+            : src ? `<img loading="lazy" src="${esc(src)}" alt="${esc(card.name)}" data-alt="${esc(card.name)}" ${it && it.displayPhoto && (App.settings.preferPhotos || (ad.photoFirst && !card.image)) ? `data-photo="${esc(it.displayPhoto)}"` : ''}>` : `<span class="noimg">${esc(card.name)}</span>`}
           ${own && it.qty > 1 ? `<span class="qty">×${it.qty}</span>` : ''}
           ${own && it.cond && it.cond.kind === 'graded' ? `<span class="condchip">${App.icons.icon('slab', 11)}${esc(App.col.condLabel(it.cond))}</span>` : ''}
           ${!own ? `<a class="cap-btn" href="#/scan?carte=${encodeURIComponent(card.id)}${game !== 'pokemon' ? '&jeu=' + game : ''}" title="Capturer cette carte" aria-label="Capturer ${esc(card.name)}">${App.icons.icon('capture', 20)}</a>` : ''}

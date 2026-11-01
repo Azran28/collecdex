@@ -94,14 +94,14 @@ App.cardModal = async function (game, cardId, ctx = {}) {
           <p>${esc(card.origin || '')}${card.copies ? ` · <b>${esc(card.copies)}</b>` : ''}</p>
           <p class="small muted">Carte officielle qui n’appartient à aucune série. <a href="#/jeu/pokemon/hors-serie">Toutes les cartes hors-série ›</a></p></div>` : ''}
 
-        <div class="cd-price">
+        ${ad.ownOnly ? '' : `<div class="cd-price">
           ${priceRows.length ? `<div class="cd-price-main"><b>${euro(priceRows[0][1])}</b><span>${esc(priceRows[0][0].toLowerCase())} Cardmarket</span></div>
             <div class="cd-price-more">${priceRows.slice(1).map(([l, v]) => `<span>${esc(l)} <b>${euro(v)}</b></span>`).join('')}</div>`
             : price ? `<div class="cd-price-main"><b>${price.unit === 'USD' ? '≈ ' : ''}${euro(price.value, price.unit)}</b><span>prix marché ${esc(price.source)}${price.unit === 'USD' ? ` (${App.util.usd(price.value)}, converti en euros)` : ''}</span></div>`
             : `<div class="muted small">${esc(ad.noPrices ? ad.priceNote : 'Pas de prix disponible pour cette carte.')}</div>`}
           ${priceRows.length && tpVal ? `<div class="cd-price-more"><span title="Prix marché TCGplayer : cartes anglaises vendues aux États-Unis">Marché US (cartes anglaises) <b>≈ ${euro(tpVal, 'USD')}</b> <span class="muted">(${App.util.usd(tpVal)})</span></span></div>` : ''}
           <div class="cd-price-foot small muted">${cm ? 'Prix Cardmarket toutes langues confondues · ' : ''}${cm && cm.updated ? `mis à jour le ${dateFr(cm.updated)} · ` : ''}<a target="_blank" rel="noopener" href="${esc(ad.refLink ? ad.refLink.url(card) : ad.cardmarketUrl(card, setInfo.name))}">${esc(ad.refLink ? ad.refLink.label : 'Voir sur Cardmarket')} ↗</a></div>
-        </div>
+        </div>`}
 
         <div class="section" id="cd-mine"></div>
       </div>
@@ -134,7 +134,8 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     const fw = body.querySelector('#cd-favwrap');
     fw.innerHTML = it && it.qty > 0 ? `<button class="cd-favstar ${it.favorite ? 'on' : ''}" id="cd-fav" title="${it.favorite ? 'Retirer des favorites' : 'Mettre en favorite'}">${App.icons.icon('star', 18)}</button>` : '';
     // visuel utilisé partout (Mon Dex, vitrine, séries) : ta photo ou le visuel officiel
-    sw.innerHTML = it && it.qty > 0 && (it.photos || []).length ? `<div class="chips"><button class="chip ${showOfficial ? '' : 'on'}" data-img="mine">${App.icons.icon('camera', 14)} Ma photo</button><button class="chip ${showOfficial ? 'on' : ''}" data-img="off">Visuel officiel</button></div>` : '';
+    sw.innerHTML = it && it.qty > 0 && (it.photos || []).length && !(ad.photoFirst && !base.image) ? // (collection perso sans visuel officiel : pas de choix)
+      `<div class="chips"><button class="chip ${showOfficial ? '' : 'on'}" data-img="mine">${App.icons.icon('camera', 14)} Ma photo</button><button class="chip ${showOfficial ? 'on' : ''}" data-img="off">Visuel officiel</button></div>` : '';
   };
 
   /** Bloc « État de la carte » : échelle Cardmarket, ou carte gradée (société + note), et valeur estimée */
@@ -177,13 +178,13 @@ App.cardModal = async function (game, cardId, ctx = {}) {
     box.innerHTML = `
       <div class="cd-mine-head">
         <h3 style="margin:0">Mon Dex</h3>
-        ${certified ? (App.certify.pageOnly(it)
+        ${ad.ownOnly ? '' : certified ? (App.certify.pageOnly(it)
           ? `<span class="cert-pill page" title="Certifiée dans une page de classeur filmée en direct (carte tirée au sort). Capture-la seule et retourne-la pour la certification complète.">${App.icons.icon('shield', 14)} Certifiée (classeur)</span>`
           : `<span class="cert-pill" title="Au moins une photo de cette carte a été capturée en direct et vérifiée">${App.icons.icon('shield', 14)} Certifiée</span>`)
 
           : `<a class="cert-no" href="#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}" title="${esc(`Non certifiée${it.certNote && it.certNote.reason ? ' (' + it.certNote.reason + ')' : ''}. Capture-la avec la caméra du site${App.cloud.enabled && !App.cloud.user ? ', connecté à ton compte,' : ''} pour obtenir le badge.`)}">${App.icons.icon('shield', 13)} Non certifiée · <u>la certifier</u></a>`}
         <span class="spacer"></span>
-        <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
+        <span class="qty-ctl" title="Nombre d’exemplaires"><button id="cd-minus" title="Retirer un exemplaire">−</button><b>${it.qty}</b><a href="${ad.ownOnly ? `#/perso/ajouter?lic=${encodeURIComponent((it.perso && it.perso.lic) || '')}&serie=${encodeURIComponent(it.snap.setName || '')}` : `#/scan?carte=${encodeURIComponent(card.id)}${scanJeu}`}" title="Ajouter un exemplaire (chaque exemplaire se capture en photo)">+</a></span>
       </div>
       ${certified || !(it.certNote && it.certNote.reason) ? '' : `<div class="small muted" style="margin:-4px 0 8px">Pas certifiée : ${esc(it.certNote.reason)}.</div>`}
       ${it.imported && !certified ? `<div class="small muted" style="margin:-4px 0 8px">Importée depuis ${esc(App.ui.IMPORT_SOURCES[it.imported.from] || 'un fichier')} le ${esc(new Date(it.imported.at || Date.now()).toLocaleDateString('fr-FR'))} : pas de photo, donc pas certifiée.</div>` : ''}

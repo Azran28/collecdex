@@ -21,6 +21,7 @@ App.views = App.views || {};
     [/^\/objectifs\/?$/, 'goals', () => ({})],
     [/^\/capsules\/?$/, 'capsules', () => ({})],
     [/^\/importer\/?$/, 'import', () => ({})],
+    [/^\/perso\/ajouter\/?$/, 'persoAdd', () => ({})],
   ];
   // pages dont le code n'est chargé qu'à la première ouverture (App.need, util.js)
   const LAZY = { scan: ['reco', 'scan'], match: ['match'], import: ['import'] };

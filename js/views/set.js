@@ -3,6 +3,7 @@ App.views.set = {
   async render(el, { game, setId, query }, alive) {
     const { esc, euro, norm, debounce } = App.util;
     const ad = App.games.get(game);
+    const own = !!ad.ownOnly; // collection perso : seulement tes cartes
     const set = await ad.getSet(setId);
     if (!alive()) return;
 
@@ -40,11 +41,11 @@ App.views.set = {
         ${ad.setLanguages ? `<div class="set-lang" role="group" aria-label="Langue des cartes de cette série">${ad.setLanguages().map((l) => `<button class="${ad.langFor(set.id) === l.id ? 'on' : ''}" data-lang="${l.id}" title="Cartes en ${l.name.toLowerCase()}">${l.id.toUpperCase()}</button>`).join('')}</div>` : ''}
       </section>
 
-      <section class="panel section" id="st-rar"></section>
+      <section class="panel section" id="st-rar" ${own ? 'hidden' : ''}></section>
       ${pr ? `<section class="panel section" id="st-pull"></section>` : ''}
 
       <div class="toolbar">
-        <div class="chips" id="st-own">
+        <div class="chips" id="st-own" ${own ? 'hidden' : ''}>
           ${[['toutes', 'Toutes'], ['possedees', 'Possédées'], ['manquantes', 'Manquantes']].map(([k, l]) => `<button class="chip ${state.own === k ? 'on' : ''}" data-own="${k}">${l}</button>`).join('')}
         </div>
         <select id="st-sort" title="Trier">
@@ -61,7 +62,8 @@ App.views.set = {
       <div class="chips" id="st-rfilter" style="margin-bottom:14px"></div>
       <div class="cards" id="st-grid"></div>
       <div id="st-more" class="st-more"></div>
-      <p class="muted small" style="margin-top:22px">Données cartes : <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a>. ${esc(ad.priceNote || "Prix : tendance Cardmarket (€), mise à jour quotidienne.")}</p>
+      ${own ? `<p class="muted small" style="margin-top:22px">Collection perso : seulement tes cartes, ajoutées par photo. <a href="#" id="st-propose">Proposer une licence</a></p>`
+        : `<p class="muted small" style="margin-top:22px">Données cartes : <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a>. ${esc(ad.priceNote || "Prix : tendance Cardmarket (€), mise à jour quotidienne.")}</p>`}
     `;
 
     const langBox = el.querySelector('.set-lang');
@@ -82,11 +84,39 @@ App.views.set = {
     });
     const grid = el.querySelector('#st-grid');
 
+    /** Collection perso (v4.02) : seulement tes cartes ; « Complète » si le nombre de cartes de la série est connu */
+    const drawOwnHead = (p) => {
+      const lic = set.group.name, add = `#/perso/ajouter?lic=${encodeURIComponent(lic)}&serie=${encodeURIComponent(set.name)}`;
+      head.innerHTML = `
+        <div class="muted small">${esc(lic)} · collection perso</div>
+        <h1 class="row" style="gap:10px">${esc(set.name)}${App.ui.favSetBtn(game, set, 'inline')}</h1>
+        <div class="row" style="align-items:baseline">
+          ${p.total ? `<span class="bigcount">${p.have}<span class="muted" style="font-size:1.4rem">/${p.total}</span></span>` : `<span class="bigcount">${p.have}</span><span class="muted">carte${p.have > 1 ? 's' : ''}</span>`}
+          ${p.complete ? `<span class="medal">${App.icons.icon('trophy', 14)} Complète !</span>` : ''}
+        </div>
+        ${p.total ? `<div style="margin:10px 0">${App.ui.progressBar(p)}</div>` : ''}
+        <form class="row small st-total" id="st-total" style="gap:8px;margin-top:8px">
+          <label class="muted">Cartes dans la série <input type="number" min="0" max="5000" inputmode="numeric" value="${p.total || ''}" placeholder="?" style="width:80px"></label>
+          <button class="btn sm" type="submit">OK</button>
+        </form>
+        <div class="row" style="margin-top:12px;gap:8px"><a class="btn sm primary" href="${add}">${App.icons.icon('camera', 14)} Ajouter une carte</a></div>`;
+      el.querySelector('#st-rfilter').innerHTML = '';
+    };
+    if (own) {
+      head.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await ad.setTotal(set.id, e.target.querySelector('input').value);
+        App.util.toast('Nombre de cartes de la série enregistré');
+      });
+      el.querySelector('#st-propose').addEventListener('click', (e) => { e.preventDefault(); App.views.persoAdd.propose(); });
+    }
+
     // progression par rareté dépliée ? (dernier choix ; par défaut repliée sur téléphone, dépliée sur ordinateur)
     let rpOpen = !matchMedia('(max-width: 760px)').matches;
     try { const v = localStorage.getItem('rpOpen'); if (v) rpOpen = v === '1'; } catch (e) { /* */ }
     const drawHead = () => {
       const p = App.col.progress(game, set);
+      if (own) return drawOwnHead(p);
       const value = App.col.totalValue(App.col.inSet(game, set.id));
       head.innerHTML = `
         <div class="muted small">${esc(set.group.name)}${set.releaseDate ? ' · ' + App.util.dateFr(set.releaseDate) : ''}</div>

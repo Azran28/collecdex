@@ -1,0 +1,14 @@
+/* ===== v4.02 : collections perso (licences hors des 10 de base) — page « Ajouter une carte perso » (#/perso/ajouter) ===== */
+.g-perso { --g: linear-gradient(135deg, #8a94b8, #3d4670); --li-bg: linear-gradient(135deg, #c9cfe8, #7c86b0 50%, #3d4670); --li-fg: #141a33; --li-sh: 0 0 0 2px #262d4f inset, 0 6px 18px rgba(124,134,176,.35); }
+.pa-wrap { max-width: 560px; }
+.pa-photo { display: flex; align-items: center; justify-content: center; aspect-ratio: 63 / 88; max-height: 46vh; margin: 0 auto; padding: 0; overflow: hidden; }
+.pa-photo img { width: 100%; height: 100%; object-fit: contain; }
+.pa-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px; text-align: center; color: var(--muted); }
+.pa-empty b { color: var(--text); }
+.pa-form { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.pa-form label { display: flex; flex-direction: column; gap: 4px; font-size: .86rem; color: var(--muted); }
+.pa-form input { width: 100%; font-size: 1rem; }
+.pa-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pa-form #pa-found { color: var(--ok, #4ade80); }
+.pa-ok { margin-top: 12px; }
+.st-total input { margin-left: 6px; }

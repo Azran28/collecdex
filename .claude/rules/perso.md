@@ -1,0 +1,17 @@
+---
+paths:
+  - "js/games/perso.js"
+  - "js/views/perso.js"
+  - "css/16-perso.css"
+---
+# Collections perso (v4.02, `js/games/perso.js` + `js/views/perso.js`)
+Décision d'Arnaud (1er nov.) : **10 licences de base** (les complètes) ; **tout le reste = collections perso** : on scanne (photographie) ses cartes et on les voit dans le Dex et l'Explorer avec quelques détails, **sans les autres cartes de la série ni les autres séries** (seulement les siennes), sans combats, badges, prix ni certification. Total de la série facultatif : « 3 cartes », ou « 3/40 » + « Complète » s'il est connu. « Proposer une licence » = demander une licence qui manque (e-mail / partage vers collecdex.app@gmail.com), pas faire passer une collection perso en licence de base.
+
+- Licence `perso` (« Collections perso », icône `box`, `perso: true` dans `registry.js`, a remplacé « Magic bientôt » et « Et au-delà… »). Adaptateur sans base de cartes : `listSets` / `getSet` / `getCard` tirés des cartes possédées (`App.col`, jeu `perso`). `ownOnly` (série = tes cartes ; `col.progress` → `{ ownOnly, total = plus grand perso.total des cartes }`, `countHTML` « N cartes »), `photoFirst` (ta photo = visuel quand il n'y a pas de visuel officiel, même si « préférer mes photos » est décoché), `noPrices`.
+- Carte : `id` « digimon--digi-battle-1999--jd-53 » (`cardIdOf`, licence--série--numéro ou nom), `setId` « digimon--digi-battle-1999 » (`setIdOf`), `snap.serieId` = licence, `item.perso = { lic, total, code, text }`. Rareté = texte libre (rang deviné par les mots : commune, rare, holo, secrète…). Sans visuel : dos dessiné en SVG (`img.card`).
+- **Exclue du scanner** : `scan.games()`, `scan-single` `GAMES`, `scan-memo`, `startGame` (`?jeu=perso` → Pokémon). Capturer › choix de la licence : tuile « Autre licence » → `#/perso/ajouter`.
+- `#/perso/ajouter` (`App.views.persoAdd`, `?lic=&serie=` pré-remplis) : photo (appareil ou galerie) **détourée toute seule** (`App.need('reco','scan')`, `R.bestCard` sinon `cutCard`, comme une photo importée en carte seule), licence / série (listes des noms déjà utilisés), numéro, rareté, nom, cartes dans la série ; après l'ajout : carte suivante même licence et même série. Même carte déjà là → +1 exemplaire (pas de 2ᵉ photo).
+- **Digimon Card Game (2020…)** : numéro « BT1-010 » → `lookup` sur `digimoncard.io/api-public/search?card=` (CORS `*`, ~15 demandes rapprochées ; CSP `connect-src digimoncard.io`, `img-src images.digimoncard.io`) : nom anglais, rareté, série d'origine (celle du code parmi les réimpressions de `set_name`), visuel officiel. **Les cartes d'Arnaud sont l'ancien jeu de 1999** (« Bo-113 », « Jd-53 » en français, et cartes « DP » numérotées) : absentes de cette base → saisie à la main. Photos `_tests-scanner/perso/1…9.webp`.
+- Pages : Explorer `sets.renderPerso` (séries rangées par licence, « + Ajouter », vide = invitation) ; série (`set.js › drawOwnHead` : « N cartes » ou « N/total », champ « Cartes dans la série » → `ad.setTotal`, pas de raretés ni de filtre « Manquantes ») ; fiche (`card.js` : pas de prix, ni « la certifier », ni « Visuel officiel » sans visuel ; « + » → page d'ajout pré-remplie).
+- Tests : `tests/unit.js` « collections perso : séries, progression, scanner à part », `tests/pages.js` (`#/jeu/perso`, `#/perso/ajouter`).
+- Pistes : reconnaître ensuite une carte perso déjà photographiée (comparaison avec ses propres photos) ; vitrine des amis : visuel Digimon officiel pas accepté par `friends.js › tcgImg` (la photo, elle, passe).

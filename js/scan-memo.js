@@ -174,7 +174,7 @@ App.scanMemo = (() => {
   const MODEL = 'https://storage.googleapis.com/tfjs-models/savedmodel/mobilenet_v2_1.0_224/';
   const simd = () => { try { return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11])); } catch (e) { return false; } };
   function groups() {
-    const games = App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id));
+    const games = App.games.list.filter((g) => g.status === 'actif' && !g.perso && App.games.get(g.id));
     const idx = (i) => (i ? [`${i.index}.json?v=${i.v}`, `${i.index}.bin?v=${i.v}`] : []);
     return [
       { id: 'texte', name: 'Lecteur de texte', urls: [TESS + 'tesseract.min.js', 'https://cdn.jsdelivr.net/npm/tesseract.js@v5.1.1/dist/worker.min.js', CORE + (simd() ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'), 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/fra/4.0.0_best_int/fra.traineddata.gz'] },

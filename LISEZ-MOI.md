@@ -213,6 +213,13 @@ Claude Code te demandera parfois la permission avant de lancer une commande : c'
 - **Pas encore** : la **certification** (il me faut une photo du **dos** d’une carte, en main et dans une pochette) et les réglages du scanner sur tes vraies photos (carte seule, page de classeur).
 - **Nouvelles séries** : la liste des cartes et leurs visuels se mettent à jour tout seuls chaque lundi (robot de GitHub).
 
+## Collections perso (v4.02)
+- **Pour toutes les cartes hors des 10 licences** (Digimon, Magic, cartes de supermarché…). Capturer › tuile **« Autre licence »**, ou Explorer › « Collections perso » › « Ajouter une carte ».
+- Prends la carte en photo (elle est recadrée toute seule et devient son visuel), puis écris la licence, la série, le numéro, le nom (et la rareté si tu veux). La carte suivante garde la même licence et la même série.
+- Tu ne vois **que tes cartes** : pas de cartes manquantes, pas de combats, pas de prix, pas de certification. Si tu indiques combien de cartes compte la série (« Cartes dans la série »), elle affiche « 3/40 » puis « Complète ! ».
+- Digimon récent (codes « BT1-010 ») : le nom, la série et le visuel se remplissent tout seuls. Tes Digimon de 1999 (« Bo-113 », « Jd-53 ») : à écrire à la main.
+- **Proposer une licence** (en bas d'Explorer › Collections perso) : envoie le nom du jeu par e-mail à collecdex.app@gmail.com.
+
 ## Toutes les licences lisent pareil (v3.49)
 - Ce qui a été inventé pour Final Fantasy et Wankul sert maintenant aussi à **One Piece, Riftbound, Lorcana et Yu-Gi-Oh!** : un cadrage de travers (cartes sombres ou brillantes) est refusé ; si le détourage rate, l'appli cherche la carte dans la photo ; le nom est lu par le lecteur précis (One Piece, Lorcana, Yu-Gi-Oh!) ; sur une page, une carte mal recadrée est remise à sa place ; en Lorcana les dos sont ignorés tout de suite.
 - **Sur tes photos** (32 photos des 4 licences, avant / après) : rien n'a reculé, 8 cartes de plus sont « sûres », 2 fausses réponses ont disparu (Riftbound), et les pages vont **2 à 10 fois plus vite** (One Piece : 3 min 20 → 17 s).

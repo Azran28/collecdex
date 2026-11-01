@@ -21,6 +21,7 @@ Ce fichier ne garde que l'essentiel. Le détail technique est dans **`.claude/ru
 | `starwars.md` | adaptateur Star Wars Unlimited (base officielle FFG en français → `data/sw-cartes.json` par le robot, visuels du CDN officiel, code « SOR • FR • 038/252 », normale ou Hyperspace d’après le numéro, leaders et bases couchés, prix par le robot) |
 | `dragonball.md` | adaptateur Dragon Ball Super « Masters » (site officiel Bandai en français → `data/db-cartes.json` + `db-textes.json` par le robot, visuels relayés, Extra Z couchées tournées, code « BT22-083 R », versions SPR / GDR / PR à part, verso des leaders, prix par le robot) |
 | `cyberpunk.md` | adaptateur Cyberpunk TCG (base officielle Netdeck en français → `data/cp-cartes.json` + copie des visuels `data/cp-img/` par le robot (adresses signées 5 min), code vertical « MS01 - WNC [A] » + numéro en biais, Bêta « B010 » à part, prix par le robot) |
+| `perso.md` | collections perso (licences hors des 10 de base : seulement tes cartes, ajout par photo `#/perso/ajouter`, Digimon récent retrouvé par son code, « Proposer une licence ») |
 | `pokemon-donnees.md` | adaptateur Pokémon / TCGdex, séries anglaises, hors-série, langues |
 | `combat.md` | combats (ordinateur, Avancé, en ligne, reprise, revanche) |
 | `capsules.md` | capsules, boutique, Pokédex |

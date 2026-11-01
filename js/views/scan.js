@@ -165,7 +165,7 @@ App.views.scan = {
   },
 
   /** Licences proposées dans Capturer (actives et branchées) */
-  games() { return App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id)); },
+  games() { return App.games.list.filter((g) => g.status === 'actif' && !g.perso && App.games.get(g.id)); },
   /**
    * Autres licences à essayer pour une carte qui n'est pas de la licence choisie (sauf `except`) : d'abord celle dont le texte
    * lu parle (code imprimé « OGN · 013/298 », « 25/204 • FR • 1 », mots « Disney Lorcana », « BANDAI », « RGI »… : textScores),
@@ -186,7 +186,7 @@ App.views.scan = {
     let q = params.query.jeu;
     if (!q) { try { q = sessionStorage.getItem('scanGame') || ''; } catch (e) { /* */ } }
     const auto = q === App.views.scan.AUTO;
-    let game = !auto && q && App.games.get(q) ? q : 'pokemon';
+    let game = !auto && q && App.games.get(q) && !(App.games.info(q) || {}).perso ? q : 'pokemon';
     if (auto) { try { const g = sessionStorage.getItem('scanAutoGame'); if (g && App.games.get(g)) game = g; } catch (e) { /* */ } }
     App.views.scan.remember(auto ? App.views.scan.AUTO : game);
     return { auto, game };
@@ -243,6 +243,9 @@ App.views.scan = {
         ${soon.map((g) => `<span class="lic-tile g-${g.id} soon" aria-disabled="true">
           <span class="lic-ic">${I(g.icon, 20)}</span>
           <span class="lic-t"><b>${esc(g.name)}</b><small>Bientôt</small></span></span>`).join('')}
+        <a class="lic-tile g-perso" href="#/perso/ajouter" data-game="perso">
+          <span class="lic-ic">${I('box', 20)}</span>
+          <span class="lic-t"><b>Autre licence</b><small>Collection perso : Digimon, Magic…</small></span></a>
       </div>`;
   },
 

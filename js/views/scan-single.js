@@ -5,7 +5,7 @@ Object.assign(App.views.scan, {
     const { esc } = App.util;
     const R = App.recognizer, RATIO = R.RATIO;
     // licence de la carte (v2.85) : choisie en haut (gardée pour les scans suivants), ou celle de la carte visée (?jeu=…)
-    const GAMES = App.games.list.filter((g) => g.status === 'actif' && App.games.get(g.id));
+    const GAMES = App.games.list.filter((g) => g.status === 'actif' && !g.perso && App.games.get(g.id));
     // (v3.11 : « Toutes » = auto : la licence de chaque carte est reconnue, game = la dernière reconnue)
     let { auto, game } = params.query.carte && !params.query.jeu ? { auto: false, game: 'pokemon' } : App.views.scan.startGame(params);
     let ad = App.games.get(game);
