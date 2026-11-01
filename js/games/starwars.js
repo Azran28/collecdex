@@ -317,7 +317,7 @@
   const findCrop = (src) => App.cardTools.findCrop(src);
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/sw-index ----------
-  const SW_INDEX_V = 1;
+  const SW_INDEX_V = 2;
   const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   // même dessin ailleurs (promo Weekly Play ou de tournoi d'une carte, réimpression d'un deck) : le code lu, la série de la page, puis la carte d'origine
