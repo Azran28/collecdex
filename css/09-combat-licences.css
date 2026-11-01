@@ -105,27 +105,39 @@ a.bt-choice:active { transform: scale(.985); }
 /* ===== Combat par licence (v2.99) : choix de la licence, décor et habillage propres à chaque licence ===== */
 /* choix de la licence */
 .bt-lead { margin: 4px 0 14px; color: var(--muted); }
-.bt-lics { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-.bt-lic-tile { position: relative; display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: 1fr auto; align-items: center; gap: 10px 14px; min-height: 170px; padding: 16px; border-radius: 22px; overflow: hidden; text-decoration: none; color: #fff;
-  border: 1px solid rgba(255,255,255,.14); box-shadow: 0 10px 30px rgba(0,0,0,.35); background: #10142a center / cover no-repeat; transition: transform .15s, box-shadow .15s; }
+/* v3.98 : petites tuiles (2 colonnes sur téléphone) : icône en haut, nom, avancement */
+.bt-lics { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.bt-lic-tile { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-height: 118px; padding: 12px; border-radius: 18px; overflow: hidden; text-decoration: none; color: #fff;
+  border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 22px rgba(0,0,0,.3); background: #10142a center / cover no-repeat; transition: transform .15s, box-shadow .15s; }
+.bt-lic-tile.last { border-color: rgba(255,255,255,.55); }
+.bt-lic-tile.last::after { content: 'Dernière'; position: absolute; top: 10px; right: 10px; padding: 2px 8px; border-radius: 999px; font-size: .64rem; font-weight: 700; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.3); }
+.bt-lic-bar { display: block; height: 4px; margin-top: 4px; border-radius: 4px; background: rgba(255,255,255,.2); overflow: hidden; }
+.bt-lic-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffd23f, #ff7a3d); }
+/* premier écran : Solo ou En ligne */
+.bt-start { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 900px; }
+.bt-mode-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px 14px; padding: 18px; border-radius: 22px; text-decoration: none; color: inherit; transition: transform .15s;
+  border: 1px solid color-mix(in srgb, var(--cc) 45%, transparent); background: radial-gradient(ellipse at 0% 0%, color-mix(in srgb, var(--cc) 26%, transparent), transparent 70%), rgba(255,255,255,.03); }
+.bt-mode-card:active { transform: scale(.985); }
+.bt-mode-card .bt-choice-ic { width: 58px; height: 58px; border-radius: 18px; }
+.bt-mode-card .bt-choice-t b { font-size: 1.45rem; }
+.bt-mode-lics { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; }
+.bt-join { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 14px; margin: 8px 0 4px; border-radius: 16px; border: 1px solid rgba(52,213,255,.35); background: rgba(52,213,255,.08); }
+.bt-back { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); text-decoration: none; }
+.bt-step-more { margin-left: auto; font-weight: 600; color: var(--muted); text-decoration: none; }
 .bt-lic-tile.g-pokemon { background-image: linear-gradient(100deg, rgba(10,14,40,.92) 15%, rgba(10,14,40,.45) 60%, rgba(10,14,40,.2)), url(../img/combat/terrain-pokemon.svg); }
 .bt-lic-tile.g-onepiece { background-image: linear-gradient(100deg, rgba(14,10,24,.92) 15%, rgba(14,10,24,.45) 60%, rgba(14,10,24,.2)), url(../img/combat/mer-onepiece.svg); }
 .bt-lic-tile:active { transform: scale(.985); }
 @media (hover: hover) and (pointer: fine) { .bt-lic-tile:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,.45); } }
-.bt-lic-ic { grid-row: 1; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; align-self: start; }
+.bt-lic-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: none; }
 .g-pokemon .bt-lic-ic, .bt-hero.g-pokemon .bt-hero-ic { background: linear-gradient(180deg, #ff4a2b 0 50%, #fff 50%); color: #1a1a2e; box-shadow: 0 0 0 3px #1a1a2e inset, 0 6px 18px rgba(227,53,13,.45); }
 .g-onepiece .bt-lic-ic, .bt-hero.g-onepiece .bt-hero-ic { background: radial-gradient(circle at 35% 30%, #ffe7a0, #e8b04a 55%, #9a5c12); color: #3b230f; box-shadow: 0 6px 18px rgba(232,176,74,.45); }
 .bt-lic-ic .ic { display: block; }
-.bt-lic-t { grid-row: 1; display: flex; flex-direction: column; gap: 3px; align-self: start; min-width: 0; }
-.bt-lic-t b { font-family: var(--display); font-size: 1.6rem; line-height: 1.1; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
+.bt-lic-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bt-lic-t b { font-family: var(--display); font-size: 1.08rem; line-height: 1.12; text-shadow: 0 2px 10px rgba(0,0,0,.5); overflow-wrap: anywhere; }
 .g-onepiece .bt-lic-t b { color: #ffd479; font-family: Georgia, "Times New Roman", serif; }
 .g-pokemon .bt-lic-t b { color: #ffcb05; text-shadow: 0 2px 0 #2a5cb8, 0 2px 12px rgba(0,0,0,.5); }
 .bt-lic-t span { font-size: .9rem; color: rgba(255,255,255,.9); }
-.bt-lic-t small { font-size: .76rem; color: rgba(255,255,255,.72); }
-.bt-lic-go { grid-row: 1; font-size: 2rem; color: rgba(255,255,255,.75); align-self: center; }
-.bt-lic-cards { grid-row: 2; grid-column: 1 / -1; display: flex; gap: 6px; }
-.bt-lic-cards img, .bt-lic-cards i { width: 46px; aspect-ratio: 63/88; border-radius: 5px; object-fit: cover; display: block; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
-.bt-lic-cards i { border: 1px dashed rgba(255,255,255,.35); background: rgba(0,0,0,.25); }
+.bt-lic-t small { font-size: .72rem; color: rgba(255,255,255,.78); }
 .bt-soon { margin-top: 14px; }
 
 /* accueil d'une licence : bandeau et couleurs */
@@ -152,9 +164,11 @@ a.bt-choice:active { transform: scale(.985); }
 .bt-page.g-onepiece .bt-hero-t h1, .bt-page.g-onepiece .bt-step { font-family: Georgia, "Times New Roman", serif; letter-spacing: .3px; }
 .bt-page.g-onepiece .bt-hero-t h1 { color: #ffd479; }
 @media (max-width: 760px) {
-  .bt-lics { grid-template-columns: 1fr; gap: 12px; }
-  .bt-lic-tile { min-height: 150px; padding: 14px; border-radius: 20px; }
-  .bt-lic-t b { font-size: 1.4rem; }
+  .bt-start { grid-template-columns: 1fr; gap: 12px; }
+  .bt-mode-card { padding: 16px; }
+  .bt-lics { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bt-lic-tile { min-height: 104px; padding: 11px; border-radius: 16px; }
+  .bt-lic-t b { font-size: 1rem; }
   .bt-hero { padding: 12px; gap: 10px; border-radius: 18px; }
   .bt-hero-t h1 { font-size: 1.3rem; }
   .bt-hero-ic { width: 40px; height: 40px; border-radius: 12px; }

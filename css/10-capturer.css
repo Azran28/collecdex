@@ -124,19 +124,6 @@ html.scan-still, html.scan-still body { overflow: hidden; overscroll-behavior: n
   .game-sw .lic-grid { margin-top: 8px; }
   .game-sw .lic-tile.last { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
 
-  /* Combat : bandeaux plus bas (même décor), toutes les licences tiennent sur l'écran */
-  .bt-lics { gap: 8px; }
-  .bt-lic-tile { grid-template-columns: auto 1fr auto auto; grid-template-rows: auto; min-height: 0; gap: 10px; padding: 10px 12px; border-radius: 18px; }
-  .bt-lic-ic { width: 42px; height: 42px; border-radius: 13px; align-self: center; }
-  .bt-lic-ic svg { width: 20px; height: 20px; }
-  .bt-lic-t { align-self: center; gap: 1px; }
-  .bt-lic-t b { font-size: 1.12rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bt-lic-t span { font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bt-lic-t small { font-size: .68rem; }
-  .bt-lic-cards { grid-row: 1; grid-column: 3; gap: 0; }
-  .bt-lic-cards img, .bt-lic-cards i { width: 26px; border-radius: 3px; }
-  .bt-lic-cards > * + * { margin-left: -9px; }
-  .bt-lic-go { grid-column: 4; font-size: 1.5rem; }
 }
 
 /* ===== Paramètres › Scanner (v3.36) : préparation, carnet des scans ratés ===== */

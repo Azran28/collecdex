@@ -93,12 +93,15 @@
     async render(el, params, alive) {
       let m = await getMatch();
       const q = params.query || {};
-      // v2.99 : d'abord la licence (#/combat), puis son accueil (#/combat?jeu=onepiece) et ses écrans (&ecran=ordi | decks)
+      // v3.98 : d'abord Solo ou En ligne (#/combat), puis la licence (#/combat?contre=ordi | ligne),
+      // puis ses écrans (#/combat?jeu=onepiece&ecran=ordi | ligne | decks ; sans écran = ordi)
       const game = FIGHT_GAMES.includes(q.jeu) ? q.jeu : q.ecran ? lastGame() : '';
-      const screen = game && ['ordi', 'decks'].includes(q.ecran) ? q.ecran : ''; // écran : accueil, ordinateur, decks
+      const screen = game ? (['ligne', 'decks'].includes(q.ecran) ? q.ecran : 'ordi') : '';
+      const against = !game && ['ordi', 'ligne'].includes(q.contre) ? q.contre : ''; // choix de la licence pour…
+      const from = screen === 'ligne' || (screen === 'decks' && q.de === 'ligne') ? 'ligne' : 'ordi'; // d'où l'on vient
       if (game) { try { localStorage.setItem(LAST, game); } catch (e) { /* stockage indisponible */ } }
       const LC = lic(game || 'pokemon'), LVS = B().levels(game);
-      const url = (ecran) => `#/combat?jeu=${game}${ecran ? `&ecran=${ecran}` : ''}`;
+      const url = (ecran) => `#/combat?jeu=${game}${ecran ? `&ecran=${ecran}` : ''}${ecran === 'decks' && from === 'ligne' ? '&de=ligne' : ''}`;
       const S = () => sideOf(m, game);
       let teamsModal = null; // corps de la fenêtre « Mes équipes » (téléphone), s'il est ouvert
       let view = null;       // données de la dernière page dessinée
@@ -115,34 +118,63 @@
       };
       const teamsHtml = () => `<div class="bt-teams">${S().teams.map((t, i) => teamCard(i)).join('')}</div>`;
 
-      /** Premier écran : le choix de la licence (chacune a ses decks, ses adversaires et ses salons en ligne) */
-      const drawPicker = async () => {
-        const rows = await Promise.all(FIGHT_GAMES.map(async (g) => {
-          const sd = sideOf(m, g), items = teamItems(sd.teams[sd.teamIdx].keys);
-          const imgs = await Promise.all(items.map((it) => App.col.displayImage(it, adOf(it))));
-          const st = sd.stats, n = B().levels(g).length;
-          return {
-            g, imgs, n, w: st.classic.wins + st.adv.wins + st.online.wins, l: st.classic.losses + st.adv.losses + st.online.losses,
-            beaten: B().levels(g).filter((L) => sd.beaten[L.n]).length, ready: sd.teams.filter((t) => teamItems(t.keys).length).length,
-          };
-        }));
-        if (!alive()) return;
-        const w = rows.reduce((s, r) => s + r.w, 0), l = rows.reduce((s, r) => s + r.l, 0);
-        const soon = App.games.list.filter((g) => g.status === 'bientôt').map((g) => g.name);
+      /** chiffres de chaque licence pour les deux premiers écrans */
+      const licRows = () => FIGHT_GAMES.map((g) => {
+        const sd = sideOf(m, g), st = sd.stats, LV = B().levels(g);
+        return {
+          g, n: LV.length, beaten: LV.filter((L) => sd.beaten[L.n] || sd.beatenAdv[L.n]).length,
+          w: st.classic.wins + st.adv.wins, l: st.classic.losses + st.adv.losses, ow: st.online.wins, ol: st.online.losses,
+          ready: sd.teams.filter((t) => teamItems(t.keys).length).length,
+        };
+      });
+      const sum = (rows, k) => rows.reduce((s, r) => s + r[k], 0);
+
+      /** Premier écran : Solo ou En ligne (v3.98, au lieu de 10 grandes tuiles de licences) */
+      const drawStart = () => {
+        const rows = licRows(), w = sum(rows, 'w') + sum(rows, 'ow'), l = sum(rows, 'l') + sum(rows, 'ol');
+        const icons = FIGHT_GAMES.map((g) => App.ui.licIc(g, 12, 'lic-ic-xs')).join('');
         el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › Combat</div>
           <div class="bt-head"><h1>Combat</h1><span class="muted small">${plural(w, 'victoire')} · ${plural(l, 'défaite')}</span></div>
-          <p class="bt-lead">Choisis ta licence : chacune a ses decks, ses adversaires et ses combats en ligne.</p>
-          <div class="bt-lics">${rows.map((r) => `<a class="bt-lic-tile g-${r.g}" href="#/combat?jeu=${r.g}">
-              <span class="bt-lic-ic">${App.icons.icon(lic(r.g).icon, 24)}</span>
-              <span class="bt-lic-t"><b>${esc(lic(r.g).name)}</b><span>${esc(lic(r.g).tag)}</span>
-                <small>${r.beaten}/${r.n} niveaux battus · ${plural(r.w, 'victoire')} · ${r.ready}/3 decks prêts</small></span>
-              <span class="bt-lic-cards">${[0, 1, 2].map((j) => r.imgs[j] ? `<img src="${esc(r.imgs[j].src)}" alt="">` : '<i></i>').join('')}</span>
-              <span class="bt-lic-go">›</span></a>`).join('')}</div>
+          <p class="bt-lead">Contre qui veux-tu jouer ?</p>
+          <div class="bt-start">
+            <a class="bt-mode-card" href="#/combat?contre=ordi" style="--cc:#ff7a3d">
+              <span class="bt-choice-ic">${App.icons.icon('trophy', 28)}</span>
+              <span class="bt-choice-t"><b>Solo</b><span class="small muted">Contre l’ordinateur : ${B().levels('pokemon').length} niveaux à battre dans chaque licence</span>
+                <small class="muted">${sum(rows, 'beaten')}/${sum(rows, 'n')} niveaux battus · ${plural(sum(rows, 'w'), 'victoire')}</small></span>
+              <span class="bt-choice-go">›</span>
+              <span class="bt-mode-lics">${icons}</span></a>
+            <a class="bt-mode-card" href="#/combat?contre=ligne" style="--cc:#34d5ff">
+              <span class="bt-choice-ic">${App.icons.icon('users', 28)}</span>
+              <span class="bt-choice-t"><b>En ligne</b><span class="small muted">Contre un ami : crée un salon et envoie-lui le code, ou rejoins le sien</span>
+                <small class="muted">${plural(sum(rows, 'ow'), 'victoire')} · ${plural(sum(rows, 'ol'), 'défaite')}</small></span>
+              <span class="bt-choice-go">›</span>
+              <span class="bt-mode-lics">${icons}</span></a>
+          </div>`;
+      };
+
+      /** Deuxième écran : la licence, en petites tuiles (2 colonnes sur téléphone) */
+      const drawPicker = () => {
+        const rows = licRows(), solo = against === 'ordi';
+        const last = (() => { try { return localStorage.getItem(LAST); } catch (e) { return ''; } })(); // vraiment jouée, pas la valeur par défaut
+        const soon = App.games.list.filter((g) => g.status === 'bientôt').map((g) => g.name);
+        const info = (r) => solo
+          ? `<small>${r.beaten}/${r.n} niveaux</small><span class="bt-lic-bar"><i style="width:${Math.round(100 * r.beaten / r.n)}%"></i></span>`
+          : `<small>${r.ow || r.ol ? `${plural(r.ow, 'victoire')}` : `${r.ready}/3 decks prêts`}</small>`;
+        const join = App.cloud.user
+          ? `<div class="bt-join"><span class="small">Un ami t’a donné un code ?</span><button class="btn" data-duel="join">Rejoindre avec un code</button></div>`
+          : `<div class="bt-join"><span class="small">Il faut être connecté pour jouer en ligne.</span><a class="btn" href="#/connexion">${App.icons.icon('user', 15)} Me connecter</a></div>`;
+        el.innerHTML = `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/combat">Combat</a> › ${solo ? 'Solo' : 'En ligne'}</div>
+          <div class="bt-head"><h1>${solo ? 'Solo' : 'En ligne'}</h1><a class="small bt-back" href="#/combat">${App.icons.icon('swap', 13)} ${solo ? 'Jouer en ligne' : 'Jouer en solo'}</a></div>
+          ${solo ? '' : join}
+          <p class="bt-lead">${solo ? 'Choisis ta licence : chacune a ses decks et ses adversaires.' : 'Pour créer un salon, choisis la licence :'}</p>
+          <div class="bt-lics">${rows.map((r) => `<a class="bt-lic-tile g-${r.g}${r.g === last ? ' last' : ''}" href="#/combat?jeu=${r.g}&ecran=${against}">
+              <span class="bt-lic-ic">${App.icons.icon(lic(r.g).icon, 18)}</span>
+              <span class="bt-lic-t"><b>${esc(lic(r.g).name)}</b>${info(r)}</span></a>`).join('')}</div>
           ${soon.length ? `<p class="small muted bt-soon">Bientôt : ${esc(soon.join(', '))}.</p>` : ''}`;
       };
 
       const draw = async () => {
-        if (!game) { await drawPicker(); return; }
+        if (!game) { if (against) drawPicker(); else drawStart(); return; }
         const sd = S();
         const teams = sd.teams.map((t) => teamItems(t.keys));
         const bags = sd.teams.map((t) => bagItems(t.bag));
@@ -168,24 +200,22 @@
             </div>
             ${adv ? `<div class="bt-mbag small muted">${bags[ti].length ? `<span class="bt-tm-bagimgs">${bagImgs[ti].map((b) => `<img src="${esc(b.src)}" alt="">`).join('')}</span>` : 'Pioche vide : pioche de prêt'}</div>` : ''}
           </section>`;
-        // Trois écrans par licence (accueil, ordinateur, decks) : on choisit d'abord quoi faire,
-        // puis contre l'ordinateur : le deck, puis la difficulté, puis le combat.
+        // Trois écrans par licence (ordinateur, en ligne, decks) ; contre l'ordinateur : le deck, puis la difficulté, puis le combat.
         const modeTabs = `<div class="bt-modes" role="tablist">
             <button class="${adv ? '' : 'on'}" data-mode="classic" role="tab">Basique</button>
             <button class="${adv ? 'on' : ''}" data-mode="adv" role="tab">Avancé</button>
           </div>
           <p class="bt-hint small muted">${esc(adv ? `Avec une pioche de 10 cartes ${LC.bagKinds} : 3 en main, 1 piochée par tour, une jouée par tour. Le banc adverse reste caché.`
             : say(game, `Tes cartes ${LC.name} seulement, sans pioche.`))}</p>`;
-        const hero = (title, crumb) => `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/combat">Combat</a> › ${crumb}</div>
+        const hero = (title, crumb) => `<div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/combat">Combat</a> › <a href="#/combat?contre=${from}">${from === 'ligne' ? 'En ligne' : 'Solo'}</a> › ${crumb}</div>
           <div class="bt-hero g-${game}">
             <span class="bt-hero-ic">${App.icons.icon(LC.icon, 22)}</span>
             <div class="bt-hero-t"><h1>${title}</h1><span class="small">${esc(LC.name)} · ${esc(LC.tag)}</span></div>
-            <a class="bt-hero-sw" href="#/combat">${App.icons.icon('swap', 14)} Changer</a>
+            <a class="bt-hero-sw" href="#/combat?contre=${from}">${App.icons.icon('swap', 14)} Licence</a>
           </div>`;
-        const beatenN = LVS.filter((L) => beaten[L.n]).length;
         let html;
         if (screen === 'decks') {
-          html = `${hero('Mes decks', `<a href="${url()}">${esc(LC.name)}</a> › Mes decks`)}
+          html = `${hero('Mes decks', `<a href="${url(from)}">${esc(LC.name)}</a> › Mes decks`)}
             ${modeTabs}
             ${mobileTeam}
             <section class="panel bt-team-panel">
@@ -203,29 +233,25 @@
               <button class="btn sm ghost bt-deck-ed" data-edit="${i}" title="Modifier ce deck">${App.icons.icon('pencil', 14)}</button>
             </div>`;
           };
-          html = `${hero('Contre l’ordinateur', `<a href="${url()}">${esc(LC.name)}</a> › Contre l’ordinateur`)}
+          html = `${hero('Contre l’ordinateur', esc(LC.name))}
             <p class="bt-sub muted small">${plural(st.wins, 'victoire')} · ${plural(st.losses, 'défaite')} en ${adv ? 'Avancé' : 'Basique'}</p>
             ${modeTabs}
-            <h2 class="bt-step"><span>1</span> Ton deck</h2>
+            <h2 class="bt-step"><span>1</span> Ton deck <a class="bt-step-more small" href="${url('decks')}">Mes decks ›</a></h2>
             <div class="bt-decks" role="radiogroup">${sd.teams.map((t, i) => deckBtn(i)).join('')}</div>
             <h2 class="bt-step"><span>2</span> Difficulté</h2>
             <div class="bt-levels">${LVS.map((L) => `<button class="bt-level ${unlocked(L.n) ? '' : 'locked'} ${beaten[L.n] ? 'done' : ''}" data-level="${L.n}" style="--lc:${L.color}" ${unlocked(L.n) ? '' : 'disabled'}>
                 <span class="bt-ln">${L.n}</span><div class="bt-ld"><b>${esc(L.name)}</b><span class="small muted">${unlocked(L.n) ? esc(L.desc) + (adv ? ` · pioche de ${App.battleCards.aiBag(L.n, 'fire', game).length}` : '') : `Bats le niveau ${L.n - 1}`}</span></div>
                 ${beaten[L.n] ? `<span class="bt-done">${App.icons.icon('check', 14)} Battu</span>` : unlocked(L.n) ? '<span class="btn sm primary">Combattre</span>' : `<span class="bt-lock">${App.icons.icon('lock', 16)}</span>`}</button>`).join('')}</div>
             ${rulesOf(game)}`;
-        } else {
-          const on = sd.stats.online, tot = { w: sd.stats.classic.wins + sd.stats.adv.wins + on.wins, l: sd.stats.classic.losses + sd.stats.adv.losses + on.losses };
-          html = `${hero(`Combat ${esc(LC.name)}`, esc(LC.name))}
-            <p class="bt-sub muted small">${plural(tot.w, 'victoire')} · ${plural(tot.l, 'défaite')}</p>
+        } else { // en ligne
+          const on = sd.stats.online;
+          html = `${hero('En ligne', esc(LC.name))}
+            <p class="bt-sub muted small">${plural(on.wins, 'victoire')} · ${plural(on.losses, 'défaite')} en ligne</p>
             ${modeTabs}
             <div class="bt-hub">
-              <a class="bt-choice" href="${url('ordi')}" style="--cc:#ff7a3d">
-                <span class="bt-choice-ic">${App.icons.icon('bolt', 26)}</span>
-                <span class="bt-choice-t"><b>Contre l’ordinateur</b><span class="small muted">${esc(LC.foeTag)} · ${beatenN}/${LVS.length} battu${beatenN > 1 ? 's' : ''} en ${adv ? 'Avancé' : 'Basique'}</span></span>
-                <span class="bt-choice-go">›</span></a>
               <div class="bt-choice bt-choice-online" style="--cc:#34d5ff">
                 <span class="bt-choice-ic">${App.icons.icon('users', 26)}</span>
-                <span class="bt-choice-t"><b>En ligne</b><span class="small muted">${on.wins || on.losses ? `${plural(on.wins, 'victoire')} · ${plural(on.losses, 'défaite')} · ` : ''}Crée un salon ${esc(LC.name)} et envoie le code, ou rejoins celui d’un ami. Vous choisissez vos decks une fois dans le salon.</span></span>
+                <span class="bt-choice-t"><b>Salon ${esc(LC.name)}</b><span class="small muted">Crée un salon et envoie le code à ton ami. Vous choisissez vos decks une fois dans le salon.</span></span>
                 ${App.cloud.user ? `<div class="bt-choice-b"><button class="btn primary" data-duel="create">${App.icons.icon('plus', 15)} Créer un salon</button><button class="btn" data-duel="join">Rejoindre avec un code</button></div>`
                   : `<div class="bt-choice-b"><a class="btn" href="#/connexion">${App.icons.icon('user', 15)} Me connecter pour jouer en ligne</a></div>`}
               </div>
@@ -297,7 +323,8 @@
       };
 
       el.addEventListener('click', async (e) => {
-        if (busy || !game) return;
+        if (busy) return;
+        if (!game) { const du = e.target.closest('[data-duel]'); if (du) await runDuel(du.dataset.duel); return; } // « Rejoindre » avant la licence (le salon a la sienne)
         if (await onTeam(e)) return;
         const md = e.target.closest('[data-mode]');
         if (md) { if (md.dataset.mode !== m.mode) { App.sfx.click(); m = await getMatch(); m.mode = md.dataset.mode; await saveMatch(m); await draw(); } return; }

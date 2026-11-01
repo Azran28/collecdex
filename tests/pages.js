@@ -46,7 +46,7 @@
     ['#/compte', 'Vitrine'], ['#/amis', 'Amis'], ['#/connexion', 'Connexion'], ['#/parametres', 'Paramètres'],
     ['#/scan', 'Capturer : choix de la licence'], ['#/scan?jeu=pokemon', 'Capturer (carte seule)'], ['#/scan?mode=classeur&jeu=pokemon', 'Capturer (classeur)'], ['#/scan?mode=rafale&jeu=pokemon', 'Capturer (rafale)'],
     ['#/scan?jeu=auto', 'Capturer toutes licences (carte seule)'], ['#/scan?mode=classeur&jeu=auto', 'Capturer toutes licences (classeur)'],
-    ['#/combat', 'Combat'], ['#/combat?jeu=pokemon', 'Combat Pokémon'], ['#/combat?jeu=pokemon&ecran=ordi', 'Combat contre l’ordinateur'],
+    ['#/combat', 'Combat : solo ou en ligne'], ['#/combat?contre=ordi', 'Combat solo : choix de la licence'], ['#/combat?contre=ligne', 'Combat en ligne : choix de la licence'], ['#/combat?jeu=pokemon', 'Combat Pokémon'], ['#/combat?jeu=pokemon&ecran=ligne', 'Combat Pokémon en ligne'], ['#/combat?jeu=pokemon&ecran=ordi', 'Combat contre l’ordinateur'],
     ['#/combat?jeu=pokemon&ecran=decks', 'Combat : équipes'], ['#/combat?jeu=onepiece', 'Combat One Piece'], ['#/combat?jeu=riftbound', 'Combat Riftbound'], ['#/scan?jeu=riftbound', 'Capturer Riftbound'],
     ['#/combat?jeu=lorcana', 'Combat Lorcana'], ['#/scan?jeu=lorcana', 'Capturer Lorcana'], ['#/scan?mode=classeur&jeu=lorcana', 'Capturer Lorcana (classeur)'],
     ['#/combat?jeu=yugioh', 'Combat Yu-Gi-Oh!'], ['#/scan?jeu=yugioh', 'Capturer Yu-Gi-Oh!'], ['#/scan?mode=classeur&jeu=yugioh', 'Capturer Yu-Gi-Oh! (classeur)'],
