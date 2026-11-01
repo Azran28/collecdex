@@ -67,6 +67,7 @@ Barre `.bprog` collante (`prog = { step, done, total, kind }`, étapes « Lectur
 ## v3.13 : choix plus clairs (Arnaud)
 - Onglets de mode : `.mc-short` (« 1 carte / 1 page / À la suite », téléphone seulement) + `.mode-hint` (phrase du mode choisi, `MODE_HINT` dans `render`, téléphone).
 - Certification (carte seule) : v3.16 → tuiles `certPick()` (`.cert-pick` / `.cp-opt[data-cert]`, vert = « Certifier », gris = « Juste la photo » → `App.settings.certCarte`) au-dessus du cadre, comme les formats du classeur ; gestes `certSteps()` (`.se-steps`) dans le cadre vide si `certWanted()` ; `guide()` ne renvoie plus rien. `certSwitch`/`certBlock` restent (plus utilisés ; la rafale a ses tuiles `certPick('rafale')` depuis v3.58).
+- **v4.09 (carte seule certifiée, Arnaud : « même DA que classeur et rafale », « l’enchaînement c’est seulement pour la rafale »)** : `scan-single.js` : `step(cur, mood)` = `stepPills(view, [Dos, Retourne, Photo])` + `.r-live` (table `LIVE` : phase → [texte, classe, pastille] ; `aide` = orange) à la place de `.flip-hint` ; `stopTrack` retire tout (`step(0)`). `.shot-tip` passe en bas quand `.r-steps` est là. Après l’ajout : `stay = wasTarget || !!myCert` → panneau `.capture-done` + « Capturer la suivante » (relance la caméra), pas de `#sc-cam` recliqué ; « Juste la photo » : reset direct (v3.63) inchangé.
 - Page des licences : `.lic-n` = icône du Dex + « N dans ton Dex ».
 
 ## v3.15 : format en tuiles, pas de défilement avant la photo

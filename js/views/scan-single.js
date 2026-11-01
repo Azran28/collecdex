@@ -115,7 +115,17 @@ Object.assign(App.views.scan, {
 
     // Certification « dos d'abord » : le dos, on retourne, on tient immobile → la photo se prend toute seule
     let trk = null, trkTimer = null;
-    const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.flip-hint'); if (h) h.remove(); const pc = view.querySelector('.page-cert'); if (pc) pc.remove(); };
+    const stopTrack = () => { clearInterval(trkTimer); trkTimer = null; const h = view.querySelector('.r-live'); if (h) h.remove(); const pc = view.querySelector('.page-cert'); if (pc) pc.remove(); step(0); };
+    // v4.09 (Arnaud : « la même DA que la certif classeur et rafale ») : pastilles Dos → Retourne → Photo en haut de la caméra,
+    // consigne dessous (.r-live), cadre jaune / orange (App.views.scan.stepPills, comme la rafale certifiée)
+    const step = (cur, mood = '') => App.views.scan.stepPills(view, ['Dos', 'Retourne', 'Photo'], cur, mood);
+    const LIVE = {
+      attente: ['Montre le <b>dos</b> de la carte dans le cadre', '', 1],
+      aide: ['Dos pas reconnu : il doit être <b>visible</b> (sors la carte d’un étui opaque ; une pochette transparente, ça va)', 'warn', 1],
+      lampe: ['Garde le <b>dos</b> immobile : la lampe clignote…', 'go', 1],
+      dos: ['Dos vu ✓ — <b>retourne</b>-la (prends ton temps)', 'go', 2],
+      retourne: ['Cadre la face, puis appuie sur <b>Prendre la photo</b>', 'go', 3],
+    };
     // pendant la capture, seul « Prendre la photo » reste (demande d'Arnaud) : « Caméra » et « Choisir une photo » reviennent après
     const camButtons = (show) => { el.querySelector('#sc-cam').classList.toggle('hidden', !show); el.querySelector('#sc-file').closest('label').classList.toggle('hidden', !show); };
     el.querySelector('#sc-cam').addEventListener('click', async () => {
@@ -129,7 +139,7 @@ Object.assign(App.views.scan, {
         if (!App.certify.available() || App.settings.certCarte === false) { setStatus(''); return; } // certification désactivée : simple photo
         setStatus(''); // les étapes de la certification sont dans l'encadré commun (certBlock), sous la caméra
         App.certify.prepare();
-        view.insertAdjacentHTML('beforeend', `<div class="flip-hint" data-phase="attente">${App.certify.HINTS.attente}</div>`);
+        view.insertAdjacentHTML('beforeend', `<div class="r-live" data-phase="attente">${LIVE.attente[0]}</div>`); step(1);
         // lampe : option de l'encadré (Android) ; pendant le code, grande consigne au centre (ampoule, « Ne bouge pas », compte à rebours)
         const useLamp = true; // lampe dès que le téléphone le permet (Android)
         trk = App.certify.tracker(cam.video, () => cam.region(), { game, lamp: useLamp, onLamp: (on) => { const b = view.querySelector('.pc-big .pc-bulb'); if (b) b.classList.toggle('on', on); } });
@@ -139,7 +149,9 @@ Object.assign(App.views.scan, {
           let ph = trk.step();
           // dos toujours pas reconnu après 7 s : souvent une carte dans un étui opaque
           const show = ph === 'attente' && Date.now() - t0 > 7000 ? 'aide' : ph;
-          const h = view.querySelector('.flip-hint'); if (h && h.dataset.phase !== show) { h.innerHTML = show === 'aide' ? 'Dos pas reconnu : il doit être <b>visible</b> (sors la carte d’un étui opaque ; une pochette transparente, ça va)' : App.certify.HINTS[ph]; h.dataset.phase = show; }
+          const h = view.querySelector('.r-live'), L = LIVE[show] || LIVE.attente;
+          if (h && h.dataset.phase !== show) { h.innerHTML = L[0]; h.className = `r-live ${L[1]}`; h.dataset.phase = show; }
+          step(L[2], L[1] === 'warn' ? 'warn' : '');
           // dos vu : le bouton de photo le montre (la photo sera certifiée)
           const sb = el.querySelector('#sc-shot'); if (sb) sb.classList.toggle('cert-ready', ph === 'retourne');
           let big = view.querySelector('.page-cert');
@@ -441,8 +453,11 @@ Object.assign(App.views.scan, {
           : App.settings.certCarte === false ? `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (tu as choisi « Juste la photo »). Choisis « Certifier » au-dessus de la photo pour le badge.</div>`
           : `<div class="small muted" style="margin-top:6px">${App.icons.icon('shield', 13)} Non certifiée (photo importée). Pour le badge, capture-la avec la caméra.</div>`;
         const wasTarget = !!target, sureAdd = autoPicked; autoPicked = false;
+        // v4.09 (Arnaud : « que la certif carte seule s’enchaîne, c’est uniquement pour la rafale ») : capture certifiée → on reste
+        // sur le résultat (badge obtenu ou non), « Capturer la suivante » relance la caméra ; sans certification, reset direct (v3.63)
+        const stay = wasTarget || !!myCert;
         const doneHtml = `<div class="sc-done">${mode === 'rien' || !cardURL ? '' : `<img src="${cardURL}" alt="">`}<div class="sc-done-t">${what}${sureAdd ? ' <span class="small muted">Reconnue avec certitude.</span>' : ''} <a class="small" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a>${verLine}${certLine}</div></div>`;
-        if (!wasTarget) {
+        if (!stay) {
           // v3.63 (Arnaud : « une fois la carte validée, reset direct pour démarrer un nouveau scan ») : la carte ajoutée reste
           // rappelée en haut (et « Ta carte brille ? »), l'écran revient à zéro, la caméra se rallume si la photo venait d'elle
           doneBox.innerHTML = doneHtml; hideDone(ask ? 9000 : sureAdd ? 3500 : 2600); // (v3.55 : par-dessus la caméra, disparaît vite ; plus long s'il y a une question)
@@ -454,7 +469,7 @@ Object.assign(App.views.scan, {
           <div class="row"><button class="btn primary" id="sc-again">Capturer la suivante</button>
           <a class="btn" href="#/jeu/${game}/serie/${encodeURIComponent(c.setId || (c.set && c.set.id))}">Voir la série</a></div></div>`;
         el.querySelector('#sc-manual').classList.add('hidden');
-        const box = wasTarget ? results : doneBox;
+        const box = stay ? results : doneBox;
         const vask = box.querySelector('#sc-vask');
         if (vask) vask.onclick = async (ev) => {
           const vb = ev.target.closest('[data-vans]'); if (!vb) return;
@@ -462,7 +477,7 @@ Object.assign(App.views.scan, {
           await R.setBaseVariant(key, v);
           App.scanShare && App.scanShare.label(shareId, { answer: v }); // (bonne réponse pour le labo : comptes testeurs)
           vask.outerHTML = verText([v, ...det.list.filter((x) => x === 'firstEdition')], 'choisie');
-          if (!wasTarget) hideDone(1500);
+          if (!stay) hideDone(1500);
         };
         cardBlob = null; target = null; el.querySelector('#sc-target').innerHTML = '';
         if (photoId && !(myCert && myCert.passed)) App.certify.note(key, photoId, !App.cloud.user ? 'pas connecté au moment de la capture' : myCert ? myCert.reasons.join(', ') : App.settings.certCarte === false ? 'certification désactivée au moment de la capture' : 'photo importée depuis la galerie');
@@ -472,7 +487,7 @@ Object.assign(App.views.scan, {
             line.innerHTML = r.ok ? `<span class="cert-ok">${App.icons.icon('shield', 14)} Carte certifiée !</span>` : `${App.icons.icon('shield', 13)} Non certifiée : ${esc(r.reason)}${r.unrecognized ? ' — reprends une photo plus nette pour la certifier' : ''}`;
           });
         }
-        if (wasTarget) results.querySelector('#sc-again').onclick = () => { if (location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = guideC(); setStatus(''); el.querySelector('#sc-cam').click(); } };
+        if (stay) results.querySelector('#sc-again').onclick = () => { if (wasTarget && location.hash.includes('?')) location.hash = '#/scan'; else { results.innerHTML = guideC(); setStatus(''); el.querySelector('#sc-cam').click(); } };
       };
     }
 
