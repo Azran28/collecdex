@@ -93,6 +93,18 @@
     App.util.closeModal();
   }, { net: true });
 
+  // v4.01 : grosse série affichée par paquets de 48 cartes, la suite au bouton (ou en faisant défiler)
+  test('série : cartes affichées par paquets', async (App, W) => {
+    const app = await visit(W, '#/jeu/starwars/serie/SOR');
+    await until(() => app.querySelectorAll('#st-grid .ctile').length, 10000, 'grille de la série');
+    const n = app.querySelectorAll('#st-grid .ctile').length;
+    ok(n < 252 && n % 48 === 0, `${n} cartes affichées d’un coup`);
+    const more = app.querySelector('#st-more [data-more]');
+    ok(more, 'bouton « Voir … cartes de plus » absent');
+    more.click();
+    ok(app.querySelectorAll('#st-grid .ctile').length === n + 48, 'le bouton n’ajoute pas 48 cartes');
+  });
+
   // v3.15 : format du classeur en tuiles ; sur téléphone, page sans défilement avant la photo
   test('Capturer (classeur, téléphone) : tuiles du format, page sans défilement', async (App, W) => {
     let saved = null;
