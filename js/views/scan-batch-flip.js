@@ -68,13 +68,15 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
    * v3.99 (Arnaud : « voir ce que ça donne pour la recherche des cartes ») : chaque page vue (la 1re, puis chaque page tournée)
    * est photographiée en pleine résolution (cam.photo) ; à la fin, les pages passent l'une après l'autre dans la lecture
    * normale du classeur (startGrid : grille, lecture, vérification, récapitulatif, Enregistrer) — après chaque page, #b-reset
-   * appelle flipNext pour la suivante. Pas encore de badge : le serveur ne sait pas certifier une page feuilletée.
+   * appelle flipNext pour la suivante. v4.00 : page tournée reconnue → badge pour cette page ET la page d’avant (celle qui a été
+   * soulevée), App.certify.flipPage.
    */
   function flipNext() {
-    const p = S.flipQueue.shift(); if (!p) return false;
-    startGrid(p.blob, null);
+    const p = S.flipQueue.shift(); if (!p) { S.flipCur = null; return false; }
+    S.flipCur = { i: p.i, of: p.of };
+    startGrid(p.blob, p.cert || null); // (page tournée reconnue et vérifiée → les cartes bien reconnues seront certifiées, v4.00)
     const box = el.querySelector('#b-certline');
-    if (box) box.innerHTML = `<div class="panel flip-page"><b>${I('shield', 14)} Feuilletage : page ${p.i} sur ${p.of}</b> <span class="small muted">— ${p.pass === null ? 'première page' : p.pass ? 'page tournée reconnue' : 'page tournée pas reconnue'}${S.flipQueue.length ? ` · ensuite ${S.flipQueue.length} page${S.flipQueue.length > 1 ? 's' : ''}` : ''}. Pas encore de badge pour les pages feuilletées.</span></div>`;
+    if (box) box.insertAdjacentHTML('afterbegin', `<div class="panel flip-page" style="margin-bottom:8px"><b>Feuilletage : page ${p.i} sur ${p.of}</b> <span class="small muted">— ${p.cert && p.cert.passed ? 'vérifiée en direct' : p.cert ? `pas de badge : ${App.util.esc(p.cert.reasons[0] || '')}` : !App.certify.available() ? 'connecte-toi pour le badge' : 'aucun geste reconnu autour de cette page : pas de badge'}${S.flipQueue.length ? ` · ensuite ${S.flipQueue.length} page${S.flipQueue.length > 1 ? 's' : ''}` : ''}</span></div>`);
     return true;
   }
   function flipStop() {
@@ -96,13 +98,17 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
     let n = 1, lastPage = 0, ticks = [], holdUntil = 0, busy = false, first = true;
     // v3.99 : photo pleine résolution de la page qu'on voit (pendant ce temps le suivi s'arrête, puis repart de zéro :
     // sur Android la caméra se relance parfois après une vraie photo)
-    async function shootPage(pass) {
+    async function shootPage(pass, e = null) {
       if (pass === null) hint('📸 Photo de la page… ne bouge pas', 'go');
       busy = true;
       try {
+        // v4.00 : page tournée reconnue → preuve « page feuilletée » pour le badge, prise AVANT la photo (la vidéo est encore là)
+        const [cols, rows] = dims(), cert = pass && e && App.certify.available() ? await App.certify.flipPage(cam.video, e.frames, e.res, cols * rows).catch(() => null) : null;
         const b = await cam.photo();
         if (b && S.flipping) {
-          S.flipPages.push({ blob: b, pass }); drawStrip(); stopLabel();
+          const prev = S.flipPages[S.flipPages.length - 1];
+          S.flipPages.push({ blob: b, pass, cert }); drawStrip(); stopLabel();
+          if (cert && prev && !prev.cert) prev.cert = await App.certify.flipPage(await createImageBitmap(prev.blob), e.frames, e.res, cols * rows).catch(() => null); // (la page soulevée)
           view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
         }
       } catch (err) { console.warn('feuilleté : photo de la page', err); }
@@ -138,7 +144,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
       holdUntil = f.t + (e.res.pass ? 1200 : 2200); // (un conseil se lit moins vite qu'un ✓)
       lastPage = f.t;
       send(e, item);
-      shootPage(e.res.pass); // (la nouvelle page est immobile : on la photographie)
+      shootPage(e.res.pass, e); // (la nouvelle page est immobile : on la photographie)
     }, 90);
   }
   if (btn) btn.addEventListener('click', flipStart);

@@ -35,9 +35,11 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     }
     /** Résultat de la certification de la page, rappelé dans l'écran d'analyse (sur téléphone il recouvre tout : avant, le message disparaissait) */
     function svCert() {
-      const pc = !burst && S.pageCert; if (!pc) return '';
-      return pc.passed ? `<div class="small cert-ok" style="margin:6px 0">${App.icons.icon('shield', 14)} Page certifiée en direct : les cartes bien reconnues seront certifiées</div>`
-        : `<div class="small" style="margin:6px 0">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(pc.reasons.join(', '))}</div>`;
+      // v4.00 (Arnaud : « indique le nombre de pages restantes ») : pages feuilletées lues l'une après l'autre
+      const fc = !burst && S.flipCur, flip = fc ? `<div class="small sv-flip" style="margin:6px 0"><b>Feuilletage : page ${fc.i} sur ${fc.of}</b>${fc.of > fc.i ? ` <span class="muted">· encore ${fc.of - fc.i} page${fc.of - fc.i > 1 ? 's' : ''} après celle-ci</span>` : ' <span class="muted">· dernière page</span>'}</div>` : '';
+      const pc = !burst && S.pageCert; if (!pc) return flip;
+      return flip + (pc.passed ? `<div class="small cert-ok" style="margin:6px 0">${App.icons.icon('shield', 14)} Page certifiée en direct : les cartes bien reconnues seront certifiées</div>`
+        : `<div class="small" style="margin:6px 0">${App.icons.icon('shield', 14)} <b>Page non certifiable</b> : ${esc(pc.reasons.join(', '))}</div>`);
     }
     function svTop(label, right, bar) {
       return `<div class="sv-top"><div class="bprog-lbl"><span>${label}</span><b>${right || ''}</b></div>${bar || ''}</div>`;
@@ -176,7 +178,9 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
         <div class="sv-rows">${list.map(row).join('')}</div>
         <div class="small muted sv-hint">${ign ? `${ign} case${ign > 1 ? 's' : ''} ignorée${ign > 1 ? 's' : ''} (vide, dos ou autre licence). ` : ''}Touche une carte pour la changer, ou sa version (<b class="warn">?</b> = pas sûre) pour passer à la suivante.</div>
         <div class="sv-acts sv-final">
-          <button class="btn primary" data-sv="save" ${chosen.length ? '' : 'disabled'}>✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex</button>
+          ${chosen.length ? `<button class="btn primary" data-sv="save">✓ Enregistrer ${chosen.length} carte${chosen.length > 1 ? 's' : ''} dans mon Dex${S.flipCur && S.flipCur.of > S.flipCur.i ? ' · page suivante' : ''}</button>`
+            // v4.00 (Arnaud : « quand toutes les cartes sont déjà dans mon Dex je suis bloqué ») : rien à enregistrer → on passe à la suite
+            : `<button class="btn primary" data-sv="save">${S.flipCur && S.flipCur.of > S.flipCur.i ? `Rien de nouveau · page suivante (${S.flipCur.i + 1} sur ${S.flipCur.of})` : 'Rien de nouveau · continuer'}</button>`}
           <button class="linkbtn" data-sv="close">Voir la liste détaillée</button>
         </div>`;
     }
@@ -193,6 +197,11 @@ App.scanBatchParts.screen = (X, { R, ad, burst, dims, el, esc, isPk, resultsEl, 
     /** Fin de l'analyse : cartes à vérifier d'abord, sinon directement le récapitulatif */
     function svAfterScan() {
       if (!sv.open) return;
+      // v4.00 : page feuilletée où aucune carte n'est trouvée (photo du sol en baissant le téléphone…) → page suivante
+      if (!burst && S.flipCur && !S.cells.some((c) => ['sure', 'verifier'].includes(c.state))) {
+        App.util.toast(`Page ${S.flipCur.i} : aucune carte trouvée sur la photo, je passe à la suite`);
+        svClose(); el.querySelector('#b-reset').click(); return;
+      }
       const l = toCheck();
       if (l.length) svOpen('review', { list: l, idx: 0 }); else svOpen('recap');
     }

@@ -91,6 +91,9 @@ App.scanBatchParts.list = (X, { R, ad, alive, burst, dims, esc, isPk, readCard, 
       const owned = !!App.col.get(S.game, c.choice);
       const earlier = S.cells.some((o) => o.i < c.i && o.choice === c.choice);
       if (earlier) return 'doublon';          // 2 pochettes = 2 exemplaires physiques
+      // v4.00 (Arnaud : « même si j'ai bien fait les étapes tu ne m'as pas mis qu'elles étaient certifiées ») : page certifiée
+      // en direct → une carte déjà possédée mais pas encore certifiée prend cette photo (et son badge)
+      if (owned && S.pageCert && S.pageCert.passed && !App.certify.isCertified(App.col.get(S.game, c.choice))) return 'photo';
       return owned ? 'rien' : 'nouvelle';     // déjà possédée : on ne compte qu'un exemplaire, sauf choix contraire
     }
     const modeLabels = { nouvelle: 'Nouvelle carte', rien: 'Déjà possédée : ne rien changer', photo: 'Même carte : utiliser cette photo', doublon: 'Autre exemplaire (doublon)' };

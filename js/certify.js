@@ -590,6 +590,38 @@ App.certify = (() => {
     };
   }
 
+  /**
+   * Certification d'une page de classeur FEUILLETÉE (v4.00, Arnaud : « même si j'ai bien fait les étapes tu ne m'as pas mis
+   * qu'elles étaient certifiées ») : la page tournée devant la caméra (App.pageTurn.judge, réussi) remplace la lampe. Même
+   * défi du serveur que la page à la lampe (« case-N », un usage par carte, 15 min) : rien à changer côté Supabase.
+   * Au moment de la photo : pas d'écran (motif), pas d'image figée. Film = mosaïque des images du geste (cert_<id>.jpg).
+   * La feuille qui se soulève est la page d’AVANT : un geste reconnu certifie aussi la page précédente (preuve faite sur sa photo).
+   * frames : images 48 × 64 du geste ({ g }) ; turn : résultat de judge ; uses : nombre de cases de la page.
+   */
+  async function flipPage(video, frames, turn, uses = 9) {
+    if (!turn || !turn.pass) return { passed: false, reasons: ['page tournée pas reconnue'] };
+    const ch = await prepare('page', Math.max(2, Math.min(18, uses)));
+    challenges.page = null;
+    if (!ch) return { passed: false, reasons: [available() ? 'serveur de certification injoignable' : 'connecte-toi pour certifier'] };
+    const reasons = [];
+    const W = video.videoWidth || video.width, H = video.videoHeight || video.height, N = 256, side = Math.min(W, H, Math.max(N, Math.min(W, H) * 0.5)); // (video : la caméra, ou la photo de la page d’avant)
+    const screen = screenScore(grayOf(video, (W - side) / 2, (H - side) / 2, side, side, N, N), N);
+    if (screen.peak >= SCREEN_PEAK) reasons.push(`on dirait une page affichée sur un écran (motif ${Math.round(screen.peak)})`);
+    const recent = frames.slice(-15).map((f) => f.g), frozen = frozenPairs(recent);
+    if (frozen >= Math.ceil((recent.length - 1) * 0.8)) reasons.push('image figée (ce n’est pas une caméra en direct)');
+    const passed = reasons.length === 0, GW = 48, GH = 64, fr = frames.slice(-24);
+    let strip = null;
+    if (passed) { // film du geste, 8 images par rangée
+      const c = Object.assign(document.createElement('canvas'), { width: 8 * GW, height: Math.ceil(fr.length / 8) * GH }), g = c.getContext('2d'), im = g.createImageData(GW, GH);
+      fr.forEach((f, k) => { for (let i = 0; i < f.g.length; i++) { im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = f.g[i]; im.data[i * 4 + 3] = 255; } g.putImageData(im, (k % 8) * GW, Math.floor(k / 8) * GH); });
+      strip = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.8));
+    }
+    return {
+      passed, reasons, id: ch.id, challenge: ch.challenge, dhash: dhash(grayOf(video, 0, 0, W, H, 9, 8)), strip,
+      scores: { passed, challenge: ch.challenge, kind: 'page', method: 'feuillete', cells: uses, turn: { ev: turn.ev || null }, screen: screen.peak, frozen },
+    };
+  }
+
   /** Consignes affichées sur la vidéo selon l'étape */
   const HINTS = {
     attente: '<b>1.</b> Montre le <b>dos</b> de la carte dans le cadre',
@@ -826,7 +858,7 @@ App.certify = (() => {
   const count = () => App.col.all().filter(isCertified).length;
 
   return {
-    available, prepare, tracker, livePage, pageOnly, HINTS, lampChart, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
+    available, prepare, tracker, livePage, flipPage, pageOnly, HINTS, lampChart, finish, identity, note, load, setFromServer, isCertified, photoCertified, count,
     on: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     _test: { motion, judgeFlip, judgeE, shiftCorr, flashFit, flashOk, silhouette, corr, frozenPairs, screenScore, dhash },
   };
