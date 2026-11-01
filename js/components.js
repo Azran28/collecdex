@@ -134,10 +134,13 @@ App.ui = (() => {
 
   /** Remplace les images officielles par tes photos quand tu en as choisi une */
   async function hydratePhotos(root) {
-    for (const img of root.querySelectorAll('img[data-photo]')) {
-      const u = await App.col.photoURL(img.dataset.photo);
-      if (u) { img.src = u; img.removeAttribute('data-photo'); }
-    }
+    // toutes en même temps (v4.01 ; avant : l'une après l'autre)
+    await Promise.all([...root.querySelectorAll('img[data-photo]')].map(async (img) => {
+      const id = img.dataset.photo;
+      img.removeAttribute('data-photo');
+      const u = await App.col.photoURL(id).catch(() => null);
+      if (u) img.src = u;
+    }));
   }
 
   function rarityRow(game, byRarity) {

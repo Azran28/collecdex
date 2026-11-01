@@ -7,7 +7,8 @@ App.views.set = {
     if (!alive()) return;
 
     const prices = {}; // id carte → { value, unit }
-    let pricesDone = false;
+    let pricesDone = false, allP = null; // allP : chargement de tous les prix (demandé : coût de la série, tri par prix)
+    const byId = new Map(set.cards.map((c) => [c.id, c]));
     /** Coût estimé (prix du marché) : pour finir la série, et pour la série complète */
     const costBlock = () => {
       if (ad.noPrices) return '';
@@ -21,7 +22,8 @@ App.views.set = {
       return `<div class="set-cost">
         ${pricesDone ? `${miss.length ? `<span>${App.icons.icon('target', 14)} Finir la série : <b>≈ ${euro(missCost)}</b> <span class="muted">(${miss.length} carte${miss.length > 1 ? 's' : ''})</span></span>` : ''}
           <span>${App.icons.icon('coins', 14)} Série complète : <b>≈ ${euro(fullCost)}</b></span>${unknown ? `<span class="muted small">${unknown} carte${unknown > 1 ? 's' : ''} sans prix</span>` : ''}`
-          : `<span class="muted">${App.icons.icon('coins', 14)} Estimation du coût de la série… (prix en cours de chargement)</span>`}
+          : allP ? `<span class="muted">${App.icons.icon('coins', 14)} Estimation du coût de la série… (prix en cours de chargement)</span>`
+          : `<button class="btn sm" id="st-cost">${App.icons.icon('coins', 14)} Combien coûte la série ?</button>`}
         <a href="${booster}" target="_blank" rel="noopener" class="small">${esc(ad.boosterLabel || 'Prix des boosters et displays sur Cardmarket')} ↗</a>
       </div>`;
     };
@@ -58,6 +60,7 @@ App.views.set = {
       </div>
       <div class="chips" id="st-rfilter" style="margin-bottom:14px"></div>
       <div class="cards" id="st-grid"></div>
+      <div id="st-more" class="st-more"></div>
       <p class="muted small" style="margin-top:22px">Données cartes : <a href="${ad.source.url}" target="_blank" rel="noopener">${ad.source.name}</a>. ${esc(ad.priceNote || "Prix : tendance Cardmarket (€), mise à jour quotidienne.")}</p>
     `;
 
@@ -71,6 +74,7 @@ App.views.set = {
     });
     const head = el.querySelector('#st-head');
     head.addEventListener('click', async (e) => {
+      if (e.target.closest('#st-cost')) { allPrices(); drawHead(); return; }
       if (!e.target.closest('#st-goal')) return;
       await App.wish.addGoal(game, set);
       App.util.toast(`🎯 Objectif ajouté : compléter ${set.name}`);
@@ -164,16 +168,98 @@ App.views.set = {
       return cards.sort(sorters[state.sort]);
     };
 
-    const drawGrid = () => {
-      const cards = cardsFiltered();
-      el.querySelector('#st-shown').textContent = `${cards.length} carte${cards.length > 1 ? 's' : ''} affichée${cards.length > 1 ? 's' : ''}`;
-      grid.innerHTML = cards.length ? cards.map((c) => {
-        return App.ui.cardTile(c, { game, item: App.col.get(game, c.id), price: prices[c.id] });
-      }).join('') : `<div class="empty">${state.own === 'manquantes' ? '🎉 Aucune carte manquante ici !' : 'Aucune carte ne correspond.'}</div>`;
+    // ---------- Prix (v4.01) : seulement des cartes qui passent à l'écran ; toutes d'un coup sur demande ----------
+    let stopped = false, running = 0;
+    const priceQ = [], queued = new Set(), fresh = new Set();
+    const tileOf = (c) => App.ui.cardTile(c, { game, item: App.col.get(game, c.id), price: prices[c.id] });
+    // tuiles dont le prix vient d'arriver : redessinées une par une (pas toute la grille)
+    const flush = debounce(() => {
+      if (stopped || !alive()) return;
+      for (const id of fresh) {
+        const node = grid.querySelector(`.ctile[data-card="${CSS.escape(id)}"]`);
+        if (!node) continue;
+        node.insertAdjacentHTML('afterend', tileOf(byId.get(id)));
+        const nn = node.nextElementSibling;
+        node.remove();
+        App.ui.hydratePhotos(nn);
+      }
+      fresh.clear();
+    }, 250);
+    const fetchPrice = async (c) => {
+      const full = await ad.getCard(c.id).catch(() => null);
+      if (!full || stopped) return;
+      const p = ad.price(full);
+      if (p && !prices[c.id]) { prices[c.id] = p; fresh.add(c.id); flush(); }
+      if (!c.rarity && full.rarity) c.rarity = full.rarity;
+    };
+    const pump = () => {
+      while (running < 4 && priceQ.length && !stopped) {
+        const c = priceQ.shift(); running++;
+        fetchPrice(c).finally(() => { running--; pump(); });
+      }
+    };
+    const wantPrice = (c) => { if (ad.noPrices || allP || queued.has(c.id)) return; queued.add(c.id); priceQ.push(c); pump(); };
+    const seen = window.IntersectionObserver ? new IntersectionObserver((ents) => {
+      for (const e of ents) if (e.isIntersecting) { seen.unobserve(e.target); const c = byId.get(e.target.dataset.card); if (c) wantPrice(c); }
+    }, { rootMargin: '300px 0px' }) : null;
+    /** Tous les prix de la série (gardés 24 h en cache) : coût de la série, tri par prix, raretés manquantes */
+    const allPrices = () => allP || (allP = (async () => {
+      priceQ.length = 0;
+      const task = App.bg.start(`Prix · ${set.name}`, set.cards.length);
+      await App.util.pool(ad.noPrices ? [] : set.cards, 4, async (c) => { if (!stopped && !prices[c.id]) await fetchPrice(c); }, (d) => task.tick(d));
+      task.done();
+      pricesDone = true;
+      if (stopped || !alive()) return;
+      drawHead();
+      if (set.rarityInfoMissing && set.cards.every((c) => c.rarity)) { set.rarityInfoMissing = false; drawHead(); drawPull(); }
+      if (state.sort === 'price' || state.sort === 'rar') drawGrid(true);
+    })());
+
+    // ---------- Grille : les cartes arrivent par paquets, au fil du défilement ----------
+    const PAGE = 48;
+    const more = el.querySelector('#st-more');
+    let list = [], limit = PAGE;
+    const addTiles = (from, to) => {
+      grid.insertAdjacentHTML('beforeend', list.slice(from, to).map(tileOf).join(''));
+      const added = [...grid.children].slice(from);
+      if (seen) added.forEach((n) => seen.observe(n));
+      else list.slice(from, to).forEach(wantPrice);
       App.ui.hydratePhotos(grid);
+    };
+    const drawMore = () => {
+      const left = list.length - Math.min(limit, list.length);
+      more.innerHTML = left > 0 ? `<button class="btn sm" data-more>Voir ${Math.min(left, PAGE)} carte${left > 1 ? 's' : ''} de plus (${left} restante${left > 1 ? 's' : ''})</button>` : '';
+    };
+    const showMore = () => {
+      if (limit >= list.length) return;
+      const from = limit; limit += PAGE;
+      addTiles(from, Math.min(limit, list.length));
+      drawMore();
+    };
+    more.addEventListener('click', (e) => { if (e.target.closest('[data-more]')) showMore(); });
+    const moreObs = window.IntersectionObserver ? new IntersectionObserver((ents) => {
+      if (ents.some((e) => e.isIntersecting)) showMore();
+    }, { rootMargin: '600px 0px' }) : null;
+    // le bas de la grille reste visible après un paquet (grand écran) : le suivant tout de suite
+    const fillScreen = () => requestAnimationFrame(() => {
+      if (!stopped && alive() && limit < list.length && more.getBoundingClientRect().top < innerHeight + 600) { showMore(); fillScreen(); }
+    });
+
+    /** keep = garder le nombre de cartes déjà montrées (collection modifiée, prix arrivés) */
+    const drawGrid = (keep = false) => {
+      list = cardsFiltered();
+      if (!keep) limit = PAGE;
+      el.querySelector('#st-shown').textContent = `${list.length} carte${list.length > 1 ? 's' : ''} affichée${list.length > 1 ? 's' : ''}`;
+      if (seen) seen.disconnect();
+      grid.innerHTML = list.length ? '' : `<div class="empty">${state.own === 'manquantes' ? '🎉 Aucune carte manquante ici !' : 'Aucune carte ne correspond.'}</div>`;
+      if (list.length) addTiles(0, Math.min(limit, list.length));
+      drawMore();
+      fillScreen();
     };
 
     drawHead(); drawPull(); drawGrid();
+    if (moreObs) moreObs.observe(more);
+    if (set.rarityInfoMissing) allPrices(); // la progression par rareté en a besoin
 
     // Interactions
     el.querySelector('#st-own').addEventListener('click', (e) => {
@@ -189,35 +275,20 @@ App.views.set = {
       b.classList.toggle('on');
       drawGrid();
     });
-    el.querySelector('#st-sort').addEventListener('change', (e) => { state.sort = e.target.value; drawGrid(); });
+    el.querySelector('#st-sort').addEventListener('change', (e) => {
+      state.sort = e.target.value;
+      if (state.sort === 'price') { allPrices(); drawHead(); }
+      drawGrid();
+    });
     el.querySelector('#st-q').addEventListener('input', debounce((e) => { state.q = e.target.value; drawGrid(); }, 200));
     grid.addEventListener('click', async (e) => {
-      const card = set.cards.find((c) => c.id === (e.target.closest('.ctile') || {}).dataset?.card);
+      const card = byId.get((e.target.closest('.ctile') || {}).dataset?.card);
       if (!card) return;
       App.cardModal(game, card.id, { set, list: cardsFiltered().map((c) => c.id) });
     });
 
-    const unsub = App.col.on(() => { drawHead(); drawGrid(); });
+    const unsub = App.col.on(() => { drawHead(); drawGrid(true); });
 
-    // Prix de toutes les cartes de la série (en arrière-plan, gardés 24 h en cache)
-    let stopped = false;
-    const task = App.bg.start(`Prix · ${set.name}`, set.cards.length);
-    App.util.pool(ad.noPrices ? [] : set.cards, 4, async (c) => {
-      if (stopped) return;
-      const full = await ad.getCard(c.id);
-      const p = ad.price(full);
-      if (p) prices[c.id] = p;
-      if (!c.rarity && full.rarity) c.rarity = full.rarity;
-    }, (d, n) => task.tick(d)).then(() => {
-      task.done();
-      pricesDone = true;
-      if (!stopped && alive()) {
-        drawHead();
-        if (set.rarityInfoMissing && set.cards.every((c) => c.rarity)) { set.rarityInfoMissing = false; drawHead(); drawPull(); }
-        drawGrid();
-      }
-    });
-
-    return () => { stopped = true; unsub(); task.done(); };
+    return () => { stopped = true; unsub(); if (seen) seen.disconnect(); if (moreObs) moreObs.disconnect(); };
   },
 };
