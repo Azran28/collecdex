@@ -4,7 +4,7 @@ paths:
   - "js/views/perso.js"
   - "css/16-perso.css"
 ---
-# Collections perso (v4.02, `js/games/perso.js` + `js/views/perso.js`)
+# Collections perso (v4.03, `js/games/perso.js` + `js/views/perso.js`)
 Décision d'Arnaud (1er nov.) : **10 licences de base** (les complètes) ; **tout le reste = collections perso** : on scanne (photographie) ses cartes et on les voit dans le Dex et l'Explorer avec quelques détails, **sans les autres cartes de la série ni les autres séries** (seulement les siennes), sans combats, badges, prix ni certification. Total de la série facultatif : « 3 cartes », ou « 3/40 » + « Complète » s'il est connu. « Proposer une licence » = demander une licence qui manque (e-mail / partage vers collecdex.app@gmail.com), pas faire passer une collection perso en licence de base.
 
 - Licence `perso` (« Collections perso », icône `box`, `perso: true` dans `registry.js`, a remplacé « Magic bientôt » et « Et au-delà… »). Adaptateur sans base de cartes : `listSets` / `getSet` / `getCard` tirés des cartes possédées (`App.col`, jeu `perso`). `ownOnly` (série = tes cartes ; `col.progress` → `{ ownOnly, total = plus grand perso.total des cartes }`, `countHTML` « N cartes »), `photoFirst` (ta photo = visuel quand il n'y a pas de visuel officiel, même si « préférer mes photos » est décoché), `noPrices`.

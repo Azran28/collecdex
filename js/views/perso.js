@@ -1,5 +1,5 @@
 /*
- * Collections perso (v4.02, voir js/games/perso.js) : ajouter une carte d'une licence hors des 10 de base (#/perso/ajouter),
+ * Collections perso (v4.03, voir js/games/perso.js) : ajouter une carte d'une licence hors des 10 de base (#/perso/ajouter),
  * et « Proposer une licence » (la demande part par e-mail / partage vers collecdex.app@gmail.com).
  */
 App.views.persoAdd = {

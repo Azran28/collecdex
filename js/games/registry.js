@@ -23,7 +23,7 @@ App.games = (() => {
     { id: 'starwars', name: 'Star Wars Unlimited', icon: 'saber', status: 'actif', desc: 'Toutes les extensions, Hyperspace, Showcase et promos, en français.' },
     { id: 'dragonball', name: 'Dragon Ball Super', icon: 'dball', status: 'actif', desc: 'Le Card Game « Masters » : toutes les séries, decks et promos, en français.' },
     { id: 'cyberpunk', name: 'Cyberpunk TCG', icon: 'chip', status: 'actif', desc: 'Welcome to Night City, decks, promos et Bêta, en français.' },
-    // v4.02 : tout le reste (Digimon, Magic, cartes de supermarché…) = collections perso, seulement tes cartes (js/games/perso.js)
+    // v4.03 : tout le reste (Digimon, Magic, cartes de supermarché…) = collections perso, seulement tes cartes (js/games/perso.js)
     { id: 'perso', name: 'Collections perso', icon: 'box', status: 'actif', perso: true, desc: 'Tes cartes des autres licences (Digimon, Magic…) : seulement celles que tu as.' },
   ];
   const adapters = {};

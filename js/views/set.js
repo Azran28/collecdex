@@ -84,7 +84,7 @@ App.views.set = {
     });
     const grid = el.querySelector('#st-grid');
 
-    /** Collection perso (v4.02) : seulement tes cartes ; « Complète » si le nombre de cartes de la série est connu */
+    /** Collection perso (v4.03) : seulement tes cartes ; « Complète » si le nombre de cartes de la série est connu */
     const drawOwnHead = (p) => {
       const lic = set.group.name, add = `#/perso/ajouter?lic=${encodeURIComponent(lic)}&serie=${encodeURIComponent(set.name)}`;
       head.innerHTML = `

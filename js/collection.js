@@ -214,7 +214,7 @@ App.col = (() => {
     const mode = App.settings.completion;
     const ownedItems = items ? items.filter((i) => i.game === game && i.setId === set.id && i.qty > 0) : inSet(game, set.id);
     const ad = App.games.get(game);
-    // collection perso (v4.02) : la série = tes cartes ; complète seulement si son nombre de cartes est connu (gardé sur ses cartes)
+    // collection perso (v4.03) : la série = tes cartes ; complète seulement si son nombre de cartes est connu (gardé sur ses cartes)
     if (ad && ad.ownOnly) {
       const have = ownedItems.length, total = Math.max(0, ...ownedItems.map((i) => (i.perso && i.perso.total) || 0));
       return { have, total, missing: Math.max(0, total - have), pct: total ? App.util.pct(have, total) : 0, complete: total > 0 && have >= total, byRarity: null, ownOnly: true };

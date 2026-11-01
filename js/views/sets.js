@@ -42,7 +42,7 @@ App.views.sets = {
     if (on && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, on.offsetLeft - row.offsetLeft - (row.clientWidth - on.offsetWidth) / 2);
   },
 
-  /** Collections perso (v4.02) : tes séries rangées par licence, rien d'autre (pas de filtres ni de tri) */
+  /** Collections perso (v4.03) : tes séries rangées par licence, rien d'autre (pas de filtres ni de tri) */
   renderPerso(el, game, sets, alive) {
     const { esc } = App.util, I = App.icons.icon;
     const draw = async () => {

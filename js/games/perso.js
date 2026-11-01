@@ -1,5 +1,5 @@
 /*
- * Collections perso (v4.02) : tout ce qui n'est pas dans les 10 licences de base (Digimon, cartes de supermarché…).
+ * Collections perso (v4.03) : tout ce qui n'est pas dans les 10 licences de base (Digimon, cartes de supermarché…).
  * Pas de base de cartes : une série ne contient QUE les cartes de la personne, ajoutées par photo (#/perso/ajouter).
  * Pas de combats, de badges, de prix ni de certification. Une série est « complète » seulement si son total est connu.
  *
