@@ -193,7 +193,9 @@ App.pageTurn = (() => {
     return {
       async start() {
         if (on || typeof window.DeviceMotionEvent === 'undefined') return;
-        try { if (typeof DeviceMotionEvent.requestPermission === 'function' && (await DeviceMotionEvent.requestPermission()) !== 'granted') return; } catch (e) { return; }
+        // (iPhone : autorisation demandée ; Chrome a aussi cette fonction mais peut répondre « refusé » et envoyer quand même
+        // les mesures → on écoute dans tous les cas : sans mesure, moved() dit « on ne sait pas »)
+        try { if (typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission(); } catch (e) { /* */ }
         window.addEventListener('devicemotion', onM); on = true;
       },
       stop() { if (on) window.removeEventListener('devicemotion', onM); on = false; S = []; },
