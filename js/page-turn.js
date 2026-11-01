@@ -120,7 +120,8 @@ App.pageTurn = (() => {
       // pivoter) → acceptée si une image du geste n'est ni l'ancienne ni la nouvelle page, ni un fondu ou un glissement entre
       // les deux (alt = écart à la meilleure de ces explications). Un diaporama qui change d'un coup n'a aucune image « entre deux ».
       const blur = scores.filter((s) => s.alt >= fastT);
-      if (fast && mid.length <= 5 && blur.length) return { pass: true, ev: { ...ev, fast: 1 } };
+      // v4.04 : jusqu'à 8 images (Arnaud : « vers la droite ça ne passe pas » — ses 2 pages refusées du 1er nov. : 6 images, 0,72 et 0,91)
+      if (fast && mid.length <= 8 && blur.length) return { pass: true, ev: { ...ev, fast: 1 } };
       // v3.95 (Arnaud : « j'ai beau essayer je n'ai jamais réussi ») : geste LENT, main devant, page vue en partie (axe des
       // anneaux hors de l'image) : la feuille qui pivote ne se reconnaît pas, mais une image du geste est très loin de tout
       // fondu ou glissement (≥ SLOW_T). Banc : tricheries lentes ≤ 0,91 ; ses vrais gestes lents 1,08–1,81.
@@ -175,10 +176,12 @@ App.pageTurn = (() => {
    * v4.02 (Arnaud, 1er nov. : « juste un mouvement de téléphone et ça compte pour la certif ») : capteurs du téléphone
    * (gyroscope + accéléromètre, « devicemotion »). Pendant une vraie page tournée, le téléphone reste à peu près immobile ;
    * le baisser (photo du sol) ou le glisser vers l'autre page le fait tourner / pencher / accélérer. Image seule : impossible
-   * à séparer (la page aussi change). start() à appeler sur un appui (iPhone : autorisation). moved(t0, t1) → null si le
+   * à séparer (la page aussi change). start() à appeler sur un appui (iPhone : autorisation). moved(t0, t1, seuils) → null si le
    * téléphone n'a pas de capteur, sinon { moved, rot (° cumulés), tilt (° de penche avant → après), acc (m/s² au plus fort) }.
    */
-  const MOVE_ROT = 30, MOVE_TILT = 12, MOVE_ACC = 3;
+  // v4.04 : réglé sur ses vrais gestes (1er nov., 9 pages tournées : rotation 3,7–9,2°, penche 0,5–2,1°, accélération 0,3–0,9 m/s² ;
+  // un geste à 22,8° / 5,1° / 1,3 passait avec l'ancien réglage 30° / 12° / 3, jamais atteint)
+  const MOVE = { rot: 15, tilt: 4, acc: 1.2 }, STILL = { rot: 6, tilt: 2.5, acc: 1.2 }; // (STILL : pendant la photo)
   function motion() {
     let S = [], on = false;
     const onM = (ev) => {
@@ -200,7 +203,7 @@ App.pageTurn = (() => {
       },
       stop() { if (on) window.removeEventListener('devicemotion', onM); on = false; S = []; },
       push: onM, // (tests)
-      moved(t0, t1) {
+      moved(t0, t1, lim = MOVE) {
         const L = S.filter((s) => s.t >= t0 - 150 && s.t <= t1 + 150); if (L.length < 5) return null;
         let rot = 0, acc = 0;
         L.forEach((s, i) => { if (s.w != null) rot += s.w * Math.min(0.1, i ? (s.t - L[i - 1].t) / 1000 : s.dt); });
@@ -211,9 +214,9 @@ App.pageTurn = (() => {
         let tilt = 0;
         if (gb.length && ga.length) { const u = mean(gb), v = mean(ga), n = Math.hypot(...u) * Math.hypot(...v); if (n) tilt = Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / n))) * 180 / Math.PI; }
         const r1 = (x) => Math.round(x * 10) / 10;
-        return { moved: rot > MOVE_ROT || tilt > MOVE_TILT || acc > MOVE_ACC, rot: r1(rot), tilt: r1(tilt), acc: r1(acc) };
+        return { moved: rot > lim.rot || tilt > lim.tilt || acc > lim.acc, rot: r1(rot), tilt: r1(tilt), acc: r1(acc) };
       },
     };
   }
-  return { GW, GH, grab, madShift, explain, judge, watcher, motion };
+  return { GW, GH, grab, madShift, samePage, explain, judge, watcher, motion, STILL };
 })();
