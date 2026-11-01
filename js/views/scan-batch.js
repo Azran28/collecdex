@@ -283,6 +283,7 @@ Object.assign(App.views.scan, {
       el.querySelector('#b-actions').classList.remove('hidden');
       view.innerHTML = App.views.scan.empty('classeur', dims());
       resultsEl.innerHTML = App.views.scan.guide('classeur');
+      if (X.flipNext) X.flipNext(); // (v3.99 : pages feuilletées en attente → la suivante est lue)
     });
 
     // photo transmise par le mode « Une carte » (page de classeur détectée)
@@ -782,7 +783,8 @@ Object.assign(App.views.scan, {
     // Scanner — rafale (caméra ouverte, cartes prises toutes seules) : voir scanBatchParts.burst
     Object.assign(X, App.scanBatchParts.burst(X, { R, RAFALE_CERT, ad, alive, burst, cam, certOn, el, esc, resultsEl, setStatus, sv, urls, view }));
     // v3.62 : classeur feuilleté (essai, comptes testeurs) : voir scanBatchParts.flip
-    const { flipStop } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, view });
+    const { flipStop, flipNext } = App.scanBatchParts.flip(X, { alive, burst, cam, dims, el, setStatus, startGrid, view });
+    X.flipNext = flipNext;
     { const rb = X.resetBurst; X.resetBurst = (...a) => { labLeftover(); return rb(...a); }; } // (v3.61 : rafale remise à zéro → cartes non enregistrées au labo)
     if (burst) {
       el.querySelector('#r-start').addEventListener('click', async () => {

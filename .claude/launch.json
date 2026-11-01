@@ -22,6 +22,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "outils/serveur.ps1", "-NoBrowser", "-Port", "8772"],
       "port": 8772
+    },
+    {
+      "name": "collecdex-feuillete",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", "outils/serveur.ps1", "-NoBrowser", "-Port", "8773"],
+      "port": 8773
     }
   ]
 }

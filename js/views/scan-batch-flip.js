@@ -10,9 +10,9 @@
  * une phrase courte dessous, et le score dans une bande en bas de l'image.
  */
 App.scanBatchParts = App.scanBatchParts || {};
-App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) => {
+App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGrid, view }) => {
   const { S } = X, T = App.pageTurn, I = App.icons.icon;
-  S.flipTimer = null; S.flipLog = []; S.flipping = false;
+  S.flipTimer = null; S.flipLog = []; S.flipping = false; S.flipPages = []; S.flipQueue = [];
   const btn = el.querySelector('#b-flip');
   if (!burst && btn && App.scanShare && T) App.scanShare.isTester().then((v) => { if (v && alive()) btn.classList.remove('hidden'); }).catch(() => {});
   const sec = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
@@ -40,11 +40,16 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) 
   }
   /** Bande en bas de la caméra : pages reconnues / essayées, et les 8 derniers résultats */
   function drawStrip() {
-    const L = S.flipLog; if (!L.length) return;
+    const L = S.flipLog; if (!L.length && !S.flipPages.length) return;
     let s = view.querySelector('.r-strip');
     if (!s) { s = document.createElement('div'); s.className = 'r-strip flip-strip'; s.setAttribute('aria-live', 'polite'); view.appendChild(s); }
     const ok = L.filter((x) => x.res.pass).length;
-    s.innerHTML = `<span class="r-sum">${ok}/${L.length}<small>reconnues</small></span><span class="flip-dots">${L.slice(-8).map((x) => `<b class="${x.res.pass ? 'ok' : 'no'}" title="Page ${x.n} · ${sec(x.ms)}">${x.res.pass ? '✓' : '✕'}</b>`).join('')}</span>`;
+    s.innerHTML = `${S.flipPages.length ? `<span class="r-sum">${S.flipPages.length}<small>photo${S.flipPages.length > 1 ? "s" : ""}</small></span>` : ""}<span class="r-sum">${ok}/${L.length}<small>reconnues</small></span><span class="flip-dots">${L.slice(-8).map((x) => `<b class="${x.res.pass ? 'ok' : 'no'}" title="Page ${x.n} · ${sec(x.ms)}">${x.res.pass ? '✓' : '✕'}</b>`).join('')}</span>`;
+  }
+  /** Bouton du bas : « Terminer et lire les N pages » dès qu'une page est photographiée (v3.99) */
+  function stopLabel() {
+    const b = el.querySelector('#b-flip-stop'), k = S.flipPages.length;
+    if (b) b.textContent = k ? `Terminer et lire ${k > 1 ? `les ${k} pages` : 'la page'}` : 'Arrêter l’essai';
   }
   /** Petites images du geste en mosaïque (8 par rangée) pour le labo */
   function mosaic(frames) {
@@ -59,21 +64,50 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) 
       App.scanShare.scan({ game: S.game, mode: 'classeur', kind: 'feuillete', extra: { feuillete: { pass: e.res.pass, why: e.res.why || '', ev: e.res.ev || null, ms: Math.round(item.ms), fps: Math.round(item.fps * 10) / 10, n: item.n, ts: e.frames.slice(-48).map((f) => Math.round(f.t - t0)) } } }, b);
     } catch (err) { console.warn('feuilleté → labo', err); }
   }
+  /**
+   * v3.99 (Arnaud : « voir ce que ça donne pour la recherche des cartes ») : chaque page vue (la 1re, puis chaque page tournée)
+   * est photographiée en pleine résolution (cam.photo) ; à la fin, les pages passent l'une après l'autre dans la lecture
+   * normale du classeur (startGrid : grille, lecture, vérification, récapitulatif, Enregistrer) — après chaque page, #b-reset
+   * appelle flipNext pour la suivante. Pas encore de badge : le serveur ne sait pas certifier une page feuilletée.
+   */
+  function flipNext() {
+    const p = S.flipQueue.shift(); if (!p) return false;
+    startGrid(p.blob, null);
+    const box = el.querySelector('#b-certline');
+    if (box) box.innerHTML = `<div class="panel flip-page"><b>${I('shield', 14)} Feuilletage : page ${p.i} sur ${p.of}</b> <span class="small muted">— ${p.pass === null ? 'première page' : p.pass ? 'page tournée reconnue' : 'page tournée pas reconnue'}${S.flipQueue.length ? ` · ensuite ${S.flipQueue.length} page${S.flipQueue.length > 1 ? 's' : ''}` : ''}. Pas encore de badge pour les pages feuilletées.</span></div>`;
+    return true;
+  }
   function flipStop() {
     if (S.flipTimer) { clearInterval(S.flipTimer); S.flipTimer = null; }
     if (!S.flipping) return;
     S.flipping = false;
     step(0); cam.stop(); showButtons(false);
     view.innerHTML = App.views.scan.empty('classeur', dims());
+    const pages = S.flipPages; S.flipPages = [];
+    if (pages.length && alive()) { S.flipQueue = pages.map((p, k) => ({ ...p, i: k + 1, of: pages.length })); flipNext(); }
   }
   async function flipStart() {
     try { await cam.start({ light: true }); } catch (e) { setStatus(`<b>Caméra indisponible.</b><br><span class="small muted">${App.util.esc(e.message)}</span>`); return; }
     App.sfx.unlock(); showButtons(true); S.flipping = true;
     view.insertAdjacentHTML('beforeend', '<div class="r-live">Cadre <b>une page entière</b> et ne bouge plus</div>');
     step(1);
-    S.flipLog = []; S.flipFpsShown = 0; fpsNow = 0; drawLog();
+    S.flipLog = []; S.flipPages = []; S.flipQueue = []; S.flipFpsShown = 0; fpsNow = 0; drawLog(); stopLabel();
     const w = T.watcher();
-    let n = 1, lastPage = 0, ticks = [], holdUntil = 0;
+    let n = 1, lastPage = 0, ticks = [], holdUntil = 0, busy = false, first = true;
+    // v3.99 : photo pleine résolution de la page qu'on voit (pendant ce temps le suivi s'arrête, puis repart de zéro :
+    // sur Android la caméra se relance parfois après une vraie photo)
+    async function shootPage(pass) {
+      if (pass === null) hint('📸 Photo de la page… ne bouge pas', 'go');
+      busy = true;
+      try {
+        const b = await cam.photo();
+        if (b && S.flipping) {
+          S.flipPages.push({ blob: b, pass }); drawStrip(); stopLabel();
+          view.classList.add('r-flash'); setTimeout(() => view.classList.remove('r-flash'), 260);
+        }
+      } catch (err) { console.warn('feuilleté : photo de la page', err); }
+      finally { w.reset(); busy = false; }
+    }
     // une étape de la page (le résultat d'une page reste affiché 1,2 s, sauf si la page suivante est déjà tournée)
     const show = (st) => {
       if (st === 'page') { step(2); hint('Page vue ✓ — <b>tourne-la</b>'); }
@@ -81,14 +115,14 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) 
       else { step(1); hint('Cadre <b>une page entière</b> et ne bouge plus'); }
     };
     S.flipTimer = setInterval(() => {
-      if (!alive() || !cam.on || !cam.video || !cam.video.videoWidth) return;
+      if (busy || !alive() || !cam.on || !cam.video || !cam.video.videoWidth) return;
       const r = cam.region(0); if (!r) return;
       const f = { t: performance.now(), g: T.grab(cam.video, r) };
       ticks.push(f.t); if (ticks.length > 20) ticks.shift(); // cadence réelle (images lues par seconde)
       if (ticks.length === 20 && !(S.flipFpsShown > 0)) { fpsNow = 19000 / (ticks[19] - ticks[0]); S.flipFpsShown = 1; drawLog(); }
       const was = w.state(), e = w.push(f), st = w.state();
       if (!e) {
-        if (st === 'page' && was !== 'page') lastPage = f.t;
+        if (st === 'page' && was !== 'page') { lastPage = f.t; if (first) { first = false; shootPage(null); return; } } // (la 1re page, avant tout geste)
         if (holdUntil && (f.t < holdUntil && st !== 'geste')) return;
         if (holdUntil || st !== was) { holdUntil = 0; show(st); }
         return;
@@ -104,9 +138,10 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, view }) 
       holdUntil = f.t + (e.res.pass ? 1200 : 2200); // (un conseil se lit moins vite qu'un ✓)
       lastPage = f.t;
       send(e, item);
+      shootPage(e.res.pass); // (la nouvelle page est immobile : on la photographie)
     }, 90);
   }
   if (btn) btn.addEventListener('click', flipStart);
   el.querySelector('#b-flip-stop').addEventListener('click', flipStop);
-  return { flipStop };
+  return { flipStop, flipNext };
 };
