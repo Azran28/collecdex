@@ -61,6 +61,7 @@ Rangées par thème. ✅ = fait, ✗ = écartée par Arnaud.
 - ✅ Version Play Store sans capsules (`?app=play`, v2.78).
 - ✅ Fichier LICENSE (tous droits réservés, 5 oct.).
 - **Marche à suivre complète : `docs/PLAY-STORE.md` (v4.14).** Compte de l’ami créé en oct. 2026 (personnel récent) → test fermé 12 × 14 jours obligatoire. Robot prêt pour Cloudflare Pages (attend les 2 secrets).
+- **Marche à suivre complète : `docs/PLAY-STORE.md` (v4.14).** Compte de l'ami créé en oct. 2026 (personnel récent) → test fermé 12 × 14 jours obligatoire. Robot prêt pour Cloudflare Pages (attend les 2 secrets).
 - À faire : nom de domaine + hébergement (Cloudflare Pages, dépôt privé, `assetlinks.json`), formulaire « Sécurité des données », appli Android (TWA, PWABuilder), test fermé 12 personnes × 14 jours (seulement si le compte développeur est un compte personnel créé après le 13 nov. 2023). Arnaud a le compte développeur d'un ami (1er nov.) : se faire inviter comme utilisateur dans sa Play Console. Plus tard : abonnement Premium via Google Play Billing (15 %).
 - Changer d'adresse : les données gardées sur l'appareil (cartes non synchronisées, réglages) ne suivent pas ; mettre à jour la CSP (`azran28.github.io` pour les prix), les adresses de Supabase (Authentication › URL Configuration) et `?app=play`.
 
