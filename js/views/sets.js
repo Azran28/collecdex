@@ -113,6 +113,8 @@ App.views.sets = {
         </div>
       </div>
       ${ad.horsSerie ? `<a class="hs-entry" href="#/jeu/${esc(game)}/hors-serie"><span class="hs-tag">Hors-série</span><span class="hs-entry-t"><b>Cartes hors-série</b><span class="small muted">Pikachu Illustrator, Pikachu Trophée… · ${ad.horsSerie().length} cartes, hors de toute série</span></span><span class="hs-entry-go">›</span></a>` : ""}
+      ${ad.search && !ad.perso ? `<a class="hs-entry" href="#/jeu/${esc(game)}/recherche"><span class="hs-tag">${App.icons.icon('search', 13)}</span><span class="hs-entry-t"><b>Toutes les cartes d’un ${game === 'pokemon' ? 'Pokémon' : 'personnage'}</b><span class="small muted">${game === 'pokemon' ? 'Tous les Pikachu, tous les Dracaufeu…' : 'Une carte par son nom'}, dans toutes les séries</span></span><span class="hs-entry-go">›</span></a>` : ''}
+      <div id="s-qall"></div>
       <div id="s-list"></div>`;
     App.views.sets.showPick(el);
 
@@ -170,7 +172,9 @@ App.views.sets = {
     };
     draw();
 
-    el.querySelector('#s-q').addEventListener('input', debounce((e) => { state.q = e.target.value; draw(); }, 200));
+    // v4.11 : la recherche d'une série propose aussi de chercher ce nom dans toutes les cartes
+    const qAll = () => { const b = el.querySelector('#s-qall'), q = (state.q || '').trim(); if (b) b.innerHTML = ad.search && !ad.perso && q.length >= 2 ? `<a class="btn sm" style="margin:0 0 12px" href="#/jeu/${esc(game)}/recherche?q=${encodeURIComponent(q)}">${App.icons.icon('search', 14)} Chercher « ${esc(q)} » dans toutes les cartes</a>` : ''; };
+    el.querySelector('#s-q').addEventListener('input', debounce((e) => { state.q = e.target.value; draw(); qAll(); }, 200));
     const savePrefs = () => { S.setsSort = state.sort; S.setsGroup = state.group; S.setsHidePromo = state.hidePromo; App.col.saveSettings(); };
     el.querySelector('#s-sort').addEventListener('change', (e) => { state.sort = e.target.value; savePrefs(); draw(); });
     el.querySelector('#s-bloc').addEventListener('change', (e) => { state.bloc = e.target.value; draw(); });

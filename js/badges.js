@@ -2,6 +2,8 @@
  * Badges à débloquer (succès). Ils restent secrets tant qu'ils ne sont pas obtenus :
  * la vitrine n'affiche que ceux que tu as, et le nombre qu'il reste à découvrir.
  * Niveaux : 1 bronze, 2 argent, 3 or, 4 holo.
+ * v4.11 (Arnaud : « adapte-les à ce qu'on a ajouté et limite-les à genre 50 ») : 50 badges — les plus marquants de chaque
+ * thème, 2 par licence (3 pour Pokémon), et 4 pour les licences et les collections perso.
  */
 App.badges = (() => {
   const N = (s) => App.util.norm(s || '');
@@ -31,21 +33,17 @@ App.badges = (() => {
     // Taille de la collection
     ['c1', 'Premier pas', 'Ta première carte dans ton Dex', 'sparkles', 1, (x) => x.n >= 1],
     ['c10', 'Apprenti collectionneur', '10 cartes différentes', 'layers', 1, (x) => x.n >= 10],
-    ['c50', 'Classeur entamé', '50 cartes différentes', 'layers', 1, (x) => x.n >= 50],
     ['c100', 'Centurion', '100 cartes différentes', 'layers', 2, (x) => x.n >= 100],
     ['c250', 'Accro aux boosters', '250 cartes différentes', 'layers', 2, (x) => x.n >= 250],
     ['c500', 'Maître du classeur', '500 cartes différentes', 'layers', 3, (x) => x.n >= 500],
     ['c1000', 'Légende vivante', '1 000 cartes différentes', 'crown', 4, (x) => x.n >= 1000],
-    ['c2500', 'Archiviste', '2 500 cartes différentes', 'crown', 4, (x) => x.n >= 2500],
     // Séries
     ['s1', 'Série bouclée', 'Ta première série complète', 'trophy', 2, (x) => x.complete >= 1],
     ['s5', 'Complétiste', '5 séries complètes', 'trophy', 3, (x) => x.complete >= 5],
     ['s10', 'Perfectionniste', '10 séries complètes', 'trophy', 4, (x) => x.complete >= 10],
-    ['t10', 'Globe-trotter', 'Des cartes de 10 séries différentes', 'globe', 1, (x) => x.sets >= 10],
     ['t25', 'Grand explorateur', 'Des cartes de 25 séries différentes', 'globe', 2, (x) => x.sets >= 25],
     ['e5', 'Voyageur temporel', 'Des cartes de 5 époques différentes', 'clock', 3, (x) => x.eras >= 5],
     ['v1', 'Nostalgique', 'Une carte sortie avant 2004', 'clock', 1, (x) => x.vintage >= 1],
-    ['v25', 'Old school', '25 cartes sorties avant 2004', 'clock', 3, (x) => x.vintage >= 25],
     // Rareté
     ['r4', 'Ça brille !', 'Ta première carte holographique (ou plus rare)', 'star', 1, (x) => x.maxRank >= 4],
     ['r8', 'Éclat rare', 'Une Ultra Rare (ou plus rare)', 'star', 2, (x) => x.maxRank >= 8],
@@ -53,7 +51,6 @@ App.badges = (() => {
     ['r13', 'Couronné', 'Une carte Couronne ou Méga Hyper Rare', 'crown', 4, (x) => x.maxRank >= 13],
     // Valeur
     ['p100', 'Petit trésor', 'Collection estimée à 100 € ou plus', 'coins', 1, (x) => x.value >= 100],
-    ['p500', 'Coffre-fort', 'Collection estimée à 500 € ou plus', 'coins', 2, (x) => x.value >= 500],
     ['p1000', 'Banque centrale', 'Collection estimée à 1 000 € ou plus', 'coins', 3, (x) => x.value >= 1000],
     ['pc100', 'Pièce maîtresse', 'Une carte qui vaut 100 € ou plus', 'gem', 3, (x) => x.maxPrice >= 100],
     // Certification
@@ -62,57 +59,42 @@ App.badges = (() => {
     ['k100', 'Incorruptible', '100 cartes certifiées', 'shield', 4, (x) => x.cert >= 100],
     // Doublons, favoris
     ['d10', 'Bien fourni', '10 doublons de côté', 'gift', 1, (x) => x.dup >= 10],
-    ['d50', 'Marchand ambulant', '50 doublons de côté', 'gift', 2, (x) => x.dup >= 50],
     ['f10', 'Coups de cœur', '10 cartes en favori', 'heart', 1, (x) => x.fav >= 10],
+    // Licences (v4.11)
+    ['l3', 'Multi-licences', 'Des cartes de 3 licences différentes', 'globe', 1, (x) => x.games >= 3],
+    ['l5', 'Grand voyageur', 'Des cartes de 5 licences différentes', 'globe', 2, (x) => x.games >= 5],
+    ['l10', 'Tous les univers', 'Des cartes des 10 licences', 'crown', 4, (x) => x.games >= 10],
+    ['perso', 'Hors des sentiers battus', 'Une carte dans une collection perso', 'box', 1, (x) => x.items.some((i) => i.game === 'perso')],
     // Pokémon
     ['pk-chen', 'Le choix du Prof. Chen', 'Bulbizarre, Salamèche et Carapuce', 'bolt', 2, (x) => ['bulbizarre', 'salameche', 'carapuce'].every((n) => has(x, n))],
     ['pk-pika', 'Pika-fan', '5 cartes Pikachu différentes', 'bolt', 2, (x) => x.items.filter((i) => N(i.snap.name).includes('pikachu')).length >= 5],
     ['pk-dracau', 'Dresseur de dragons', 'Un Dracaufeu dans ton Dex', 'flame', 2, (x) => has(x, 'dracaufeu')],
     ['pk-evoli', 'Évolimaniac', '5 membres de la famille Évoli', 'sparkles', 3, (x) => ['evoli', 'aquali', 'voltali', 'pyroli', 'mentali', 'noctali', 'phyllali', 'givrali', 'nymphali'].filter((n) => has(x, n)).length >= 5],
-    ['pk-mew', 'Code génétique', 'Mew et Mewtwo', 'sparkles', 3, (x) => has(x, 'mew') && has(x, 'mewtwo')],
     // One Piece (v2.94 : mêmes idées que les badges Pokémon)
     ['op-luffy', 'Chapeau de paille', '5 cartes Luffy différentes', 'anchor', 2, (x) => x.items.filter((i) => i.game === 'onepiece' && N(i.snap.name).includes('luffy')).length >= 5],
-    ['op-crew', 'Équipage au complet', '5 membres de l’équipage de Luffy', 'anchor', 3, (x) => ['zoro', 'nami', 'usopp', 'sanji', 'chopper', 'robin', 'franky', 'brook', 'jinbe'].filter((n) => has(x, n)).length >= 5],
     ['op-yonko', 'Les Quatre Empereurs', 'Shanks, Big Mom, Kaido et Barbe Noire', 'crown', 3, (x) => has(x, 'shanks') && has(x, 'linlin') && has(x, 'kaido') && has(x, 'teach')],
-    ['op-lead', 'Capitaine', '10 cartes Leader différentes', 'anchor', 2, (x) => x.items.filter((i) => i.game === 'onepiece' && /leader/i.test(i.snap.rarity || '')).length >= 10],
     // Riftbound (v3.10 : mêmes idées ; noms des cartes en anglais, comme chez Riot)
-    ['rb-poro', 'Poro-mania', '3 Poros différents', 'rune', 2, (x) => x.items.filter((i) => i.game === 'riftbound' && N(i.snap.name).includes('poro')).length >= 3],
-    ['rb-runes', 'Maître des runes', 'Les 6 runes : Fureur, Calme, Esprit, Corps, Chaos et Ordre', 'rune', 2, (x) => ['fury', 'calm', 'mind', 'body', 'chaos', 'order'].every((d) => x.items.some((i) => i.game === 'riftbound' && N(i.snap.name) === `${d} rune`))],
     ['rb-champs', 'Invocateur', '10 champions différents', 'crown', 3, (x) => new Set(x.items.filter((i) => i.game === 'riftbound').map((i) => N(String(i.snap.name).split(',')[0])).filter((n) => RB_CHAMPS.has(n))).size >= 10],
     ['rb-showcase', 'Vitrine dorée', '3 cartes Showcase', 'rune', 3, (x) => x.items.filter((i) => i.game === 'riftbound' && i.snap.rarity === 'showcase').length >= 3],
     // Disney Lorcana (v3.21 : mêmes idées ; noms français « Ariel - Sur des jambes humaines », personnage avant le tiret)
-    ['lc-mickey', 'Ami de Mickey', '5 cartes Mickey Mouse différentes', 'ink', 2, (x) => x.items.filter((i) => i.game === 'lorcana' && N(i.snap.name).startsWith('mickey mouse')).length >= 5],
     ['lc-princes', 'Royaume des princesses', '5 princesses différentes', 'crown', 2, (x) => LC_PRINCESSES.filter((n) => hasLc(x, n)).length >= 5],
-    ['lc-villains', 'Côté obscur', 'Ursula, Maléfique, Jafar et Hadès', 'ink', 3, (x) => ['ursula', 'malefique', 'jafar', 'hades'].every((n) => hasLc(x, n))],
     ['lc-ench', 'Enchanteur', '3 cartes Enchantées', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'lorcana' && i.snap.rarity === 'en').length >= 3],
     // Yu-Gi-Oh! (v3.26 ; noms français ou anglais, selon la carte)
     ['yg-exodia', 'L’Interdit', 'Les 5 pièces d’Exodia', 'pyramid', 3, (x) => new Set(ygNames(x).filter((n) => /interdit|forbidden one/.test(n))).size >= 5],
-    ['yg-dragons', 'Yeux bleus, yeux rouges', 'Un Dragon Blanc aux Yeux Bleus et un Dragon Noir aux Yeux Rouges', 'pyramid', 2, (x) => ygNames(x).some((n) => /^(dragon blanc aux yeux bleus|blue eyes white dragon)$/.test(n)) && ygNames(x).some((n) => /^(dragon noir aux yeux rouges|red eyes black dragon|red eyes b dragon)$/.test(n))],
     ['yg-dieux', 'Dieux égyptiens', 'Obélisk, Slifer et Râ', 'crown', 4, (x) => [/obelisk/, /slifer/, /dragon aile de ra|winged dragon of ra/].every((r) => ygNames(x).some((n) => r.test(n)))],
-    ['yg-secret', 'Rareté secrète', '3 cartes Secret Rare ou plus rares', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'yugioh' && App.games.get('yugioh') && App.games.get('yugioh').rarity.rank(i.snap.rarity) >= 8).length >= 3],
     // Final Fantasy (v3.43 : mêmes idées — un héros culte, une famille, les méchants, une rareté haute)
     ['ff-cloud', 'SOLDAT', '5 cartes Cloud différentes', 'crystal', 2, (x) => ffNames(x).filter((n) => n === 'cloud').length >= 5],
-    ['ff-invoc', 'Invocateur', 'Ifrit, Shiva, Ramuh et Bahamut', 'crystal', 2, (x) => ['ifrit', 'shiva', 'ramuh', 'bahamut'].every((n) => ffNames(x).includes(n))],
-    ['ff-mechants', 'Ennemis jurés', 'Séphiroth, Kefka, Kuja et Exdeath', 'crown', 3, (x) => ['sephiroth', 'kefka', 'kuja', 'exdeath'].every((n) => ffNames(x).includes(n))],
     ['ff-legende', 'Légende du Cristal', '3 cartes Légende', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'finalfantasy' && i.snap.rarity === 'l').length >= 3],
     // Wankul (v3.48 : mêmes idées — les deux héros, une famille, une carte rare à trouver, une rareté haute)
     ['wk-duo', 'Le duo', 'Une carte Laink et une carte Terracid', 'wankil', 1, (x) => ['laink', 'terracid'].every((n) => wkItems(x).some((i) => N(i.snap.name) === n))],
-    ['wk-terrains', 'Agent immobilier', '20 Terrains Wankul différents', 'wankil', 2, (x) => wkItems(x).filter((i) => i.snap.rarity === 't').length >= 20],
     ['wk-ticket', 'Ticket d’or', 'Une carte de Gagnant du Ticket d’or', 'star', 3, (x) => wkItems(x).some((i) => i.snap.rarity === 'tor')],
-    ['wk-legende', 'Légende du Wankul', '3 cartes Légendaires (Bronze, Argent ou Or)', 'sparkles', 3, (x) => wkItems(x).filter((i) => ['lb', 'la', 'lo'].includes(i.snap.rarity)).length >= 3],
     // Star Wars Unlimited (v3.67 : mêmes idées — un duo culte, une famille, les méchants, une version rare)
     ['sw-skywalker', 'Je suis ton père', 'Luke Skywalker et Dark Vador', 'saber', 1, (x) => ['luke skywalker', 'dark vador'].every((n) => swNames(x).includes(n))],
-    ['sw-rebelles', 'Héros de l’Alliance', 'Leia Organa, Han Solo, Chewbacca, R2-D2 et C-3PO', 'saber', 2, (x) => ['leia organa', 'han solo', 'chewbacca', 'r2-d2', 'c-3po'].every((n) => swNames(x).includes(n))],
-    ['sw-sith', 'Côté obscur', 'Dark Vador, Empereur Palpatine, Comte Dooku et Dark Maul', 'crown', 3, (x) => ['dark vador', 'empereur palpatine', 'comte dooku', 'dark maul'].every((n) => swNames(x).includes(n))],
     ['sw-hyper', 'Hyperespace', '3 cartes Hyperspace ou Showcase', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'starwars' && /\((Hyperspace|Showcase)\)$/.test(String(i.snap.name))).length >= 3],
     ['db-saiyans', 'Fierté des Saiyans', 'Son Goku, Vegeta, Son Gohan, Trunks et Broly', 'dball', 1, (x) => ['son goku', 'vegeta', 'son gohan', 'trunks', 'broly'].every((n) => hasDb(x, n))],
-    ['db-fusion', 'Fusion !', 'Gogeta et Vegetto', 'dball', 2, (x) => ['gogeta', 'vegetto'].every((n) => hasDb(x, n))],
-    ['db-mechants', 'Les grands méchants', 'Freezer, Cell, Boo et Janemba', 'crown', 3, (x) => ['freezer', 'cell', 'boo', 'janemba'].every((n) => hasDb(x, n))],
     ['db-divin', 'Rareté divine', 'Une carte God Rare ou Secret Rare', 'sparkles', 3, (x) => x.items.some((i) => i.game === 'dragonball' && /^(gdr|scr)$/.test(i.snap.rarity || ''))],
     // Cyberpunk (v3.96 : mêmes idées — un duo culte, une bande, les méchants, une version rare)
     ['cp-samourai', 'Samouraï', 'Johnny Silverhand et V', 'chip', 1, (x) => ['johnny silverhand', 'v'].every((n) => cpNames(x).includes(n))],
-    ['cp-edgerunners', 'Les Edgerunners de V', 'Jackie Welles, Judy Álvarez, Panam Palmer, Viktor Vektor et T-Bug', 'chip', 2, (x) => ['jackie welles', 'judy alvarez', 'panam palmer', 'viktor vektor', 't-bug'].every((n) => cpNames(x).includes(n))],
-    ['cp-arasaka', 'Arasaka Corporation', 'Adam Smasher, Yorinobu Arasaka, Hanako Arasaka et Goro Takemura', 'crown', 3, (x) => ['adam smasher', 'yorinobu arasaka', 'hanako arasaka', 'goro takemura'].every((n) => cpNames(x).includes(n))],
     ['cp-iconique', 'Iconique', '3 cartes iconiques (illustrations alternatives)', 'sparkles', 3, (x) => x.items.filter((i) => i.game === 'cyberpunk' && /^(il|io|is)$/.test(i.snap.rarity || '')).length >= 3],
   ].map(([id, name, desc, icon, tier, test]) => ({ id, name, desc, icon, tier, test }));
 
@@ -136,6 +118,7 @@ App.badges = (() => {
     const price = (i) => App.col.valueOf(i);
     return {
       items, n: items.length, sets: setKeys.size, eras: eras.size, vintage, complete,
+      games: new Set(items.map((i) => i.game || 'pokemon').filter((g) => g !== 'perso')).size, // (licences de base seulement)
       maxRank: Math.max(0, ...items.map((i) => Math.max(rankOf(i), i.snap.holo ? 4 : 0))),
       value: items.reduce((s, i) => s + price(i) * i.qty, 0), maxPrice: Math.max(0, ...items.map(price)),
       cert: items.filter(certOf).length,

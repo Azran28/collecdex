@@ -239,7 +239,7 @@ test('Pokédex : noms, raretés, évolutions', (App) => {
 
 // ---------- Badges ----------
 test('badges : liste et collection vide', (App) => {
-  ok(App.badges.total >= 30, 'au moins 30 badges');
+  ok(App.badges.total >= 30 && App.badges.total <= 55, '50 badges environ (v4.11)');
   const u = App.badges.unlocked([], () => false);
   ok(Array.isArray(u) || u instanceof Set || typeof u === 'object', 'résultat');
 });

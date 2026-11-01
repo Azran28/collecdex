@@ -6,6 +6,7 @@ App.views = App.views || {};
     [/^\/?$/, 'home', () => ({})],
     [/^\/jeu\/([^/]+)\/?$/, 'sets', (m) => ({ game: m[1] })],
     [/^\/jeu\/([^/]+)\/hors-serie\/?$/, 'horsserie', (m) => ({ game: m[1] })],
+    [/^\/jeu\/([^/]+)\/recherche\/?$/, 'search', (m) => ({ game: m[1] })],
     [/^\/jeu\/([^/]+)\/serie\/([^/]+)\/?$/, 'set', (m) => ({ game: m[1], setId: decodeURIComponent(m[2]) })],
     [/^\/collection\/?$/, 'collection', () => ({})],
     [/^\/vitrine\/?$/, 'showcase', () => ({})],
@@ -25,7 +26,7 @@ App.views = App.views || {};
   ];
   // pages dont le code n'est chargé qu'à la première ouverture (App.need, util.js)
   const LAZY = { scan: ['reco', 'scan'], match: ['match'], import: ['import'] };
-  const navOf = { import: 'collection', home: 'home', sets: 'jeu', set: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', friends: 'compte', goals: 'collection', capsules: 'capsules' };
+  const navOf = { import: 'collection', home: 'home', sets: 'jeu', set: 'jeu', search: 'jeu', horsserie: 'jeu', collection: 'collection', showcase: 'compte', scan: 'scan', settings: 'parametres', account: 'parametres', match: 'match', friends: 'compte', goals: 'collection', capsules: 'capsules' };
 
   let cleanup = null;
   let renderId = 0;

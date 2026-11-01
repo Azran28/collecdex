@@ -42,6 +42,7 @@
     ['#/jeu/dragonball', 'Séries Dragon Ball'], ['#/jeu/dragonball/serie/BT22', 'Série Critical Blow (Dragon Ball)'], ['#/jeu/dragonball/serie/P', 'Promos Dragon Ball'], ['#/jeu/dragonball/serie/SD23', 'Deck de démarrage (Dragon Ball)'],
     ['#/jeu/cyberpunk', 'Séries Cyberpunk'], ['#/jeu/cyberpunk/serie/wnc', 'Série Welcome to Night City (Cyberpunk)'], ['#/jeu/cyberpunk/serie/ncb1', 'Promos de tournoi (Cyberpunk)'], ['#/jeu/cyberpunk/serie/wncb', 'Bêta (Cyberpunk)'],
     ['#/jeu/pokemon/serie/base1', 'Série Set de Base'], ['#/jeu/pokemon/hors-serie', 'Hors-série'],
+    ['#/jeu/pokemon/recherche?q=Pikachu', 'Toutes les cartes d’un Pokémon'], ['#/jeu/lorcana/recherche', 'Recherche Lorcana (vide)'],
     ['#/collection', 'Mon Dex'], ['#/objectifs', 'Objectifs'], ['#/importer', 'Importer'],
     ['#/compte', 'Vitrine'], ['#/amis', 'Amis'], ['#/connexion', 'Connexion'], ['#/parametres', 'Paramètres'],
     ['#/scan', 'Capturer : choix de la licence'], ['#/scan?jeu=pokemon', 'Capturer (carte seule)'], ['#/scan?mode=classeur&jeu=pokemon', 'Capturer (classeur)'], ['#/scan?mode=rafale&jeu=pokemon', 'Capturer (rafale)'],
