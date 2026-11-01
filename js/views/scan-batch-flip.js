@@ -109,9 +109,16 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
       if (pass === null) hint('📸 Photo de la page… ne bouge pas', 'go');
       busy = true;
       try {
+        // v4.04 (Arnaud : « la dernière capture pose toujours problème ») : la vraie photo du capteur met jusqu'à plusieurs
+        // secondes sur Android ; pour la dernière page, le téléphone est déjà baissé quand elle part → image vidéo prise TOUT
+        // DE SUITE (page immobile), gardée à la place de la vraie photo si le téléphone a bougé entre-temps
+        const t0 = performance.now(), r0 = cam.region(0), g0 = r0 ? T.grab(cam.video, r0) : null, frameP = cam.capture();
         // v4.00 : page tournée reconnue → preuve « page feuilletée » pour le badge, prise AVANT la photo (la vidéo est encore là)
         const [cols, rows] = dims(), cert = pass && e && App.certify.available() ? await App.certify.flipPage(cam.video, e.frames, e.res, cols * rows).catch(() => null) : null;
-        const b = await cam.photo();
+        const still = await cam.still().catch(() => null);
+        const m = mot.moved(t0, performance.now(), T.STILL), r1 = cam.on && cam.video && cam.video.videoWidth && cam.region(0);
+        const shook = m ? m.moved : !!(g0 && r1 && !T.samePage(g0, T.grab(cam.video, r1))); // (sans capteur : l'image a changé)
+        const b = (still && !shook ? still : null) || (await frameP);
         if (b && S.flipping) {
           const prev = S.flipPages[S.flipPages.length - 1];
           S.flipPages.push({ blob: b, pass, cert, at: performance.now(), noSensor: !!(e && e.mot === null) }); drawStrip(); stopLabel();
