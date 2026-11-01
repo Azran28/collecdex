@@ -63,6 +63,7 @@ App.views.settings = {
           <div class="row"><button class="btn sm" id="p-cache">Vider le cache des données</button><button class="btn sm ghost" id="p-reset">Effacer toute ma collection</button></div>
           <h3 style="margin-top:18px">À propos</h3>
           <p class="small muted">CollecDex est une application de fans, <b>non officielle</b>, sans lien avec Nintendo, The Pokémon Company, Creatures, Game Freak ni aucun autre éditeur de cartes. Pokémon et les noms associés sont des marques de leurs propriétaires respectifs.</p>
+          <p class="small">Une idée pour améliorer l’appli ? <a href="#" data-suggest="">Proposer une amélioration</a></p>
           <p class="small"><a href="confidentialite.html" target="_blank" rel="noopener">Politique de confidentialité</a>${App.cloud.enabled ? ' · <a href="#/supprimer-compte">Supprimer mon compte</a>' : ''}</p>
         </section>
       </div>`;

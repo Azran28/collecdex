@@ -162,8 +162,8 @@ Les relire en ${want} ?`,
             <button class="btn primary hidden" id="b-shot">${App.icons.icon('capture', 16)} Prendre la photo</button>
             <label class="btn">Choisir une photo<input type="file" accept="image/*" id="b-file2" hidden></label>
             ${certOn && !burst && PAGE_CERT ? '' : `<button class="btn hidden" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`}
-            <button class="btn hidden" id="b-flip">${App.icons.icon('shield', 16)} Feuilleter (essai)</button>
-            <button class="btn hidden" id="b-flip-stop">Arrêter l’essai</button>
+            <button class="btn hidden" id="b-flip">${App.icons.icon('shield', 16)} Feuilleter</button>
+            <button class="btn hidden" id="b-flip-stop">Arrêter</button>
           </div>
           ${certOn && !burst && PAGE_CERT ? App.views.scan.certBlock('classeur', `<button class="btn primary" id="b-cam">${App.icons.icon('shield', 16)} Certifier la page</button>`) : ''}
           <div id="b-gridbar" class="hidden" style="margin-top:14px">

@@ -15,7 +15,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   S.flipTimer = null; S.flipLog = []; S.flipping = false; S.flipPages = []; S.flipQueue = [];
   const mot = T.motion(); // (v4.02 : capteurs du téléphone, pour ne pas prendre un téléphone bougé pour une page tournée)
   const btn = el.querySelector('#b-flip');
-  if (!burst && btn && App.scanShare && T) App.scanShare.isTester().then((v) => { if (v && alive()) btn.classList.remove('hidden'); }).catch(() => {});
+  if (!burst && btn && T) btn.classList.remove('hidden'); // (v4.12 : pour tout le monde ; avant, seulement les comptes testeurs)
   const sec = (ms) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
   const hint = (html, cls = '') => { const h = view.querySelector('.r-live'); if (h) { h.className = `r-live ${cls}`; h.innerHTML = html; } };
   const step = (cur, mood = '') => App.views.scan.stepPills(view, ['Page', 'Tourne', 'Lâche'], cur, mood);
@@ -35,8 +35,8 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   let fpsNow = 0;
   /** Sous la caméra : une phrase, et l'avertissement si la caméra donne trop peu d'images */
   function drawLog() {
-    setStatus(`<div class="panel flip-log"><b>${I('shield', 14)} Essai : feuilleter le classeur</b>
-      <div class="small muted" style="margin-top:4px">Suis les pastilles sur la caméra. Rien n’est lu ni certifié : on vérifie seulement que la page tournée est reconnue.</div>
+    setStatus(`<div class="panel flip-log"><b>${I('shield', 14)} Feuilleter le classeur</b>
+      <div class="small muted" style="margin-top:4px">Suis les pastilles sur la caméra : chaque page est photographiée, puis toutes sont lues à la fin. Une page bien tournée donne le badge « certifiée ».</div>
       ${fpsNow && fpsNow < 8 ? `<div class="small" style="margin-top:6px;color:#c47800">Ta caméra donne peu d’images (${fpsNow.toFixed(1).replace('.', ',')} par seconde) : tourne plus lentement.</div>` : ''}</div>`);
   }
   /** Bande en bas de la caméra : pages reconnues / essayées, et les 8 derniers résultats */
@@ -50,7 +50,7 @@ App.scanBatchParts.flip = (X, { alive, burst, cam, dims, el, setStatus, startGri
   /** Bouton du bas : « Terminer et lire les N pages » dès qu'une page est photographiée (v3.99) */
   function stopLabel() {
     const b = el.querySelector('#b-flip-stop'), k = S.flipPages.length;
-    if (b) b.textContent = k ? `Terminer et lire ${k > 1 ? `les ${k} pages` : 'la page'}` : 'Arrêter l’essai';
+    if (b) b.textContent = k ? `Terminer et lire ${k > 1 ? `les ${k} pages` : 'la page'}` : 'Arrêter';
   }
   /** Petites images du geste en mosaïque (8 par rangée) pour le labo */
   function mosaic(frames) {

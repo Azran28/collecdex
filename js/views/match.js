@@ -149,7 +149,8 @@
                 <small class="muted">${plural(sum(rows, 'ow'), 'victoire')} · ${plural(sum(rows, 'ol'), 'défaite')}</small></span>
               <span class="bt-choice-go">›</span>
               <span class="bt-mode-lics">${icons}</span></a>
-          </div>`;
+          </div>
+          <p class="small muted" style="margin-top:16px;text-align:center">Une idée pour les combats ? <a href="#" data-suggest="Combats">Proposer une amélioration</a></p>`;
       };
 
       /** Deuxième écran : la licence, en petites tuiles (2 colonnes sur téléphone) */

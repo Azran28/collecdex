@@ -129,7 +129,32 @@ App.util = (() => {
     const cb = onModalClose; onModalClose = null;
     if (cb) cb();
   };
-  document.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeModal(); });
+  /**
+   * « Proposer une amélioration » (v4.12, Arnaud : « un moyen de faire des propositions si les utilisateurs voient des
+   * améliorations ») : sujet + idée envoyés à collecdex.app@gmail.com (e-mail prêt à partir, comme « Proposer une licence »).
+   * Lien `[data-suggest="Sujet"]` n'importe où dans le site.
+   */
+  const suggest = (topic = '') => {
+    const box = openModal(`
+      <h2 style="margin-top:0">Proposer une amélioration</h2>
+      <p class="muted small">Une idée, un souci, quelque chose qui te manque ? Dis-le : chaque proposition est lue.</p>
+      <label class="pa-form" style="display:block">Sujet<input type="text" id="sg-topic" maxlength="60" placeholder="ex. Combats, Scanner, Mon Dex…"></label>
+      <label class="pa-form" style="display:block;margin-top:8px">Ton idée<textarea id="sg-text" maxlength="1500" rows="5" style="width:100%;font:inherit;margin-top:4px" placeholder="ex. pouvoir choisir le décor du combat"></textarea></label>
+      <div class="row" style="margin-top:14px;gap:8px"><button class="btn primary" id="sg-send">Envoyer</button><button class="btn" data-close>Annuler</button></div>`);
+    box.querySelector('#sg-topic').value = topic;
+    box.querySelector('#sg-send').addEventListener('click', () => {
+      const t = box.querySelector('#sg-topic').value.trim(), idea = box.querySelector('#sg-text').value.trim();
+      if (!idea) { box.querySelector('#sg-text').focus(); return; }
+      closeModal();
+      const body = `${idea}\n\n(CollecDex ${window.APP_VERSION || ''})`;
+      location.href = `mailto:collecdex.app@gmail.com?subject=${encodeURIComponent('CollecDex — idée' + (t ? ' : ' + t : ''))}&body=${encodeURIComponent(body)}`;
+      toast('Merci ! Ton idée est prête à partir');
+    });
+  };
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-close]')) closeModal();
+    const s = e.target.closest('[data-suggest]'); if (s) { e.preventDefault(); suggest(s.dataset.suggest); }
+  });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
   // ---- Question « Tu es sûr ? » (remplace confirm() du navigateur) ----
@@ -238,7 +263,7 @@ App.util = (() => {
     return String(a).localeCompare(String(b), 'fr', { numeric: true });
   };
 
-  return { esc, $, $$, euro, usd, toEur, pct, dateFr, debounce, toast, ask, openModal, closeModal, resizeImage, photoBlob,blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
+  return { esc, $, $$, euro, usd, toEur, pct, dateFr, debounce, toast, ask, openModal, closeModal, suggest, resizeImage, photoBlob,blobToDataURL, dataURLToBlob, norm, similarity, lev, pool, numSort };
 })();
 
 /*
