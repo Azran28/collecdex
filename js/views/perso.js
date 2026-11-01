@@ -7,184 +7,200 @@ App.views.persoAdd = {
   SUGGEST: ['Digimon', 'Magic: The Gathering', 'Flesh and Blood', 'Naruto', 'Dragon Ball Z (Panini)', 'Cartes de supermarché'],
   RARITIES: ['Commune', 'Peu commune', 'Rare', 'Holo', 'Super rare', 'Secrète'],
 
+  // v4.09 (Arnaud : « j'aime pas l'idée du formulaire ») : comme le scanner des autres licences — photo d'abord,
+  // la carte est lue, un résultat (nom / numéro touchables pour corriger) et « Ajouter » ; licence + série choisies une fois.
   async render(el, params, alive) {
     const { esc } = App.util, I = App.icons.icon, ad = App.games.get('perso');
     const known = ad.known();
     const q = params.query;
-    // licence et série de la dernière carte ajoutée (sans ?lic= : ouverte depuis Capturer)
+    const lics = () => [...new Set([...known.keys(), ...App.views.persoAdd.SUGGEST])];
+    // licence et série : ?lic=&serie= (fiche, page de série), sinon celles de la dernière carte ajoutée
     let last = {}; try { last = JSON.parse(localStorage.getItem('persoLast') || '{}') || {}; } catch (e) { /* */ }
-    if (!q.lic && last.lic && known.has(last.lic)) { q.lic = last.lic; q.serie = q.serie || last.serie || ''; }
-    let photo = null; // carte recadrée (Blob)
-    let found = null; // carte retrouvée dans une base (Digimon) : visuel officiel
+    const st = q.lic ? { lic: q.lic, set: q.serie || '' } : { lic: (last.lic && known.has(last.lic) && last.lic) || '', set: (last.lic && known.has(last.lic) && last.serie) || '' };
+    let cur = null; // carte en cours : { blob, url, num, name, total, had, found, state }
+    let mode = q.mode === 'page' ? 'page' : 'carte', fmt = '3x3';
+    try { if (!q.mode) mode = localStorage.getItem('persoMode') === 'page' ? 'page' : 'carte'; fmt = localStorage.getItem('persoFmt') === '2x2' ? '2x2' : '3x3'; } catch (e) { /* */ }
+    const touch = matchMedia('(pointer: coarse)').matches;
 
-    const lics = [...new Set([...known.keys(), ...App.views.persoAdd.SUGGEST])];
     el.innerHTML = `
       <div class="breadcrumb"><a href="#/">Accueil</a> › <a href="#/jeu/perso">Collections perso</a> › Ajouter</div>
-      <h1 style="margin:0 0 4px">Ajouter une carte perso</h1>
-      <p class="muted small" style="margin:0 0 14px">Pour les licences hors des 10 de l’appli. Tu ne vois que tes cartes : pas de combats ni de prix.</p>
       <div class="pa-wrap">
-        <div class="chips pa-mode" id="pa-mode" role="tablist">
-          <button class="chip" data-m="carte" type="button">${I('capture', 14)} Une carte</button>
-          <button class="chip" data-m="page" type="button">${I('dex', 14)} Page de classeur</button>
-          <span class="spacer"></span>
-          <span class="chips" id="pa-fmt"><button class="chip" data-f="3x3" type="button">9 cases</button><button class="chip" data-f="2x2" type="button">4 cases</button></span>
-        </div>
-        <div id="pa-page" hidden></div>
-        <div class="pa-photo panel" id="pa-photo">
-          <div class="pa-empty">${I('camera', 34)}<b>Photo de ta carte</b><span class="small muted">Elle devient son visuel</span></div>
-        </div>
-        <div class="row action-dock" style="margin:10px 0 0">
-          <label class="btn primary">${I('camera', 16)} Prendre la photo<input type="file" accept="image/*" capture="environment" id="pa-cam" hidden></label>
-          <label class="btn">Choisir une photo<input type="file" accept="image/*" id="pa-file" hidden></label>
-        </div>
-        <div class="small pa-read" id="pa-read" hidden></div>
-        <form class="pa-form panel" id="pa-form" autocomplete="off">
-          <label>Licence<input type="text" id="pa-lic" list="pa-lics" required maxlength="40" placeholder="ex. Digimon" value="${esc(q.lic || '')}"></label>
-          <datalist id="pa-lics">${lics.map((l) => `<option value="${esc(l)}">`).join('')}</datalist>
-          <label>Série<input type="text" id="pa-set" list="pa-sets" maxlength="60" placeholder="ex. Digi-Battle (1999)" value="${esc(q.serie || '')}"></label>
-          <datalist id="pa-sets"></datalist>
-          <div class="pa-two pa-one">
-            <label>Numéro<input type="text" id="pa-num" maxlength="24" placeholder="ex. Bo-113, 18"></label>
-            <label>Rareté<input type="text" id="pa-rar" list="pa-rars" maxlength="30" placeholder="facultatif"></label>
+        <div class="pa-top">
+          <button class="pa-where" id="pa-where" type="button"></button>
+          <div class="chips pa-mode" id="pa-mode" role="tablist">
+            <button class="chip" data-m="carte" type="button">Une carte</button>
+            <button class="chip" data-m="page" type="button">Page de classeur</button>
+            <span class="chips" id="pa-fmt"><button class="chip" data-f="3x3" type="button">9</button><button class="chip" data-f="2x2" type="button">4</button></span>
           </div>
-          <datalist id="pa-rars">${App.views.persoAdd.RARITIES.map((r) => `<option value="${esc(r)}">`).join('')}</datalist>
-          <div class="small muted pa-one" id="pa-found" hidden></div>
-          <label class="pa-one">Nom de la carte<input type="text" id="pa-name" required maxlength="80" placeholder="ex. Garurumon"></label>
-          <label>Cartes dans la série<input id="pa-total" type="number" min="0" max="5000" inputmode="numeric" placeholder="facultatif (ex. 40)"></label>
-          <button class="btn primary pa-one" id="pa-save" type="submit" disabled>${I('plus', 16)} Ajouter à mon Dex</button>
-        </form>
-        <div id="pa-done"></div>
-        <p class="small muted" style="margin-top:18px">Ta licence n’est pas dans la liste et tu aimerais qu’elle soit mieux prise en charge ? <a href="#" id="pa-propose">Proposer une licence</a></p>
+        </div>
+        <div id="pa-stage"></div>
+        <input type="file" accept="image/*" capture="environment" id="pa-cam" hidden>
+        <input type="file" accept="image/*" id="pa-file" hidden>
+        <p class="small muted pa-foot">Pour les licences hors des 10 de l’appli : tu ne vois que tes cartes, sans combats ni prix. Ta licence mériterait mieux ? <a href="#" id="pa-propose">Proposer une licence</a></p>
       </div>`;
-
     const $ = (s) => el.querySelector(s);
-    const fillSets = () => {
-      const sets = known.get($('#pa-lic').value.trim()) || new Set();
-      $('#pa-sets').innerHTML = [...sets].filter(Boolean).map((s) => `<option value="${esc(s)}">`).join('');
-      const tot = totalOf($('#pa-lic').value, $('#pa-set').value);
-      if (tot && !$('#pa-total').value) $('#pa-total').value = tot;
+
+    const drawWhere = () => {
+      $('#pa-where').innerHTML = st.lic
+        ? `${I('box', 16)}<span><b>${esc(st.lic)}</b>${st.set ? ` · ${esc(st.set)}` : ''}</span><small>changer</small>`
+        : `${I('box', 16)}<span><b>Choisir la licence</b></span><small>Digimon, Magic…</small>`;
+      $('#pa-where').classList.toggle('none', !st.lic);
     };
-    const totalOf = (lic, set) => { const id = ad.setIdOf(lic, set || 'Sans série'); const it = App.col.all().find((x) => x.game === 'perso' && x.setId === id); return (it && it.perso && it.perso.total) || 0; };
-    const ready = () => { $('#pa-save').disabled = !(photo && $('#pa-lic').value.trim() && $('#pa-name').value.trim()); };
-    fillSets();
-    $('#pa-lic').addEventListener('input', () => { fillSets(); ready(); });
-    $('#pa-set').addEventListener('change', fillSets);
-    $('#pa-name').addEventListener('input', ready);
+    const setWhere = (lic, set) => { if (lic !== st.lic || set !== st.set) st.total = 0; st.lic = lic; st.set = set; drawWhere(); };
+    // licence + série : une fenêtre avec des pastilles (licences déjà utilisées d'abord), ou un nom à écrire
+    const pick = () => new Promise((done) => {
+      let lic = st.lic, set = st.set, ok = false;
+      const box = App.util.openModal(`
+        <h2 style="margin-top:0">Licence et série</h2>
+        <div class="chips pk-chips" id="pk-lics"></div>
+        <input type="text" id="pk-lic" class="pk-in" maxlength="40" placeholder="Autre licence…">
+        <h3 class="pk-h">Série <span class="small muted">(facultatif)</span></h3>
+        <div class="chips pk-chips" id="pk-sets"></div>
+        <input type="text" id="pk-set" class="pk-in" maxlength="60" placeholder="ex. Digi-Battle (1999)">
+        <button class="btn primary pk-ok" id="pk-ok" type="button">OK</button>`, () => done(ok ? { lic, set } : null));
+      const draw = () => {
+        const all = lics(); if (lic && !all.includes(lic)) all.unshift(lic);
+        box.querySelector('#pk-lics').innerHTML = all.map((l) => `<button class="chip ${l === lic ? 'on' : ''}" data-l="${esc(l)}" type="button">${esc(l)}</button>`).join('');
+        const sets = [...(known.get(lic) || [])].filter((s) => s && s !== 'Sans série'); if (set && !sets.includes(set)) sets.unshift(set);
+        box.querySelector('#pk-sets').innerHTML = sets.map((s) => `<button class="chip ${s === set ? 'on' : ''}" data-s="${esc(s)}" type="button">${esc(s)}</button>`).join('');
+        box.querySelector('#pk-ok').disabled = !lic;
+      };
+      box.addEventListener('click', (e) => {
+        const l = e.target.closest('[data-l]'), s = e.target.closest('[data-s]');
+        if (l) { if (l.dataset.l !== lic) set = ''; lic = l.dataset.l; box.querySelector('#pk-lic').value = ''; draw(); }
+        else if (s) { set = s.dataset.s === set ? '' : s.dataset.s; box.querySelector('#pk-set').value = ''; draw(); }
+        else if (e.target.closest('#pk-ok') && lic) { ok = true; App.util.closeModal(); }
+      });
+      box.querySelector('#pk-lic').addEventListener('input', (e) => { const v = e.target.value.trim(); if (v) { if (v !== lic) set = ''; lic = v; } draw(); });
+      box.querySelector('#pk-set').addEventListener('input', (e) => { set = e.target.value.trim(); draw(); });
+      draw();
+    }).then((r) => { if (r) setWhere(r.lic, r.set); return r; });
+    $('#pa-where').addEventListener('click', () => pick().then(() => { if (cur && cur.state === 'done') drawCard(); }));
+
+    // ----- étapes -----
+    const drawEmpty = (next = false) => {
+      cur = null;
+      const page = mode === 'page';
+      $('#pa-stage').innerHTML = `
+        <label for="pa-cam" class="pa-photo pa-shot panel ${page ? 'page' : ''}">
+          <span class="pa-empty">${I('camera', 38)}<b>${page ? 'Prends la page en photo' : next ? 'Carte suivante' : 'Prends ta carte en photo'}</b>
+          <span class="small muted">${page ? `Les ${fmt === '2x2' ? 4 : 9} cartes sont découpées et lues` : 'Je la lis et elle devient son visuel'}</span></span>
+        </label>
+        <div class="pa-alt"><label for="pa-file" class="btn sm">Choisir une photo dans la galerie</label></div>`;
+    };
+    const drawCard = () => {
+      const c = cur, busy = c.state === 'read';
+      const tag = busy ? `<span class="pa-spin"></span> Je lis la carte…`
+        : c.had ? `${I('check', 13)} Déjà dans ton Dex : un exemplaire de plus`
+        : c.found ? `${I('check', 13)} Carte retrouvée`
+        : c.name ? `${I('check', 13)} Lu sur la carte` : `Je n’ai pas pu lire le nom : touche-le pour l’écrire`;
+      $('#pa-stage').innerHTML = `
+        <div class="pa-res panel">
+          <div class="pa-res-img"><img src="${c.url}" alt="Ta carte"></div>
+          <div class="pa-res-info">
+            <span class="pa-tag small ${busy ? '' : c.name ? 'ok' : 'todo'}">${tag}</span>
+            <label class="pa-edit"><input type="text" id="pa-name" class="pa-name" maxlength="80" value="${esc(c.name)}" placeholder="${busy ? '…' : 'Nom de la carte'}" ${busy ? 'disabled' : ''}>${I('pencil', 14)}</label>
+            <label class="pa-edit pa-numl">n° <input type="text" id="pa-num" class="pa-num" maxlength="24" value="${esc(c.num)}" placeholder="—" ${busy ? 'disabled' : ''}></label>
+            <span class="small muted">${st.lic ? `${esc(st.lic)}${st.set ? ` · ${esc(st.set)}` : ''}` : 'Licence à choisir'}</span>
+          </div>
+        </div>
+        <div class="row action-dock pa-acts">
+          <button class="btn primary" id="pa-save" type="button" ${busy ? 'disabled' : ''}>${I('plus', 16)} Ajouter</button>
+          <label for="pa-cam" class="btn">${I('camera', 16)} Reprendre</label>
+        </div>`;
+      $('#pa-name').addEventListener('input', (e) => { c.name = e.target.value; });
+      $('#pa-num').addEventListener('input', (e) => { c.num = e.target.value; });
+      $('#pa-num').addEventListener('change', () => lookup(c));
+      $('#pa-save').addEventListener('click', () => saveCard(c));
+    };
 
     // Digimon Card Game : code « BT1-010 » → nom, série, rareté et visuel officiel
-    $('#pa-num').addEventListener('change', async () => {
-      const lic = $('#pa-lic').value, num = $('#pa-num').value;
-      found = null; $('#pa-found').hidden = true;
-      const c = await ad.lookup(lic, num).catch(() => null);
-      if (!alive() || !c || $('#pa-num').value !== num) return;
-      found = c;
-      if (!$('#pa-name').value.trim()) $('#pa-name').value = c.name;
-      if (!$('#pa-set').value.trim() && c.setName) $('#pa-set').value = c.setName;
-      if (!$('#pa-rar').value.trim() && c.rarity) $('#pa-rar').value = c.rarity;
-      $('#pa-found').hidden = false;
-      $('#pa-found').innerHTML = `${I('check', 13)} Carte trouvée : <b>${esc(c.name)}</b>${c.setName ? ' · ' + esc(c.setName) : ''}`;
-      ready();
-    });
+    const lookup = async (c) => {
+      const num = c.num, f = await ad.lookup(st.lic, num).catch(() => null);
+      if (!alive() || !f || cur !== c || c.num !== num) return;
+      c.found = f;
+      if (!c.name.trim()) c.name = f.name;
+      if (!st.set && f.setName) setWhere(st.lic, f.setName);
+      drawCard();
+    };
 
-    // photo → carte détourée toute seule (détecteur de bords du scanner), sinon la photo entière
+    // photo → carte détourée (détecteur du scanner), affichée tout de suite, puis lue
     const takePhoto = async (file) => {
-      if (!file) return;
-      const box = $('#pa-photo');
-      box.innerHTML = `<div class="pa-empty">${App.ui.loading()}</div>`;
-      let blob = file;
+      const c = cur = { blob: file, url: '', num: '', name: '', total: 0, had: false, found: null, state: 'read' };
+      $('#pa-stage').innerHTML = `<div class="pa-photo panel"><span class="pa-empty">${App.ui.loading()}</span></div>`;
       try {
         await App.need('reco', 'scan');
         const img = await createImageBitmap(file), R = App.recognizer;
         const nb = R.bestCard(img);
         const r = nb ? { quad: nb.quad, canvas: App.views.scan.warpTo(img, nb.quad), fit: 1 } : R.cutCard(img, { x: 0.01, y: 0.01, w: 0.98, h: 0.98 });
-        if (r && r.fit >= 0.45 && r.canvas) blob = await new Promise((res) => r.canvas.toBlob(res, 'image/webp', 0.9)) || file;
+        if (r && r.fit >= 0.45 && r.canvas) c.blob = await new Promise((res) => r.canvas.toBlob(res, 'image/webp', 0.9)) || file;
       } catch (e) { console.warn(e); }
-      if (!alive()) return;
-      photo = blob;
-      box.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="Ta carte">`;
-      ready();
-      readPhoto(blob);
+      if (!alive() || cur !== c) return;
+      c.url = URL.createObjectURL(c.blob);
+      drawCard();
+      let g = null;
+      try { g = await App.views.persoAdd.read(c.blob, lics()); } catch (e) { console.warn(e); }
+      if (!alive() || cur !== c) return;
+      c.state = 'done';
+      if (g) {
+        const pre = ad.setByPrefix(g.num, g.lic || st.lic);
+        if (!st.lic && (g.lic || pre)) setWhere(g.lic || pre.lic, pre && (!g.lic || pre.lic === g.lic) ? pre.set : '');
+        else if (pre && pre.lic === st.lic && !st.set) setWhere(st.lic, pre.set);
+        const had = ad.ownedByNum(g.num, st.lic);
+        c.num = g.num || ''; c.total = g.total || 0;
+        c.name = (had && had.snap.name) || g.name || '';
+        if (had) { c.had = true; if (had.snap.setName && had.snap.setName !== 'Sans série') setWhere(st.lic, had.snap.setName); }
+        if (g.total && !st.total) st.total = g.total;
+      }
+      drawCard();
+      if (c.num) lookup(c);
     };
 
-    // v4.05 : la carte est lue (numéro, nom, licence) et les cases vides sont pré-remplies ; tout reste modifiable
-    const status = (html) => { const s = $('#pa-read'); s.hidden = !html; s.innerHTML = html || ''; };
-    const fill = (sel, v) => { if (v && !$(sel).value.trim()) { $(sel).value = v; $(sel).classList.add('pa-auto'); } };
-    const readPhoto = async (blob) => {
-      const mine = photo;
-      status(`<span class="pa-spin"></span> Je lis la carte…`);
-      let g = null;
-      try { g = await App.views.persoAdd.read(blob, [...known.keys(), ...App.views.persoAdd.SUGGEST]); } catch (e) { console.warn(e); }
-      if (!alive() || photo !== mine) return;
-      if (!g || !(g.num || g.name || g.lic)) { status(`Je n’ai rien pu lire : écris le nom et le numéro.`); $('#pa-name').focus(); return; }
-      const pre = ad.setByPrefix(g.num, g.lic);
-      fill('#pa-lic', g.lic || (pre && pre.lic));
-      const lic = $('#pa-lic').value.trim();
-      const had = ad.ownedByNum(g.num, lic);
-      fill('#pa-num', g.num);
-      if (had) { fill('#pa-name', had.snap.name); fill('#pa-set', had.snap.setName); fill('#pa-rar', had.snap.rarity); }
-      fill('#pa-name', g.name);
-      fill('#pa-set', pre && (!lic || pre.lic === lic) ? pre.set : '');
-      if (g.total) fill('#pa-total', String(g.total));
-      fillSets(); ready();
-      status(`${I('check', 13)} Lu sur la carte : <b>${esc([g.num, g.name].filter(Boolean).join(' · ') || g.lic)}</b>${had ? ' — <b>déjà dans ton Dex</b> (un exemplaire de plus)' : ''}. Vérifie et corrige si besoin.`);
-      if (g.num) $('#pa-num').dispatchEvent(new Event('change')); // Digimon récent : la carte retrouvée par son code
-      if (!$('#pa-name').value.trim()) $('#pa-name').focus();
+    const saveCard = async (c) => {
+      if (!c.name.trim() && !c.num.trim()) { App.util.toast('Écris le nom de la carte'); $('#pa-name').focus(); return; }
+      if (!st.lic && !(await pick())) return;
+      $('#pa-save').disabled = true;
+      const name = c.name.trim() || `n° ${c.num.trim()}`;
+      try {
+        const { had } = await App.views.persoAdd.save({ lic: st.lic, setName: st.set, num: c.num.trim(), name, rar: (c.found && c.found.rarity) || '', total: c.total, blob: c.blob, found: c.found });
+        App.util.toast(had ? `+1 exemplaire : ${name}` : `${name} ajoutée à ton Dex`);
+        const s = st.set || 'Sans série'; known.has(st.lic) ? known.get(st.lic).add(s) : known.set(st.lic, new Set([s]));
+        drawEmpty(true);
+        if (touch) $('#pa-cam').click(); // téléphone : l'appareil photo revient pour la carte suivante
+      } catch (err) {
+        console.error(err);
+        App.util.toast('La carte n’a pas pu être ajoutée');
+        if ($('#pa-save')) $('#pa-save').disabled = false;
+      }
     };
-    for (const f of ['#pa-lic', '#pa-set', '#pa-num', '#pa-name', '#pa-rar', '#pa-total']) $(f).addEventListener('input', () => $(f).classList.remove('pa-auto'));
+
     // v4.08 : « Page de classeur » — chaque carte de la page repérée, lue, puis ajoutée d'un coup (js/views/perso-page.js)
-    let mode = q.mode === 'page' ? 'page' : 'carte', fmt = '3x3';
-    try { if (!q.mode) mode = localStorage.getItem('persoMode') === 'page' ? 'page' : 'carte'; fmt = localStorage.getItem('persoFmt') === '2x2' ? '2x2' : '3x3'; } catch (e) { /* */ }
     const setMode = (m) => {
       mode = m;
       el.querySelectorAll('#pa-mode [data-m]').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
       el.querySelectorAll('#pa-fmt [data-f]').forEach((b) => b.classList.toggle('on', b.dataset.f === fmt));
       $('#pa-fmt').hidden = m !== 'page';
-      $('#pa-form').classList.toggle('page-mode', m === 'page');
-      $('#pa-name').required = m !== 'page';
-      $('#pa-photo').hidden = m === 'page' && !$('#pa-page').hidden;
-      if (m === 'carte') $('#pa-page').hidden = true;
       try { localStorage.setItem('persoMode', m); localStorage.setItem('persoFmt', fmt); } catch (e) { /* */ }
+      drawEmpty();
     };
     $('#pa-mode').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'), f = e.target.closest('[data-f]'); if (f) { fmt = f.dataset.f; setMode(mode); } else if (b) setMode(b.dataset.m); });
-    setMode(mode);
-    const shared = () => ({ lic: $('#pa-lic').value.trim(), setName: $('#pa-set').value.trim(), total: $('#pa-total').value });
     const onFile = (file) => {
       if (!file) return;
       if (mode !== 'page') return takePhoto(file);
-      $('#pa-photo').hidden = true; $('#pa-page').hidden = false; status('');
-      App.views.persoPage.run(file, { box: $('#pa-page'), alive, fmt, shared, lics: [...known.keys(), ...App.views.persoAdd.SUGGEST],
-        fillLic: (v) => { fill('#pa-lic', v); fillSets(); }, fillSet: (v) => { fill('#pa-set', v); fillSets(); },
+      cur = null;
+      App.views.persoPage.run(file, { box: $('#pa-stage'), alive, fmt, lics: lics(), pick,
+        shared: () => ({ lic: st.lic, setName: st.set, total: st.total || 0 }),
+        fillLic: (v) => { if (!st.lic) setWhere(v, ''); }, fillSet: (v) => { if (!st.set) setWhere(st.lic, v); }, fillTotal: (v) => { if (!st.total) st.total = v; },
         saved: (lic, setName) => { known.has(lic) ? known.get(lic).add(setName) : known.set(lic, new Set([setName])); } });
     };
     $('#pa-cam').addEventListener('change', (e) => { onFile(e.target.files[0]); e.target.value = ''; });
     $('#pa-file').addEventListener('change', (e) => { onFile(e.target.files[0]); e.target.value = ''; });
+    $('#pa-propose').addEventListener('click', (e) => { e.preventDefault(); App.views.persoAdd.propose(cur && cur.blob); });
 
-    $('#pa-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const lic = $('#pa-lic').value.trim(), setName = $('#pa-set').value.trim() || 'Sans série', num = $('#pa-num').value.trim(), name = $('#pa-name').value.trim();
-      if (!photo || !lic || !name) return;
-      $('#pa-save').disabled = true;
-      try {
-        const { had, setId } = await App.views.persoAdd.save({ lic, setName, num, name, rar: $('#pa-rar').value.trim(), total: $('#pa-total').value, blob: photo, found });
-        App.util.toast(had ? `+1 exemplaire : ${name}` : `${name} ajoutée à ton Dex`);
-        // carte suivante : même licence, même série
-        photo = null; found = null;
-        $('#pa-photo').innerHTML = `<div class="pa-empty">${I('camera', 34)}<b>Carte suivante</b><span class="small muted">Même licence et même série</span></div>`;
-        for (const f of ['#pa-num', '#pa-name', '#pa-rar', '#pa-total']) $(f).value = '';
-        fillSets(); // (nombre de cartes de cette série, s'il est connu)
-        $('#pa-found').hidden = true;
-        $('#pa-done').innerHTML = `<div class="panel pa-ok">${I('check', 16)} <b>${esc(name)}</b> est dans ta collection perso. <a href="#/jeu/perso/serie/${encodeURIComponent(setId)}">Voir la série ›</a></div>`;
-        known.has(lic) ? known.get(lic).add(setName) : known.set(lic, new Set([setName]));
-        try { localStorage.setItem('persoLast', JSON.stringify({ lic, serie: setName === 'Sans série' ? '' : setName })); } catch (e2) { /* */ }
-        status('');
-      } catch (err) {
-        console.error(err);
-        App.util.toast('La carte n’a pas pu être ajoutée');
-      }
-      ready();
-    });
-
-    $('#pa-propose').addEventListener('click', (e) => { e.preventDefault(); App.views.persoAdd.propose(photo); });
+    drawWhere();
+    setMode(mode);
+    // Capturer › « Autre licence » (?photo=1) : l'appareil photo s'ouvre tout de suite sur téléphone
+    if (q.photo && touch) try { $('#pa-cam').click(); } catch (e) { /* */ }
   },
 
   /** Ajoute une carte perso (ou +1 exemplaire) → { had, setId } ; sa photo devient son visuel */

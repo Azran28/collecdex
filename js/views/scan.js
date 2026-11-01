@@ -243,7 +243,7 @@ App.views.scan = {
         ${soon.map((g) => `<span class="lic-tile g-${g.id} soon" aria-disabled="true">
           <span class="lic-ic">${I(g.icon, 20)}</span>
           <span class="lic-t"><b>${esc(g.name)}</b><small>Bientôt</small></span></span>`).join('')}
-        <a class="lic-tile g-perso" href="#/perso/ajouter" data-game="perso">
+        <a class="lic-tile g-perso" href="#/perso/ajouter?photo=1" data-game="perso">
           <span class="lic-ic">${I('box', 20)}</span>
           <span class="lic-t"><b>Autre licence</b><small>Collection perso : Digimon, Magic…</small></span></a>
       </div>`;

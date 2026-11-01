@@ -8,18 +8,44 @@
 .pa-form { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 .pa-form label { display: flex; flex-direction: column; gap: 4px; font-size: .86rem; color: var(--muted); }
 .pa-form input { width: 100%; font-size: 1rem; }
-.pa-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.pa-form #pa-found { color: var(--ok, #4ade80); }
 .pa-ok { margin-top: 12px; }
 .st-total input { margin-left: 6px; }
+/* v4.09 : sans formulaire — licence choisie une fois, photo d'abord, résultat comme le scanner */
+.pa-top { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.pa-where { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line, rgba(255,255,255,.12)); background: var(--bg2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.pa-where span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pa-where small { color: var(--accent2); }
+.pa-where.none { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(124,92,255,.18); }
+.pa-shot { cursor: pointer; border: 2px dashed rgba(124,92,255,.45); background: rgba(124,92,255,.06); }
+.pa-shot.page { aspect-ratio: 4 / 3; }
+.pa-alt { text-align: center; margin-top: 10px; }
+.pa-foot { margin-top: 22px; }
+.pa-res { display: grid; grid-template-columns: minmax(0, 46%) 1fr; gap: 14px; align-items: start; padding: 12px; }
+.pa-res-img img { width: 100%; aspect-ratio: 63 / 88; object-fit: contain; border-radius: 8px; background: #0003; }
+.pa-res-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pa-tag { color: var(--muted); }
+.pa-tag.ok { color: var(--ok, #4ade80); }
+.pa-tag.todo { color: var(--accent2); }
+.pa-edit { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.pa-edit input { flex: 1; min-width: 0; padding: 4px 0; border: 0; border-bottom: 1px dashed rgba(255,255,255,.25); border-radius: 0; background: none; color: var(--text); }
+.pa-edit input:focus { outline: none; border-bottom-color: var(--accent2); }
+.pa-edit input.pa-name { font-size: 1.3rem; font-weight: 800; }
+.pa-edit input.pa-num { font-size: 1rem; font-weight: 600; }
+.pa-acts { margin-top: 10px; }
+.pa-acts .btn.primary { flex: 1; }
+.pk-chips { flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.pk-in { width: 100%; }
+.pk-h { margin: 16px 0 0; font-size: 1rem; }
+.pk-ok { width: 100%; margin-top: 16px; }
+@media (max-width: 760px) {
+  .pa-res { grid-template-columns: 1fr; }
+  .pa-res-img img { max-height: 42vh; }
+}
 /* v4.05 : lecture de la carte */
-.pa-read { margin-top: 10px; padding: 8px 12px; border-radius: 12px; background: rgba(124,92,255,.12); color: var(--text); }
 .pa-spin { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 2px solid rgba(255,255,255,.25); border-top-color: var(--accent2); border-radius: 50%; animation: pa-spin .8s linear infinite; }
 @keyframes pa-spin { to { transform: rotate(360deg); } }
-.pa-form input.pa-auto { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(124,92,255,.18); }
 /* v4.08 : une carte / page de classeur */
 .pa-mode { margin-bottom: 10px; align-items: center; }
-.pa-form.page-mode .pa-one { display: none; }
 .pp-wait { padding: 14px; }
 .pp-head { margin: 4px 0 8px; }
 .pp-list { display: flex; flex-direction: column; gap: 6px; }
