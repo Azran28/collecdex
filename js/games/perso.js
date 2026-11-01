@@ -132,7 +132,7 @@
     /\b([A-Z]{2,5}\d{0,3}-[A-Z]{0,2}\d{2,3}[A-Z]?)\b/,                 // autres codes « ABC-123 », « OP09-004 »
   ];
   // mots qui ne sont jamais le nom d'une carte : niveaux, genres, caractéristiques (Digimon, Jackie Chan, WWE, DreamWorks…)
-  const WORDS = /^(digimon|niveau|option|puissance|action|effect|edition|[eé]dition|1[eè]re|ere|disciple|champion|ultime|m[eé]ga|virus|donn[ée]e|vaccin|d[ée]fen[cs]e|attack|attaque|points?|force|sagesse|technique|chance|chi|humour|gentillesse|intelligence|vitesse|cartes?|animation|skg|les|des|de|la|le|du|et|aventures|trading|card|game|pv|hp|atk|def)$/i;
+  const WORDS = /^(digimon|niveau|option|puissance|action|effect|edition|[eé]dition|1[eè]re|ere|disciple|champion|ultime|m[eé]ga|virus|donn[ée]e|vaccin|d[ée]fen[cs]e|attack|attaque|points?|force|sagesse|technique|chance|chi|humour|gentillesse|intelligence|vitesse|cartes?|animation|skg|les|des|de|la|le|du|et|aventures|trading|card|game|pv|hp|atk|def|rights?|reserved|limited|ltd|inc|europe|all|tous|droits|r[ée]serv[ée]s|licen[cs]e[ds]?|by)$/i;
   // mots imprimés qui désignent une licence même sans son nom (« © Akiyoshi Hongo • Toei Animation » = Digimon) — v4.07 : photos d'Arnaud
   const HINTS = {
     Digimon: / digimon | akiyoshi | hongo | digi oeuf | digivolution /,
@@ -141,14 +141,17 @@
     'DreamWorks (Carrefour)': / dreamworks | carrefour | animation skg /,
   };
   const STOP = new Set(['cartes', 'carte', 'jeu', 'jeux', 'collection']);
+  // mot générique mal lu (« Gontillesse », « Intolligence » sur les DreamWorks, v4.08) : à une ou deux lettres près
+  const LONG = ['puissance', 'edition', 'disciple', 'champion', 'defense', 'defence', 'attack', 'attaque', 'sagesse', 'technique', 'chance', 'humour', 'gentillesse', 'intelligence', 'vitesse', 'animation', 'aventures', 'digimon', 'niveau'];
+  const generic = (w) => w.length >= 6 && LONG.some((x) => Math.abs(x.length - w.length) <= 2 && App.util.similarity(w, x) >= 0.75);
   const letters = (t) => (t.match(/\p{L}/gu) || []).length;
   /** Lignes qui peuvent être un nom : surtout des lettres, pas que des mots génériques ni ceux de la licence */
   function nameish(t, licWords, min = 3) {
     t = String(t || '').replace(/[®™*]/g, '').replace(/\s+/g, ' ').trim();
     // (pas de chiffres ni de © : copyright « ©2010 DreamWorks Animation L.L.C. » ; commence par une majuscule : pas un bout de phrase)
     if (t.length < min || t.length > 40 || /[\d@©]/.test(t) || !/^\p{Lu}/u.test(t) || letters(t) < t.replace(/[\s'’&.-]/g, '').length * 0.85) return '';
-    const ws = norm(t).split(/[^a-z0-9]+/).filter(Boolean);
-    return ws.every((w) => WORDS.test(w) || licWords.has(w)) ? '' : t;
+    const ws = norm(t).split(/[^a-z0-9]+/).filter((w) => w.length > 1); // (« L.L.C. » : lettres seules ignorées)
+    return ws.every((w) => WORDS.test(w) || licWords.has(w) || generic(w)) ? '' : t;
   }
   /** Le nom le plus vu (les bandes se chevauchent : une vraie ligne est souvent lue 2 fois), puis le plus long */
   function bestName(lines, licWords, min = 3) {

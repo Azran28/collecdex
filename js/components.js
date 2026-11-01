@@ -86,7 +86,7 @@ App.ui = (() => {
           ${ad.rarity.symbol(card.rarity, 12)}
         </div>
         <div class="cinfo">
-          <span class="cnum">${showSet ? esc((card.setName || '') + ' · ') : ''}#${esc(card.localId)}</span>
+          <span class="cnum">${showSet ? esc((card.setName || '') + ' · ') : ''}${card.localId ? '#' + esc(card.localId) : ''}</span>
           ${showPrice && price ? `<span class="price">${price}</span>` : ''}
         </div>
       </div>`;

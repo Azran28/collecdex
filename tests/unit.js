@@ -92,6 +92,10 @@ test('collections perso : numéro, nom et licence lus sur la carte', (App) => {
   ok(g.num === 'Jd-52' && !g.name, 'carte à règles : pas de nom pris sur la carte droite : ' + JSON.stringify(g));
   g = ad.guess({ turned: ['JACKIE', 'CHAT', 'CHI', 'CHANCE', 'TECHNIQUE', 'SAGESSE', 'FORCE'] }, { lics });
   ok(g.lic === 'Les Aventures de Jackie Chan' && !g.name, 'Jackie Chan : ni « Chat » ni une caractéristique : ' + JSON.stringify(g));
+  // v4.08 : pages de classeur (DreamWorks, WWE) — caractéristique mal lue, mentions légales
+  ok(!ad.guess({ flat: ['Gontillesse', 'Intolligence', '1'] }).name, '« Gontillesse » n’est pas un nom');
+  ok(!ad.guess({ flat: ['Topps Europe Limited', 'Rights Reserved.'] }).name, 'mentions légales ≠ nom');
+  eq(ad.guess({ flat: ['Mickie James', 'DEFENCE', 'ATTACK'] }).name, 'Mickie James');
 });
 
 // ---------- Outils ----------

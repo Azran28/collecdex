@@ -23,6 +23,13 @@ App.views.persoAdd = {
       <h1 style="margin:0 0 4px">Ajouter une carte perso</h1>
       <p class="muted small" style="margin:0 0 14px">Pour les licences hors des 10 de l’appli. Tu ne vois que tes cartes : pas de combats ni de prix.</p>
       <div class="pa-wrap">
+        <div class="chips pa-mode" id="pa-mode" role="tablist">
+          <button class="chip" data-m="carte" type="button">${I('capture', 14)} Une carte</button>
+          <button class="chip" data-m="page" type="button">${I('dex', 14)} Page de classeur</button>
+          <span class="spacer"></span>
+          <span class="chips" id="pa-fmt"><button class="chip" data-f="3x3" type="button">9 cases</button><button class="chip" data-f="2x2" type="button">4 cases</button></span>
+        </div>
+        <div id="pa-page" hidden></div>
         <div class="pa-photo panel" id="pa-photo">
           <div class="pa-empty">${I('camera', 34)}<b>Photo de ta carte</b><span class="small muted">Elle devient son visuel</span></div>
         </div>
@@ -36,15 +43,15 @@ App.views.persoAdd = {
           <datalist id="pa-lics">${lics.map((l) => `<option value="${esc(l)}">`).join('')}</datalist>
           <label>Série<input type="text" id="pa-set" list="pa-sets" maxlength="60" placeholder="ex. Digi-Battle (1999)" value="${esc(q.serie || '')}"></label>
           <datalist id="pa-sets"></datalist>
-          <div class="pa-two">
+          <div class="pa-two pa-one">
             <label>Numéro<input type="text" id="pa-num" maxlength="24" placeholder="ex. Bo-113, 18"></label>
             <label>Rareté<input type="text" id="pa-rar" list="pa-rars" maxlength="30" placeholder="facultatif"></label>
           </div>
           <datalist id="pa-rars">${App.views.persoAdd.RARITIES.map((r) => `<option value="${esc(r)}">`).join('')}</datalist>
-          <div class="small muted" id="pa-found" hidden></div>
-          <label>Nom de la carte<input type="text" id="pa-name" required maxlength="80" placeholder="ex. Garurumon"></label>
+          <div class="small muted pa-one" id="pa-found" hidden></div>
+          <label class="pa-one">Nom de la carte<input type="text" id="pa-name" required maxlength="80" placeholder="ex. Garurumon"></label>
           <label>Cartes dans la série<input id="pa-total" type="number" min="0" max="5000" inputmode="numeric" placeholder="facultatif (ex. 40)"></label>
-          <button class="btn primary" id="pa-save" type="submit" disabled>${I('plus', 16)} Ajouter à mon Dex</button>
+          <button class="btn primary pa-one" id="pa-save" type="submit" disabled>${I('plus', 16)} Ajouter à mon Dex</button>
         </form>
         <div id="pa-done"></div>
         <p class="small muted" style="margin-top:18px">Ta licence n’est pas dans la liste et tu aimerais qu’elle soit mieux prise en charge ? <a href="#" id="pa-propose">Proposer une licence</a></p>
@@ -124,8 +131,33 @@ App.views.persoAdd = {
       if (!$('#pa-name').value.trim()) $('#pa-name').focus();
     };
     for (const f of ['#pa-lic', '#pa-set', '#pa-num', '#pa-name', '#pa-rar', '#pa-total']) $(f).addEventListener('input', () => $(f).classList.remove('pa-auto'));
-    $('#pa-cam').addEventListener('change', (e) => takePhoto(e.target.files[0]));
-    $('#pa-file').addEventListener('change', (e) => takePhoto(e.target.files[0]));
+    // v4.08 : « Page de classeur » — chaque carte de la page repérée, lue, puis ajoutée d'un coup (js/views/perso-page.js)
+    let mode = q.mode === 'page' ? 'page' : 'carte', fmt = '3x3';
+    try { if (!q.mode) mode = localStorage.getItem('persoMode') === 'page' ? 'page' : 'carte'; fmt = localStorage.getItem('persoFmt') === '2x2' ? '2x2' : '3x3'; } catch (e) { /* */ }
+    const setMode = (m) => {
+      mode = m;
+      el.querySelectorAll('#pa-mode [data-m]').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
+      el.querySelectorAll('#pa-fmt [data-f]').forEach((b) => b.classList.toggle('on', b.dataset.f === fmt));
+      $('#pa-fmt').hidden = m !== 'page';
+      $('#pa-form').classList.toggle('page-mode', m === 'page');
+      $('#pa-name').required = m !== 'page';
+      $('#pa-photo').hidden = m === 'page' && !$('#pa-page').hidden;
+      if (m === 'carte') $('#pa-page').hidden = true;
+      try { localStorage.setItem('persoMode', m); localStorage.setItem('persoFmt', fmt); } catch (e) { /* */ }
+    };
+    $('#pa-mode').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'), f = e.target.closest('[data-f]'); if (f) { fmt = f.dataset.f; setMode(mode); } else if (b) setMode(b.dataset.m); });
+    setMode(mode);
+    const shared = () => ({ lic: $('#pa-lic').value.trim(), setName: $('#pa-set').value.trim(), total: $('#pa-total').value });
+    const onFile = (file) => {
+      if (!file) return;
+      if (mode !== 'page') return takePhoto(file);
+      $('#pa-photo').hidden = true; $('#pa-page').hidden = false; status('');
+      App.views.persoPage.run(file, { box: $('#pa-page'), alive, fmt, shared, lics: [...known.keys(), ...App.views.persoAdd.SUGGEST],
+        fillLic: (v) => { fill('#pa-lic', v); fillSets(); }, fillSet: (v) => { fill('#pa-set', v); fillSets(); },
+        saved: (lic, setName) => { known.has(lic) ? known.get(lic).add(setName) : known.set(lic, new Set([setName])); } });
+    };
+    $('#pa-cam').addEventListener('change', (e) => { onFile(e.target.files[0]); e.target.value = ''; });
+    $('#pa-file').addEventListener('change', (e) => { onFile(e.target.files[0]); e.target.value = ''; });
 
     $('#pa-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -133,15 +165,7 @@ App.views.persoAdd = {
       if (!photo || !lic || !name) return;
       $('#pa-save').disabled = true;
       try {
-        const id = ad.cardIdOf(lic, setName, num, name), setId = ad.setIdOf(lic, setName);
-        const card = { id, localId: num, name, image: found ? found.image : '', rarity: $('#pa-rar').value.trim(), setId, serieId: ad.setIdOf(lic, '').replace(/--.*$/, '') };
-        const set = { id: setId, name: setName, symbol: '', official: null, group: { id: card.serieId, name: lic } };
-        const had = App.col.get('perso', id);
-        const it = await App.col.add('perso', card, set);
-        const total = Math.max(0, Math.floor(+$('#pa-total').value || 0));
-        await App.col.update(it.key, { variants: ['normal'], perso: { ...(it.perso || {}), lic, total: total || (it.perso && it.perso.total) || 0, code: num, text: found ? found.text : ((it.perso && it.perso.text) || '') } });
-        if (total) await ad.setTotal(setId, total);
-        if (!had) await App.col.addPhoto(it.key, photo, { makeDisplay: true });
+        const { had, setId } = await App.views.persoAdd.save({ lic, setName, num, name, rar: $('#pa-rar').value.trim(), total: $('#pa-total').value, blob: photo, found });
         App.util.toast(had ? `+1 exemplaire : ${name}` : `${name} ajoutée à ton Dex`);
         // carte suivante : même licence, même série
         photo = null; found = null;
@@ -161,6 +185,23 @@ App.views.persoAdd = {
     });
 
     $('#pa-propose').addEventListener('click', (e) => { e.preventDefault(); App.views.persoAdd.propose(photo); });
+  },
+
+  /** Ajoute une carte perso (ou +1 exemplaire) → { had, setId } ; sa photo devient son visuel */
+  async save({ lic, setName, num, name, rar = '', total = 0, blob, found = null }) {
+    const ad = App.games.get('perso');
+    setName = setName || 'Sans série';
+    const id = ad.cardIdOf(lic, setName, num, name), setId = ad.setIdOf(lic, setName);
+    const card = { id, localId: num, name, image: found ? found.image : '', rarity: rar, setId, serieId: ad.setIdOf(lic, '').replace(/--.*$/, '') };
+    const set = { id: setId, name: setName, symbol: '', official: null, group: { id: card.serieId, name: lic } };
+    const had = App.col.get('perso', id);
+    const it = await App.col.add('perso', card, set);
+    total = Math.max(0, Math.floor(+total || 0));
+    await App.col.update(it.key, { variants: ['normal'], perso: { ...(it.perso || {}), lic, total: total || (it.perso && it.perso.total) || 0, code: num, text: found ? found.text : ((it.perso && it.perso.text) || '') } });
+    if (total) await ad.setTotal(setId, total);
+    if (!had && blob) await App.col.addPhoto(it.key, blob, { makeDisplay: true });
+    try { localStorage.setItem('persoLast', JSON.stringify({ lic, serie: setName === 'Sans série' ? '' : setName })); } catch (e) { /* */ }
+    return { had: !!had, setId };
   },
 
   /**

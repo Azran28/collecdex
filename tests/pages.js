@@ -56,7 +56,7 @@
     ['#/combat?jeu=dragonball', 'Combat Dragon Ball'], ['#/scan?jeu=dragonball', 'Capturer Dragon Ball'], ['#/scan?mode=classeur&jeu=dragonball', 'Capturer Dragon Ball (classeur)'],
     ['#/combat?jeu=cyberpunk', 'Combat Cyberpunk'], ['#/scan?jeu=cyberpunk', 'Capturer Cyberpunk'], ['#/scan?mode=classeur&jeu=cyberpunk', 'Capturer Cyberpunk (classeur)'],
     ['#/capsules', 'Capsules'],
-    ['#/jeu/perso', 'Collections perso'], ['#/perso/ajouter', 'Ajouter une carte perso'], ['#/perso/ajouter?lic=Digimon&serie=Digi-Battle', 'Ajouter une carte perso (licence choisie)'],
+    ['#/jeu/perso', 'Collections perso'], ['#/perso/ajouter', 'Ajouter une carte perso'], ['#/perso/ajouter?lic=Digimon&serie=Digi-Battle', 'Ajouter une carte perso (licence choisie)'], ['#/perso/ajouter?mode=page', 'Ajouter une page de classeur perso'],
   ];
   const size = (w, h) => { const f = frame(); f.style.width = w + 'px'; f.style.height = h + 'px'; };
 
