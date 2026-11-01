@@ -100,7 +100,8 @@
 
   // ---------- Digimon Card Game (2020…) : la carte retrouvée par son code « BT1-010 » ----------
   // digimoncard.io (CORS *, ~15 demandes rapprochées) ; les anciennes cartes de 1999 (« Bo-113 », « Jd-53 ») n'y sont pas
-  const DG_CODE = /^\s*((?:BT|EX|ST|RB|LM|AD|BO|P)\d*-\d{2,3})\s*$/i;
+  // (pas « Bo-113 » : la base a aussi les anciennes cartes anglaises de 1999, numérotées autrement que les françaises)
+  const DG_CODE = /^\s*((?:BT|EX|ST|RB|LM|AD|P)\d*-\d{2,3})\s*$/;
   async function lookup(lic, code) {
     if (!/digimon/i.test(lic || '') || !DG_CODE.test(code || '')) return null;
     const id = code.trim().toUpperCase();
@@ -122,7 +123,54 @@
     };
   }
 
+  // ---------- Lecture de la photo (v4.05, Arnaud : « un minimum de scanner, tout remplir à la main c'est compliqué ») ----------
+  // Lignes lues par PaddleOCR sur la carte droite (flat) et tournée d'un quart de tour (turned : noms écrits à la verticale,
+  // Digimon 1999), + texte Tesseract (tess, secours pour « 18 Garurumon DP 300 »). Mesuré sur les 8 cartes Digimon d'Arnaud.
+  const CODE_RES = [
+    /\b([A-Z][a-z]{1,2}-\d{1,3})\b/,                                  // Digimon 1999 : « Jd-53 », « Bo-113 »
+    /\b((?:BT|EX|ST|RB|LM|AD|P)\d{0,2}-\d{2,3})\b/i,                   // Digimon Card Game : « BT1-010 »
+    /\b([A-Z]{2,5}\d{0,3}-[A-Z]{0,2}\d{2,3}[A-Z]?)\b/,                 // autres codes « ABC-123 », « OP09-004 »
+  ];
+  const WORDS = /^(digimon|niveau|option|puissance|action|effect|edition|[eé]dition|1[eè]re|disciple|champion|ultime|m[eé]ga|virus|donn[ée]e|vaccin|d[ée]fense|points?)$/i;
+  // mots imprimés qui désignent une licence même sans son nom (« © Akiyoshi Hongo • Toei Animation » = Digimon)
+  const HINTS = { Digimon: / digimon | akiyoshi | hongo | digi oeuf | digivolution / };
+  const STOP = new Set(['cartes', 'carte', 'jeu', 'jeux', 'collection']);
+  function guess({ flat = [], turned = [], tess = '' } = {}, { lics = [] } = {}) {
+    const all = [...flat, ...turned, ...String(tess).split('\n')].map((t) => String(t || '').trim()).filter(Boolean);
+    const out = { num: '', name: '', total: 0, lic: '' };
+    // numéro : code imprimé, sinon « 12/150 », sinon « 18 Nom DP 300 » (cartes Digimon numérotées)
+    for (const re of CODE_RES) { const t = all.find((x) => re.test(x)); if (t) { out.num = t.match(re)[1]; break; } }
+    const dp = all.map((t) => t.match(/(?:^|[^\d])(\d{1,3})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ&'’. -]{2,38}?)\s+DP\s*\d/)).find(Boolean);
+    if (!out.num) { const f = all.map((t) => t.match(/(?:^|[^\d])(\d{1,3})\s*\/\s*(\d{1,3})(?!\d)/)).find(Boolean); if (f && +f[1] <= +f[2] + 50) { out.num = f[1]; out.total = +f[2]; } }
+    if (!out.num && dp) out.num = dp[1];
+    // nom : écrit à la verticale (le plus long morceau de lettres), sinon celui de la ligne « DP »
+    const vert = turned.map((t) => String(t).trim()).filter((t) => t.length >= 4 && t.length <= 40 && (t.match(/[A-Za-zÀ-ÿ]/g) || []).length >= t.replace(/\s/g, '').length * 0.85 && !t.split(/\s+/).every((w) => WORDS.test(w)));
+    if (vert.length) out.name = vert.sort((a, b) => b.length - a.length)[0];
+    else if (dp) out.name = dp[2].trim();
+    if (out.name && out.name === out.name.toUpperCase()) out.name = out.name.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (m) => m.toUpperCase());
+    // licence : un nom connu écrit sur la carte (« DIGIMON », « © 1999 BANDAI … Digimon »)
+    const T = ' ' + norm(all.join(' ')).replace(/[^a-z0-9]+/g, ' ') + ' ';
+    const hint = Object.keys(HINTS).find((l) => HINTS[l].test(T));
+    out.lic = hint || lics.find((l) => { const k = norm(l).split(/[\s:(]/)[0]; return k.length >= 4 && !STOP.has(k) && T.includes(` ${k} `); }) || '';
+    return out;
+  }
+  /** Carte perso déjà dans le Dex avec ce numéro (même licence si elle est connue) */
+  function ownedByNum(num, lic = '') {
+    const n = norm(num).replace(/\s/g, '');
+    if (!n) return null;
+    return mine().find((it) => norm(it.snap.localId).replace(/\s/g, '') === n && (!lic || norm(licOf(it)) === norm(lic))) || null;
+  }
+  /** Série (et licence) où tu as déjà rangé des cartes au même début de code (« Jd-53 » → la série de tes « Jd-… ») */
+  function setByPrefix(num, lic = '') {
+    const m = String(num).match(/^([A-Za-z]{1,4}\d{0,3})-/);
+    if (!m) return null;
+    const p = norm(m[1]) + '-';
+    const it = mine().filter((i) => (!lic || norm(licOf(i)) === norm(lic)) && norm(i.snap.localId).startsWith(p)).sort((a, b) => b.addedAt - a.addedAt)[0];
+    return it ? { set: it.snap.setName, lic: licOf(it) } : null;
+  }
+
   App.games.register(GAME, {
+    guess, ownedByNum, setByPrefix,
     id: GAME,
     name: 'Collections perso',
     ownOnly: true,      // la série ne montre que tes cartes (pas les manquantes)

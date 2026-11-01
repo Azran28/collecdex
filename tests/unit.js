@@ -68,6 +68,21 @@ test('collections perso : séries, progression, scanner à part', async (App) =>
   ok(/^data:image.svg/.test(ad.img.card({ name: 'Garurumon' })), 'carte sans visuel : dos dessiné');
 });
 
+// v4.05 : lecture d’une carte perso (lignes lues sur les photos d'Arnaud, Digimon 1999)
+test('collections perso : numéro, nom et licence lus sur la carte', (App) => {
+  const ad = App.games.get('perso'), lics = ['Digimon', 'Cartes de supermarché'];
+  let g = ad.guess({ flat: ['Jd-53', 'OPTION', 'ATOMISEUR', 'placez une carte de votre jeu sur Déconnecté.'], turned: ['Attaque metallique'] }, { lics });
+  ok(g.num === 'Jd-53' && g.name === 'Attaque metallique', 'Jd-53 · Attaque metallique : ' + JSON.stringify(g));
+  ok(g.lic === '', 'aucune licence écrite : rien deviné (et pas « Cartes de supermarché » pour le mot « carte »)');
+  g = ad.guess({ flat: ['Bo-113', 'Niveau', 'Disciple', 'DÉFENSE'], turned: ['SnowGoburimon'], tess: '© Akiyoshi Hongo • Toei Animation' }, { lics });
+  ok(g.num === 'Bo-113' && g.name === 'SnowGoburimon' && g.lic === 'Digimon', 'Bo-113 · SnowGoburimon · Digimon : ' + JSON.stringify(g));
+  g = ad.guess({ flat: ['DIGIMON', 'DP 300'], tess: ['xx', '18 Garurumon DP 300)', 'Champion Digimon'].join('\n') }, { lics });
+  ok(g.num === '18' && g.name === 'Garurumon' && g.lic === 'Digimon', '18 · Garurumon : ' + JSON.stringify(g));
+  g = ad.guess({ flat: ['ATOMISEUR'], turned: ['DIGI-OEUF'] }, { lics });
+  eq(g.name, 'Digi-Oeuf');
+  ok(!ad.guess({ flat: ['025/165'] }).name && ad.guess({ flat: ['025/165'] }).total === 165, '« 025/165 » : numéro et total');
+});
+
 // ---------- Outils ----------
 test('util.esc protège le HTML', (App) => {
   eq(App.util.esc('<img src=x onerror="alert(1)">&\''), '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&amp;&#39;');
