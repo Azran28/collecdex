@@ -19,3 +19,6 @@ data/ff-prix.json
 data/sw-prix.json
 data/db-prix.json
 data/cp-prix.json
+
+# Images du Play Store (gardées sur le PC)
+docs/play-store/

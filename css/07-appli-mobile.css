@@ -22,6 +22,9 @@ a.stat { text-decoration: none; color: inherit; }
   .mainnav a:not(.nav-scan) .ico { width: 52px; height: 28px; align-items: center; justify-content: center; border-radius: 999px; transition: background .15s; }
   .mainnav a.active:not(.nav-scan) .ico { background: rgba(124,92,255,.24); }
   .mainnav a { padding-top: 4px; }
+  /* v4.15 : petits téléphones (360 px, Android courant) — les 5 onglets se partagent la largeur au lieu de déborder (« Combat » coupé) */
+  .mainnav a { min-width: 0; }
+  .mainnav a:not(.nav-scan) .ico { width: min(52px, 100%); }
 
   /* rangées qui défilent de côté (accueil) : elles vont jusqu'au bord de l'écran */
   .hscroll { display: grid !important; grid-auto-flow: column; grid-template-columns: none !important; overflow-x: auto; overscroll-behavior-x: contain;
