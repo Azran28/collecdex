@@ -314,7 +314,7 @@
   const findCrop = (src) => App.cardTools.findCrop(src);
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/cp-index ----------
-  const CP_INDEX_V = 1;
+  const CP_INDEX_V = 2;
   const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   // même illustration dans l'extension et dans la Bêta (et l'anglais / le français) : le numéro lu (« B010 ») tranche

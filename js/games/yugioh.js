@@ -371,7 +371,7 @@
   }
 
   // ---------- Vérification par l'image : index data/yg-index (une illustration par carte) ----------
-  const YG_INDEX_V = 2;
+  const YG_INDEX_V = 3;
   const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   // toutes les impressions d'une carte ont la même image : l'image désigne la carte, le code lu (ou la série de la page) l'impression

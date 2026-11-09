@@ -291,7 +291,7 @@
   const findCrop = (src) => App.cardTools.findCrop(src);
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/ff-index ----------
-  const FF_INDEX_V = 3;
+  const FF_INDEX_V = 4;
   const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   // même dessin dans deux séries (Legacy Collection « Re-006C/16-003C » = 16-003) : le code lu, puis la série de la page, puis l'originale

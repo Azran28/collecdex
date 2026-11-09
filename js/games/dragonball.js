@@ -320,7 +320,7 @@
   const findCrop = (src) => App.cardTools.findCrop(src);
 
   // ---------- Vérification par l'image : réseau de neurones + points clés (js/visual.js › check), index data/db-index ----------
-  const DB_INDEX_V = 1;
+  const DB_INDEX_V = 2;
   const IMG_SURE = 30;
   const useVisual = () => App.visual && App.visual.supported() && App.settings.visualCheck !== false;
   const visualOpts = (codes, setId = '') => ({
